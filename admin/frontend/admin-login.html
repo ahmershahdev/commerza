@@ -239,6 +239,7 @@
   <div class="login-card">
     <h1 class="login-title">COMMERZA</h1>
     <p class="login-subtitle">Commerza Admin Portal</p>
+    <div class="alert alert-danger py-2 px-3 small d-none" id="loginError" role="alert"></div>
 
     <form action="/admin/admin-login" method="POST">
       <input type="hidden" name="csrf_token" id="csrfToken" value="">
@@ -274,6 +275,8 @@
     <script>
       $(document).ready(function () {
         const csrfKey = 'commerza_admin_csrf';
+        const authKey = 'commerza_admin_auth';
+        const allowedEmail = 'commerza.ahmer@gmail.com';
         let csrfToken = sessionStorage.getItem(csrfKey);
         if (!csrfToken) {
           const rand = (crypto && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -283,31 +286,50 @@
         $('meta[name="csrf-token"]').attr('content', csrfToken);
         $('#csrfToken').val(csrfToken);
 
+        const existingAuth = localStorage.getItem(authKey);
+        if (existingAuth) {
+          window.location.replace('admin-panel.html');
+        }
+
         $("#togglePassword").click(function () {
           $("#admin-password").attr("type", $("#admin-password").attr("type") === "password" ? "text" : "password");
           $(this).toggleClass("bi-eye bi-eye-slash");
         });
-      });
 
-      $("form").on("submit", function (e) {
-        e.preventDefault();
-        const form = $(this);
-        const btn = form.find("button[type='submit']");
+        $("form").on("submit", function (e) {
+          e.preventDefault();
+          const form = $(this);
+          const btn = form.find("button[type='submit']");
+          const emailInput = $('#admin-email');
+          const errorBox = $('#loginError');
+          const emailValue = (emailInput.val() || '').toString().trim().toLowerCase();
 
-        btn.prop("disabled", true).css({
-          "background-color": "#ff8533",
-          "cursor": "not-allowed"
-        });
+          errorBox.addClass('d-none').text('');
 
-        setTimeout(() => {
-          btn.prop("disabled", false).css({
-            "background-color": "#ff6600",
-            "cursor": "pointer"
+          if (emailValue !== allowedEmail) {
+            errorBox.text('Access denied. Use the authorized admin email.').removeClass('d-none');
+            return;
+          }
+
+          btn.prop("disabled", true).css({
+            "background-color": "#ff8533",
+            "cursor": "not-allowed"
           });
-          form[0].submit();
-        }, 3000);
-      });
 
+          setTimeout(() => {
+            const authPayload = {
+              email: emailValue,
+              loggedInAt: new Date().toISOString()
+            };
+            localStorage.setItem(authKey, JSON.stringify(authPayload));
+            btn.prop("disabled", false).css({
+              "background-color": "#ff6600",
+              "cursor": "pointer"
+            });
+            window.location.href = 'admin-panel.html';
+          }, 800);
+        });
+      });
     </script>
 
 </body>

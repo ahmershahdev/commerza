@@ -17,6 +17,23 @@
 </head>
 
 <body class="dark-theme">
+    <script>
+        (function () {
+            const authKey = 'commerza_admin_auth';
+            const allowedEmail = 'commerza.ahmer@gmail.com';
+            let authData = null;
+            try {
+                authData = JSON.parse(localStorage.getItem(authKey));
+            } catch (error) {
+                authData = null;
+            }
+            const authed = authData && authData.email === allowedEmail;
+            if (!authed) {
+                localStorage.removeItem(authKey);
+                window.location.replace('admin-login.html');
+            }
+        })();
+    </script>
     <div class="container-fluid p-0">
         <div class="row g-0">
             <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-dark admin-sidebar collapse">
