@@ -768,7 +768,7 @@ $(document).ready(function () {
                     <img src="${item.image}" class="cart-img me-3" alt="${item.name}" />
                     <div class="flex-grow-1 text-center">
                       <h3 class="product-name mb-1">${item.name}</h3>
-                      <p class="product-desc mb-2">${item.price}</p>
+                      <p class="product-desc mb-2 cart-item-price">${item.price}</p>
                       <div class="d-flex align-items-center justify-content-center gap-3 mx-auto" style="max-width: 150px;">
                         <button class="btn btn-sm product-btn-cart change-qty" data-index="${index}" data-action="minus">−</button>
                         <span class="text-white fw-bold">${item.quantity}</span>

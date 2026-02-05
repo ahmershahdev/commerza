@@ -39,6 +39,10 @@ body.dark-theme {
   overflow-x: hidden;
 }
 
+body.dark-theme .text-secondary {
+  color: #c2c2c2 !important;
+}
+
 body.dark-theme {
   animation: bodyFadeIn 1.5s ease;
 }
@@ -901,6 +905,10 @@ main {
 @media (max-width: 768px) {
   .product-card .product-desc {
     display: none;
+  }
+
+  .product-card .cart-item-price {
+    display: block !important;
   }
 }
 
