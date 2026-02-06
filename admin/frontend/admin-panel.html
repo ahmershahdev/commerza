@@ -898,7 +898,10 @@
                                                 <h6 class="text-light fw-bold mb-3">Change Admin Email</h6>
                                                 <div class="mb-3">
                                                     <label for="securityEmailPassword" class="form-label text-light">Current Password</label>
-                                                    <input type="password" class="form-control bg-secondary border-0 text-light" id="securityEmailPassword" placeholder="Enter current password" autocomplete="new-password">
+                                                    <div class="password-wrapper">
+                                                        <input type="password" class="form-control bg-secondary border-0 text-light" id="securityEmailPassword" placeholder="Enter current password" autocomplete="new-password">
+                                                        <i class="bi bi-eye password-toggle" data-target="#securityEmailPassword" aria-label="Show/hide password"></i>
+                                                    </div>
                                                 </div>
                                                 <div class="mb-3">
                                                     <label for="securityEmailResetKey" class="form-label text-light">Reset Key</label>
@@ -952,7 +955,10 @@
                                                 </div>
                                                 <div class="mb-3">
                                                     <label for="securityKeyPassword" class="form-label text-light">Current Password</label>
-                                                    <input type="password" class="form-control bg-secondary border-0 text-light" id="securityKeyPassword" placeholder="Enter current password" autocomplete="new-password">
+                                                    <div class="password-wrapper">
+                                                        <input type="password" class="form-control bg-secondary border-0 text-light" id="securityKeyPassword" placeholder="Enter current password" autocomplete="new-password">
+                                                        <i class="bi bi-eye password-toggle" data-target="#securityKeyPassword" aria-label="Show/hide password"></i>
+                                                    </div>
                                                 </div>
                                                 <div class="mb-3">
                                                     <label for="securityKeyNew" class="form-label text-light">New Reset Key</label>
