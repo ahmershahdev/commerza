@@ -184,7 +184,12 @@
       text-decoration: none;
       text-transform: uppercase;
       transition: all 0.3s ease;
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      min-width: 44px;
+      padding: 8px 12px;
       margin-left: 2px;
     }
 
@@ -197,7 +202,7 @@
 </head>
 
 <body class="dark-theme">
-  <div class="forgot-card">
+  <main class="forgot-card">
     <h1 class="forgot-title">COMMERZA</h1>
     <p class="forgot-subtitle">Admin Email Recovery</p>
     <div class="alert alert-danger py-2 px-3 small d-none" id="resetError" role="alert"></div>
@@ -321,5 +326,6 @@
       });
     </script>
 
+  </main>
 </body>
 </html>

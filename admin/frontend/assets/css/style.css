@@ -130,6 +130,8 @@ h6 {
     top: 0;
     box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(6px);
+    overflow-y: auto;
+    padding-bottom: 24px;
 }
 
 .admin-sidebar>.d-flex {
@@ -271,6 +273,10 @@ h6 {
     color: #ff4500 !important;
 }
 
+.text-secondary {
+    color: #b6b6b6 !important;
+}
+
 .border-orange {
     border-color: #ff4500 !important;
 }
@@ -294,6 +300,10 @@ h6 {
     text-transform: uppercase;
     letter-spacing: 0.6px;
     color: #ffc28f;
+}
+
+.table-dark th.text-orange {
+    color: #ffd2a3 !important;
 }
 
 .table-dark tbody td {
@@ -494,6 +504,11 @@ img {
     border-radius: 16px;
     padding: 16px;
     height: 100%;
+    color: #e0e0e0;
+}
+
+.action-tile p {
+    color: #c4c4c4;
 }
 
 .action-tile h6 {
@@ -607,5 +622,29 @@ body.sidebar-open .admin-backdrop {
 
     body::after {
         content: none;
+    }
+}
+
+@media (max-width: 576px) {
+    .navbar-logo {
+        height: 32px;
+    }
+
+    .brand-text {
+        font-size: 1.25rem;
+    }
+
+    .admin-sidebar .text-center {
+        padding-inline: 8px;
+    }
+
+    .admin-sidebar .text-center p,
+    .admin-sidebar .text-center small {
+        overflow-wrap: anywhere;
+    }
+
+    .admin-sidebar .rounded-circle {
+        width: 52px;
+        height: 52px;
     }
 }

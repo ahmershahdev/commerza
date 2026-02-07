@@ -911,10 +911,6 @@ main {
 }
 
 @media (max-width: 768px) {
-  .product-card .product-desc {
-    display: none;
-  }
-
   .product-card .cart-item-price {
     display: block !important;
   }

@@ -48,7 +48,7 @@
             <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-dark admin-sidebar collapse">
                 <div class="d-md-none text-end pe-3 pt-3">
                     <button type="button" class="btn-close btn-close-white" data-bs-toggle="collapse"
-                        data-bs-target="#sidebarMenu"></button>
+                        data-bs-target="#sidebarMenu" aria-label="Close menu"></button>
                 </div>
                 <div class="d-flex flex-column h-100">
                     <div class="pt-4">
@@ -58,7 +58,7 @@
                                     class="navbar-logo mb-2">
                                 <span class="brand-text d-block">COMMERZA</span>
                             </a>
-                            <h6 class="text-orange mt-3 mb-0 fw-bold">Admin Panel</h6>
+                            <p class="text-orange mt-3 mb-0 fw-bold">Admin Panel</p>
                         </div>
 
 
@@ -137,7 +137,7 @@
                                 <img src="https://ui-avatars.com/api/?name=Admin+User&background=ff6600&color=000"
                                     alt="Admin" class="rounded-circle border border-3 border-orange mb-3" width="60"
                                     height="60">
-                                <h6 class="mb-1 fw-bold text-light">Admin User</h6>
+                                <p class="mb-1 fw-bold text-light">Admin User</p>
                                 <small class="text-white d-block">Administrator</small>
                             </div>
                         </div>
@@ -150,14 +150,14 @@
                     class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-4 pb-3 mb-4 px-4 border-bottom border-orange border-2 admin-topbar">
                     <div class="d-flex align-items-center">
                         <button class="btn btn-orange d-md-none me-3 rounded-2" type="button" data-bs-toggle="collapse"
-                            data-bs-target=".admin-sidebar" aria-controls="sidebar" aria-expanded="false">
+                            data-bs-target=".admin-sidebar" aria-controls="sidebar" aria-expanded="false" aria-label="Open menu">
                             <i class="bi bi-list fs-5"></i>
                         </button>
                         <h1 class="h2 mb-0 fw-bold text-light " id="pageTitle">Dashboard</h1>
                     </div>
                     <div class="btn-toolbar mb-2 mb-md-0 gap-1" id="actionButtons">
                         <div class="btn-group">
-                            <button type="button" class="btn btn-sm btn-outline-orange dropdown-toggle" id="exportBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                            <button type="button" class="btn btn-sm btn-outline-orange dropdown-toggle" id="exportBtn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Export options">
                                 <i class="bi bi-download me-1"></i>
                                 <span class="d-none d-sm-inline">Export</span>
                             </button>
@@ -172,7 +172,7 @@
                         </div>
                         <div class="dropdown">
                             <button class="btn btn-sm btn-outline-orange dropdown-toggle position-relative"
-                                type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications">
                                 <i class="bi bi-bell"></i>
                                 <span id="notificationCount"
                                     class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">
@@ -189,7 +189,7 @@
                     <div class="tab-pane fade show active" id="dashboardSection">
                         <div class="helper-banner mb-4">
                             <div>
-                                <h4 class="mb-2 text-light">Welcome back!</h4>
+                                <h2 class="h4 mb-2 text-light">Welcome back!</h2>
                                 <p class="mb-0 text-secondary">Quick start: create a section, add products, then check orders daily.</p>
                             </div>
                             <div class="helper-actions">
@@ -209,7 +209,7 @@
                                 <div class="action-tile">
                                     <div class="action-icon"><i class="bi bi-plus-circle"></i></div>
                                     <div>
-                                        <h6 class="mb-1">Add a product</h6>
+                                        <p class="h6 mb-1 fw-semibold text-light">Add a product</p>
                                         <p class="mb-0 text-secondary">Pick a section and fill in the form.</p>
                                     </div>
                                 </div>
@@ -218,7 +218,7 @@
                                 <div class="action-tile">
                                     <div class="action-icon"><i class="bi bi-layers"></i></div>
                                     <div>
-                                        <h6 class="mb-1">Create a section</h6>
+                                        <p class="h6 mb-1 fw-semibold text-light">Create a section</p>
                                         <p class="mb-0 text-secondary">Use simple names like "Featured" or "New".</p>
                                     </div>
                                 </div>
@@ -227,7 +227,7 @@
                                 <div class="action-tile">
                                     <div class="action-icon"><i class="bi bi-megaphone"></i></div>
                                     <div>
-                                        <h6 class="mb-1">Update homepage</h6>
+                                        <p class="h6 mb-1 fw-semibold text-light">Update homepage</p>
                                         <p class="mb-0 text-secondary">Change slider images and text anytime.</p>
                                     </div>
                                 </div>
@@ -324,14 +324,14 @@
                             <div class="col-12">
                                 <div class="card admin-card border-0 shadow-sm h-100">
                                     <div class="card-header bg-dark border-bottom border-secondary py-3">
-                                        <h5 class="mb-0 fw-bold text-orange">Recent Orders</h5>
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Recent Orders</h3>
                                     </div>
                                     <div class="card-body p-0">
                                         <div class="table-responsive">
                                             <table class="table table-dark table-hover align-middle mb-0">
                                                 <thead class="border-bottom border-secondary">
                                                     <tr>
-                                                        <th class="py-3 ps-4 text-orange fw-semibold">Order ID</th>
+                                                        <th class="py-3 ps-4 text-orange fw-semibold">ID</th>
                                                         <th class="py-3 text-orange fw-semibold">Customer</th>
                                                         <th class="py-3 text-orange fw-semibold">Date</th>
                                                         <th class="py-3 text-orange fw-semibold">Amount</th>
@@ -363,7 +363,7 @@
                             <div class="col-12">
                                 <div class="helper-banner mb-4">
                                     <div>
-                                        <h5 class="mb-2 text-light">Products setup checklist</h5>
+                                        <h2 class="h5 mb-2 text-light">Products setup checklist</h2>
                                         <p class="mb-0 text-secondary">Step 1: Create a section. Step 2: Add products to that section.</p>
                                     </div>
                                     <span class="step-chip">Tip: Use clear section names like "Featured Collection".</span>
@@ -381,7 +381,7 @@
                                 </div>
                                 <div class="card admin-card border-0 shadow-sm mb-4">
                                     <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center">
-                                        <h5 class="mb-0 fw-bold text-orange">Manage Sections</h5>
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Manage Sections</h3>
                                         <span class="text-secondary small">Create a section first, then add products</span>
                                     </div>
                                     <div class="card-body p-4">
@@ -435,7 +435,7 @@
                                 <div class="card admin-card border-0 shadow-sm">
                                     <div
                                         class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center">
-                                        <h5 class="mb-0 fw-bold text-orange">All Products (<span id="productCount">0</span>)</h5>
+                                        <h3 class="h5 mb-0 fw-bold text-orange">All Products (<span id="productCount">0</span>)</h3>
                                         <button class="btn btn-sm btn-orange" id="addNewProductBtn">
                                             <i class="bi bi-plus-circle me-1"></i>Add New Product
                                         </button>
@@ -467,7 +467,7 @@
                     <div class="tab-pane fade" id="ordersSection">
                         <div class="helper-banner mb-4">
                             <div>
-                                <h5 class="mb-2 text-light">Orders that need your attention</h5>
+                                <h2 class="h5 mb-2 text-light">Orders that need your attention</h2>
                                 <p class="mb-0 text-secondary">Pending and Processing orders should be packed or shipped.</p>
                             </div>
                             <span class="step-chip">Tip: Mark Delivered only after the order reaches the customer.</span>
@@ -476,7 +476,7 @@
                             <div class="col-12">
                                 <div class="card admin-card border-0 shadow-sm">
                                     <div class="card-header bg-dark border-bottom border-secondary py-3">
-                                        <h5 class="mb-0 fw-bold text-orange">All Orders</h5>
+                                        <h3 class="h5 mb-0 fw-bold text-orange">All Orders</h3>
                                     </div>
                                     <div class="card-body p-0">
                                         <div class="table-responsive">
@@ -551,7 +551,7 @@
                     <div class="tab-pane fade" id="customersSection">
                         <div class="helper-banner mb-4">
                             <div>
-                                <h5 class="mb-2 text-light">Customer list</h5>
+                                <h2 class="h5 mb-2 text-light">Customer list</h2>
                                 <p class="mb-0 text-secondary">These are customers who placed orders. Use this list to confirm contact details.</p>
                             </div>
                             <span class="step-chip">Tip: If an email looks wrong, update the order details.</span>
@@ -560,7 +560,7 @@
                             <div class="col-12">
                                 <div class="card admin-card border-0 shadow-sm">
                                     <div class="card-header bg-dark border-bottom border-secondary py-3">
-                                        <h5 class="mb-0 fw-bold text-orange">All Customers</h5>
+                                        <h3 class="h5 mb-0 fw-bold text-orange">All Customers</h3>
                                     </div>
                                     <div class="card-body p-0">
                                         <div class="table-responsive">
@@ -624,7 +624,7 @@
                     <div class="tab-pane fade" id="analyticsSection">
                         <div class="helper-banner mb-4">
                             <div>
-                                <h5 class="mb-2 text-light">Business performance</h5>
+                                <h2 class="h5 mb-2 text-light">Business performance</h2>
                                 <p class="mb-0 text-secondary">Quick insights across revenue, orders, and customer quality.</p>
                             </div>
                             <span class="step-chip">Tip: Use these to spot trends and reorder stock.</span>
@@ -696,7 +696,7 @@
                             <div class="col-12 col-lg-7">
                                 <div class="card admin-card border-0 shadow-sm h-100">
                                     <div class="card-header bg-dark border-bottom border-secondary py-3">
-                                        <h5 class="mb-0 fw-bold text-orange">Weekly Performance</h5>
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Weekly Performance</h3>
                                     </div>
                                     <div class="card-body p-4">
                                         <div class="mb-3">
@@ -748,7 +748,7 @@
                             <div class="col-12 col-lg-5">
                                 <div class="card admin-card border-0 shadow-sm h-100">
                                     <div class="card-header bg-dark border-bottom border-secondary py-3">
-                                        <h5 class="mb-0 fw-bold text-orange">Top Products</h5>
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Top Products</h3>
                                     </div>
                                     <div class="card-body p-4">
                                         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -788,7 +788,7 @@
                             <div class="col-12 col-lg-6">
                                 <div class="card admin-card border-0 shadow-sm">
                                     <div class="card-header bg-dark border-bottom border-secondary py-3">
-                                        <h5 class="mb-0 fw-bold text-orange">Traffic Sources</h5>
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Traffic Sources</h3>
                                     </div>
                                     <div class="card-body p-4">
                                         <div class="mb-3">
@@ -833,7 +833,7 @@
                             <div class="col-12 col-lg-6">
                                 <div class="card admin-card border-0 shadow-sm h-100">
                                     <div class="card-header bg-dark border-bottom border-secondary py-3">
-                                        <h5 class="mb-0 fw-bold text-orange">Conversion Funnel</h5>
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Conversion Funnel</h3>
                                     </div>
                                     <div class="card-body p-4">
                                         <div class="mb-3">
@@ -881,7 +881,7 @@
                     <div class="tab-pane fade" id="websiteSection">
                         <div class="helper-banner mb-4">
                             <div>
-                                <h5 class="mb-2 text-light">Website settings</h5>
+                                <h2 class="h5 mb-2 text-light">Website settings</h2>
                                 <p class="mb-0 text-secondary">Manage security, contact info, and social links.</p>
                             </div>
                             <span class="step-chip">Tip: Save after every change so the website updates.</span>
@@ -890,12 +890,12 @@
                             <div class="col-12">
                                 <div class="card admin-card border-0 shadow-sm">
                                     <div class="card-header bg-dark border-bottom border-secondary py-3">
-                                        <h5 class="mb-0 fw-bold text-orange">Security Controls</h5>
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Security Controls</h3>
                                     </div>
                                     <div class="card-body p-4">
                                         <div class="row g-4">
                                             <div class="col-12 col-lg-4">
-                                                <h6 class="text-light fw-bold mb-3">Change Admin Email</h6>
+                                                <h4 class="h6 text-light fw-bold mb-3">Change Admin Email</h4>
                                                 <div class="mb-3">
                                                     <label for="securityEmailPassword" class="form-label text-light">Current Password</label>
                                                     <div class="password-wrapper">
@@ -920,7 +920,7 @@
                                                 </button>
                                             </div>
                                             <div class="col-12 col-lg-4">
-                                                <h6 class="text-light fw-bold mb-3">Change Admin Password</h6>
+                                                <h4 class="h6 text-light fw-bold mb-3">Change Admin Password</h4>
                                                 <div class="mb-3">
                                                     <label for="securityPasswordEmail" class="form-label text-light">Current Email</label>
                                                     <input type="email" class="form-control bg-secondary border-0 text-light" id="securityPasswordEmail" placeholder="admin email" autocomplete="off">
@@ -948,7 +948,7 @@
                                                 </button>
                                             </div>
                                             <div class="col-12 col-lg-4">
-                                                <h6 class="text-light fw-bold mb-3">Rotate Reset Key</h6>
+                                                <h4 class="h6 text-light fw-bold mb-3">Rotate Reset Key</h4>
                                                 <div class="mb-3">
                                                     <label for="securityKeyEmail" class="form-label text-light">Current Email</label>
                                                     <input type="email" class="form-control bg-secondary border-0 text-light" id="securityKeyEmail" placeholder="admin email" autocomplete="off">
@@ -983,7 +983,7 @@
                             <div class="col-12 col-lg-6">
                                 <div class="card admin-card border-0 shadow-sm h-100">
                                     <div class="card-header bg-dark border-bottom border-secondary py-3">
-                                        <h5 class="mb-0 fw-bold text-orange">Contact Details</h5>
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Contact Details</h3>
                                     </div>
                                     <div class="card-body p-4">
                                         <div class="mb-3">
@@ -1007,7 +1007,7 @@
                             <div class="col-12 col-lg-6">
                                 <div class="card admin-card border-0 shadow-sm h-100">
                                     <div class="card-header bg-dark border-bottom border-secondary py-3">
-                                        <h5 class="mb-0 fw-bold text-orange">Social Media Links</h5>
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Social Media Links</h3>
                                     </div>
                                     <div class="card-body p-4">
                                         <input type="hidden" id="socialId">
@@ -1053,7 +1053,7 @@
                     <div class="tab-pane fade" id="homepageSection">
                         <div class="helper-banner mb-4">
                             <div>
-                                <h5 class="mb-2 text-light">Homepage content</h5>
+                                <h2 class="h5 mb-2 text-light">Homepage content</h2>
                                 <p class="mb-0 text-secondary">Update the ticker and homepage slider.</p>
                             </div>
                             <span class="step-chip">Tip: Keep messages short for smooth scrolling.</span>
@@ -1062,7 +1062,7 @@
                             <div class="col-12">
                                 <div class="card admin-card border-0 shadow-sm">
                                     <div class="card-header bg-dark border-bottom border-secondary py-3">
-                                        <h5 class="mb-0 fw-bold text-orange">Homepage Ticker</h5>
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Homepage Ticker</h3>
                                     </div>
                                     <div class="card-body p-4">
                                         <div class="form-check form-switch mb-3">
@@ -1089,7 +1089,7 @@
                             <div class="col-12">
                                 <div class="card admin-card border-0 shadow-sm">
                                     <div class="card-header bg-dark border-bottom border-secondary py-3">
-                                        <h5 class="mb-0 fw-bold text-orange">Homepage Slider Images</h5>
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Homepage Slider Images</h3>
                                     </div>
                                     <div class="card-body p-4">
                                         <input type="hidden" id="sliderId">
@@ -1169,7 +1169,7 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content bg-dark border border-secondary">
                 <div class="modal-header border-bottom border-secondary">
-                    <h5 class="modal-title text-orange fw-bold" id="productModalLabel">Add New Product</h5>
+                    <h3 class="h5 modal-title text-orange fw-bold" id="productModalLabel">Add New Product</h3>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">

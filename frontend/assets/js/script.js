@@ -1562,7 +1562,7 @@ function createProductCard(product) {
     const wishlistIcon = wishlistActive ? 'bi-heart-fill' : 'bi-heart';
 
     return `
-        <div class="col-6 col-sm-6 col-md-6 col-lg-3 mb-4 d-flex">
+        <div class="col-12 col-sm-6 col-md-6 col-lg-3 mb-4 d-flex">
             <div class="card product-card" data-price="${product.salePrice}" data-movement="${movementType}" data-product-id="${product.id ?? ''}" data-product-name="${(product.name || '').toLowerCase().trim()}">
                 <div style="position: relative;">
                     <button class="wishlist-btn ${wishlistActive ? 'active' : ''}" data-product-id="${product.id ?? ''}" data-product-name="${product.name}" data-product-image="${product.image}" data-product-price="${product.price}" data-product-sale-price="${product.salePrice}" type="button" aria-label="Toggle wishlist">
