@@ -695,6 +695,25 @@ $(document).ready(function() {
         showNotification('Contact details updated!', 'success');
     });
 
+    $('#saveBrandBtn').off('click').on('click', function() {
+        if (!siteSettings) return;
+        const name = $('#siteName').val().trim();
+        const logo = $('#siteLogo').val().trim();
+        const favicon = $('#siteFavicon').val().trim();
+
+        if (!name || !logo || !favicon) {
+            showNotification('Please enter website name, logo, and favicon', 'danger');
+            return;
+        }
+
+        siteSettings.brand = { name, logo, favicon };
+        saveSiteSettings();
+        showNotification('Branding updated!', 'success');
+        if (typeof window.applyAdminBranding === 'function') {
+            window.applyAdminBranding();
+        }
+    });
+
     $('#saveSocialBtn').off('click').on('click', function() {
         if (!siteSettings) return;
         const id = $('#socialId').val();
@@ -1118,6 +1137,11 @@ function toggleOrderDetails(elementId) {
 }
 function buildDefaultSiteSettings() {
     return {
+        brand: {
+            name: 'COMMERZA',
+            logo: 'frontend/assets/images/logo/commerza-logo.webp',
+            favicon: 'frontend/assets/images/favicon/commerza-watches-icon.ico'
+        },
         contact: {
             address: 'Barrage Colony, HYD, PK',
             email: 'commerza.ahmer@gmail.com',
@@ -1181,6 +1205,7 @@ function loadSiteSettings() {
         return {
             ...defaults,
             ...parsed,
+            brand: { ...defaults.brand, ...(parsed.brand || {}) },
             contact: { ...defaults.contact, ...(parsed.contact || {}) },
             ticker: {
                 ...defaults.ticker,
@@ -1212,6 +1237,9 @@ function initWebsiteSettings() {
     $('#siteAddress').val(siteSettings.contact.address || '');
     $('#siteEmail').val(siteSettings.contact.email || '');
     $('#sitePhone').val(siteSettings.contact.phone || '');
+    $('#siteName').val(siteSettings.brand?.name || '');
+    $('#siteLogo').val(siteSettings.brand?.logo || '');
+    $('#siteFavicon').val(siteSettings.brand?.favicon || '');
 
     $('#tickerEnabled').prop('checked', siteSettings.ticker?.enabled !== false);
     $('#tickerMessages').val((siteSettings.ticker?.messages || []).join('\n'));
