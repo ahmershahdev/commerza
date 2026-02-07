@@ -151,7 +151,7 @@
       padding-right: 40px !important;
     }
 
-    #togglePassword {
+    .toggle-password-btn {
       position: absolute;
       right: 12px;
       top: 50%;
@@ -159,13 +159,29 @@
       cursor: pointer;
       color: #ff4500;
       z-index: 10;
-      font-size: 18px;
-      line-height: 1;
+      background: transparent;
+      border: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      min-width: 44px;
+      padding: 0;
       transition: all 0.3s ease;
     }
 
-    #togglePassword:hover {
+    .toggle-password-btn .bi {
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .toggle-password-btn:hover {
       color: #ffcc00;
+    }
+
+    .toggle-password-btn:focus-visible {
+      outline: 2px solid #ffcc00;
+      outline-offset: 2px;
     }
 
     .login-btn {
@@ -214,7 +230,12 @@
       text-decoration: none;
       text-transform: uppercase;
       transition: all 0.3s ease;
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      min-width: 44px;
+      padding: 8px 12px;
       margin-left: 2px;
     }
 
@@ -237,7 +258,7 @@
 </head>
 
 <body class="dark-theme">
-  <div class="login-card">
+  <main class="login-card">
     <h1 class="login-title">COMMERZA</h1>
     <p class="login-subtitle">Commerza Admin Portal</p>
     <div class="alert alert-danger py-2 px-3 small d-none" id="loginError" role="alert"></div>
@@ -257,7 +278,10 @@
             placeholder="Enter your password" required autocomplete="current-password" autocorrect="off"
             autocapitalize="off" spellcheck="false" />
 
-          <i class="bi bi-eye" id="togglePassword" aria-label="Show/hide password"></i>
+          <button type="button" id="togglePassword" class="toggle-password-btn" aria-label="Show password"
+            aria-pressed="false">
+            <i class="bi bi-eye" aria-hidden="true"></i>
+          </button>
         </div>
       </div>
 
@@ -274,6 +298,7 @@
         </p>
       </div>
     </form>
+  </main>
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script>
@@ -308,8 +333,12 @@
         }
 
         $("#togglePassword").click(function () {
-          $("#admin-password").attr("type", $("#admin-password").attr("type") === "password" ? "text" : "password");
-          $(this).toggleClass("bi-eye bi-eye-slash");
+          const passwordInput = $("#admin-password");
+          const isPassword = passwordInput.attr("type") === "password";
+          passwordInput.attr("type", isPassword ? "text" : "password");
+          $(this).find("i").toggleClass("bi-eye bi-eye-slash");
+          $(this).attr("aria-pressed", String(isPassword));
+          $(this).attr("aria-label", isPassword ? "Hide password" : "Show password");
         });
 
         $("form").on("submit", function (e) {
