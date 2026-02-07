@@ -164,6 +164,94 @@ function getSiteSettings() {
     }
 }
 
+function applyBrandSettings(brand) {
+    if (!brand) return;
+    const name = (brand.name || '').trim();
+    const logo = (brand.logo || '').trim();
+    const favicon = (brand.favicon || '').trim();
+
+    if (name) {
+        updateMetaForBrand(name);
+        replaceBrandTextNodes(document.body, name);
+    }
+
+    if (name) {
+        document.querySelectorAll('.brand-text').forEach(node => {
+            node.textContent = name;
+        });
+    }
+
+    if (logo) {
+        document.querySelectorAll('.navbar-logo, .offcanvas-logo').forEach(img => {
+            img.src = logo;
+            if (name) {
+                img.alt = `${name} Logo`;
+            }
+        });
+    } else if (name) {
+        document.querySelectorAll('.navbar-logo, .offcanvas-logo').forEach(img => {
+            if (!img.alt || img.alt.toLowerCase().includes('commerza')) {
+                img.alt = `${name} Logo`;
+            }
+        });
+    }
+
+    if (favicon) {
+        const links = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]');
+        if (links.length) {
+            links.forEach(link => {
+                link.href = favicon;
+            });
+        } else if (document.head) {
+            const link = document.createElement('link');
+            link.rel = 'icon';
+            link.href = favicon;
+            document.head.appendChild(link);
+        }
+    }
+}
+
+function updateMetaForBrand(brandName) {
+    if (!brandName) return;
+    const replaceBrand = (value) => value.replace(/\bCommerza\b/gi, brandName);
+
+    if (document.title) {
+        document.title = replaceBrand(document.title);
+    }
+
+    const selectors = [
+        'meta[name="description"]',
+        'meta[property="og:title"]',
+        'meta[property="og:description"]',
+        'meta[name="twitter:title"]',
+        'meta[name="twitter:description"]'
+    ];
+
+    document.querySelectorAll(selectors.join(','))
+        .forEach(meta => {
+            const content = meta.getAttribute('content') || '';
+            if (!content) return;
+            meta.setAttribute('content', replaceBrand(content));
+        });
+}
+
+function replaceBrandTextNodes(root, brandName) {
+    if (!root || !brandName) return;
+    const skipTags = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'INPUT']);
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    let node = walker.nextNode();
+
+    while (node) {
+        const parent = node.parentElement;
+        if (!parent || !skipTags.has(parent.tagName)) {
+            if (/\bCommerza\b/i.test(node.nodeValue)) {
+                node.nodeValue = node.nodeValue.replace(/\bCommerza\b/gi, brandName);
+            }
+        }
+        node = walker.nextNode();
+    }
+}
+
 function applyContactSettings(contact) {
     if (!contact) return;
     const email = contact.email;
@@ -298,6 +386,7 @@ function applyTickerSettings(ticker) {
 function applySiteSettings() {
     const settings = getSiteSettings();
     if (!settings) return;
+    applyBrandSettings(settings.brand);
     applyContactSettings(settings.contact);
     applySocialSettings(settings.socialLinks);
     applySliderSettings(settings.sliderImages);
@@ -1207,6 +1296,7 @@ $(document).ready(function () {
             : product.movement === 'auto'
                 ? 'movement-auto'
                 : 'movement-quartz';
+        const liveViewers = Math.floor(Math.random() * 45) + 120;
         const wishlistActive = isInWishlist(product.id, product.name);
         const wishlistIcon = wishlistActive ? 'bi-heart-fill' : 'bi-heart';
         const compareActive = isInCompare(product.id, product.name);
@@ -1224,6 +1314,11 @@ $(document).ready(function () {
                         <div class="product-badge-row">
                             <span class="movement-badge ${movementClass}">${movementLabel}</span>
                             <span class="stock-pill">${stockText}</span>
+                            <span class="live-viewers" data-live-count="${liveViewers}">
+                                <span class="live-dot" aria-hidden="true"></span>
+                                <i class="bi bi-eye" aria-hidden="true"></i>
+                                <span>${liveViewers} people viewing now</span>
+                            </span>
                         </div>
                         <h1 class="product-name">${product.name}</h1>
                         <p class="product-desc">${product.description || ''}</p>
@@ -1249,7 +1344,7 @@ $(document).ready(function () {
                             <a href="#" class="btn product-btn-buy product-btn-cart" data-product-id="${product.id ?? ''}" data-product-name="${product.name}" data-product-image="${product.image}" data-product-price="${product.price}" data-product-sale-price="${product.salePrice}">Buy Now</a>
                             <a href="#" class="btn product-btn-cart" data-product-id="${product.id ?? ''}" data-product-name="${product.name}" data-product-image="${product.image}" data-product-price="${product.price}" data-product-sale-price="${product.salePrice}">Add to Cart</a>
                             <button class="btn product-btn-buy wishlist-btn ${wishlistActive ? 'active' : ''}" data-product-id="${product.id ?? ''}" data-product-name="${product.name}" data-product-image="${product.image}" data-product-price="${product.price}" data-product-sale-price="${product.salePrice}" type="button">
-                                <i class="bi ${wishlistIcon}"></i> Wishlist
+                                ${wishlistActive ? 'In Wishlist' : 'Add to Wishlist'}
                             </button>
                             <button class="btn product-btn-buy compare-btn" data-product-id="${product.id ?? ''}" data-product-name="${product.name}" data-product-image="${product.image}" data-product-price="${product.price}" data-product-sale-price="${product.salePrice}" data-product-stock="${product.stock ?? ''}" data-product-movement="${product.movement ?? ''}" type="button">
                                 <i class="bi ${compareIcon}"></i> Compare
@@ -1427,7 +1522,9 @@ $(document).ready(function () {
         });
     });
 
-    $(document).on('click', '.suggestion-item', function () {
+    $(document).on('click', '.suggestion-item', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
         const name = $(this).data('name');
         const form = $(this).closest('.search-form');
         form.find('input[type="search"]').val(name);
@@ -1586,8 +1683,8 @@ function createProductCard(product) {
                             style="color: #ff6600; font-weight: bold; margin-left: 5px;">${salePrice} PKR</span>
                     </div>
                     <div class="d-flex gap-2">
-                        <a href="#" class="btn product-btn-buy product-btn-cart flex-fill" data-product-id="${product.id ?? ''}" data-product-name="${product.name}" data-product-image="${product.image}" data-product-price="${product.price}" data-product-sale-price="${product.salePrice}">Buy Now</a>
-                        <a href="#" class="btn product-btn-cart flex-fill" data-product-id="${product.id ?? ''}" data-product-name="${product.name}" data-product-image="${product.image}" data-product-price="${product.price}" data-product-sale-price="${product.salePrice}">Add to Cart</a>
+                        <a href="#" class="btn product-btn-buy product-btn-cart flex-fill text-center justify-content-center align-items-center" data-product-id="${product.id ?? ''}" data-product-name="${product.name}" data-product-image="${product.image}" data-product-price="${product.price}" data-product-sale-price="${product.salePrice}">Buy Now</a>
+                        <a href="#" class="btn product-btn-cart flex-fill text-center justify-content-center align-items-center" data-product-id="${product.id ?? ''}" data-product-name="${product.name}" data-product-image="${product.image}" data-product-price="${product.price}" data-product-sale-price="${product.salePrice}">Add to Cart</a>
                     </div>
                 </div>
             </div>
@@ -1798,6 +1895,9 @@ function updateWishlistButtons() {
         const active = isInWishlist(id, name);
         btn.toggleClass('active', active);
         btn.find('i').toggleClass('bi-heart-fill', active).toggleClass('bi-heart', !active);
+        if (btn.closest('.product-detail-card').length) {
+            btn.text(active ? 'In Wishlist' : 'Add to Wishlist');
+        }
     });
 }
 
