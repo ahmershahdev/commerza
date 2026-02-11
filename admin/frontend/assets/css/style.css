@@ -576,6 +576,143 @@ img {
     color: #ffcc00;
 }
 
+#emailSection .admin-card {
+    background: linear-gradient(145deg, rgba(18, 18, 24, 0.98), rgba(10, 10, 14, 0.98));
+    border: 1px solid rgba(255, 122, 26, 0.28);
+}
+
+#emailSection .admin-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 204, 0, 0.5);
+}
+
+#emailSection .card-header {
+    background: linear-gradient(135deg, rgba(26, 26, 34, 0.95), rgba(12, 12, 18, 0.95));
+}
+
+#emailSection .table-dark {
+    background: linear-gradient(180deg, rgba(18, 18, 24, 0.96), rgba(12, 12, 16, 0.98));
+}
+
+#emailSection .table-responsive {
+    border: 1px solid rgba(255, 122, 26, 0.2);
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+#emailSection .table-dark tbody tr {
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+#emailSection .table-dark tbody tr:hover {
+    background: rgba(255, 122, 26, 0.16);
+    box-shadow: inset 0 0 0 1px rgba(255, 122, 26, 0.2);
+}
+
+#emailSection .form-control,
+#emailSection .form-select {
+    background: rgba(16, 16, 22, 0.95);
+    border-color: rgba(255, 122, 26, 0.35);
+    box-shadow: inset 0 0 0 1px rgba(255, 122, 26, 0.05);
+}
+
+#emailSection .form-control:focus,
+#emailSection .form-select:focus {
+    border-color: #ffcc00;
+    box-shadow: 0 0 0 0.2rem rgba(255, 204, 0, 0.2);
+}
+
+#emailSection .form-control::placeholder,
+#emailSection .form-select::placeholder,
+#emailSection textarea::placeholder {
+    color: #9a9a9a;
+    opacity: 1;
+}
+
+#emailSection .form-select {
+    background-color: rgba(16, 16, 22, 0.95);
+    color: #e6e0d6;
+}
+
+#emailSection .form-select option {
+    background-color: #111118;
+    color: #f0e7db;
+}
+
+#emailSection textarea.form-control {
+    min-height: 190px;
+    line-height: 1.6;
+    background-image: linear-gradient(180deg, rgba(255, 122, 26, 0.08) 1px, transparent 1px);
+    background-size: 100% 32px;
+}
+
+#emailSection .input-group .form-control {
+    border-right: 0;
+}
+
+#emailSection .input-group .btn {
+    border-left: 1px solid rgba(255, 122, 26, 0.35);
+}
+
+#emailSection .dropdown-menu {
+    background: linear-gradient(180deg, rgba(12, 12, 18, 0.98), rgba(8, 8, 12, 0.98)) !important;
+    border: 1px solid rgba(255, 122, 26, 0.3) !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 14px rgba(255, 122, 26, 0.15);
+}
+
+#emailSection .dropdown-item {
+    color: #e4d7c8 !important;
+}
+
+#emailSection .dropdown-item:hover,
+#emailSection .dropdown-item:focus {
+    color: #fff2db !important;
+}
+
+#emailSection .badge {
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+}
+
+#emailSection .input-group .form-control {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+#emailSection .input-group .btn {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+#emailSection .email-template-menu .dropdown-item {
+    padding: 10px 16px;
+    font-size: 0.85rem;
+    letter-spacing: 0.4px;
+    text-transform: none;
+    border-radius: 10px;
+    margin: 2px 8px;
+}
+
+#emailSection .email-template-menu .dropdown-item:hover,
+#emailSection .email-template-menu .dropdown-item:focus {
+    background: linear-gradient(90deg, rgba(255, 122, 26, 0.28), rgba(255, 204, 0, 0.12));
+    color: #ffe7c2 !important;
+    padding-left: 18px;
+}
+
+#emailSection #emailPreview {
+    background: linear-gradient(180deg, rgba(10, 10, 14, 0.96), rgba(6, 6, 10, 0.98));
+    border: 1px solid rgba(255, 122, 26, 0.3);
+    color: #efe7dc;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    user-select: none;
+}
+
 .admin-topbar {
     background: linear-gradient(180deg, rgba(12, 12, 16, 0.98), rgba(6, 6, 8, 0.6));
     position: sticky;

@@ -104,6 +104,15 @@
                             <li class="nav-item mb-1">
                                 <button
                                     class="nav-link rounded-2 d-flex align-items-center py-2 px-3 w-100 text-start border-0"
+                                    id="email-tab" data-bs-toggle="pill" data-bs-target="#emailSection"
+                                    type="button" aria-controls="emailSection" aria-selected="false">
+                                    <i class="bi bi-envelope-paper me-2 fs-5"></i>
+                                    <span>Email Center</span>
+                                </button>
+                            </li>
+                            <li class="nav-item mb-1">
+                                <button
+                                    class="nav-link rounded-2 d-flex align-items-center py-2 px-3 w-100 text-start border-0"
                                     id="analytics-tab" data-bs-toggle="pill" data-bs-target="#analyticsSection"
                                     type="button" aria-controls="analyticsSection" aria-selected="false">
                                     <i class="bi bi-bar-chart me-2 fs-5"></i>
@@ -878,6 +887,141 @@
                         </div>
                     </div>
 
+                    <div class="tab-pane fade" id="emailSection">
+                        <div class="helper-banner mb-4">
+                            <div>
+                                <h2 class="h5 mb-2 text-light">Email Center</h2>
+                                <p class="mb-0 text-secondary">Send announcements to subscribers and customers.</p>
+                            </div>
+                            <span class="step-chip">Tip: Build your list first, then apply a template.</span>
+                        </div>
+                        <div class="row g-4">
+                            <div class="col-12">
+                                <div class="card admin-card border-0 shadow-sm">
+                                    <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h3 class="h5 mb-0 fw-bold text-orange">Recipients</h3>
+                                            <p class="text-secondary small mb-0"><span id="emailRecipientCount">0</span> total</p>
+                                        </div>
+                                        <span class="badge bg-secondary text-light">Selected: <span id="emailSelectedCount">0</span></span>
+                                    </div>
+                                    <div class="card-body p-4">
+                                        <div class="row g-2 align-items-end mb-3">
+                                            <div class="col-12 col-md-6">
+                                                <label class="form-label text-light">Source</label>
+                                                <div class="dropdown w-100">
+                                                    <button class="btn btn-dark border border-secondary text-light w-100 text-start rounded-2 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="emailSourceBtn">
+                                                        All sources
+                                                    </button>
+                                                    <ul class="dropdown-menu dropdown-menu-start bg-dark border-secondary w-100" id="emailSourceMenu">
+                                                        <li><a class="dropdown-item text-light" href="#" data-source="all">All sources</a></li>
+                                                        <li><hr class="dropdown-divider border-secondary"></li>
+                                                        <li><a class="dropdown-item text-light" href="#" data-source="newsletter">Newsletter</a></li>
+                                                        <li><a class="dropdown-item text-light" href="#" data-source="customers">Customers</a></li>
+                                                    </ul>
+                                                </div>
+                                                <input type="hidden" id="emailSourceFilter" value="all">
+                                            </div>
+                                            <div class="col-12 col-md-6">
+                                                <label for="emailSearchInput" class="form-label text-light">Search</label>
+                                                <input type="text" class="form-control bg-secondary border-0 text-light" id="emailSearchInput" placeholder="Search by email or name">
+                                            </div>
+                                        </div>
+                                        <div class="d-flex flex-wrap gap-2 mb-3">
+                                            <button class="btn btn-outline-orange btn-sm" type="button" id="emailSelectAllBtn">
+                                                Select All
+                                            </button>
+                                            <button class="btn btn-outline-secondary btn-sm" type="button" id="emailClearBtn">
+                                                Clear
+                                            </button>
+                                            <button class="btn btn-outline-orange btn-sm" type="button" id="emailCopyBtn">
+                                                Copy Emails
+                                            </button>
+                                        </div>
+                                        <div class="input-group mb-3">
+                                            <input type="email" class="form-control bg-secondary border-0 text-light" id="emailAddRecipientInput" placeholder="Add manual recipient">
+                                            <button class="btn btn-orange" type="button" id="emailAddRecipientBtn">Add</button>
+                                        </div>
+                                        <div class="table-responsive">
+                                            <table class="table table-dark table-hover align-middle mb-0" id="emailRecipientsTable">
+                                                <thead class="border-bottom border-secondary">
+                                                    <tr>
+                                                        <th class="py-3 ps-4 text-orange fw-semibold" style="width: 50px;">Pick</th>
+                                                        <th class="py-3 text-orange fw-semibold">Email</th>
+                                                        <th class="py-3 text-orange fw-semibold">Source</th>
+                                                        <th class="py-3 text-orange fw-semibold">Last Seen</th>
+                                                        <th class="py-3 pe-4 text-orange fw-semibold">Remove</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="card admin-card border-0 shadow-sm">
+                                    <div class="card-header bg-dark border-bottom border-secondary py-3">
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Compose Email</h3>
+                                    </div>
+                                    <div class="card-body p-4">
+                                        <div class="row g-3">
+                                            <div class="col-12">
+                                                <label class="form-label text-light">Template</label>
+                                                <div class="dropdown w-100">
+                                                    <button class="btn btn-dark border border-secondary text-light w-100 text-start rounded-2 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="emailTemplateBtn">
+                                                        Custom
+                                                    </button>
+                                                    <ul class="dropdown-menu dropdown-menu-start bg-dark border-secondary w-100 email-template-menu" id="emailTemplateMenu"></ul>
+                                                </div>
+                                                <input type="hidden" id="emailTemplateId" value="">
+                                            </div>
+                                            <div class="col-12">
+                                                <label for="emailTemplateName" class="form-label text-light">Template Name</label>
+                                                <input type="text" class="form-control bg-secondary border-0 text-light" id="emailTemplateName" placeholder="Summer launch update">
+                                            </div>
+                                            <div class="col-12">
+                                                <label for="emailSubjectInput" class="form-label text-light">Subject</label>
+                                                <input type="text" class="form-control bg-secondary border-0 text-light" id="emailSubjectInput" placeholder="New arrivals are live">
+                                            </div>
+                                            <div class="col-12">
+                                                <label for="emailBodyInput" class="form-label text-light">Message</label>
+                                                <textarea class="form-control bg-secondary border-0 text-light" id="emailBodyInput" rows="8" placeholder="Write your message here..."></textarea>
+                                                <small class="field-hint">Tip: Keep the subject short and the message clear.</small>
+                                            </div>
+                                            <div class="col-12">
+                                                <label for="emailAttachmentInput" class="form-label text-light">Attachment</label>
+                                                <input type="file" class="form-control bg-secondary border-0 text-light" id="emailAttachmentInput" multiple>
+                                                <small class="field-hint">Attachments open in your email client after clicking Send. This panel cannot upload files.</small>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex flex-wrap gap-2 mt-3">
+                                            <button class="btn btn-orange" type="button" id="emailSendBtn">
+                                                <i class="bi bi-send me-1"></i>Send Email
+                                            </button>
+                                            <button class="btn btn-outline-orange" type="button" id="emailSaveTemplateBtn">
+                                                <i class="bi bi-save2 me-1"></i>Save Template
+                                            </button>
+                                            <button class="btn btn-outline-secondary" type="button" id="emailNewTemplateBtn">
+                                                <i class="bi bi-plus-circle me-1"></i>New Template
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="card admin-card border-0 shadow-sm">
+                                    <div class="card-header bg-dark border-bottom border-secondary py-3">
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Preview</h3>
+                                    </div>
+                                    <div class="card-body p-4">
+                                        <div class="p-3 rounded-2 bg-dark border border-secondary" style="min-height: 140px; white-space: pre-wrap;" id="emailPreview"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="tab-pane fade" id="websiteSection">
                         <div class="helper-banner mb-4">
                             <div>
