@@ -1545,7 +1545,7 @@ main {
 
 @media (max-width: 576px) {
   .c-img {
-    height: 350px;
+    height: 450px;
   }
 
   .p-image {
@@ -1610,7 +1610,6 @@ main {
 }
 
 .hero-title {
-  font-size: clamp(2.5rem, 3vw, 3.6rem);
   margin-bottom: 16px;
   text-transform: uppercase;
 }
@@ -1900,7 +1899,7 @@ main {
 .testimonial-track {
   display: flex;
   gap: 24px;
-  animation: scrollTestimonials 40s linear infinite;
+  animation: scrollTestimonials 20s linear infinite;
   will-change: transform;
 }
 
@@ -2682,7 +2681,6 @@ main {
   }
 }
 
-/* ===== Page Upgrade Utilities ===== */
 .page-hero {
   position: relative;
   border-radius: 18px;

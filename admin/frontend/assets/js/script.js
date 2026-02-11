@@ -7,6 +7,114 @@ const SITE_SETTINGS_KEY = 'commerza_site_settings';
 let siteSettings = null;
 let nextSocialId = 1;
 let nextSliderId = 1;
+const NEWSLETTER_SUBSCRIBERS_KEY = 'commerza_newsletter_subscribers';
+const NEWSLETTER_EMAIL_KEY = 'commerza_newsletter_email';
+const USERS_KEY = 'commerza_users';
+const ORDERS_KEY = 'commerza_orders';
+const EMAIL_TEMPLATES_KEY = 'commerza_email_templates';
+const EMAIL_OUTBOX_KEY = 'commerza_email_outbox';
+const EMAIL_MANUAL_RECIPIENTS_KEY = 'commerza_email_manual_recipients';
+const EMAIL_SUPPRESSED_KEY = 'commerza_email_suppressed';
+const VIEWERS_MODE_KEY = 'commerza_viewers_mode';
+const PAGE_META_KEY = 'commerza_page_meta';
+const PAGE_CONTENT_KEY = 'commerza_page_content';
+const DEFAULT_EMAIL_TEMPLATES = [
+    {
+        id: 1,
+        name: 'Welcome to Commerza Circle',
+        subject: 'Welcome to the Commerza Circle',
+        body: 'Hi there,\n\nThanks for joining the Commerza Circle. You will get early access to launches, exclusive offers, and collector stories.\n\n- The Commerza Team'
+    },
+    {
+        id: 2,
+        name: 'New Arrivals Drop',
+        subject: 'New arrivals just landed',
+        body: 'Hello,\n\nOur latest watches are live now. Explore the newest drops and find your next statement piece.\n\nShop now: https://commerza.com\n\n- The Commerza Team'
+    },
+    {
+        id: 3,
+        name: 'Limited Time Offer',
+        subject: 'Limited-time offer inside',
+        body: 'Hi,\n\nFor a limited time, enjoy exclusive pricing on selected collections. The offer ends soon, so do not miss out.\n\n- The Commerza Team'
+    },
+    {
+        id: 4,
+        name: 'Back in Stock Alert',
+        subject: 'Back in stock: your favorites',
+        body: 'Hello,\n\nGood news! Popular watches are back in stock. Quantities are limited, so grab yours soon.\n\n- The Commerza Team'
+    },
+    {
+        id: 5,
+        name: 'Order Update',
+        subject: 'Your Commerza order update',
+        body: 'Hi,\n\nWe wanted to share a quick update about your order. If you have any questions, reply to this email and our team will help.\n\n- The Commerza Team'
+    },
+    {
+        id: 6,
+        name: 'Shipping Delay Notice',
+        subject: 'Shipping update from Commerza',
+        body: 'Hello,\n\nWe are experiencing a short shipping delay due to high demand. Your order is still on the way, and we will share tracking soon.\n\n- The Commerza Team'
+    },
+    {
+        id: 7,
+        name: 'VIP Early Access',
+        subject: 'VIP early access is live',
+        body: 'Hi,\n\nAs a Commerza subscriber, you get early access to our newest collection. Take a first look before the public launch.\n\n- The Commerza Team'
+    },
+    {
+        id: 8,
+        name: 'Holiday Gift Guide',
+        subject: 'Holiday gift picks from Commerza',
+        body: 'Hello,\n\nNeed a gift that stands out? Our holiday guide highlights the best watches for every style and budget.\n\n- The Commerza Team'
+    },
+    {
+        id: 9,
+        name: 'Feedback Request',
+        subject: 'We would love your feedback',
+        body: 'Hi,\n\nYour feedback helps us improve. If you have a moment, let us know what you love and what we can do better.\n\n- The Commerza Team'
+    },
+    {
+        id: 10,
+        name: 'Monthly Newsletter',
+        subject: 'Your Commerza monthly roundup',
+        body: 'Hello,\n\nHere is your monthly roundup with new releases, staff picks, and limited offers.\n\n- The Commerza Team'
+    },
+    {
+        id: 11,
+        name: 'Support Reply',
+        subject: 'Re: Support request',
+        body: 'Hi,\n\nThanks for reaching out to Commerza support. We are looking into this and will update you shortly.\n\nIf you can share your order ID and any extra details, we can help faster.\n\n- Commerza Support'
+    }
+];
+const EMAIL_SOURCE_BADGES = {
+    Newsletter: 'bg-info text-dark',
+    Account: 'bg-warning text-dark',
+    Order: 'bg-success',
+    Manual: 'bg-secondary'
+};
+let emailDirectory = [];
+let emailSelected = new Set();
+let emailFiltered = [];
+let emailTemplates = [];
+const ADMIN_PAGES = [
+    { id: 'index.html', label: 'Home' },
+    { id: 'products.html', label: 'Products' },
+    { id: 'shop-category-a.html', label: 'Shop Category A' },
+    { id: 'shop-category-b.html', label: 'Shop Category B' },
+    { id: 'about.html', label: 'About' },
+    { id: 'contact.html', label: 'Contact' },
+    { id: 'faq.html', label: 'FAQ' },
+    { id: 'returns.html', label: 'Returns' },
+    { id: 'shipping.html', label: 'Shipping' },
+    { id: 'warranty.html', label: 'Warranty' },
+    { id: 'login.html', label: 'Login' },
+    { id: 'signup.html', label: 'Signup' },
+    { id: 'cart.html', label: 'Cart' },
+    { id: 'wishlist.html', label: 'Wishlist' },
+    { id: 'order-tracking.html', label: 'Order Tracking' },
+    { id: 'compare.html', label: 'Compare' },
+    { id: 'account.html', label: 'Account' }
+];
 // Notification timing rules keep the bell focused on recent actions.
 const NOTIFICATION_RULES = {
     recentOrderDays: 7,
@@ -15,6 +123,458 @@ const NOTIFICATION_RULES = {
     newProductDays: 7,
     lowStockThreshold: 5
 };
+
+function normalizeEmailValue(email) {
+    return (email || '').toString().trim().toLowerCase();
+}
+
+function readJsonStorage(key, fallback) {
+    const stored = localStorage.getItem(key);
+    if (!stored) return fallback;
+    try {
+        return JSON.parse(stored);
+    } catch (error) {
+        return fallback;
+    }
+}
+
+function formatShortDate(value) {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toISOString().split('T')[0];
+}
+
+function updateEmailPreview() {
+    const subject = ($('#emailSubjectInput').val() || '').trim();
+    const body = ($('#emailBodyInput').val() || '').trim();
+    const preview = $('#emailPreview');
+    if (!preview.length) return;
+    const attachmentInput = document.getElementById('emailAttachmentInput');
+    const files = attachmentInput?.files ? Array.from(attachmentInput.files).map(file => file.name) : [];
+    const attachmentLine = files.length ? `Attachments: ${files.join(', ')}` : 'Attachments: None';
+    const title = subject ? `Subject: ${subject}` : 'Subject: (No subject)';
+    preview.text(`${title}\n${attachmentLine}\n\n${body}`.trim());
+}
+
+function getNewsletterSubscribers() {
+    const rawList = readJsonStorage(NEWSLETTER_SUBSCRIBERS_KEY, []);
+    const list = Array.isArray(rawList) ? rawList : [];
+    const legacyEmail = normalizeEmailValue(localStorage.getItem(NEWSLETTER_EMAIL_KEY));
+
+    if (legacyEmail && !list.some(item => normalizeEmailValue(item.email || item) === legacyEmail)) {
+        list.push({
+            email: legacyEmail,
+            sources: ['modal'],
+            subscribedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        });
+    }
+
+    return list.map(item => {
+        if (typeof item === 'string') {
+            return {
+                email: normalizeEmailValue(item),
+                sources: ['modal'],
+                subscribedAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+        }
+        return {
+            email: normalizeEmailValue(item.email),
+            sources: Array.isArray(item.sources) ? item.sources : [item.source || 'modal'],
+            subscribedAt: item.subscribedAt,
+            updatedAt: item.updatedAt || item.subscribedAt
+        };
+    }).filter(entry => entry.email);
+}
+
+function getManualRecipients() {
+    const raw = readJsonStorage(EMAIL_MANUAL_RECIPIENTS_KEY, []);
+    if (!Array.isArray(raw)) return [];
+    return raw.map(item => {
+        if (typeof item === 'string') {
+            return { email: normalizeEmailValue(item), addedAt: new Date().toISOString() };
+        }
+        return {
+            email: normalizeEmailValue(item.email),
+            addedAt: item.addedAt || new Date().toISOString()
+        };
+    }).filter(item => item.email);
+}
+
+function saveManualRecipients(list) {
+    localStorage.setItem(EMAIL_MANUAL_RECIPIENTS_KEY, JSON.stringify(list));
+}
+
+function buildEmailDirectory() {
+    const directory = new Map();
+    const suppressed = getSuppressedEmails();
+
+    const addEntry = (email, source, meta = {}) => {
+        const normalized = normalizeEmailValue(email);
+        if (!normalized) return;
+        if (suppressed.has(normalized)) return;
+        const existing = directory.get(normalized) || {
+            email: normalized,
+            name: meta.name || '',
+            sources: new Set(),
+            firstSeen: meta.firstSeen || meta.lastSeen || new Date().toISOString(),
+            lastSeen: meta.lastSeen || meta.firstSeen || new Date().toISOString()
+        };
+        existing.sources.add(source);
+        if (meta.name && !existing.name) {
+            existing.name = meta.name;
+        }
+        if (meta.firstSeen && (!existing.firstSeen || new Date(meta.firstSeen) < new Date(existing.firstSeen))) {
+            existing.firstSeen = meta.firstSeen;
+        }
+        if (meta.lastSeen && new Date(meta.lastSeen) > new Date(existing.lastSeen)) {
+            existing.lastSeen = meta.lastSeen;
+        }
+        directory.set(normalized, existing);
+    };
+
+    getNewsletterSubscribers().forEach(sub => {
+        const lastSeen = sub.updatedAt || sub.subscribedAt;
+        addEntry(sub.email, 'Newsletter', { lastSeen, firstSeen: sub.subscribedAt });
+    });
+
+    const users = readJsonStorage(USERS_KEY, []);
+    if (Array.isArray(users)) {
+        users.forEach(user => {
+            addEntry(user.email, 'Account', { name: user.name, lastSeen: user.createdAt, firstSeen: user.createdAt });
+        });
+    }
+
+    const orders = readJsonStorage(ORDERS_KEY, []);
+    if (Array.isArray(orders)) {
+        orders.forEach(order => {
+            addEntry(order.email, 'Order', { name: order.customerName, lastSeen: order.orderDate, firstSeen: order.orderDate });
+        });
+    }
+
+    getManualRecipients().forEach(item => {
+        addEntry(item.email, 'Manual', { lastSeen: item.addedAt, firstSeen: item.addedAt });
+    });
+
+    return Array.from(directory.values()).map(entry => ({
+        ...entry,
+        sources: Array.from(entry.sources)
+    })).sort((a, b) => new Date(b.lastSeen) - new Date(a.lastSeen));
+}
+
+function getEmailTemplates() {
+    const stored = readJsonStorage(EMAIL_TEMPLATES_KEY, []);
+    if (Array.isArray(stored) && stored.length) {
+        return stored;
+    }
+    return DEFAULT_EMAIL_TEMPLATES.map(template => ({ ...template }));
+}
+
+function saveEmailTemplates(list) {
+    localStorage.setItem(EMAIL_TEMPLATES_KEY, JSON.stringify(list));
+}
+
+function renderTemplateSelect() {
+    const menu = $('#emailTemplateMenu');
+    if (!menu.length) return;
+    menu.empty();
+    menu.append('<li><a class="dropdown-item text-light" href="#" data-template-id="">Custom</a></li>');
+    menu.append('<li><hr class="dropdown-divider border-secondary"></li>');
+    emailTemplates.forEach(template => {
+        menu.append(`<li><a class="dropdown-item text-light" href="#" data-template-id="${template.id}">${template.name}</a></li>`);
+    });
+}
+
+function renderEmailRecipients() {
+    const tbody = $('#emailRecipientsTable tbody');
+    if (!tbody.length) return;
+    const filter = ($('#emailSourceFilter').val() || 'all').toLowerCase();
+    const query = ($('#emailSearchInput').val() || '').trim().toLowerCase();
+
+    emailFiltered = emailDirectory.filter(entry => {
+        const inNewsletter = entry.sources.includes('Newsletter');
+        const inCustomers = entry.sources.includes('Order') || entry.sources.includes('Account');
+        if (filter === 'newsletter' && !inNewsletter) return false;
+        if (filter === 'customers' && !inCustomers) return false;
+        if (query) {
+            const name = (entry.name || '').toLowerCase();
+            return entry.email.includes(query) || name.includes(query);
+        }
+        return true;
+    });
+
+    $('#emailRecipientCount').text(emailDirectory.length);
+
+    tbody.empty();
+    if (!emailFiltered.length) {
+        tbody.append('<tr><td colspan="5" class="text-center py-4 text-secondary">No recipients found</td></tr>');
+        updateSelectedCount();
+        return;
+    }
+
+    emailFiltered.forEach(entry => {
+        const isChecked = emailSelected.has(entry.email);
+        const badges = entry.sources.map(source => {
+            const badgeClass = EMAIL_SOURCE_BADGES[source] || 'bg-secondary';
+            return `<span class="badge ${badgeClass} me-1">${source}</span>`;
+        }).join('');
+        tbody.append(`
+            <tr class="border-bottom border-secondary">
+                <td class="ps-4 py-3">
+                    <input type="checkbox" class="form-check-input email-recipient-check" data-email="${entry.email}" ${isChecked ? 'checked' : ''}>
+                </td>
+                <td class="py-3 text-light fw-semibold">${entry.email}</td>
+                <td class="py-3">${badges}</td>
+                <td class="py-3 text-secondary small">${formatShortDate(entry.lastSeen)}</td>
+                <td class="pe-4 py-3">
+                    <button class="btn btn-sm btn-outline-danger email-remove-recipient" data-email="${entry.email}" title="Remove">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `);
+    });
+
+    updateSelectedCount();
+}
+
+function updateSelectedCount() {
+    $('#emailSelectedCount').text(emailSelected.size);
+}
+
+function addManualRecipient(email) {
+    const normalized = normalizeEmailValue(email);
+    if (!normalized || !normalized.includes('@')) return false;
+    const suppressed = getSuppressedEmails();
+    if (suppressed.has(normalized)) {
+        suppressed.delete(normalized);
+        saveSuppressedEmails(suppressed);
+    }
+    const existing = getManualRecipients();
+    if (!existing.some(item => item.email === normalized)) {
+        existing.push({ email: normalized, addedAt: new Date().toISOString() });
+        saveManualRecipients(existing);
+    }
+    if (!emailDirectory.some(entry => entry.email === normalized)) {
+        emailDirectory.push({
+            email: normalized,
+            name: '',
+            sources: ['Manual'],
+            firstSeen: new Date().toISOString(),
+            lastSeen: new Date().toISOString()
+        });
+        emailDirectory = emailDirectory.sort((a, b) => new Date(b.lastSeen) - new Date(a.lastSeen));
+    }
+    emailSelected.add(normalized);
+    return true;
+}
+
+function applyTemplateToComposer(templateId) {
+    const template = emailTemplates.find(item => String(item.id) === String(templateId));
+    if (!template) return;
+    $('#emailTemplateId').val(template.id);
+    $('#emailTemplateBtn').text(template.name || 'Custom');
+    $('#emailTemplateName').val(template.name || '');
+    $('#emailSubjectInput').val(template.subject || '');
+    $('#emailBodyInput').val(template.body || '');
+    updateEmailPreview();
+}
+
+function saveTemplateFromComposer() {
+    const name = ($('#emailTemplateName').val() || '').trim();
+    const subject = ($('#emailSubjectInput').val() || '').trim();
+    const body = ($('#emailBodyInput').val() || '').trim();
+    if (!name || (!subject && !body)) {
+        showNotification('Add a template name and content before saving', 'danger');
+        return;
+    }
+
+    const selectedId = $('#emailTemplateId').val();
+    if (selectedId) {
+        const index = emailTemplates.findIndex(item => String(item.id) === String(selectedId));
+        if (index !== -1) {
+            emailTemplates[index] = { ...emailTemplates[index], name, subject, body };
+            saveEmailTemplates(emailTemplates);
+            renderTemplateSelect();
+            $('#emailTemplateId').val(selectedId);
+            $('#emailTemplateBtn').text(name || 'Custom');
+            showNotification('Template updated!', 'success');
+            return;
+        }
+    }
+
+    const nextId = Math.max(0, ...emailTemplates.map(item => item.id || 0)) + 1;
+    emailTemplates.push({ id: nextId, name, subject, body });
+    saveEmailTemplates(emailTemplates);
+    renderTemplateSelect();
+    $('#emailTemplateId').val(String(nextId));
+    $('#emailTemplateBtn').text(name || 'Custom');
+    showNotification('Template saved!', 'success');
+}
+
+function resetComposerTemplate() {
+    $('#emailTemplateId').val('');
+    $('#emailTemplateBtn').text('Custom');
+    $('#emailTemplateName').val('');
+    $('#emailSubjectInput').val('');
+    $('#emailBodyInput').val('');
+    updateEmailPreview();
+}
+
+function removeEmailRecipient(email) {
+    const normalized = normalizeEmailValue(email);
+    if (!normalized) return;
+
+    const suppressed = getSuppressedEmails();
+    suppressed.add(normalized);
+    saveSuppressedEmails(suppressed);
+
+    const manual = getManualRecipients().filter(item => item.email !== normalized);
+    saveManualRecipients(manual);
+
+    const newsletter = readJsonStorage(NEWSLETTER_SUBSCRIBERS_KEY, []);
+    if (Array.isArray(newsletter)) {
+        const filtered = newsletter.filter(item => normalizeEmailValue(item.email || item) !== normalized);
+        localStorage.setItem(NEWSLETTER_SUBSCRIBERS_KEY, JSON.stringify(filtered));
+    }
+
+    emailDirectory = emailDirectory.filter(entry => entry.email !== normalized);
+    emailSelected.delete(normalized);
+}
+
+function sendEmailFromComposer() {
+    const recipients = Array.from(emailSelected);
+    const subject = ($('#emailSubjectInput').val() || '').trim();
+    const body = ($('#emailBodyInput').val() || '').trim();
+    const attachmentInput = document.getElementById('emailAttachmentInput');
+    const hasFiles = attachmentInput?.files && attachmentInput.files.length > 0;
+
+    if (!recipients.length) {
+        showNotification('Select at least one recipient', 'danger');
+        return;
+    }
+    if (!subject && !body) {
+        showNotification('Add a subject or message before sending', 'danger');
+        return;
+    }
+
+    if (hasFiles) {
+        showNotification('Attachments must be added in your email client after it opens.', 'warning');
+    }
+
+    const mailto = `mailto:?bcc=${encodeURIComponent(recipients.join(','))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    if (mailto.length > 1900) {
+        showNotification('Too many recipients for a mailto link. Copy emails instead.', 'warning');
+        return;
+    }
+
+    const outbox = readJsonStorage(EMAIL_OUTBOX_KEY, []);
+    if (Array.isArray(outbox)) {
+        outbox.unshift({
+            subject,
+            body,
+            recipients,
+            sentAt: new Date().toISOString()
+        });
+        localStorage.setItem(EMAIL_OUTBOX_KEY, JSON.stringify(outbox.slice(0, 50)));
+    }
+
+    window.location.href = mailto;
+}
+
+function initEmailCenter() {
+    if (!$('#emailSection').length) return;
+    emailDirectory = buildEmailDirectory();
+    emailTemplates = getEmailTemplates();
+    renderTemplateSelect();
+    renderEmailRecipients();
+    updateEmailPreview();
+
+    $(document).on('click', '#emailSourceMenu .dropdown-item', function (event) {
+        event.preventDefault();
+        const source = $(this).data('source') || 'all';
+        $('#emailSourceFilter').val(source);
+        $('#emailSourceBtn').text($(this).text().trim());
+        renderEmailRecipients();
+    });
+    $('#emailSearchInput').on('input', renderEmailRecipients);
+
+    $(document).on('change', '.email-recipient-check', function () {
+        const email = $(this).data('email');
+        if (!email) return;
+        if (this.checked) {
+            emailSelected.add(email);
+        } else {
+            emailSelected.delete(email);
+        }
+        updateSelectedCount();
+    });
+
+    $('#emailSelectAllBtn').on('click', function () {
+        emailFiltered.forEach(entry => emailSelected.add(entry.email));
+        renderEmailRecipients();
+    });
+
+    $('#emailClearBtn').on('click', function () {
+        emailSelected.clear();
+        renderEmailRecipients();
+    });
+
+    $('#emailCopyBtn').on('click', function () {
+        const list = Array.from(emailSelected);
+        if (!list.length) {
+            showNotification('Select recipients to copy', 'warning');
+            return;
+        }
+        const text = list.join(', ');
+        navigator.clipboard?.writeText(text).then(() => {
+            showNotification('Emails copied to clipboard', 'success');
+        }).catch(() => {
+            showNotification('Unable to copy emails', 'danger');
+        });
+    });
+
+    $('#emailAddRecipientBtn').on('click', function () {
+        const input = $('#emailAddRecipientInput');
+        const value = input.val();
+        if (!addManualRecipient(value)) {
+            showNotification('Enter a valid email address', 'danger');
+            return;
+        }
+        input.val('');
+        renderEmailRecipients();
+        showNotification('Recipient added', 'success');
+    });
+
+    $(document).on('click', '.email-remove-recipient', function () {
+        const email = $(this).data('email');
+        if (!email) return;
+        removeEmailRecipient(email);
+        renderEmailRecipients();
+        showNotification('Recipient removed', 'success');
+    });
+
+    $(document).on('click', '#emailTemplateMenu .dropdown-item', function (event) {
+        event.preventDefault();
+        const templateId = $(this).data('template-id');
+        if (!templateId) {
+            $('#emailTemplateId').val('');
+            $('#emailTemplateBtn').text('Custom');
+            $('#emailTemplateName').val('');
+            updateEmailPreview();
+            return;
+        }
+        applyTemplateToComposer(templateId);
+    });
+
+    $('#emailSubjectInput, #emailBodyInput, #emailAttachmentInput').on('input change', updateEmailPreview);
+
+    $('#emailSaveTemplateBtn').on('click', saveTemplateFromComposer);
+    $('#emailNewTemplateBtn').on('click', resetComposerTemplate);
+    $('#emailSendBtn').on('click', sendEmailFromComposer);
+}
 
 function isWithinDays(dateString, days) {
     if (!dateString) return false;
@@ -541,6 +1101,7 @@ $(document).ready(function() {
 
     loadProductsFromJSON();
     initWebsiteSettings();
+    initEmailCenter();
     
     setTimeout(() => {
         calculateDashboardMetrics();
@@ -1372,4 +1933,14 @@ function resetSliderForm() {
     $('#sliderButtonText').val('');
     $('#sliderButtonLink').val('');
     $('#saveSliderBtn').html('<i class="bi bi-plus-circle me-1"></i>Add Slide');
+}
+
+function getSuppressedEmails() {
+    const list = readJsonStorage(EMAIL_SUPPRESSED_KEY, []);
+    if (!Array.isArray(list)) return new Set();
+    return new Set(list.map(email => normalizeEmailValue(email)).filter(Boolean));
+}
+
+function saveSuppressedEmails(set) {
+    localStorage.setItem(EMAIL_SUPPRESSED_KEY, JSON.stringify(Array.from(set)));
 }
