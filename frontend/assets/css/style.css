@@ -35,7 +35,7 @@ body.dark-theme {
   color: #f0f0f0;
   margin: 0;
   padding: 0;
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   overflow-x: hidden;
 }
 
@@ -61,7 +61,7 @@ body.dark-theme {
   background-color: #ff0000 !important;
   border: none;
   color: #fff;
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-weight: 700;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
@@ -71,7 +71,7 @@ button,
 input,
 select,
 textarea {
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   font-weight: 500;
 }
 
@@ -79,7 +79,7 @@ body,
 li,
 p,
 span {
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   font-weight: 400;
 }
 
@@ -89,7 +89,7 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-weight: 700;
   letter-spacing: -0.5px;
 }
@@ -101,12 +101,14 @@ h1 {
   text-transform: uppercase;
   user-select: none;
   display: block;
-  background: linear-gradient(to right,
-      #ff4500 0%,
-      #ffcc00 25%,
-      #ffffff 50%,
-      #ffcc00 75%,
-      #ff4500 100%);
+  background: linear-gradient(
+    to right,
+    #ff4500 0%,
+    #ffcc00 25%,
+    #ffffff 50%,
+    #ffcc00 75%,
+    #ff4500 100%
+  );
   background-size: 200% auto;
   -webkit-background-clip: text;
   background-clip: text;
@@ -187,13 +189,20 @@ main {
 }
 
 .navbar::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: 0;
   left: 0;
   width: 100%;
   height: 1px;
-  background: linear-gradient(90deg, transparent, #ff4500 20%, #ffcc00 50%, #ff4500 80%, transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    #ff4500 20%,
+    #ffcc00 50%,
+    #ff4500 80%,
+    transparent
+  );
   animation: border-shimmer 4s linear infinite;
   z-index: 1;
 }
@@ -205,7 +214,7 @@ main {
   background-clip: text;
   -webkit-text-fill-color: transparent;
   display: flex;
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 1.5rem;
   font-weight: 900;
   letter-spacing: 2px;
@@ -233,7 +242,7 @@ main {
 }
 
 .navbar-nav .nav-link::before {
-  content: '';
+  content: "";
   position: absolute;
   bottom: 0;
   left: 50%;
@@ -276,7 +285,7 @@ main {
 
 .nav-link[aria-current="page"]::after,
 .footer-links a[aria-current="page"]::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -4px;
   left: 0;
@@ -372,7 +381,7 @@ main {
   color: #000000;
   padding: 10px 20px;
   transition: all 0.4s ease;
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
 }
 
 .search-input::placeholder {
@@ -423,7 +432,12 @@ main {
 .carousel-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.3) 50%, transparent 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(0, 0, 0, 0.7) 0%,
+    rgba(0, 0, 0, 0.3) 50%,
+    transparent 100%
+  );
   display: flex;
   align-items: center;
   padding: 0 60px;
@@ -447,7 +461,7 @@ main {
 
 .carousel-label {
   display: inline-block;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 0.75rem;
   color: #ffcc00;
   text-transform: uppercase;
@@ -518,7 +532,9 @@ main {
   align-items: center;
   background: linear-gradient(90deg, #050505 0%, #0c0c0c 50%, #050505 100%);
   border-bottom: 1px solid rgba(255, 204, 0, 0.2);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 8px 24px rgba(0, 0, 0, 0.4);
   display: flex;
   height: 32px;
   margin-top: 0;
@@ -531,7 +547,7 @@ main {
 
 .ticker-container::before,
 .ticker-container::after {
-  content: '';
+  content: "";
   height: 100%;
   pointer-events: none;
   position: absolute;
@@ -568,7 +584,7 @@ main {
 .ticker-scroll span {
   color: #efe7d2;
   flex-shrink: 0;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 2.5px;
@@ -584,7 +600,7 @@ main {
 }
 
 .ticker-scroll span::before {
-  content: '';
+  content: "";
   width: 5px;
   height: 5px;
   background: linear-gradient(135deg, #ffcc00, #ff7a00);
@@ -601,14 +617,16 @@ main {
   letter-spacing: 1px;
   display: inline-block;
   white-space: nowrap;
-  background: linear-gradient(-45deg,
-      #000000 0%,
-      #ff0000 15%,
-      #ff4500 30%,
-      #ffffff 45%,
-      #ffcc00 60%,
-      #ff4500 85%,
-      #000000 100%);
+  background: linear-gradient(
+    -45deg,
+    #000000 0%,
+    #ff0000 15%,
+    #ff4500 30%,
+    #ffffff 45%,
+    #ffcc00 60%,
+    #ff4500 85%,
+    #000000 100%
+  );
   background-size: 300% auto;
   -webkit-background-clip: text;
   background-clip: text;
@@ -667,16 +685,18 @@ main {
 }
 
 .image-container::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: -150%;
   width: 60%;
   height: 100%;
-  background: linear-gradient(to right,
-      transparent,
-      rgba(255, 255, 255, 0.15),
-      transparent);
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(255, 255, 255, 0.15),
+    transparent
+  );
   transform: skewX(-25deg);
   transition: 0.75s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 2;
@@ -694,7 +714,7 @@ main {
   border-radius: 4px !important;
   color: #ffffff !important;
   cursor: pointer !important;
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 12px;
   font-weight: 800 !important;
   letter-spacing: 1px;
@@ -711,7 +731,6 @@ main {
 }
 
 @media (max-width: 768px) {
-
   .product-btn-buy,
   .product-btn-cart {
     font-size: 10px;
@@ -731,7 +750,6 @@ main {
 }
 
 @media (max-width: 768px) {
-
   .product-btn-buy:hover,
   .product-btn-cart:hover {
     transform: none;
@@ -746,13 +764,18 @@ main {
 
 .product-btn-buy::before,
 .product-btn-cart::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  background: linear-gradient(
+    120deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
   transition: 0.5s;
 }
 
@@ -789,16 +812,18 @@ main {
 }
 
 .product-card .image-container::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: -150%;
   width: 50%;
   height: 100%;
-  background: linear-gradient(to right,
-      transparent,
-      rgba(255, 255, 255, 0.2),
-      transparent);
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
   transform: skewX(-25deg);
   transition: 0.7s;
   z-index: 2;
@@ -821,13 +846,18 @@ main {
 }
 
 .product-card::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: -140%;
   width: 70%;
   height: 100%;
-  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+  background: linear-gradient(
+    120deg,
+    transparent,
+    rgba(255, 255, 255, 0.18),
+    transparent
+  );
   transform: skewX(-20deg);
   opacity: 0;
   pointer-events: none;
@@ -835,14 +865,18 @@ main {
 }
 
 .product-card::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   border-radius: 12px;
   padding: 1px;
   background: linear-gradient(135deg, #ff4500, transparent, #ffcc00);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   opacity: 0;
@@ -853,7 +887,9 @@ main {
 .product-card:hover {
   transform: translateY(-12px);
   background: #111111;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 69, 0, 0.2);
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.8),
+    0 0 20px rgba(255, 69, 0, 0.2);
   border-color: #ff4500;
 }
 
@@ -867,26 +903,44 @@ main {
 }
 
 .premium-cards .product-card {
-  background: radial-gradient(140% 140% at 0% 0%, rgba(255, 102, 0, 0.12), rgba(8, 8, 12, 0.98) 60%);
+  background: radial-gradient(
+    140% 140% at 0% 0%,
+    rgba(255, 102, 0, 0.12),
+    rgba(8, 8, 12, 0.98) 60%
+  );
   border-color: rgba(255, 102, 0, 0.28);
   border-radius: 18px;
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.65);
-  transition: transform 0.45s ease, box-shadow 0.45s ease, border-color 0.45s ease;
+  transition:
+    transform 0.45s ease,
+    box-shadow 0.45s ease,
+    border-color 0.45s ease;
 }
 
 .premium-cards .product-card::after {
   border-radius: 18px;
-  background: linear-gradient(140deg, rgba(255, 204, 153, 0.65), transparent 45%, rgba(255, 153, 0, 0.7));
+  background: linear-gradient(
+    140deg,
+    rgba(255, 204, 153, 0.65),
+    transparent 45%,
+    rgba(255, 153, 0, 0.7)
+  );
 }
 
 .premium-cards .product-card:hover {
   transform: translateY(-10px) scale(1.01);
   border-color: rgba(255, 153, 0, 0.6);
-  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.8), 0 0 26px rgba(255, 102, 0, 0.2);
+  box-shadow:
+    0 26px 60px rgba(0, 0, 0, 0.8),
+    0 0 26px rgba(255, 102, 0, 0.2);
 }
 
 .premium-cards .product-card .card-body {
-  background: linear-gradient(180deg, rgba(12, 12, 16, 0.96), rgba(6, 6, 8, 0.96));
+  background: linear-gradient(
+    180deg,
+    rgba(12, 12, 16, 0.96),
+    rgba(6, 6, 8, 0.96)
+  );
   border-top: 1px solid rgba(255, 102, 0, 0.2);
   padding: 22px 20px 24px;
 }
@@ -927,6 +981,7 @@ main {
   .premium-cards .product-card .product-desc {
     display: -webkit-box;
     -webkit-line-clamp: 3;
+    line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
@@ -936,16 +991,24 @@ main {
   position: relative;
   border-radius: 24px;
   padding: 44px;
-  background: radial-gradient(120% 120% at 0% 0%, rgba(255, 102, 0, 0.2), rgba(5, 5, 8, 0.9) 60%);
+  background: radial-gradient(
+    120% 120% at 0% 0%,
+    rgba(255, 102, 0, 0.2),
+    rgba(5, 5, 8, 0.9) 60%
+  );
   border: 1px solid rgba(255, 102, 0, 0.25);
   overflow: hidden;
 }
 
 .home-premium .hero-block::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at top right, rgba(255, 204, 0, 0.25), transparent 55%);
+  background: radial-gradient(
+    circle at top right,
+    rgba(255, 204, 0, 0.25),
+    transparent 55%
+  );
   opacity: 0.7;
   pointer-events: none;
 }
@@ -957,7 +1020,11 @@ main {
 
 .home-premium .highlight-strip {
   border: 1px solid rgba(255, 102, 0, 0.2);
-  background: linear-gradient(120deg, rgba(255, 102, 0, 0.12), rgba(10, 10, 14, 0.35));
+  background: linear-gradient(
+    120deg,
+    rgba(255, 102, 0, 0.12),
+    rgba(10, 10, 14, 0.35)
+  );
   padding: 26px;
   border-radius: 20px;
 }
@@ -1045,7 +1112,7 @@ main {
 .product-desc {
   color: #d1d1d1;
   flex-grow: 1;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 0.875rem;
   font-weight: 400;
   margin-bottom: 20px;
@@ -1074,7 +1141,7 @@ main {
 }
 
 .product-name {
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 1.2rem;
   font-weight: 800;
   margin-bottom: 10px;
@@ -1092,14 +1159,14 @@ main {
   font-size: 16px;
   margin-right: 8px;
   text-decoration: line-through;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
 }
 
 .sale-price {
   color: #ffffff;
   font-size: 22px;
   font-weight: 900;
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   text-shadow: 0 0 10px rgba(255, 69, 0, 0.5);
   position: relative;
 }
@@ -1114,9 +1181,11 @@ main {
 .sale-badge {
   background-color: #dc3545;
   border-radius: 5px;
-  box-shadow: 0 0 15px rgba(220, 53, 69, 0.6), inset 0 0 10px rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 0 15px rgba(220, 53, 69, 0.6),
+    inset 0 0 10px rgba(255, 255, 255, 0.2);
   color: white;
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 12px;
   font-weight: 700;
   left: 10px;
@@ -1135,7 +1204,11 @@ main {
 
 .sale-badge::before {
   animation: badgeGlow 1.5s ease-in-out infinite;
-  background: radial-gradient(circle, rgba(255, 100, 100, 0.3) 0%, transparent 70%);
+  background: radial-gradient(
+    circle,
+    rgba(255, 100, 100, 0.3) 0%,
+    transparent 70%
+  );
   border-radius: 5px;
   bottom: 0;
   left: 0;
@@ -1154,20 +1227,27 @@ main {
 }
 
 .footer::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 1px;
-  background: linear-gradient(90deg, transparent, #ff4500, #ffcc00, #ff4500, transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    #ff4500,
+    #ffcc00,
+    #ff4500,
+    transparent
+  );
   background-size: 200% auto;
   animation: border-shimmer 4s linear infinite;
 }
 
 .footer-heading {
   color: #ffffff;
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 16px;
   font-weight: 800;
   margin-bottom: 25px;
@@ -1181,7 +1261,7 @@ main {
 
 .footer-text {
   color: #bfbfbf;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 0.85rem;
   font-weight: 400;
   line-height: 1.8;
@@ -1198,7 +1278,7 @@ main {
 
 .footer-links a {
   color: #d0d0d0;
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 0.8rem;
   font-weight: 600;
   text-decoration: none;
@@ -1234,7 +1314,7 @@ main {
 
 .footer-copyright {
   color: #9c9c9c;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 12px;
   margin-top: 40px;
   text-align: center;
@@ -1249,9 +1329,9 @@ main {
 
 .shake-animation {
   display: inline-block !important;
-  animation: cartImpactGlow 0.5s cubic-bezier(.36, .07, .19, .97) both;
+  animation: cartImpactGlow 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
   backface-visibility: hidden;
-  color: #ff4500 !important; 
+  color: #ff4500 !important;
 }
 
 @keyframes cartImpactGlow {
@@ -1262,7 +1342,7 @@ main {
 
   25% {
     transform: scale(1.4) rotate(-15deg);
-    filter: drop-shadow(0 0 15px rgba(255, 69, 0, 0.9)); 
+    filter: drop-shadow(0 0 15px rgba(255, 69, 0, 0.9));
   }
 
   50% {
@@ -1281,7 +1361,6 @@ main {
   }
 }
 
-
 .badge {
   border-radius: 4px;
   font-weight: 500;
@@ -1298,7 +1377,7 @@ main {
   border: 1px solid rgba(255, 69, 0, 0.35) !important;
   border-radius: 4px !important;
   color: #f0f0f0 !important;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 14px;
   font-weight: 600 !important;
   padding: 10px 18px !important;
@@ -1341,7 +1420,9 @@ main {
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 69, 0, 0.4) !important;
   border-radius: 8px !important;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8), 0 0 15px rgba(255, 69, 0, 0.1);
+  box-shadow:
+    0 15px 35px rgba(0, 0, 0, 0.8),
+    0 0 15px rgba(255, 69, 0, 0.1);
   padding: 10px 0 !important;
   margin-top: 10px !important;
   animation: dropdownFade 0.3s ease-out;
@@ -1349,7 +1430,7 @@ main {
 
 .dropdown-item {
   color: #d1d1d1 !important;
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 0.85rem;
   font-weight: 600 !important;
   padding: 12px 25px !important;
@@ -1359,15 +1440,22 @@ main {
 }
 
 .dropdown-item:hover {
-  background: linear-gradient(90deg, rgba(255, 69, 0, 0.2), transparent) !important;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 69, 0, 0.2),
+    transparent
+  ) !important;
   color: #ff4500 !important;
   padding-left: 30px !important;
 }
 
-
 .dropdown-item:active,
 .dropdown-item.active {
-  background: linear-gradient(90deg, rgba(255, 122, 26, 0.85), rgba(255, 204, 0, 0.65)) !important;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 122, 26, 0.85),
+    rgba(255, 204, 0, 0.65)
+  ) !important;
   color: #111 !important;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
 }
@@ -1416,7 +1504,7 @@ main {
 }
 
 #backToTop::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: -2px;
   border-radius: 50%;
@@ -1505,14 +1593,17 @@ main {
 }
 
 @keyframes badgeGlow {
-
   0%,
   100% {
-    box-shadow: 0 0 15px rgba(220, 53, 69, 0.6), inset 0 0 10px rgba(255, 255, 255, 0.2);
+    box-shadow:
+      0 0 15px rgba(220, 53, 69, 0.6),
+      inset 0 0 10px rgba(255, 255, 255, 0.2);
   }
 
   50% {
-    box-shadow: 0 0 25px rgba(220, 53, 69, 0.9), inset 0 0 15px rgba(255, 255, 255, 0.4);
+    box-shadow:
+      0 0 25px rgba(220, 53, 69, 0.9),
+      inset 0 0 15px rgba(255, 255, 255, 0.4);
   }
 }
 
@@ -1566,7 +1657,11 @@ main {
 
   .carousel-overlay {
     padding: 0 20px;
-    background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.85) 60%);
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(0, 0, 0, 0.85) 60%
+    );
     align-items: flex-end;
     padding-bottom: 40px;
   }
@@ -1591,8 +1686,17 @@ main {
 }
 
 .hero-block {
-  background: radial-gradient(circle at top left, rgba(255, 69, 0, 0.12), transparent 55%),
-    radial-gradient(circle at bottom right, rgba(255, 204, 0, 0.1), transparent 45%);
+  background:
+    radial-gradient(
+      circle at top left,
+      rgba(255, 69, 0, 0.12),
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at bottom right,
+      rgba(255, 204, 0, 0.1),
+      transparent 45%
+    );
   border: 1px solid rgba(255, 69, 0, 0.15);
   border-radius: 24px;
   padding: 40px;
@@ -1601,7 +1705,7 @@ main {
 }
 
 .hero-kicker {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   text-transform: uppercase;
   letter-spacing: 2px;
   font-size: 0.75rem;
@@ -1639,7 +1743,9 @@ main {
   letter-spacing: 1px;
   border-radius: 8px;
   box-shadow: 0 12px 25px rgba(255, 69, 0, 0.35);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
 .hero-btn-primary:hover {
@@ -1692,7 +1798,7 @@ main {
   letter-spacing: 1px;
   text-transform: uppercase;
   color: #b0b0b0;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
 }
 
 .hero-grid {
@@ -1714,7 +1820,9 @@ main {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.6s ease, filter 0.6s ease;
+  transition:
+    transform 0.6s ease,
+    filter 0.6s ease;
   filter: brightness(0.85);
 }
 
@@ -1728,7 +1836,11 @@ main {
 }
 
 .highlight-strip {
-  background: linear-gradient(135deg, rgba(255, 69, 0, 0.08), rgba(0, 0, 0, 0.6));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 69, 0, 0.08),
+    rgba(0, 0, 0, 0.6)
+  );
   border-radius: 20px;
   padding: 30px;
   border: 1px solid rgba(255, 69, 0, 0.2);
@@ -1740,7 +1852,9 @@ main {
   border-radius: 16px;
   padding: 24px;
   height: 100%;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
 .highlight-card:hover {
@@ -1749,7 +1863,7 @@ main {
 }
 
 .highlight-icon {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 1.1rem;
   color: #ffcc00;
   margin-bottom: 12px;
@@ -1783,7 +1897,9 @@ main {
   height: 100%;
   object-fit: cover;
   filter: brightness(0.65);
-  transition: transform 0.6s ease, filter 0.6s ease;
+  transition:
+    transform 0.6s ease,
+    filter 0.6s ease;
 }
 
 .category-card:hover img {
@@ -1810,7 +1926,7 @@ main {
 
 .category-overlay span {
   color: #ffcc00;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 0.75rem;
   letter-spacing: 2px;
 }
@@ -1821,7 +1937,7 @@ main {
 }
 
 .section-kicker {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 0.75rem;
   color: #ffcc00;
   letter-spacing: 2px;
@@ -1836,7 +1952,11 @@ main {
 }
 
 .experience-strip {
-  background: linear-gradient(135deg, rgba(255, 69, 0, 0.08), rgba(0, 0, 0, 0.7));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 69, 0, 0.08),
+    rgba(0, 0, 0, 0.7)
+  );
   border-radius: 24px;
   padding: 35px;
   border: 1px solid rgba(255, 69, 0, 0.2);
@@ -1924,7 +2044,9 @@ main {
   min-width: 350px;
   max-width: 350px;
   flex-shrink: 0;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
 .testimonial-card:hover {
@@ -1943,14 +2065,18 @@ main {
   display: flex;
   justify-content: space-between;
   color: #ffcc00;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
 .newsletter-cta {
-  background: linear-gradient(135deg, rgba(255, 69, 0, 0.1), rgba(0, 0, 0, 0.8));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 69, 0, 0.1),
+    rgba(0, 0, 0, 0.8)
+  );
   border-radius: 24px;
   padding: 35px;
   border: 1px solid rgba(255, 69, 0, 0.2);
@@ -1984,7 +2110,11 @@ main {
 }
 
 .product-detail-card {
-  background: linear-gradient(135deg, rgba(255, 69, 0, 0.08), rgba(0, 0, 0, 0.9));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 69, 0, 0.08),
+    rgba(0, 0, 0, 0.9)
+  );
   border: 1px solid rgba(255, 69, 0, 0.25);
   border-radius: 22px;
   padding: 28px;
@@ -1994,16 +2124,24 @@ main {
 .product-page .product-detail-card {
   position: relative;
   overflow: hidden;
-  background: radial-gradient(140% 140% at 0% 0%, rgba(255, 102, 0, 0.2), rgba(6, 6, 10, 0.95) 60%);
+  background: radial-gradient(
+    140% 140% at 0% 0%,
+    rgba(255, 102, 0, 0.2),
+    rgba(6, 6, 10, 0.95) 60%
+  );
   border-color: rgba(255, 102, 0, 0.32);
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.7);
 }
 
 .product-page .product-detail-card::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at top right, rgba(255, 204, 0, 0.2), transparent 55%);
+  background: radial-gradient(
+    circle at top right,
+    rgba(255, 204, 0, 0.2),
+    transparent 55%
+  );
   opacity: 0.8;
   pointer-events: none;
 }
@@ -2068,7 +2206,7 @@ main {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
 }
 
 .live-viewers i {
@@ -2086,7 +2224,9 @@ main {
 }
 
 @keyframes eye-blink {
-  0%, 92%, 100% {
+  0%,
+  92%,
+  100% {
     transform: scaleY(1);
   }
 
@@ -2096,7 +2236,8 @@ main {
 }
 
 @keyframes live-pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     opacity: 1;
   }
@@ -2237,7 +2378,7 @@ main {
   background: transparent !important;
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
   color: #ffffff !important;
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-weight: 800;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -2256,7 +2397,11 @@ main {
 }
 
 .wishlist-shell {
-  background: linear-gradient(135deg, rgba(255, 69, 0, 0.08), rgba(0, 0, 0, 0.85));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 69, 0, 0.08),
+    rgba(0, 0, 0, 0.85)
+  );
   border-radius: 24px;
   border: 1px solid rgba(255, 69, 0, 0.2);
   padding: 28px;
@@ -2284,7 +2429,11 @@ main {
 }
 
 .tracking-shell {
-  background: linear-gradient(135deg, rgba(255, 69, 0, 0.08), rgba(0, 0, 0, 0.85));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 69, 0, 0.08),
+    rgba(0, 0, 0, 0.85)
+  );
   border-radius: 24px;
   border: 1px solid rgba(255, 69, 0, 0.2);
   padding: 28px;
@@ -2304,7 +2453,7 @@ main {
 }
 
 .tracking-kicker {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   color: #ffcc00;
   letter-spacing: 2px;
   text-transform: uppercase;
@@ -2377,7 +2526,7 @@ main {
   background: rgba(255, 69, 0, 0.2);
   border: 1px solid rgba(255, 69, 0, 0.5);
   color: #ffcc00;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 0.8rem;
 }
 
@@ -2461,7 +2610,9 @@ main {
   .search-suggestions {
     background: #0a0a0a;
     border: 1px solid rgba(255, 102, 0, 0.6);
-    box-shadow: 0 22px 50px rgba(0, 0, 0, 0.9), 0 0 0 2px rgba(0, 0, 0, 0.6);
+    box-shadow:
+      0 22px 50px rgba(0, 0, 0, 0.9),
+      0 0 0 2px rgba(0, 0, 0, 0.6);
     padding: 6px 0;
     max-height: 50vh;
     z-index: 12000;
@@ -2485,11 +2636,13 @@ main {
 .suggestion-price {
   font-size: 0.8rem;
   color: #ffcc00;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
 }
 
 .product-focus {
-  box-shadow: 0 0 25px rgba(255, 204, 0, 0.6), 0 0 60px rgba(255, 69, 0, 0.4) !important;
+  box-shadow:
+    0 0 25px rgba(255, 204, 0, 0.6),
+    0 0 60px rgba(255, 69, 0, 0.4) !important;
   border-color: #ffcc00 !important;
   transform: translateY(-6px) scale(1.02);
 }
@@ -2685,7 +2838,11 @@ main {
   position: relative;
   border-radius: 18px;
   padding: 56px 40px;
-  background: linear-gradient(135deg, rgba(255, 102, 0, 0.12), rgba(0, 0, 0, 0.2));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 102, 0, 0.12),
+    rgba(0, 0, 0, 0.2)
+  );
   border: 1px solid rgba(255, 102, 0, 0.25);
   overflow: hidden;
 }
@@ -2694,7 +2851,11 @@ main {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at top left, rgba(255, 102, 0, 0.35), transparent 55%);
+  background: radial-gradient(
+    circle at top left,
+    rgba(255, 102, 0, 0.35),
+    transparent 55%
+  );
   opacity: 0.6;
 }
 
@@ -2885,12 +3046,19 @@ main {
 }
 
 .filter-bar {
-  background: radial-gradient(circle at top left, rgba(255, 69, 0, 0.08), transparent 45%),
+  background:
+    radial-gradient(
+      circle at top left,
+      rgba(255, 69, 0, 0.08),
+      transparent 45%
+    ),
     rgba(0, 0, 0, 0.88);
   border: 1px solid rgba(255, 69, 0, 0.35);
   border-radius: 18px;
   padding: 24px;
-  box-shadow: 0 18px 35px rgba(0, 0, 0, 0.55), 0 0 12px rgba(255, 69, 0, 0.08);
+  box-shadow:
+    0 18px 35px rgba(0, 0, 0, 0.55),
+    0 0 12px rgba(255, 69, 0, 0.08);
 }
 
 .filter-header {
@@ -2926,7 +3094,7 @@ main {
 }
 
 .filter-bar .form-label {
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   letter-spacing: 1px;
   text-transform: uppercase;
   color: #ffcc00;
@@ -2940,7 +3108,7 @@ main {
   padding: 12px 14px !important;
   text-transform: uppercase;
   letter-spacing: 1px;
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-weight: 600;
 }
 
@@ -2968,15 +3136,20 @@ main {
   padding: 12px 14px !important;
   text-transform: uppercase;
   letter-spacing: 1px;
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-weight: 600;
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
-  background-image: linear-gradient(45deg, transparent 50%, #ff4500 50%),
+  background-image:
+    linear-gradient(45deg, transparent 50%, #ff4500 50%),
     linear-gradient(135deg, #ff4500 50%, transparent 50%) !important;
-  background-position: calc(100% - 20px) calc(50% - 2px), calc(100% - 14px) calc(50% - 2px) !important;
-  background-size: 6px 6px, 6px 6px !important;
+  background-position:
+    calc(100% - 20px) calc(50% - 2px),
+    calc(100% - 14px) calc(50% - 2px) !important;
+  background-size:
+    6px 6px,
+    6px 6px !important;
   background-repeat: no-repeat !important;
   padding-right: 42px !important;
 }
@@ -3016,7 +3189,7 @@ main {
   background: #000000 !important;
   border: 1px solid #ff4500 !important;
   color: #ffffff !important;
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-weight: 800;
   letter-spacing: 1px;
   text-transform: uppercase;
