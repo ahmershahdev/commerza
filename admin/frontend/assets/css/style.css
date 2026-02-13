@@ -736,6 +736,14 @@ body.sidebar-open .admin-backdrop {
     visibility: visible;
 }
 
+@media(hover:none){
+    html{
+        scrollbar-width: thin;
+        scroll-behavior: smooth;
+        scrollbar-color: orangered transparent;
+    }
+}
+
 @media (max-width: 768px) {
     .admin-sidebar {
         position: fixed;

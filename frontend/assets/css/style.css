@@ -605,7 +605,7 @@ main {
   gap: 12px;
 }
 
-/* Responsive carousel controls */
+
 @media (max-width: 1024px) {
   .carousel-controls-top {
     bottom: 50px;
@@ -1043,7 +1043,7 @@ main {
   opacity: 1;
 }
 
-/* Center last row products on desktop and tablet */
+
 @media (min-width: 768px) {
   .col-lg-3.last-row-product {
     margin-left: auto;
@@ -1213,6 +1213,11 @@ main {
 }
 
 @media (hover: none) {
+  html{
+    scrollbar-color: orangered transparent;
+    scrollbar-width: thin;
+    scroll-behavior: smooth;
+  }
   .p-image:hover {
     transform: none;
     filter: brightness(0.75) saturate(0.8) contrast(1.1);
