@@ -209,7 +209,20 @@
                         </div>
                     </div>
                     <div id="carouselExampleIndicators" class="carousel slide carousel-fade hero-carousel" data-bs-ride="carousel"
-                        data-bs-interval="4500" data-bs-pause="hover">
+                        data-bs-interval="3500" data-bs-pause="hover">
+                        <div class="carousel-controls-top">
+                            <button class="carousel-control-btn carousel-play-pause" id="carouselPlayPause" type="button" aria-label="Play/Pause carousel">
+                                <i class="bi bi-pause-fill"></i>
+                            </button>
+                            <div class="carousel-nav-arrows">
+                                <button class="carousel-control-btn carousel-prev-btn" type="button" data-bs-target="#carouselExampleIndicators" data-bs-slide="prev" aria-label="Previous slide">
+                                    <i class="bi bi-chevron-left"></i>
+                                </button>
+                                <button class="carousel-control-btn carousel-next-btn" type="button" data-bs-target="#carouselExampleIndicators" data-bs-slide="next" aria-label="Next slide">
+                                    <i class="bi bi-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
                         <div class="carousel-indicators">
                             <button type="button" data-bs-target="#carouselExampleIndicators" data-bs-slide-to="0"
                                 class="active" aria-current="true" aria-label="Slide 1"></button>
@@ -376,7 +389,23 @@
                 </div>
               </div>
             </section>
-
+           
+            
+            <section class="video-showcase-section mb-5">
+              <div class="video-container">
+                <video 
+                  autoplay 
+                  muted 
+                  loop 
+                  playsinline
+                  loading="lazy"
+                  class="showcase-video"
+                  aria-label="Steel watch 3D animation">
+                  <source src="frontend/assets/videos/slider/steel_watch_1.mp4" type="video/mp4">
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+            </section>
             <section class="section-heading mt-5">
               <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
                 <div>
@@ -833,6 +862,38 @@
     <script>
         $(document).ready(function() {
             loadProductsBySection('featured-collection', 'featured-products-container');
+            
+            // Initialize carousel controls
+            const carousel = document.getElementById('carouselExampleIndicators');
+            const playPauseBtn = document.getElementById('carouselPlayPause');
+            const carouselIndicators = document.querySelector('.carousel-indicators');
+            let isPlaying = true;
+            
+            if (carousel && playPauseBtn) {
+                // Show carousel indicators
+                carouselIndicators.classList.add('show');
+                
+                // Play/Pause functionality
+                playPauseBtn.addEventListener('click', function() {
+                    const bootstrapCarousel = new bootstrap.Carousel(carousel);
+                    if (isPlaying) {
+                        bootstrapCarousel.pause();
+                        playPauseBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
+                        isPlaying = false;
+                    } else {
+                        bootstrapCarousel.cycle();
+                        playPauseBtn.innerHTML = '<i class="bi bi-pause-fill"></i>';
+                        isPlaying = true;
+                    }
+                });
+                
+                // Update play/pause icon on carousel events
+                carousel.addEventListener('slide.bs.carousel', function() {
+                    if (isPlaying) {
+                        playPauseBtn.innerHTML = '<i class="bi bi-pause-fill"></i>';
+                    }
+                });
+            }
         });
     </script>
 

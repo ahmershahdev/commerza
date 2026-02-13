@@ -8,20 +8,12 @@
   color: #000000;
 }
 
-/* Scrollbar styling for all browsers */
-html {
-  scrollbar-color: #ff4500 #000000;
-  scrollbar-width: thin;
-}
-
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
   background: #000000;
-  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
@@ -32,14 +24,6 @@ html {
 
 ::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #ffcc00 0%, #ff4500 100%);
-  box-shadow: inset 0 0 8px rgba(255, 69, 0, 0.3);
-}
-
-/* Mobile scrollbar enhancement */
-@supports selector(::-webkit-scrollbar) {
-  ::-webkit-scrollbar-corner {
-    background: #000000;
-  }
 }
 
 html {
@@ -443,6 +427,7 @@ main {
   overflow: hidden;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
   user-select: none;
+  position: relative;
 }
 
 .carousel-overlay {
@@ -527,21 +512,137 @@ main {
   color: #000;
 }
 
+.carousel-indicators {
+  display: none;
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-13.5%);
+  z-index: 11;
+  width: 100%;
+}
+
+.carousel-indicators.show {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+}
+
 .carousel-indicators button {
-  background-color: #333333 !important;
-  height: 4px !important;
-  width: 30px !important;
-  border-radius: 2px;
-  border: none !important;
-  opacity: 0.5;
-  transition: all 0.4s ease !important;
+  background-color: transparent !important;
+  height: 14px !important;
+  width: 14px !important;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 69, 0, 0.6) !important;
+  opacity: 1;
+  transition: all 0.3s ease !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.carousel-indicators button:hover {
+  border-color: #ff4500 !important;
+  transform: scale(1.15);
 }
 
 .carousel-indicators button.active {
-  background: linear-gradient(90deg, #ff4500, #ffcc00) !important;
-  width: 30px !important;
+  background: linear-gradient(135deg, #ff4500, #ffcc00) !important;
+  border-color: #ff4500 !important;
   opacity: 1;
-  box-shadow: 0 0 10px rgba(255, 69, 0, 0.5);
+  box-shadow: 0 0 20px rgba(255, 69, 0, 0.7);
+}
+
+.carousel-controls-top {
+  position: absolute;
+  bottom: 55px;
+  left: 50%;
+  transform: translateX(-40%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  z-index: 10;
+}
+
+.carousel-control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: rgba(255, 69, 0, 0.15);
+  border: 1.5px solid rgba(255, 69, 0, 0.5);
+  border-radius: 50%;
+  color: #ff4500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 18px;
+}
+
+.carousel-control-btn:hover {
+  background: rgba(255, 69, 0, 0.3);
+  border-color: #ff4500;
+  box-shadow: 0 0 20px rgba(255, 69, 0, 0.4);
+  transform: scale(1.15);
+}
+
+.carousel-control-btn:active {
+  transform: scale(0.9);
+}
+
+.carousel-play-pause {
+  width: 44px;
+  height: 44px;
+  min-width: auto;
+}
+
+.carousel-nav-arrows {
+  display: flex;
+  gap: 12px;
+}
+
+/* Responsive carousel controls */
+@media (max-width: 1024px) {
+  .carousel-controls-top {
+    bottom: 50px;
+    gap: 25px;
+  }
+  
+  .carousel-control-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .carousel-controls-top {
+    gap: 18px;
+    bottom: 45px;
+  }
+  
+  .carousel-control-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 576px) {
+  .carousel-controls-top {
+    gap: 14px;
+    bottom: 40px;
+  }
+  
+  .carousel-control-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
 }
 
 .ticker-container {
@@ -692,6 +793,30 @@ main {
 .p-image:hover {
   transform: scale(1.1);
   filter: brightness(0.75) saturate(1.1) contrast(1.15);
+}
+
+/* Sports Division - Zoomed out images */
+#sports-division-products-container .p-image {
+  object-fit: contain;
+  object-position: center;
+}
+
+/* Signature Collection - Zoomed out images */
+#signature-collection-products-container .p-image {
+  object-fit: contain;
+  object-position: center;
+}
+
+/* Featured Collection & Automatic Vault - Slightly zoomed with better brightness */
+#featured-products-container .p-image,
+#automatic-vault-products-container .p-image {
+  object-fit: cover;
+  filter: brightness(0.85) saturate(0.8) contrast(1.1);
+}
+
+#featured-products-container .p-image:hover,
+#automatic-vault-products-container .p-image:hover {
+  filter: brightness(0.95) saturate(1) contrast(1.15);
 }
 
 .image-container {
@@ -1953,6 +2078,31 @@ main {
   font-family: "JetBrains Mono", monospace;
   font-size: 0.75rem;
   letter-spacing: 2px;
+}
+
+/* Video Showcase Section - Full Width */
+.video-showcase-section {
+  width: 100%;
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
+  padding-left: 0;
+  padding-right: 0;
+  background: transparent;
+}
+
+.video-container {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #000;
+}
+
+.video-showcase-section .showcase-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .section-heading {
