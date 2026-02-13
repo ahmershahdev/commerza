@@ -1883,13 +1883,12 @@ function renderProducts(products, containerId) {
 
   if (shouldCenterLastRow) {
     const lastBatch = products.slice(splitIndex);
-    const lastRowWrapper = $(
-      '<div class="row mt-3 justify-content-center gx-4"></div>',
-    );
     lastBatch.forEach((product) => {
-      lastRowWrapper.append(createProductCard(product));
+      const productCardHtml = createProductCard(product);
+      const wrappedCard = $(productCardHtml);
+      wrappedCard.addClass('last-row-product');
+      container.append(wrappedCard);
     });
-    container.append(lastRowWrapper);
   }
 }
 
