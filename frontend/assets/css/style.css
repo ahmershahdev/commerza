@@ -557,7 +557,7 @@ main {
 
 .carousel-controls-top {
   position: absolute;
-  bottom: 55px;
+  bottom: 45px;
   left: 50%;
   transform: translateX(-40%);
   display: flex;
@@ -608,7 +608,7 @@ main {
 
 @media (max-width: 1024px) {
   .carousel-controls-top {
-    bottom: 50px;
+    bottom: 30px;
     gap: 25px;
   }
   
@@ -617,12 +617,16 @@ main {
     height: 40px;
     font-size: 16px;
   }
+  
+  .carousel-indicators {
+    bottom: -10px !important;
+  }
 }
 
 @media (max-width: 768px) {
   .carousel-controls-top {
     gap: 18px;
-    bottom: 45px;
+    bottom: 12px;
   }
   
   .carousel-control-btn {
@@ -630,18 +634,26 @@ main {
     height: 36px;
     font-size: 14px;
   }
+  
+  .carousel-indicators {
+    bottom: -25px !important;
+  }
 }
 
 @media (max-width: 576px) {
   .carousel-controls-top {
     gap: 14px;
-    bottom: 40px;
+    bottom: 8px;
   }
   
   .carousel-control-btn {
     width: 32px;
     height: 32px;
     font-size: 12px;
+  }
+  
+  .carousel-indicators {
+    bottom: -35px !important;
   }
 }
 
@@ -653,7 +665,7 @@ main {
     inset 0 1px 0 rgba(255, 255, 255, 0.03),
     0 8px 24px rgba(0, 0, 0, 0.4);
   display: flex;
-  height: 32px;
+  height: 40px;
   margin-top: 0;
   margin-bottom: 0;
   overflow: hidden;
@@ -1772,6 +1784,8 @@ main {
 
   .carousel-overlay {
     padding: 0 30px;
+    align-items: flex-end;
+    padding-bottom: 45px;
   }
 
   .carousel-heading {
@@ -1785,6 +1799,7 @@ main {
   .carousel-btn {
     padding: 12px 24px;
     font-size: 0.85rem;
+    margin-bottom: 15px;
   }
 }
 
@@ -1817,7 +1832,7 @@ main {
       rgba(0, 0, 0, 0.85) 60%
     );
     align-items: flex-end;
-    padding-bottom: 40px;
+    padding-bottom: 50px;
   }
 
   .carousel-heading {
@@ -1832,6 +1847,10 @@ main {
   .carousel-label {
     font-size: 0.65rem;
     padding: 4px 10px;
+  }
+  
+  .carousel-btn {
+    margin-bottom: 20px;
   }
 
   .hero-carousel {
@@ -1909,20 +1928,20 @@ main {
 }
 
 .hero-btn-outline {
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
   color: #fff;
-  font-weight: 700;
-  padding: 12px 26px;
+  font-weight: 700 !important;
+  padding: 12px 26px !important;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  border-radius: 8px;
-  transition: all 0.3s ease;
+  letter-spacing: 1px !important;
+  border-radius: 8px !important;
+  transition: all 0.3s ease !important;
 }
 
 .hero-btn-outline:hover {
-  border-color: #ffcc00;
-  color: #ffcc00;
-  transform: translateY(-2px);
+  border-color: #ffcc00 !important;
+  color: #ffcc00 !important;
+  transform: translateY(-2px) !important;
 }
 
 .hero-stats {

@@ -648,6 +648,32 @@ $(document).ready(function () {
   let cart = JSON.parse(localStorage.getItem("commerza_cart")) || [];
 
   applySiteSettings();
+  
+  
+  const carouselElement = document.getElementById("carouselExampleIndicators");
+  const playPauseBtn = document.getElementById("carouselPlayPause");
+  
+  if (carouselElement && playPauseBtn) {
+    const carousel = new bootstrap.Carousel(carouselElement, {
+      interval: 3500,
+      pause: false
+    });
+    
+    let isPlaying = true;
+    
+    playPauseBtn.addEventListener("click", function() {
+      isPlaying = !isPlaying;
+      
+      if (isPlaying) {
+        carousel.cycle();
+        playPauseBtn.innerHTML = '<i class="bi bi-pause-fill"></i>';
+      } else {
+        carousel.pause();
+        playPauseBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
+      }
+    });
+  }
+  
   initAccountPage();
 
   updateCartBadge();
