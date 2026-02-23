@@ -55,7 +55,8 @@
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link nav-icon-link" href="account.html" aria-label="Account"><i class="bi bi-person"></i></a>
+              <a class="nav-link nav-icon-link" href="account.html" aria-label="Account"><i
+                  class="bi bi-person"></i></a>
             </li>
           </ul>
           <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#navbarOffcanvas"
@@ -187,7 +188,8 @@
               <strong>Total</strong>
               <strong id="cart-total" style="color: #e05e00">0 PKR</strong>
             </div>
-            <button class="btn product-btn-buy w-100" data-bs-toggle="modal" data-bs-target="#checkoutModal">Proceed to Checkout</button>
+            <button class="btn product-btn-buy w-100" data-bs-toggle="modal" data-bs-target="#checkoutModal">Proceed to
+              Checkout</button>
           </div>
         </div>
       </div>
@@ -205,23 +207,33 @@
           <form id="checkoutForm">
             <div class="mb-3">
               <label for="customerName" class="form-label" style="color: #fff;">Full Name *</label>
-              <input type="text" class="form-control" id="customerName" style="background-color: #2a2a2a; border: 1px solid #444; color: #fff;" required>
+              <input type="text" class="form-control" id="customerName" maxlength="40"
+                style="background-color: #2a2a2a; border: 1px solid #444; color: #fff;" required
+                placeholder="Enter your full name">
             </div>
             <div class="mb-3">
               <label for="paymentMethod" class="form-label" style="color: #fff;">Payment Method *</label>
-              <input type="text" class="form-control" id="paymentMethod" value="Cash on Delivery (COD)" style="background-color: #2a2a2a; border: 1px solid #444; color: #fff;" disabled>
+              <input type="text" class="form-control" id="paymentMethod" value="Cash on Delivery (COD)"
+                style="background-color: #2a2a2a; border: 1px solid #444; color: #fff;" disabled
+                placeholder="Payment Method">
             </div>
             <div class="mb-3">
               <label for="customerAddress" class="form-label" style="color: #fff;">Address *</label>
-              <textarea class="form-control" id="customerAddress" rows="3" style="background-color: #2a2a2a; border: 1px solid #444; color: #fff;" required></textarea>
+              <textarea class="form-control" id="customerAddress" rows="3"
+                style="background-color: #2a2a2a; border: 1px solid #444; color: #fff;" required
+                placeholder="Enter your address"></textarea>
             </div>
             <div class="mb-3">
               <label for="customerPhone" class="form-label" style="color: #fff;">Phone Number *</label>
-              <input type="tel" class="form-control" id="customerPhone" style="background-color: #2a2a2a; border: 1px solid #444; color: #fff;" required>
+              <input type="tel" class="form-control" id="customerPhone"
+                style="background-color: #2a2a2a; border: 1px solid #444; color: #fff;" required minlength="11"
+                maxlength="15" placeholder="Enter your phone number">
             </div>
             <div class="mb-3">
-              <label for="customerEmail" class="form-label" style="color: #fff;">Email (Optional)</label>
-              <input type="email" class="form-control" id="customerEmail" style="background-color: #2a2a2a; border: 1px solid #444; color: #fff;">
+              <label for="customerEmail" class="form-label" style="color: #fff;">Email *</label>
+              <input type="email" class="form-control" id="customerEmail" maxlength="150"
+                style="background-color: #2a2a2a; border: 1px solid #444; color: #fff;" required
+                placeholder="Enter your email address">
             </div>
           </form>
         </div>
@@ -265,9 +277,12 @@
         <div class="col-12 col-sm-6 col-md-6 col-lg-3 mb-4">
           <h3 class="footer-heading">Connect</h3>
           <div class="social-links">
-            <a href="https://www.facebook.com/commerza.ahmer" target="_blank" aria-label="Commerza on Facebook"><i class="bi bi-facebook"></i></a>
-            <a href="https://x.com/commerza_ahmer" target="_blank" aria-label="Commerza on X"><i class="bi bi-twitter"></i></a>
-            <a href="https://www.instagram.com/commerza.ahmer" target="_blank" aria-label="Commerza on Instagram"><i class="bi bi-instagram"></i></a>
+            <a href="https://www.facebook.com/commerza.ahmer" target="_blank" aria-label="Commerza on Facebook"><i
+                class="bi bi-facebook"></i></a>
+            <a href="https://x.com/commerza_ahmer" target="_blank" aria-label="Commerza on X"><i
+                class="bi bi-twitter"></i></a>
+            <a href="https://www.instagram.com/commerza.ahmer" target="_blank" aria-label="Commerza on Instagram"><i
+                class="bi bi-instagram"></i></a>
           </div>
           <p class="footer-text mt-3">Email: commerza.ahmer@gmail.com</p>
           <p class="footer-text">Phone: +92 314 8396293</p>
@@ -289,7 +304,7 @@
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="frontend/assets/js/script.js"></script>
   <script>
-    $('#checkoutModal').on('show.bs.modal', function() {
+    $('#checkoutModal').on('show.bs.modal', function () {
       const cart = JSON.parse(localStorage.getItem('commerza_cart')) || [];
       if (cart.length === 0) {
         alert('Your cart is empty. Please add products before checkout.');
