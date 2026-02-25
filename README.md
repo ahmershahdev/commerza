@@ -3,7 +3,7 @@
 Commerza is a full stack ecommerce project with a premium, conversion-focused storefront and a streamlined admin experience. It is built for fast merchandising, product discovery, and order management.
 
 ## Tech Stack
-- HTML5
+- HTML5 
 - CSS3
 - Bootstrap 5
 - JavaScript
