@@ -218,7 +218,7 @@
           "price": 7000,
           "salePrice": 5500,
           "stock": 35,
-          "movement": "quartz"
+          "movement": "smart"
         },
         {
           "id": 20,
@@ -228,7 +228,7 @@
           "price": 7500,
           "salePrice": 6500,
           "stock": 29,
-          "movement": "quartz"
+          "movement": "smart"
         },
         {
           "id": 21,
@@ -238,7 +238,7 @@
           "price": 11500,
           "salePrice": 8900,
           "stock": 24,
-          "movement": "quartz"
+          "movement": "smart"
         },
         {
           "id": 22,
