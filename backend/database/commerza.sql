@@ -336,6 +336,7 @@ CREATE TABLE `cart` (
   `created_at`      timestamp    NOT NULL DEFAULT current_timestamp(),
   `updated_at`      timestamp    NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
+  KEY `session_id` (`session_id`),
   KEY `user_id`  (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -348,7 +349,6 @@ CREATE TABLE `cart_items` (
   `cart_id`    int(11)       NOT NULL,
   `product_id` int(11)       NOT NULL,
   `quantity`   int(11)       NOT NULL DEFAULT 1,
-  `unit_price` decimal(10,2) NOT NULL COMMENT 'Price locked at time of add',
   `added_at`   timestamp     NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_cart_product` (`cart_id`, `product_id`),

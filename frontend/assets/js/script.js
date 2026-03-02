@@ -1,6 +1,56 @@
 const SITE_SETTINGS_KEY = "commerza_site_settings";
 
 (function () {
+  if (window.__commerzaMediaProtectionEnabled) return;
+  window.__commerzaMediaProtectionEnabled = true;
+
+  document.addEventListener("contextmenu", (event) => {
+    if (event.target.closest("img, video")) {
+      event.preventDefault();
+    }
+  });
+
+  document.addEventListener("dragstart", (event) => {
+    if (event.target.closest("img, video")) {
+      event.preventDefault();
+    }
+  });
+
+  document.addEventListener("selectstart", (event) => {
+    if (!event.target.closest("input, textarea, [contenteditable='true']")) {
+      event.preventDefault();
+    }
+  });
+
+  window.addEventListener(
+    "wheel",
+    (event) => {
+      if (event.ctrlKey) {
+        event.preventDefault();
+      }
+    },
+    { passive: false },
+  );
+
+  window.addEventListener("keydown", (event) => {
+    const blockedKeys = ["+", "=", "-", "_", "0"];
+    if (event.ctrlKey && blockedKeys.includes(event.key)) {
+      event.preventDefault();
+    }
+  });
+
+  ["gesturestart", "gesturechange", "gestureend"].forEach((gestureName) => {
+    window.addEventListener(
+      gestureName,
+      (event) => {
+        event.preventDefault();
+      },
+      { passive: false },
+    );
+  });
+})();
+
+(function () {
   if (window.CommerzaAuth) return;
 
   const USERS_KEY = "commerza_users";
@@ -648,22 +698,21 @@ $(document).ready(function () {
   let cart = JSON.parse(localStorage.getItem("commerza_cart")) || [];
 
   applySiteSettings();
-  
-  
+
   const carouselElement = document.getElementById("carouselExampleIndicators");
   const playPauseBtn = document.getElementById("carouselPlayPause");
-  
+
   if (carouselElement && playPauseBtn) {
     const carousel = new bootstrap.Carousel(carouselElement, {
       interval: 3500,
-      pause: false
+      pause: false,
     });
-    
+
     let isPlaying = true;
-    
-    playPauseBtn.addEventListener("click", function() {
+
+    playPauseBtn.addEventListener("click", function () {
       isPlaying = !isPlaying;
-      
+
       if (isPlaying) {
         carousel.cycle();
         playPauseBtn.innerHTML = '<i class="bi bi-pause-fill"></i>';
@@ -673,7 +722,7 @@ $(document).ready(function () {
       }
     });
   }
-  
+
   initAccountPage();
 
   updateCartBadge();
@@ -1912,7 +1961,7 @@ function renderProducts(products, containerId) {
     lastBatch.forEach((product) => {
       const productCardHtml = createProductCard(product);
       const wrappedCard = $(productCardHtml);
-      wrappedCard.addClass('last-row-product');
+      wrappedCard.addClass("last-row-product");
       container.append(wrappedCard);
     });
   }
