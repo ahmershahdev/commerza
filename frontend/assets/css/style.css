@@ -1,11 +1,25 @@
 ::selection {
-  background: #ff4500;
-  color: #000000;
+  background: transparent;
+  color: inherit;
 }
 
 ::-moz-selection {
-  background: #ff4500;
-  color: #000000;
+  background: transparent;
+  color: inherit;
+}
+
+*:not(input):not(textarea):not([contenteditable="true"]) {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+img,
+video {
+  -webkit-user-drag: none;
+  user-select: none;
+  touch-action: manipulation;
 }
 
 ::-webkit-scrollbar {
@@ -605,19 +619,18 @@ main {
   gap: 12px;
 }
 
-
 @media (max-width: 1024px) {
   .carousel-controls-top {
     bottom: 30px;
     gap: 25px;
   }
-  
+
   .carousel-control-btn {
     width: 40px;
     height: 40px;
     font-size: 16px;
   }
-  
+
   .carousel-indicators {
     bottom: -10px !important;
   }
@@ -628,13 +641,13 @@ main {
     gap: 18px;
     bottom: 12px;
   }
-  
+
   .carousel-control-btn {
     width: 36px;
     height: 36px;
     font-size: 14px;
   }
-  
+
   .carousel-indicators {
     bottom: -25px !important;
   }
@@ -645,13 +658,13 @@ main {
     gap: 14px;
     bottom: 8px;
   }
-  
+
   .carousel-control-btn {
     width: 32px;
     height: 32px;
     font-size: 12px;
   }
-  
+
   .carousel-indicators {
     bottom: -35px !important;
   }
@@ -1055,7 +1068,6 @@ main {
   opacity: 1;
 }
 
-
 @media (min-width: 768px) {
   .col-lg-3.last-row-product {
     margin-left: auto;
@@ -1225,7 +1237,7 @@ main {
 }
 
 @media (hover: none) {
-  html{
+  html {
     scrollbar-color: orangered transparent;
     scrollbar-width: thin;
     scroll-behavior: smooth;
@@ -1848,7 +1860,7 @@ main {
     font-size: 0.65rem;
     padding: 4px 10px;
   }
-  
+
   .carousel-btn {
     margin-bottom: 20px;
   }
@@ -2102,31 +2114,6 @@ main {
   font-family: "JetBrains Mono", monospace;
   font-size: 0.75rem;
   letter-spacing: 2px;
-}
-
-/* Video Showcase Section - Full Width */
-.video-showcase-section {
-  width: 100%;
-  margin-left: calc(-50vw + 50%);
-  margin-right: calc(-50vw + 50%);
-  padding-left: 0;
-  padding-right: 0;
-  background: transparent;
-}
-
-.video-container {
-  width: 100%;
-  height: auto;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  background: #000;
-}
-
-.video-showcase-section .showcase-video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
 }
 
 .section-heading {

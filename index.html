@@ -395,10 +395,10 @@
       </section>
 
 
-      <section class="video-showcase-section mb-5">
-        <div class="video-container">
-          <video autoplay muted loop playsinline loading="lazy" class="showcase-video"
-            aria-label="Steel watch 3D animation">
+      <section class="container-fluid px-0 mb-5">
+        <div class="ratio ratio-16x9">
+          <video autoplay muted loop playsinline preload="metadata" loading="lazy" class="w-100 h-100"
+            style="object-fit: cover;" aria-label="Steel watch 3D animation">
             <source src="frontend/assets/videos/slider/steel_watch_1.mp4" type="video/mp4">
             Your browser does not support the video tag.
           </video>
@@ -795,7 +795,8 @@
           </div>
           <div class="col-12 col-lg-5">
             <form class="newsletter-form">
-              <input type="email" class="newsletter-input" placeholder="Enter your email" aria-label="Email" maxlength="150" >
+              <input type="email" class="newsletter-input" placeholder="Enter your email" aria-label="Email"
+                maxlength="150">
               <button type="submit" class="btn hero-btn-primary">Notify Me</button>
             </form>
           </div>
@@ -867,4 +868,5 @@
     });
   </script>
 </body>
+
 </html>
