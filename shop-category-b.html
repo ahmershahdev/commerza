@@ -197,140 +197,141 @@
 
 <body class="dark-theme premium-cards">
 
-<header>
-        <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
-                <div class="container-fluid">
-                  <a class="navbar-brand fw-bold" href="index.html">
-                    <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy"
-                      class="navbar-logo me-2">
-                    <span class="brand-text">COMMERZA</span>
-                  </a>
+  <header>
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+      <div class="container-fluid">
+        <a class="navbar-brand fw-bold" href="index.html">
+          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy"
+            class="navbar-logo me-2">
+          <span class="brand-text">COMMERZA</span>
+        </a>
 
-                  <div class="d-flex align-items-center order-lg-2">
-                    <ul class="navbar-nav ms-3 d-none d-lg-flex flex-row align-items-center me-3">
-                      <li class="nav-item position-relative me-3">
-                        <a class="nav-link nav-icon-link" href="cart.html" aria-label="View cart">
-                          <i class="bi bi-cart3" id="cart-icon"></i>
-                          <span class="nav-badge" id="cart-count">0</span>
-                        </a>
-                      </li>
-                      <li class="nav-item position-relative me-3">
-                        <a class="nav-link nav-icon-link" href="wishlist.html" aria-label="View wishlist">
-                          <i class="bi bi-heart"></i>
-                          <span class="nav-badge" id="wishlist-count">0</span>
-                        </a>
-                      </li>
-                      <li class="nav-item">
-                        <a class="nav-link nav-icon-link" href="account.html" aria-label="Account"><i class="bi bi-person"></i></a>
-                      </li>
-                    </ul>
-                    <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas"
-                      data-bs-target="#navbarOffcanvas" aria-controls="navbarOffcanvas" aria-label="Toggle navigation">
-                      <span class="navbar-toggler-icon"></span>
-                    </button>
-                  </div>
+        <div class="d-flex align-items-center order-lg-2">
+          <ul class="navbar-nav ms-3 d-none d-lg-flex flex-row align-items-center me-3">
+            <li class="nav-item position-relative me-3">
+              <a class="nav-link nav-icon-link" href="cart.html" aria-label="View cart">
+                <i class="bi bi-cart3" id="cart-icon"></i>
+                <span class="nav-badge" id="cart-count">0</span>
+              </a>
+            </li>
+            <li class="nav-item position-relative me-3">
+              <a class="nav-link nav-icon-link" href="wishlist.html" aria-label="View wishlist">
+                <i class="bi bi-heart"></i>
+                <span class="nav-badge" id="wishlist-count">0</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link nav-icon-link" href="account.html" aria-label="Account"><i
+                  class="bi bi-person"></i></a>
+            </li>
+          </ul>
+          <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#navbarOffcanvas"
+            aria-controls="navbarOffcanvas" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+        </div>
 
-                  <div class="collapse navbar-collapse order-lg-1" id="navbarSupportedContent">
-                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                      <li class="nav-item">
-                        <a class="nav-link" href="index.html">Home</a>
-                      </li>
-                      <li class="nav-item">
-                        <a class="nav-link" href="about.html">About</a>
-                      </li>
-                      <li class="nav-item">
-                        <a class="nav-link" href="contact.html">Contact</a>
-                      </li>
-                      <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle text-uppercase" aria-current="page" href="#"
-                          id="shopDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                          Series
-                        </a>
-                        <ul class="dropdown-menu border-2 border-dark" aria-labelledby="shopDropdown">
-                          <li><a class="dropdown-item" href="shop-category-a.html">The
-                              Automatic Vault</a></li>
-                          <li><a class="dropdown-item" href="shop-category-a.html#smart">Smart Evolution
-                              Series</a></li>
-                          <li>
-                            <hr class="dropdown-divider">
-                          </li>
-                          <li><a class="dropdown-item" aria-current="page" href="shop-category-b.html">The
-                              Signature Collection</a>
-                          </li>
-                          <li><a class="dropdown-item" href="shop-category-b.html#tactical">The Sports & Sales
-                              Division</a></li>
-                        </ul>
-                      </li>
-                    </ul>
-                    <form class="d-flex search-form d-none d-lg-flex" name="product_query" action="/search" method="GET">
-                      <input class="form-control search-input" type="search" placeholder="Search products..."
-                        aria-label="Search" />
-                      <button class="btn search-btn" type="submit"><i class="bi bi-search"></i></button>
-                    </form>
-                  </div>
-                </div>
-              </nav>
+        <div class="collapse navbar-collapse order-lg-1" id="navbarSupportedContent">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <li class="nav-item">
+              <a class="nav-link" href="index.html">Home</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="about.html">About</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="contact.html">Contact</a>
+            </li>
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle text-uppercase" aria-current="page" href="#" id="shopDropdown"
+                role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                Series
+              </a>
+              <ul class="dropdown-menu border-2 border-dark" aria-labelledby="shopDropdown">
+                <li><a class="dropdown-item" href="shop-category-a.html">The
+                    Automatic Vault</a></li>
+                <li><a class="dropdown-item" href="shop-category-a.html#smart">Smart Evolution
+                    Series</a></li>
+                <li>
+                  <hr class="dropdown-divider">
+                </li>
+                <li><a class="dropdown-item" aria-current="page" href="shop-category-b.html">The
+                    Signature Collection</a>
+                </li>
+                <li><a class="dropdown-item" href="shop-category-b.html#tactical">The Sports & Sales
+                    Division</a></li>
+              </ul>
+            </li>
+          </ul>
+          <form class="d-flex search-form d-none d-lg-flex" name="product_query" action="/search" method="GET">
+            <input class="form-control search-input" type="search" placeholder="Search products..."
+              aria-label="Search" />
+            <button class="btn search-btn" type="submit"><i class="bi bi-search"></i></button>
+          </form>
+        </div>
+      </div>
+    </nav>
 
-              <div class="offcanvas offcanvas-start" tabindex="-1" id="navbarOffcanvas" aria-labelledby="offcanvasNavbarLabel">
-                <div class="offcanvas-header">
-                  <h5 class="offcanvas-title" id="offcanvasNavbarLabel">
-                    <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy"
-                      class="offcanvas-logo me-2">
-                    <span class="brand-text">COMMERZA</span>
-                  </h5>
-                  <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-                </div>
-                <div class="offcanvas-body">
-                  <div class="offcanvas-user-actions">
-                    <a href="cart.html" class="offcanvas-action-btn">
-                      <i class="bi bi-cart3"></i>
-                      <span>Cart</span>
-                      <span class="offcanvas-badge" id="cart-count-mobile">0</span>
-                    </a>
-                    <a href="wishlist.html" class="offcanvas-action-btn">
-                      <i class="bi bi-heart"></i>
-                      <span>Wishlist</span>
-                      <span class="offcanvas-badge" id="wishlist-count-mobile">0</span>
-                    </a>
-                    <a href="account.html" class="offcanvas-action-btn">
-                      <i class="bi bi-person"></i>
-                      <span>Account</span>
-                    </a>
-                  </div>
-                  <form class="d-flex search-form mb-4" name="product_query_mobile" action="/search" method="GET">
-                    <input class="form-control search-input" type="search" placeholder="Search products..."
-                      aria-label="Search" />
-                    <button class="btn search-btn" type="submit"><i class="bi bi-search"></i></button>
-                  </form>
-                  <ul class="navbar-nav">
-                    <li class="nav-item">
-                      <a class="nav-link" href="index.html">Home</a>
-                    </li>
-                    <li class="nav-item">
-                      <a class="nav-link" href="about.html">About</a>
-                    </li>
-                    <li class="nav-item">
-                      <a class="nav-link" href="contact.html">Contact</a>
-                    </li>
-                    <li class="nav-item">
-                      <a class="nav-link text-uppercase fw-bold mt-3 mb-2" style="color: #ffcc00; font-size: 0.85rem; letter-spacing: 2px;">Series</a>
-                    </li>
-                    <li class="nav-item">
-                      <a class="nav-link ps-4" href="shop-category-a.html">The Automatic Vault</a>
-                    </li>
-                    <li class="nav-item">
-                      <a class="nav-link ps-4" href="shop-category-a.html#smart">Smart Evolution Series</a>
-                    </li>
-                    <li class="nav-item">
-                      <a class="nav-link ps-4" aria-current="page" href="shop-category-b.html">The Signature Collection</a>
-                    </li>
-                    <li class="nav-item">
-                      <a class="nav-link ps-4" href="shop-category-b.html#tactical">The Sports & Sales Division</a>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-    </header>
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="navbarOffcanvas" aria-labelledby="offcanvasNavbarLabel">
+      <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="offcanvasNavbarLabel">
+          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy"
+            class="offcanvas-logo me-2">
+          <span class="brand-text">COMMERZA</span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+      </div>
+      <div class="offcanvas-body">
+        <div class="offcanvas-user-actions">
+          <a href="cart.html" class="offcanvas-action-btn">
+            <i class="bi bi-cart3"></i>
+            <span>Cart</span>
+            <span class="offcanvas-badge" id="cart-count-mobile">0</span>
+          </a>
+          <a href="wishlist.html" class="offcanvas-action-btn">
+            <i class="bi bi-heart"></i>
+            <span>Wishlist</span>
+            <span class="offcanvas-badge" id="wishlist-count-mobile">0</span>
+          </a>
+          <a href="account.html" class="offcanvas-action-btn">
+            <i class="bi bi-person"></i>
+            <span>Account</span>
+          </a>
+        </div>
+        <form class="d-flex search-form mb-4" name="product_query_mobile" action="/search" method="GET">
+          <input class="form-control search-input" type="search" placeholder="Search products..." aria-label="Search" />
+          <button class="btn search-btn" type="submit"><i class="bi bi-search"></i></button>
+        </form>
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link" href="index.html">Home</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="about.html">About</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="contact.html">Contact</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link text-uppercase fw-bold mt-3 mb-2"
+              style="color: #ffcc00; font-size: 0.85rem; letter-spacing: 2px;">Series</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link ps-4" href="shop-category-a.html">The Automatic Vault</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link ps-4" href="shop-category-a.html#smart">Smart Evolution Series</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link ps-4" aria-current="page" href="shop-category-b.html">The Signature Collection</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link ps-4" href="shop-category-b.html#tactical">The Sports & Sales Division</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </header>
 
   <main>
     <div class="container-fluid">
@@ -431,7 +432,8 @@
               <div class="col-12 col-md-4">
                 <label for="filter-section-btn" class="form-label text-white">Section</label>
                 <div class="dropdown w-100">
-                  <button id="filter-section-btn" class="btn filter-dropdown-btn dropdown-toggle w-100 text-start" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                  <button id="filter-section-btn" class="btn filter-dropdown-btn dropdown-toggle w-100 text-start"
+                    type="button" data-bs-toggle="dropdown" aria-expanded="false">
                     All Sections
                   </button>
                   <ul class="dropdown-menu filter-dropdown-menu w-100" id="filter-section-menu"></ul>
@@ -441,7 +443,8 @@
               <div class="col-12 col-md-4">
                 <label for="filter-movement-btn" class="form-label text-white">Movement</label>
                 <div class="dropdown w-100">
-                  <button id="filter-movement-btn" class="btn filter-dropdown-btn dropdown-toggle w-100 text-start" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                  <button id="filter-movement-btn" class="btn filter-dropdown-btn dropdown-toggle w-100 text-start"
+                    type="button" data-bs-toggle="dropdown" aria-expanded="false">
                     All Movements
                   </button>
                   <ul class="dropdown-menu filter-dropdown-menu w-100" id="filter-movement-menu"></ul>
@@ -451,14 +454,19 @@
               <div class="col-12 col-md-4">
                 <label for="filter-sort-btn" class="form-label text-white">Sort</label>
                 <div class="dropdown w-100">
-                  <button id="filter-sort-btn" class="btn filter-dropdown-btn dropdown-toggle w-100 text-start" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                  <button id="filter-sort-btn" class="btn filter-dropdown-btn dropdown-toggle w-100 text-start"
+                    type="button" data-bs-toggle="dropdown" aria-expanded="false">
                     Featured
                   </button>
                   <ul class="dropdown-menu filter-dropdown-menu w-100" id="filter-sort-menu">
-                    <li><a class="dropdown-item filter-dropdown-item" href="#" data-target="filter-sort" data-value="default" data-label="Featured">Featured</a></li>
-                    <li><a class="dropdown-item filter-dropdown-item" href="#" data-target="filter-sort" data-value="price-asc" data-label="Price: Low to High">Price: Low to High</a></li>
-                    <li><a class="dropdown-item filter-dropdown-item" href="#" data-target="filter-sort" data-value="price-desc" data-label="Price: High to Low">Price: High to Low</a></li>
-                    <li><a class="dropdown-item filter-dropdown-item" href="#" data-target="filter-sort" data-value="name-asc" data-label="Name: A to Z">Name: A to Z</a></li>
+                    <li><a class="dropdown-item filter-dropdown-item" href="#" data-target="filter-sort"
+                        data-value="default" data-label="Featured">Featured</a></li>
+                    <li><a class="dropdown-item filter-dropdown-item" href="#" data-target="filter-sort"
+                        data-value="price-asc" data-label="Price: Low to High">Price: Low to High</a></li>
+                    <li><a class="dropdown-item filter-dropdown-item" href="#" data-target="filter-sort"
+                        data-value="price-desc" data-label="Price: High to Low">Price: High to Low</a></li>
+                    <li><a class="dropdown-item filter-dropdown-item" href="#" data-target="filter-sort"
+                        data-value="name-asc" data-label="Name: A to Z">Name: A to Z</a></li>
                   </ul>
                   <input type="hidden" id="filter-sort" value="default">
                 </div>
@@ -568,9 +576,12 @@
         <div class="col-12 col-sm-6 col-md-6 col-lg-3 mb-4">
           <h3 class="footer-heading">Connect</h3>
           <div class="social-links">
-            <a href="https://www.facebook.com/commerza.ahmer" target="_blank" aria-label="Commerza on Facebook"><i class="bi bi-facebook"></i></a>
-            <a href="https://x.com/commerza_ahmer" target="_blank" aria-label="Commerza on X"><i class="bi bi-twitter"></i></a>
-            <a href="https://www.instagram.com/commerza.ahmer" target="_blank" aria-label="Commerza on Instagram"><i class="bi bi-instagram"></i></a>
+            <a href="https://www.facebook.com/commerza.ahmer" target="_blank" aria-label="Commerza on Facebook"><i
+                class="bi bi-facebook"></i></a>
+            <a href="https://x.com/commerza_ahmer" target="_blank" aria-label="Commerza on X"><i
+                class="bi bi-twitter"></i></a>
+            <a href="https://www.instagram.com/commerza.ahmer" target="_blank" aria-label="Commerza on Instagram"><i
+                class="bi bi-instagram"></i></a>
           </div>
           <p class="footer-text mt-3">Email: commerza.ahmer@gmail.com</p>
           <p class="footer-text">Phone: +92 314 8396293</p>
@@ -776,6 +787,8 @@
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="frontend/assets/js/global-protection.js" defer></script>
+  <script src="frontend/assets/js/auth.js" defer></script>
   <script src="frontend/assets/js/script.js" defer></script>
   <script>
     $(document).ready(function () {

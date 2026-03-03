@@ -57,7 +57,8 @@
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
       <div class="container-fluid">
         <a class="navbar-brand fw-bold" href="index.html">
-          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy" class="navbar-logo me-2" />
+          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy"
+            class="navbar-logo me-2" />
           <span class="brand-text">COMMERZA</span>
         </a>
         <div class="d-flex align-items-center order-lg-2">
@@ -75,7 +76,8 @@
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link nav-icon-link" aria-current="page" href="account.html" aria-label="Account"><i class="bi bi-person"></i></a>
+              <a class="nav-link nav-icon-link" aria-current="page" href="account.html" aria-label="Account"><i
+                  class="bi bi-person"></i></a>
             </li>
           </ul>
           <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#navbarOffcanvas"
@@ -102,7 +104,8 @@
     <div class="offcanvas offcanvas-start" tabindex="-1" id="navbarOffcanvas" aria-labelledby="offcanvasNavbarLabel">
       <div class="offcanvas-header">
         <h5 class="offcanvas-title" id="offcanvasNavbarLabel">
-          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy" class="offcanvas-logo me-2" />
+          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy"
+            class="offcanvas-logo me-2" />
           <span class="brand-text">COMMERZA</span>
         </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
@@ -146,13 +149,15 @@
       <div class="col-lg-4 mb-4">
         <div class="card product-card mb-4">
           <div class="card-body text-center">
-            <img src="frontend/assets/images/logo/commerza-logo.webp" class="profile-img mb-3" alt="Profile picture" loading="lazy"
-              style="user-select: none" id="accountProfileImage" />
+            <img src="frontend/assets/images/logo/commerza-logo.webp" class="profile-img mb-3" alt="Profile picture"
+              loading="lazy" style="user-select: none" id="accountProfileImage" />
             <h3 class="product-name" id="accountProfileName"></h3>
             <p class="product-desc" id="accountProfileEmail"></p>
 
-            <form action="/update-profile-picture" method="POST" enctype="multipart/form-data" id="updateProfilePictureForm">
-              <input type="file" name="profile_picture" id="profilePictureInput" class="form-control search-input mt-3" accept="image/*" />
+            <form action="/update-profile-picture" method="POST" enctype="multipart/form-data"
+              id="updateProfilePictureForm">
+              <input type="file" name="profile_picture" id="profilePictureInput" class="form-control search-input mt-3"
+                accept="image/*" />
               <button type="submit" class="btn product-btn-buy w-100 mt-2">
                 Update Picture
               </button>
@@ -170,7 +175,8 @@
                 <label for="current-password" class="form-label">Current Password</label>
                 <div class="password-wrapper">
                   <input type="password" id="current-password" name="current_password" class="form-control search-input"
-                    placeholder="Current Password" required autocomplete="current-password" minlength="6" maxlength="20" />
+                    placeholder="Current Password" required autocomplete="current-password" minlength="6"
+                    maxlength="20" />
                   <i class="bi bi-eye toggle-password" data-target="#current-password"></i>
                 </div>
               </div>
@@ -181,7 +187,8 @@
                   <input type="password" id="new-password" name="new_password" class="form-control search-input"
                     placeholder="New Password" required autocomplete="new-password" minlength="6" maxlength="20"
                     pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[@$!%*?&]).{6,}"
-                    title="Minimum 6 chars, 1 number, 1 capital, 1 special char" autocapitalize="off" autocorrect="off" spellcheck="false" />
+                    title="Minimum 6 chars, 1 number, 1 capital, 1 special char" autocapitalize="off" autocorrect="off"
+                    spellcheck="false" />
                   <i class="bi bi-eye toggle-password" data-target="#new-password"></i>
                 </div>
               </div>
@@ -192,7 +199,8 @@
                   <input type="password" id="confirm-password" name="confirm_password" class="form-control search-input"
                     placeholder="Confirm New Password" required autocomplete="new-password" minlength="6" maxlength="20"
                     pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[@$!%*?&]).{6,}"
-                    title="Minimum 6 chars, 1 number, 1 capital, 1 special char" autocapitalize="off" autocorrect="off" spellcheck="false" />
+                    title="Minimum 6 chars, 1 number, 1 capital, 1 special char" autocapitalize="off" autocorrect="off"
+                    spellcheck="false" />
                   <i class="bi bi-eye toggle-password" data-target="#confirm-password"></i>
                 </div>
               </div>
@@ -214,20 +222,20 @@
               <div class="row">
                 <div class="col-md-6 mb-3">
                   <label for="full-name" class="form-label">Full Name</label>
-                  <input type="text" id="full-name" name="full_name" class="form-control search-input"
-                    value="" required autocomplete="name" minlength="3" maxlength="40" />
+                  <input type="text" id="full-name" name="full_name" class="form-control search-input" value="" required
+                    autocomplete="name" minlength="3" maxlength="40" />
                 </div>
 
                 <div class="col-md-6 mb-3">
                   <label for="email" class="form-label">Email Address</label>
-                  <input type="email" id="email" name="email" class="form-control search-input"
-                    value="" required autocomplete="email" maxlength="150" />
+                  <input type="email" id="email" name="email" class="form-control search-input" value="" required
+                    autocomplete="email" maxlength="150" />
                 </div>
 
                 <div class="col-md-6 mb-3">
                   <label for="phone" class="form-label">Phone Number</label>
-                  <input type="tel" id="phone" name="phone" class="form-control search-input" value=""
-                    required autocomplete="tel" minlength="11" maxlength="15" />
+                  <input type="tel" id="phone" name="phone" class="form-control search-input" value="" required
+                    autocomplete="tel" minlength="11" maxlength="15" />
                 </div>
               </div>
 
@@ -287,9 +295,12 @@
         <div class="col-12 col-sm-6 col-md-6 col-lg-3 mb-4">
           <h3 class="footer-heading">Connect</h3>
           <div class="social-links">
-            <a href="https://www.facebook.com/commerza.ahmer" target="_blank" aria-label="Commerza on Facebook"><i class="bi bi-facebook"></i></a>
-            <a href="https://x.com/commerza_ahmer" target="_blank" aria-label="Commerza on X"><i class="bi bi-twitter"></i></a>
-            <a href="https://www.instagram.com/commerza.ahmer" target="_blank" aria-label="Commerza on Instagram"><i class="bi bi-instagram"></i></a>
+            <a href="https://www.facebook.com/commerza.ahmer" target="_blank" aria-label="Commerza on Facebook"><i
+                class="bi bi-facebook"></i></a>
+            <a href="https://x.com/commerza_ahmer" target="_blank" aria-label="Commerza on X"><i
+                class="bi bi-twitter"></i></a>
+            <a href="https://www.instagram.com/commerza.ahmer" target="_blank" aria-label="Commerza on Instagram"><i
+                class="bi bi-instagram"></i></a>
           </div>
           <p class="footer-text mt-3">Email: commerza.ahmer@gmail.com</p>
           <p class="footer-text">Phone: +92 314 8396293</p>
@@ -306,6 +317,8 @@
   </footer>
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="frontend/assets/js/global-protection.js"></script>
+  <script src="frontend/assets/js/auth.js"></script>
   <script src="frontend/assets/js/script.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
