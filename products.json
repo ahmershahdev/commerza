@@ -15,7 +15,7 @@
         {
           "id": 1,
           "name": "Tambour Bushido Automata, Manual, 46.8 mm, Rose Gold",
-          "description": "Taking its name from the code of conduct of the Japanese Samurai, the Tambour Bashido Automata is an homage to strength, discipline and artistic expression.",
+          "description": "Taking its name from the code of conduct of the Japanese Samurai, the Tambour Bushido Automata is an homage to strength, discipline and artistic expression.",
           "image": "frontend/assets/images/products/featured/white-gold-steel.webp",
           "price": 8500,
           "salePrice": 6200,
@@ -25,7 +25,7 @@
         {
           "id": 2,
           "name": "Louis Vuitton Escale Twin Zone, Automatic, 41mm, Platinum and diamonds",
-          "description": "The Louis Vuitton Escale Twin Zone 41mm watch in platinum and diamonds is a precious embodiement of the Art of Travel. Its unique dual time display.",
+          "description": "The Louis Vuitton Escale Twin Zone 41mm watch in platinum and diamonds is a precious embodiment of the Art of Travel. Its unique dual time display.",
           "image": "frontend/assets/images/products/featured/black-white-gold.webp",
           "price": 9200,
           "salePrice": 7100,
@@ -124,7 +124,7 @@
         {
           "id": 11,
           "name": "Tambour Bushido Automata, Manual, 46.8 mm, Rose Gold",
-          "description": "Taking its name from the code of conduct of the Japanese Samurai, the Tambour Bashido Automata is an homage to strength, discipline and artistic expression.",
+          "description": "Taking its name from the code of conduct of the Japanese Samurai, the Tambour Bushido Automata is an homage to strength, discipline and artistic expression.",
           "image": "frontend/assets/images/products/featured/white-gold-steel.webp",
           "price": 8500,
           "salePrice": 6200,
@@ -134,7 +134,7 @@
         {
           "id": 12,
           "name": "Louis Vuitton Escale Twin Zone, Automatic, 41mm, Platinum and diamonds",
-          "description": "The Louis Vuitton Escale Twin Zone 41mm watch in platinum and diamonds is a precious embodiement of the Art of Travel. Its unique dual time display.",
+          "description": "The Louis Vuitton Escale Twin Zone 41mm watch in platinum and diamonds is a precious embodiment of the Art of Travel. Its unique dual time display.",
           "image": "frontend/assets/images/products/featured/black-white-gold.webp",
           "price": 9200,
           "salePrice": 7100,
