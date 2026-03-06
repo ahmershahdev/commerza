@@ -868,6 +868,23 @@
     $(document).ready(function () {
       loadProductsBySection('featured-collection', 'featured-products-container');
     });
+
+  (function () {
+    try { window.localStorage; } catch (e) {
+      var _store = {};
+      Object.defineProperty(window, "localStorage", {
+        value: {
+          getItem:    function (k)    { return Object.prototype.hasOwnProperty.call(_store, k) ? _store[k] : null; },
+          setItem:    function (k, v) { _store[k] = String(v); },
+          removeItem: function (k)    { delete _store[k]; },
+          clear:      function ()     { _store = {}; },
+          key:        function (i)    { return Object.keys(_store)[i] || null; },
+          get length()               { return Object.keys(_store).length; }
+        },
+        writable: false
+      });
+    }
+  })();
   </script>
 </body>
 
