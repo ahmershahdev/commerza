@@ -1,0 +1,31 @@
+# Commerza
+
+Commerza is a PHP + MySQL ecommerce website focused on premium watches.
+
+## Canonical Site
+- https://commerza.ahmershah.dev/
+
+## Primary Public Pages
+- https://commerza.ahmershah.dev/
+- https://commerza.ahmershah.dev/about.php
+- https://commerza.ahmershah.dev/contact.php
+- https://commerza.ahmershah.dev/products.php
+- https://commerza.ahmershah.dev/shop-category-a.php
+- https://commerza.ahmershah.dev/shop-category-b.php
+- https://commerza.ahmershah.dev/faq.php
+- https://commerza.ahmershah.dev/shipping.php
+- https://commerza.ahmershah.dev/returns.php
+- https://commerza.ahmershah.dev/warranty.php
+
+## Authenticated or Utility Pages
+- Account, cart, wishlist, compare, and order tracking pages may require login and are not intended for broad indexing.
+- Admin pages are private and restricted.
+
+## Technical Notes
+- Backend: PHP (session auth, CSRF validation, server-side checkout)
+- Database: MySQL
+- Public sitemap: https://commerza.ahmershah.dev/sitemap.xml
+
+## Contact
+- Email: commerza.ahmer@gmail.com
+- Phone: +92 314 8396293
