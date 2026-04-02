@@ -233,6 +233,11 @@
             <textarea id="reviewText" class="form-control" rows="3" maxlength="500" minlength="10" placeholder="Share your honest experience with this product." required></textarea>
           </div>
           <div class="col-12">
+            <label for="reviewImages" class="form-label text-light">Upload Images (Optional)</label>
+            <input type="file" id="reviewImages" class="form-control" accept="image/png,image/jpeg" multiple>
+            <small class="text-secondary d-block mt-1">PNG/JPG only, max 2 images, each less than 6 MB.</small>
+          </div>
+          <div class="col-12">
             <button type="submit" class="btn product-btn-buy" id="reviewSubmitBtn">Submit Review</button>
           </div>
         </form>

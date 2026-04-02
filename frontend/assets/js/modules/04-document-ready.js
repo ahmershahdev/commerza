@@ -1413,11 +1413,37 @@ $(document).ready(function () {
     return date.toLocaleDateString();
   }
 
+  function renderReviewImagesMarkup(images) {
+    const list = Array.isArray(images) ? images : [];
+    if (!list.length) {
+      return "";
+    }
+
+    const html = list
+      .slice(0, 2)
+      .map((image) => {
+        const path = (image?.path || "").toString().trim();
+        if (!path) {
+          return "";
+        }
+
+        return `
+          <a href="${encodeURI(path)}" target="_blank" rel="noopener" class="d-inline-block me-2 mb-2">
+            <img src="${encodeURI(path)}" alt="Review image" style="width: 68px; height: 68px; object-fit: cover; border-radius: 8px; border: 1px solid rgba(255, 102, 0, 0.4);">
+          </a>
+        `;
+      })
+      .join("");
+
+    return html ? `<div class="mt-2">${html}</div>` : "";
+  }
+
   function renderReviewFormState(eligibility, productId) {
     const form = $("#productReviewForm");
     const message = $("#reviewEligibilityMessage");
     const ratingInput = $("#reviewRating");
     const textInput = $("#reviewText");
+    const imageInput = $("#reviewImages");
     const submitBtn = $("#reviewSubmitBtn");
     const hiddenProductInput = $("#reviewProductId");
 
@@ -1442,6 +1468,7 @@ $(document).ready(function () {
 
     ratingInput.prop("disabled", !canReview);
     textInput.prop("disabled", !canReview);
+    imageInput.prop("disabled", !canReview);
     submitBtn.prop("disabled", !canReview);
 
     submitBtn.text(existingReview ? "Update Review" : "Submit Review");
@@ -1454,7 +1481,7 @@ $(document).ready(function () {
           statusMessage ||
             (canReview
               ? "You can submit a verified review for this product."
-              : "Login and complete an eligible delivered order to review."),
+              : "Login and purchase this product with a delivered order to review."),
         );
     }
   }
@@ -1476,6 +1503,10 @@ $(document).ready(function () {
 
       const rating = parseInt($("#reviewRating").val(), 10) || 0;
       const text = ($("#reviewText").val() || "").toString().trim();
+      const imageInput = document.getElementById("reviewImages");
+      const selectedFiles = imageInput?.files
+        ? Array.from(imageInput.files)
+        : [];
 
       if (rating < 1 || rating > 5) {
         showNotif("Select a rating between 1 and 5.", "warning");
@@ -1490,25 +1521,45 @@ $(document).ready(function () {
         return;
       }
 
+      if (selectedFiles.length > 2) {
+        showNotif("You can upload up to 2 images only.", "warning");
+        return;
+      }
+
+      const maxBytes = 6 * 1024 * 1024;
+      for (const file of selectedFiles) {
+        const mime = (file?.type || "").toString().toLowerCase();
+        if (!(mime === "image/png" || mime === "image/jpeg")) {
+          showNotif("Only PNG and JPG images are allowed.", "warning");
+          return;
+        }
+
+        if ((Number(file?.size) || 0) >= maxBytes) {
+          showNotif("Each image must be less than 6 MB.", "warning");
+          return;
+        }
+      }
+
       const submitBtn = $("#reviewSubmitBtn");
       const originalText = submitBtn.text();
       submitBtn.prop("disabled", true).text("Submitting...");
 
       try {
-        const body = new URLSearchParams();
+        const body = new FormData();
         body.set("action", "submit");
         body.set("product_id", String(productId));
         body.set("rating", String(rating));
         body.set("review_text", text);
         body.set("csrf_token", reviewsCsrfToken || "");
 
+        selectedFiles.slice(0, 2).forEach((file) => {
+          body.append("review_images[]", file);
+        });
+
         const response = await fetch("backend/reviews_api.php", {
           method: "POST",
           credentials: "same-origin",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-          },
-          body: body.toString(),
+          body,
         });
 
         const result = await response.json();
@@ -1525,6 +1576,9 @@ $(document).ready(function () {
           "success",
         );
         $("#reviewText").val("");
+        if (imageInput) {
+          imageInput.value = "";
+        }
         renderReviewsMarquee(product);
       } catch (error) {
         showNotif(error?.message || "Unable to submit review.", "warning");
@@ -1616,6 +1670,9 @@ $(document).ready(function () {
               const stars = "★".repeat(rating) + "☆".repeat(5 - rating);
               const safeName = escapeHtml(review.name || "Customer");
               const safeText = escapeHtml(review.text || "");
+              const imagesMarkup = renderReviewImagesMarkup(
+                review.images || [],
+              );
               const dateLabel = formatReviewDate(
                 review.updated_at || review.created_at,
               );
@@ -1624,6 +1681,7 @@ $(document).ready(function () {
                 <div class="review-card">
                   <div class="text-warning mb-2">${stars}</div>
                   <p class="mb-2">${safeText}</p>
+                  ${imagesMarkup}
                   <div class="text-secondary small">${safeName}${dateLabel ? ` · ${dateLabel}` : ""}</div>
                 </div>
               `;

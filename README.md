@@ -26,7 +26,7 @@ It includes a customer storefront, account/auth flows, payment integrations, ema
   - dynamic analytics (weekly performance, top products, AOV, returning customer rate)
   - website controls (branding, social links, ticker, slider)
   - secure media uploads for logo/favicon/social/slider/product image + video
-- Payments: COD, JazzCash reference flow, Easypaisa reference flow, Stripe sandbox intent.
+- Payments: COD and Stripe sandbox intent.
 - Security hardening: prepared statements, CSRF checks, rate limits, session controls, OAuth state validation.
 - Email automation:
   - signup verification + signup success

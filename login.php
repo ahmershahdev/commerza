@@ -55,13 +55,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'user_login',
         $email_value !== '' ? $email_value : 'anonymous',
         $clientIp,
-        8,
-        900,
-        900
+        4,
+        2700,
+        2700,
+        14400,
+        86400
       );
 
       if (!$rate['allowed']) {
-        $errors[] = "Too many login attempts. Try again in " . (int)$rate['retry_after'] . " seconds.";
+        $retrySeconds = max(1, (int)$rate['retry_after']);
+        $retryMinutes = (int)ceil($retrySeconds / 60);
+        $errors[] = "Too many login attempts. Try again in " . $retryMinutes . " minute(s) (" . $retrySeconds . " seconds).";
       }
     }
 

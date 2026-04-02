@@ -1,6 +1,6 @@
 <?php
 include "backend/data.php";
-include "backend/mailer.php";
+require_once "backend/mailer.php";
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -12,9 +12,20 @@ $email_value = '';
 
 function send_reset_code_email(string $recipientEmail, string $recipientName, string $code, ?string &$errorMessage = null): bool
 {
+  $appBase = trim((string)getenv('COMMERZA_APP_URL'));
+  if ($appBase === '') {
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = (string)($_SERVER['HTTP_HOST'] ?? 'localhost');
+    $scriptName = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? ''));
+    $basePath = preg_replace('#/forgot-password\.php$#i', '', $scriptName) ?? '';
+    $appBase = $scheme . '://' . $host . rtrim($basePath, '/');
+  }
+
+  $appBase = rtrim($appBase, '/');
+
     $subject = "Commerza Password Reset Code";
-    $logoUrl = "https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp";
-    $resetUrl = "https://commerza.ahmershah.dev/reset-password.php?email=" . urlencode($recipientEmail);
+  $logoUrl = $appBase . "/frontend/assets/images/logo/commerza-logo.webp";
+  $resetUrl = $appBase . "/reset-password.php?email=" . urlencode($recipientEmail);
 
     $safeName = htmlspecialchars($recipientName !== '' ? $recipientName : 'Customer', ENT_QUOTES, 'UTF-8');
     $safeCode = htmlspecialchars($code, ENT_QUOTES, 'UTF-8');
@@ -85,13 +96,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'user_forgot_password',
         $email_value !== '' ? $email_value : 'anonymous',
         $clientIp,
-        5,
-        3600,
-        1800
+        4,
+        2700,
+        2700,
+        14400,
+        86400
       );
 
       if (!$rate['allowed']) {
-        $errors[] = "Too many reset requests. Try again in " . (int)$rate['retry_after'] . " seconds.";
+        $retrySeconds = max(1, (int)$rate['retry_after']);
+        $retryMinutes = (int)ceil($retrySeconds / 60);
+        $errors[] = "Too many reset requests. Try again in " . $retryMinutes . " minute(s) (" . $retrySeconds . " seconds).";
       }
     }
 

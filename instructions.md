@@ -19,7 +19,8 @@ This document lists exactly what is needed to complete third-party integrations 
 - `http://localhost/backend/oauth.php?provider=google`
 - `http://localhost/commerza/backend/oauth.php?provider=google`
 - `http://localhost/commerza`
--`http://localhost/commerza/oauth.php?provider=google`
+- `http://localhost/commerza/oauth.php?provider=google`
+
 ### Localhost/XAMPP Checklist
 
 - If your app runs from `C:\xampp\htdocs\commerza`, set app URL as `http://localhost/commerza`.
@@ -76,45 +77,7 @@ This document lists exactly what is needed to complete third-party integrations 
   - `stripe_publishable_key`
   - `stripe_secret_key`
 
-## 4) JazzCash
-
-### Current State
-
-- The current checkout implementation records wallet number and transaction reference (manual verification style).
-
-### What You Must Share for Full API Integration
-
-- Merchant ID
-- Password / API key
-- Integrity salt / hash secret
-- Return URL / callback URL requirements
-- Sandbox and production endpoint docs
-- Required request/response signatures and checksum method
-
-### Next Step After Sharing
-
-- Implement server-to-server payment verification endpoint and callback handling.
-
-## 5) Easypaisa
-
-### Current State
-
-- The current checkout implementation records wallet number and transaction reference (manual verification style).
-
-### What You Must Share for Full API Integration
-
-- Merchant account credentials
-- Store ID / account ID
-- API token/secret
-- Callback URL requirements
-- Sandbox and production endpoint docs
-- Signing/encryption requirements
-
-### Next Step After Sharing
-
-- Implement server-side verification and callback reconciliation for order payment status.
-
-## 6) Email Delivery
+## 4) Email Delivery
 
 ### What You Must Share
 
@@ -134,7 +97,7 @@ This document lists exactly what is needed to complete third-party integrations 
 
 - Configure SMTP/sendmail at server level and verify outbound delivery before production launch.
 
-## 7) Required Scheduled Tasks
+## 5) Required Scheduled Tasks
 
 Set these tasks after email configuration.
 
@@ -152,7 +115,7 @@ Set these tasks after email configuration.
 - Suggested schedule:
   - 1st day of every month
 
-## 8) Quick SQL Update Template
+## 6) Quick SQL Update Template
 
 Use this template to write keys in `site_settings`:
 
@@ -164,7 +127,7 @@ ON DUPLICATE KEY UPDATE setting_val = VALUES(setting_val);
 
 Repeat for each key listed above.
 
-## 9) Do We Need New SQL Tables For OAuth/Payments?
+## 7) Do We Need New SQL Tables For OAuth/Payments?
 
 - No extra table is required for credentials.
 - Use the existing `site_settings` key-value store for OAuth and payment provider config.
@@ -177,10 +140,3 @@ Repeat for each key listed above.
   - `facebook_oauth_redirect_uri`
   - `stripe_publishable_key`
   - `stripe_secret_key`
-  - `jazzcash_merchant_id`
-  - `jazzcash_api_key`
-  - `jazzcash_integrity_salt`
-  - `jazzcash_callback_url`
-  - `easypaisa_merchant_id`
-  - `easypaisa_api_key`
-  - `easypaisa_callback_url`

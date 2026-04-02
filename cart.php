@@ -83,16 +83,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
 
     $payment_methods = [
       'cod' => 'Cash on Delivery (COD)',
-      'jazzcash' => 'JazzCash Wallet',
-      'easypaisa' => 'Easypaisa Wallet',
       'stripe' => 'Stripe Card (Sandbox)',
     ];
 
     $payment_method_label = $payment_methods[$payment_method] ?? '';
     $payment_status = 'unpaid';
     $payment_notes = [];
-    $wallet_number = preg_replace('/\D+/', '', (string)($_POST['wallet_number'] ?? ''));
-    $wallet_reference = trim((string)($_POST['wallet_reference'] ?? ''));
     $stripe_payment_intent_id = trim((string)($_POST['stripe_payment_intent_id'] ?? ''));
     $stripe_payment_status = trim((string)($_POST['stripe_payment_status'] ?? ''));
 
@@ -114,19 +110,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
 
     if ($payment_method_label === '') {
       $errors[] = 'Please select a valid payment method.';
-    }
-
-    if ($payment_method === 'jazzcash' || $payment_method === 'easypaisa') {
-      if (!preg_match('/^\d{11}$/', $wallet_number)) {
-        $errors[] = 'Wallet number must be 11 digits for JazzCash/Easypaisa.';
-      }
-
-      if (!preg_match('/^[A-Za-z0-9_-]{6,64}$/', $wallet_reference)) {
-        $errors[] = 'Please provide a valid wallet transaction reference.';
-      }
-
-      $payment_notes[] = 'Wallet Number: ' . $wallet_number;
-      $payment_notes[] = 'Wallet Reference: ' . $wallet_reference;
     }
 
     if ($payment_method === 'stripe') {
@@ -478,7 +461,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow">
   <meta name="author" content="Syed Ahmer Shah">
-  <meta name="description" content="Review your Commerza cart and complete checkout with COD, JazzCash, Easypaisa, or Stripe sandbox card payments.">
+  <meta name="description" content="Review your Commerza cart and complete checkout with COD or Stripe sandbox card payments.">
   <meta property="og:title" content="Cart | Commerza">
   <meta property="og:description" content="Review items in your Commerza cart and complete secure checkout.">
   <meta property="og:url" content="https://commerza.ahmershah.dev/cart.php">
@@ -838,11 +821,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
               <label for="paymentMethod" class="form-label" style="color: #fff;">Payment Method *</label>
               <select class="form-select checkout-field" id="paymentMethod" name="payment_method" required>
                 <option value="cod">COD - Cash on Delivery</option>
-                <option value="jazzcash">JazzCash Wallet Transfer</option>
-                <option value="easypaisa">Easypaisa Wallet Transfer</option>
                 <option value="stripe">Stripe Card (Sandbox)</option>
               </select>
-              <p class="payment-hint">Choose COD for doorstep payment or wallet/card for prepaid checkout.</p>
+              <p class="payment-hint">Choose COD for doorstep payment or Stripe for prepaid checkout.</p>
               <div id="paymentMethodCard" class="payment-method-card" aria-live="polite">
                 <div class="payment-method-icon"><i id="paymentMethodIcon" class="bi bi-cash-coin"></i></div>
                 <div>
@@ -850,20 +831,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
                   <p id="paymentMethodDesc" class="payment-hint mb-0">Pay when your order reaches your doorstep.</p>
                 </div>
               </div>
-            </div>
-
-            <div id="walletFields" class="d-none">
-              <div class="mb-3">
-                <label for="walletNumber" id="walletNumberLabel" class="form-label" style="color: #fff;">Wallet Number *</label>
-                <input type="tel" class="form-control checkout-field" id="walletNumber" name="wallet_number" minlength="11" maxlength="11"
-                  placeholder="03XXXXXXXXX">
-              </div>
-              <div class="mb-3">
-                <label for="walletReference" class="form-label" style="color: #fff;">Transaction Reference *</label>
-                <input type="text" class="form-control checkout-field" id="walletReference" name="wallet_reference" minlength="6" maxlength="64"
-                  placeholder="Enter wallet txn reference">
-              </div>
-              <p class="small text-warning mb-3">Make transfer first in your wallet app, then submit the transaction reference here.</p>
             </div>
 
             <div id="stripeFields" class="d-none mb-3">
@@ -990,16 +957,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
             title: 'Cash on Delivery',
             desc: 'Pay when your order reaches your doorstep.'
           },
-          jazzcash: {
-            icon: 'bi-phone',
-            title: 'JazzCash Wallet',
-            desc: 'Transfer in JazzCash and submit your transaction reference.'
-          },
-          easypaisa: {
-            icon: 'bi-wallet2',
-            title: 'Easypaisa Wallet',
-            desc: 'Transfer in Easypaisa and provide your payment reference.'
-          },
           stripe: {
             icon: 'bi-credit-card-2-front',
             title: 'Stripe Card (Sandbox)',
@@ -1046,24 +1003,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
 
       function togglePaymentFields() {
         const method = $('#paymentMethod').val();
-        const useWallet = method === 'jazzcash' || method === 'easypaisa';
         const useStripe = method === 'stripe';
 
         updatePaymentMethodPreview(method);
 
-        $('#walletFields').toggleClass('d-none', !useWallet);
         $('#stripeFields').toggleClass('d-none', !useStripe);
-
-        $('#walletNumber').prop('required', useWallet);
-        $('#walletReference').prop('required', useWallet);
-
-        if (method === 'jazzcash') {
-          $('#walletNumberLabel').text('JazzCash Number *');
-          $('#walletNumber').attr('placeholder', '03XXXXXXXXX');
-        } else if (method === 'easypaisa') {
-          $('#walletNumberLabel').text('Easypaisa Number *');
-          $('#walletNumber').attr('placeholder', '03XXXXXXXXX');
-        }
 
         if (useStripe) {
           const ready = initStripeCard();

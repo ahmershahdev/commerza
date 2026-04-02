@@ -1,5 +1,78 @@
 <?php
 
+function commerza_unquote_env_value(string $value): string
+{
+    $trimmed = trim($value);
+    $length = strlen($trimmed);
+
+    if ($length >= 2) {
+        $first = $trimmed[0];
+        $last = $trimmed[$length - 1];
+        if (($first === '"' && $last === '"') || ($first === "'" && $last === "'")) {
+            $trimmed = substr($trimmed, 1, -1);
+        }
+    }
+
+    return str_replace(['\\n', '\\r', '\\t'], ["\n", "\r", "\t"], $trimmed);
+}
+
+function commerza_load_env_file(string $path): void
+{
+    if (!is_file($path) || !is_readable($path)) {
+        return;
+    }
+
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if (!is_array($lines)) {
+        return;
+    }
+
+    foreach ($lines as $line) {
+        $line = trim((string)$line);
+        if ($line === '' || str_starts_with($line, '#')) {
+            continue;
+        }
+
+        $position = strpos($line, '=');
+        if ($position === false) {
+            continue;
+        }
+
+        $key = trim(substr($line, 0, $position));
+        if ($key === '' || preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $key) !== 1) {
+            continue;
+        }
+
+        $rawValue = substr($line, $position + 1);
+        $value = commerza_unquote_env_value($rawValue);
+
+        if ($value === '') {
+            continue;
+        }
+
+        putenv($key . '=' . $value);
+        $_ENV[$key] = $value;
+        $_SERVER[$key] = $value;
+    }
+}
+
+function commerza_bootstrap_env(): void
+{
+    static $loaded = false;
+
+    if ($loaded) {
+        return;
+    }
+
+    $projectRoot = dirname(__DIR__);
+    commerza_load_env_file($projectRoot . DIRECTORY_SEPARATOR . '.env');
+    commerza_load_env_file(__DIR__ . DIRECTORY_SEPARATOR . '.env');
+
+    $loaded = true;
+}
+
+commerza_bootstrap_env();
+
 $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
     || ((int)($_SERVER['SERVER_PORT'] ?? 0) === 443);
 
@@ -30,10 +103,15 @@ if (!headers_sent()) {
     header('X-XSS-Protection: 0');
 }
 
-$host = "localhost";
-$user = "syedahmershah";
-$pass = "YOUR_DB_PASSWORD";
-$db   = "commerza";
+$host = trim((string)(getenv('COMMERZA_DB_HOST') ?: getenv('DB_HOST') ?: 'localhost'));
+$user = trim((string)(getenv('COMMERZA_DB_USER') ?: getenv('DB_USER') ?: 'root'));
+$db = trim((string)(getenv('COMMERZA_DB_NAME') ?: getenv('DB_NAME') ?: 'commerza'));
+
+$passEnv = getenv('COMMERZA_DB_PASS');
+if ($passEnv === false) {
+    $passEnv = getenv('DB_PASS');
+}
+$pass = $passEnv === false ? '' : (string)$passEnv;
 
 $con = mysqli_connect($host, $user, $pass, $db);
 

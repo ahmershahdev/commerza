@@ -496,6 +496,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $errors[] = 'Refund request already submitted and pending review.';
         } elseif ($existingStatus === 'accepted') {
           $errors[] = 'Refund has already been accepted for this order.';
+        } elseif ($existingStatus === 'rejected') {
+          $errors[] = 'A refund request was already reviewed for this order. You cannot submit another request.';
+        } else {
+          $errors[] = 'A refund request already exists for this order.';
         }
       }
 
@@ -1051,7 +1055,7 @@ $profile_picture = !empty($user['profile_picture']) ? (string)$user['profile_pic
                     $refundDeadlineTs = $refundAnchorTs !== false ? strtotime('+7 days', $refundAnchorTs) : false;
                     $isWithinRefundWindow = $refundDeadlineTs !== false && $refundDeadlineTs >= time();
                     $isDelivered = strtolower($status) === 'delivered';
-                    $canRequestRefund = $isDelivered && $isWithinRefundWindow && (!$refundState || $refundStatus === 'rejected');
+                    $canRequestRefund = $isDelivered && $isWithinRefundWindow && !$refundState;
 
                     $refundBadgeClass = 'warning';
                     if ($refundStatus === 'accepted') {
@@ -1143,6 +1147,8 @@ $profile_picture = !empty($user['profile_picture']) ? (string)$user['profile_pic
                           </form>
                         <?php elseif (!$isDelivered): ?>
                           <p class="text-secondary small mb-0">Refund option will appear after this order is delivered.</p>
+                        <?php elseif ($refundState && $refundStatus === 'rejected'): ?>
+                          <p class="text-secondary small mb-0">Your previous refund request was reviewed and rejected. New requests are disabled for this order.</p>
                         <?php elseif (!$isWithinRefundWindow && !$refundState): ?>
                           <p class="text-secondary small mb-0">Refund window closed for this order.</p>
                         <?php endif; ?>

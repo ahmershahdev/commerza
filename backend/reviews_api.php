@@ -23,6 +23,16 @@ function reviews_api_request_value(string $key, string $fallback = ''): string
     return $fallback;
 }
 
+function reviews_api_upload_limit_bytes(): int
+{
+    return 6 * 1024 * 1024;
+}
+
+function reviews_api_max_images_per_review(): int
+{
+    return 2;
+}
+
 function reviews_api_refund_table_exists(mysqli $con): bool
 {
     static $exists = null;
@@ -66,6 +76,290 @@ function reviews_api_ensure_table(mysqli $con): void
     );
 
     $initialized = true;
+}
+
+function reviews_api_ensure_images_table(mysqli $con): void
+{
+    static $initialized = false;
+
+    if ($initialized) {
+        return;
+    }
+
+    $con->query(
+        'CREATE TABLE IF NOT EXISTS product_review_images (
+            id INT NOT NULL AUTO_INCREMENT,
+            review_id INT NOT NULL,
+            image_path VARCHAR(255) NOT NULL,
+            image_name VARCHAR(255) NOT NULL,
+            image_size INT NOT NULL DEFAULT 0,
+            sort_order TINYINT NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY idx_review_images_review (review_id),
+            CONSTRAINT fk_review_images_review FOREIGN KEY (review_id)
+                REFERENCES product_reviews (id)
+                ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci'
+    );
+
+    $initialized = true;
+}
+
+function reviews_api_review_images(mysqli $con, int $reviewId): array
+{
+    if ($reviewId <= 0) {
+        return [];
+    }
+
+    $rows = [];
+    $stmt = $con->prepare(
+        'SELECT image_path, image_name, image_size
+         FROM product_review_images
+         WHERE review_id = ?
+         ORDER BY sort_order ASC, id ASC
+         LIMIT 2'
+    );
+
+    if (!$stmt) {
+        return $rows;
+    }
+
+    $stmt->bind_param('i', $reviewId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    while ($result && ($row = $result->fetch_assoc())) {
+        $rows[] = [
+            'path' => (string)($row['image_path'] ?? ''),
+            'name' => (string)($row['image_name'] ?? ''),
+            'size' => (int)($row['image_size'] ?? 0),
+        ];
+    }
+
+    $stmt->close();
+    return $rows;
+}
+
+function reviews_api_uploaded_files(): array
+{
+    if (!isset($_FILES['review_images']) || !is_array($_FILES['review_images'])) {
+        return [];
+    }
+
+    $raw = $_FILES['review_images'];
+    $names = $raw['name'] ?? [];
+    $types = $raw['type'] ?? [];
+    $tmpNames = $raw['tmp_name'] ?? [];
+    $errors = $raw['error'] ?? [];
+    $sizes = $raw['size'] ?? [];
+
+    if (!is_array($names)) {
+        $names = [$names];
+        $types = [is_array($types) ? '' : $types];
+        $tmpNames = [is_array($tmpNames) ? '' : $tmpNames];
+        $errors = [is_array($errors) ? UPLOAD_ERR_NO_FILE : $errors];
+        $sizes = [is_array($sizes) ? 0 : $sizes];
+    }
+
+    $files = [];
+    foreach ($names as $index => $name) {
+        $error = (int)($errors[$index] ?? UPLOAD_ERR_NO_FILE);
+        if ($error === UPLOAD_ERR_NO_FILE) {
+            continue;
+        }
+
+        $files[] = [
+            'name' => (string)$name,
+            'type' => (string)($types[$index] ?? ''),
+            'tmp_name' => (string)($tmpNames[$index] ?? ''),
+            'error' => $error,
+            'size' => (int)($sizes[$index] ?? 0),
+        ];
+    }
+
+    return $files;
+}
+
+function reviews_api_validate_uploaded_images(array $files): array
+{
+    if (count($files) > reviews_api_max_images_per_review()) {
+        return [false, [], 'You can upload up to 2 images only.'];
+    }
+
+    $validated = [];
+    $maxBytes = reviews_api_upload_limit_bytes();
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+
+    foreach ($files as $file) {
+        $error = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
+        if ($error !== UPLOAD_ERR_OK) {
+            return [false, [], 'One or more review images failed to upload.'];
+        }
+
+        $tmpName = (string)($file['tmp_name'] ?? '');
+        $size = (int)($file['size'] ?? 0);
+        $originalName = trim((string)($file['name'] ?? 'image'));
+
+        if ($tmpName === '' || !is_uploaded_file($tmpName)) {
+            return [false, [], 'Invalid uploaded image file.'];
+        }
+
+        if ($size <= 0 || $size >= $maxBytes) {
+            return [false, [], 'Each image must be less than 6 MB.'];
+        }
+
+        $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+        if (!in_array($ext, ['jpg', 'jpeg', 'png'], true)) {
+            return [false, [], 'Only PNG and JPG images are allowed.'];
+        }
+
+        $mime = '';
+        if ($finfo) {
+            $mime = (string)finfo_file($finfo, $tmpName);
+        } elseif (function_exists('mime_content_type')) {
+            $mime = (string)mime_content_type($tmpName);
+        }
+
+        if (!in_array($mime, ['image/jpeg', 'image/png'], true)) {
+            return [false, [], 'Only PNG and JPG images are allowed.'];
+        }
+
+        $validated[] = [
+            'tmp_name' => $tmpName,
+            'size' => $size,
+            'extension' => $ext === 'jpeg' ? 'jpg' : $ext,
+            'name' => $originalName,
+        ];
+    }
+
+    if ($finfo) {
+        finfo_close($finfo);
+    }
+
+    return [true, $validated, ''];
+}
+
+function reviews_api_store_images(array $files, int $reviewId, int $userId): array
+{
+    $stored = [];
+    $storageDirRelative = 'frontend/assets/images/reviews';
+    $storageDirAbsolute = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'images' . DIRECTORY_SEPARATOR . 'reviews';
+
+    if (!is_dir($storageDirAbsolute) && !mkdir($storageDirAbsolute, 0755, true) && !is_dir($storageDirAbsolute)) {
+        return [false, [], 'Unable to prepare review image storage directory.'];
+    }
+
+    foreach ($files as $index => $file) {
+        $extension = (string)($file['extension'] ?? 'jpg');
+        $tmpName = (string)($file['tmp_name'] ?? '');
+        $size = (int)($file['size'] ?? 0);
+        $displayName = (string)($file['name'] ?? 'review-image');
+
+        try {
+            $token = bin2hex(random_bytes(16));
+        } catch (Throwable $exception) {
+            $token = uniqid('rvw', true);
+        }
+
+        $fileName = 'review_' . $reviewId . '_' . $userId . '_' . $token . '.' . $extension;
+        $relativePath = $storageDirRelative . '/' . $fileName;
+        $absolutePath = $storageDirAbsolute . DIRECTORY_SEPARATOR . $fileName;
+
+        if (!move_uploaded_file($tmpName, $absolutePath)) {
+            return [false, $stored, 'Unable to save uploaded review image.'];
+        }
+
+        $stored[] = [
+            'path' => $relativePath,
+            'name' => $displayName,
+            'size' => $size,
+            'sort_order' => $index,
+        ];
+    }
+
+    return [true, $stored, ''];
+}
+
+function reviews_api_insert_image_rows(mysqli $con, int $reviewId, array $storedImages): bool
+{
+    if (empty($storedImages)) {
+        return true;
+    }
+
+    $stmt = $con->prepare(
+        'INSERT INTO product_review_images (review_id, image_path, image_name, image_size, sort_order)
+         VALUES (?, ?, ?, ?, ?)'
+    );
+
+    if (!$stmt) {
+        return false;
+    }
+
+    foreach ($storedImages as $image) {
+        $path = (string)($image['path'] ?? '');
+        $name = (string)($image['name'] ?? 'review-image');
+        $size = (int)($image['size'] ?? 0);
+        $sortOrder = (int)($image['sort_order'] ?? 0);
+
+        $stmt->bind_param('issii', $reviewId, $path, $name, $size, $sortOrder);
+        if (!$stmt->execute()) {
+            $stmt->close();
+            return false;
+        }
+    }
+
+    $stmt->close();
+    return true;
+}
+
+function reviews_api_delete_image_rows(mysqli $con, int $reviewId): array
+{
+    $paths = [];
+
+    $fetchStmt = $con->prepare(
+        'SELECT image_path
+         FROM product_review_images
+         WHERE review_id = ?'
+    );
+
+    if ($fetchStmt) {
+        $fetchStmt->bind_param('i', $reviewId);
+        $fetchStmt->execute();
+        $result = $fetchStmt->get_result();
+        while ($result && ($row = $result->fetch_assoc())) {
+            $paths[] = (string)($row['image_path'] ?? '');
+        }
+        $fetchStmt->close();
+    }
+
+    $deleteStmt = $con->prepare('DELETE FROM product_review_images WHERE review_id = ?');
+    if ($deleteStmt) {
+        $deleteStmt->bind_param('i', $reviewId);
+        $deleteStmt->execute();
+        $deleteStmt->close();
+    }
+
+    return array_values(array_filter(array_unique($paths)));
+}
+
+function reviews_api_delete_files(array $paths): void
+{
+    foreach ($paths as $relativePath) {
+        $relativePath = trim(str_replace('\\', '/', (string)$relativePath));
+        if ($relativePath === '' || strpos($relativePath, 'frontend/assets/images/reviews/') !== 0) {
+            continue;
+        }
+
+        if (strpos($relativePath, '..') !== false) {
+            continue;
+        }
+
+        $absolutePath = dirname(__DIR__) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+        if (is_file($absolutePath)) {
+            @unlink($absolutePath);
+        }
+    }
 }
 
 function reviews_api_product_exists(mysqli $con, int $productId): bool
@@ -119,14 +413,43 @@ function reviews_api_check_eligibility(mysqli $con, int $userId, int $productId)
 
     $existingReview = reviews_api_existing_user_review($con, $userId, $productId);
 
+    if (reviews_api_refund_table_exists($con)) {
+        $refundStmt = $con->prepare(
+            'SELECT rr.id
+             FROM refund_requests rr
+             INNER JOIN orders o ON o.id = rr.order_id
+             INNER JOIN order_items oi ON oi.order_id = o.id
+             WHERE o.user_id = ?
+               AND oi.product_id = ?
+               AND rr.status IN ("pending", "accepted")
+             LIMIT 1'
+        );
+
+        if ($refundStmt) {
+            $refundStmt->bind_param('ii', $userId, $productId);
+            $refundStmt->execute();
+            $refundStmt->store_result();
+            $hasBlockingRefund = $refundStmt->num_rows > 0;
+            $refundStmt->close();
+
+            if ($hasBlockingRefund) {
+                return [
+                    'can_review' => false,
+                    'message' => 'Review access is disabled while a refund request is pending or accepted for this product order.',
+                    'eligible_order_id' => 0,
+                    'existing_review' => $existingReview,
+                ];
+            }
+        }
+    }
+
     $sqlBase =
         'SELECT o.id
          FROM orders o
          INNER JOIN order_items oi ON oi.order_id = o.id
          WHERE o.user_id = ?
            AND oi.product_id = ?
-           AND o.status = "Delivered"
-           AND o.updated_at <= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+                     AND o.status = "Delivered"';
 
     if (reviews_api_refund_table_exists($con)) {
         $sqlBase .=
@@ -134,7 +457,7 @@ function reviews_api_check_eligibility(mysqli $con, int $userId, int $productId)
                 SELECT 1
                 FROM refund_requests rr
                 WHERE rr.order_id = o.id
-                  AND rr.status = "accepted"
+                  AND rr.status IN ("pending", "accepted")
             )';
     }
 
@@ -176,7 +499,7 @@ function reviews_api_check_eligibility(mysqli $con, int $userId, int $productId)
 
     return [
         'can_review' => false,
-        'message' => 'Only delivered orders older than 7 days can be reviewed. Refunded orders are not eligible.',
+        'message' => 'Only purchased products from delivered orders can be reviewed. Orders with pending or accepted refunds are not eligible.',
         'eligible_order_id' => 0,
         'existing_review' => null,
     ];
@@ -220,6 +543,7 @@ function reviews_api_public_reviews(mysqli $con, int $productId): array
                 'text' => (string)($row['review_text'] ?? ''),
                 'created_at' => (string)($row['created_at'] ?? ''),
                 'updated_at' => (string)($row['updated_at'] ?? ''),
+                'images' => reviews_api_review_images($con, (int)($row['id'] ?? 0)),
             ];
         }
 
@@ -269,6 +593,7 @@ function reviews_api_payload(mysqli $con, int $productId, int $userId): array
             'text' => (string)($eligibility['existing_review']['review_text'] ?? ''),
             'is_visible' => (int)($eligibility['existing_review']['is_visible'] ?? 0) === 1,
             'updated_at' => (string)($eligibility['existing_review']['updated_at'] ?? ''),
+            'images' => reviews_api_review_images($con, (int)($eligibility['existing_review']['id'] ?? 0)),
         ]
         : null;
 
@@ -285,6 +610,7 @@ function reviews_api_payload(mysqli $con, int $productId, int $userId): array
 }
 
 reviews_api_ensure_table($con);
+reviews_api_ensure_images_table($con);
 
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $action = strtolower(reviews_api_request_value('action', 'list'));
@@ -371,6 +697,17 @@ if (strlen($reviewText) < 10 || strlen($reviewText) > 500) {
     ], 422);
 }
 
+$rawUploadedImages = reviews_api_uploaded_files();
+[$imagesValid, $validatedImages, $imageValidationError] = reviews_api_validate_uploaded_images($rawUploadedImages);
+
+if (!$imagesValid) {
+    reviews_api_json([
+        'ok' => false,
+        'message' => $imageValidationError !== '' ? $imageValidationError : 'Invalid review images.',
+        'csrf_token' => $_SESSION['csrf_token'],
+    ], 422);
+}
+
 $eligibility = reviews_api_check_eligibility($con, $userId, $productId);
 $existingReview = is_array($eligibility['existing_review'] ?? null) ? $eligibility['existing_review'] : null;
 
@@ -384,6 +721,9 @@ if (!$existingReview && !(bool)($eligibility['can_review'] ?? false)) {
 
 if ($existingReview) {
     $reviewId = (int)($existingReview['id'] ?? 0);
+    $replaceImages = !empty($validatedImages);
+    $oldImagePaths = [];
+    $storedImages = [];
 
     $stmt = $con->prepare(
         'UPDATE product_reviews
@@ -400,11 +740,8 @@ if ($existingReview) {
         ], 500);
     }
 
-    $stmt->bind_param('isii', $rating, $reviewText, $reviewId, $userId);
-    $ok = $stmt->execute();
-    $stmt->close();
-
-    if (!$ok) {
+    if (!$con->begin_transaction()) {
+        $stmt->close();
         reviews_api_json([
             'ok' => false,
             'message' => 'Unable to update your review right now.',
@@ -412,9 +749,69 @@ if ($existingReview) {
         ], 500);
     }
 
+    $stmt->bind_param('isii', $rating, $reviewText, $reviewId, $userId);
+    $ok = $stmt->execute();
+    $stmt->close();
+
+    if (!$ok) {
+        $con->rollback();
+        reviews_api_json([
+            'ok' => false,
+            'message' => 'Unable to update your review right now.',
+            'csrf_token' => $_SESSION['csrf_token'],
+        ], 500);
+    }
+
+    if ($replaceImages) {
+        $oldImagePaths = reviews_api_delete_image_rows($con, $reviewId);
+
+        [$storeOk, $storedImages, $storeError] = reviews_api_store_images($validatedImages, $reviewId, $userId);
+        if (!$storeOk) {
+            $con->rollback();
+            $newPaths = array_map(static fn(array $image): string => (string)($image['path'] ?? ''), $storedImages);
+            reviews_api_delete_files($newPaths);
+
+            reviews_api_json([
+                'ok' => false,
+                'message' => $storeError !== '' ? $storeError : 'Unable to save review images.',
+                'csrf_token' => $_SESSION['csrf_token'],
+            ], 500);
+        }
+
+        if (!reviews_api_insert_image_rows($con, $reviewId, $storedImages)) {
+            $con->rollback();
+            $newPaths = array_map(static fn(array $image): string => (string)($image['path'] ?? ''), $storedImages);
+            reviews_api_delete_files($newPaths);
+
+            reviews_api_json([
+                'ok' => false,
+                'message' => 'Unable to save review images.',
+                'csrf_token' => $_SESSION['csrf_token'],
+            ], 500);
+        }
+    }
+
+    if (!$con->commit()) {
+        $con->rollback();
+        if (!empty($storedImages)) {
+            $newPaths = array_map(static fn(array $image): string => (string)($image['path'] ?? ''), $storedImages);
+            reviews_api_delete_files($newPaths);
+        }
+
+        reviews_api_json([
+            'ok' => false,
+            'message' => 'Unable to update your review right now.',
+            'csrf_token' => $_SESSION['csrf_token'],
+        ], 500);
+    }
+
+    if ($replaceImages && !empty($oldImagePaths)) {
+        reviews_api_delete_files($oldImagePaths);
+    }
+
     reviews_api_json([
         'ok' => true,
-        'message' => 'Your review has been updated.',
+        'message' => $replaceImages ? 'Your review has been updated and images replaced.' : 'Your review has been updated.',
         'logged_in' => true,
         'payload' => reviews_api_payload($con, $productId, $userId),
         'csrf_token' => $_SESSION['csrf_token'],
@@ -423,12 +820,21 @@ if ($existingReview) {
 
 $orderId = (int)($eligibility['eligible_order_id'] ?? 0);
 
+if (!$con->begin_transaction()) {
+    reviews_api_json([
+        'ok' => false,
+        'message' => 'Unable to save your review right now.',
+        'csrf_token' => $_SESSION['csrf_token'],
+    ], 500);
+}
+
 $stmt = $con->prepare(
     'INSERT INTO product_reviews (user_id, product_id, order_id, rating, review_text, is_verified_purchase, is_visible)
      VALUES (?, ?, ?, ?, ?, 1, 1)'
 );
 
 if (!$stmt) {
+    $con->rollback();
     reviews_api_json([
         'ok' => false,
         'message' => 'Unable to save your review right now.',
@@ -438,9 +844,53 @@ if (!$stmt) {
 
 $stmt->bind_param('iiiis', $userId, $productId, $orderId, $rating, $reviewText);
 $ok = $stmt->execute();
+$reviewId = (int)$stmt->insert_id;
 $stmt->close();
 
-if (!$ok) {
+if (!$ok || $reviewId <= 0) {
+    $con->rollback();
+    reviews_api_json([
+        'ok' => false,
+        'message' => 'Unable to save your review right now.',
+        'csrf_token' => $_SESSION['csrf_token'],
+    ], 500);
+}
+
+$storedImages = [];
+if (!empty($validatedImages)) {
+    [$storeOk, $storedImages, $storeError] = reviews_api_store_images($validatedImages, $reviewId, $userId);
+    if (!$storeOk) {
+        $con->rollback();
+        $newPaths = array_map(static fn(array $image): string => (string)($image['path'] ?? ''), $storedImages);
+        reviews_api_delete_files($newPaths);
+
+        reviews_api_json([
+            'ok' => false,
+            'message' => $storeError !== '' ? $storeError : 'Unable to save review images.',
+            'csrf_token' => $_SESSION['csrf_token'],
+        ], 500);
+    }
+
+    if (!reviews_api_insert_image_rows($con, $reviewId, $storedImages)) {
+        $con->rollback();
+        $newPaths = array_map(static fn(array $image): string => (string)($image['path'] ?? ''), $storedImages);
+        reviews_api_delete_files($newPaths);
+
+        reviews_api_json([
+            'ok' => false,
+            'message' => 'Unable to save review images.',
+            'csrf_token' => $_SESSION['csrf_token'],
+        ], 500);
+    }
+}
+
+if (!$con->commit()) {
+    $con->rollback();
+    if (!empty($storedImages)) {
+        $newPaths = array_map(static fn(array $image): string => (string)($image['path'] ?? ''), $storedImages);
+        reviews_api_delete_files($newPaths);
+    }
+
     reviews_api_json([
         'ok' => false,
         'message' => 'Unable to save your review right now.',
@@ -450,7 +900,9 @@ if (!$ok) {
 
 reviews_api_json([
     'ok' => true,
-    'message' => 'Thanks! Your review was submitted successfully.',
+    'message' => !empty($storedImages)
+        ? 'Thanks! Your review with images was submitted successfully.'
+        : 'Thanks! Your review was submitted successfully.',
     'logged_in' => true,
     'payload' => reviews_api_payload($con, $productId, $userId),
     'csrf_token' => $_SESSION['csrf_token'],
