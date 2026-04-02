@@ -38,20 +38,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $clientIp = commerza_client_ip();
+    $rateIdentifier = 'contact_submit';
 
     if (empty($errors)) {
       $rate = commerza_rate_limit_check(
         $con,
         'contact_form',
-        $contact_email !== '' ? $contact_email : 'anonymous',
+        $rateIdentifier,
         $clientIp,
-        6,
-        3600,
-        1800
+        2,
+        2700,
+        2700,
+        14400,
+        86400
       );
 
       if (!$rate['allowed']) {
-        $errors[] = "Too many messages sent. Try again in " . (int)$rate['retry_after'] . " seconds.";
+        $retrySeconds = max(1, (int)$rate['retry_after']);
+        $retryMinutes = (int)ceil($retrySeconds / 60);
+        $errors[] = "Too many messages sent. Try again in " . $retryMinutes . " minute(s) (" . $retrySeconds . " seconds).";
       }
     }
 
@@ -84,12 +89,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($insertStmt->execute()) {
                 $success = "Message sent successfully. We will get back to you soon.";
-              commerza_rate_limit_reset(
-                $con,
-                'contact_form',
-                $contact_email !== '' ? $contact_email : 'anonymous',
-                $clientIp
-              );
                 $contact_name = '';
                 $contact_email = '';
                 $contact_message = '';

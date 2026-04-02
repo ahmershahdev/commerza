@@ -71,19 +71,74 @@ function oauth_first_non_empty_env(array $keys): string
     return '';
 }
 
+function oauth_host_is_localhost(string $host): bool
+{
+    return preg_match('/^(localhost|127\.0\.0\.1|\[::1\]|::1)(:\d+)?$/', strtolower(trim($host))) === 1;
+}
+
+function oauth_is_local_request(): bool
+{
+    $host = (string)($_SERVER['HTTP_HOST'] ?? '');
+    if (oauth_host_is_localhost($host)) {
+        return true;
+    }
+
+    $remoteAddr = trim((string)($_SERVER['REMOTE_ADDR'] ?? ''));
+    return in_array($remoteAddr, ['127.0.0.1', '::1'], true);
+}
+
+function oauth_format_provider_error(array $payload, string $fallback = ''): string
+{
+    $error = trim((string)($payload['error_description'] ?? ''));
+    if ($error !== '') {
+        return $error;
+    }
+
+    if (isset($payload['error']) && is_array($payload['error'])) {
+        $error = trim((string)($payload['error']['message'] ?? ''));
+        if ($error !== '') {
+            return $error;
+        }
+    }
+
+    $error = trim((string)($payload['error'] ?? ''));
+    if ($error !== '') {
+        return $error;
+    }
+
+    return trim($fallback);
+}
+
+function oauth_public_error(string $baseMessage, string $detail = ''): string
+{
+    $detail = trim($detail);
+    if (!oauth_is_local_request() || $detail === '') {
+        return $baseMessage;
+    }
+
+    if (strlen($detail) > 180) {
+        $detail = substr($detail, 0, 180) . '...';
+    }
+
+    return $baseMessage . ' ' . $detail;
+}
+
 function oauth_post_form(string $url, array $data): array
 {
     $ch = curl_init($url);
     if ($ch === false) {
-        return [false, []];
+        return [false, [], 'Unable to initialize OAuth request.'];
     }
+
+    $allowInsecureLocal = oauth_is_local_request() && trim((string)getenv('COMMERZA_OAUTH_STRICT_SSL')) !== '1';
 
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => http_build_query($data),
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 20,
-        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYPEER => !$allowInsecureLocal,
+        CURLOPT_SSL_VERIFYHOST => $allowInsecureLocal ? 0 : 2,
         CURLOPT_HTTPHEADER => [
             'Accept: application/json',
             'Content-Type: application/x-www-form-urlencoded',
@@ -92,56 +147,66 @@ function oauth_post_form(string $url, array $data): array
 
     $response = curl_exec($ch);
     $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = trim((string)curl_error($ch));
     curl_close($ch);
 
     if (!is_string($response) || $response === '') {
-        return [false, []];
+        return [false, [], $curlError !== '' ? $curlError : 'Empty response from provider.'];
     }
 
     $decoded = json_decode($response, true);
     if (!is_array($decoded)) {
         parse_str($response, $decoded);
         if (!is_array($decoded)) {
-            $decoded = [];
+            return [false, [], 'Invalid response from provider.'];
         }
     }
 
-    return [$status >= 200 && $status < 300, $decoded];
+    $ok = $status >= 200 && $status < 300;
+    $error = $ok ? '' : oauth_format_provider_error($decoded, $curlError);
+
+    return [$ok, $decoded, $error];
 }
 
 function oauth_get_json(string $url, array $headers = []): array
 {
     $ch = curl_init($url);
     if ($ch === false) {
-        return [false, []];
+        return [false, [], 'Unable to initialize OAuth request.'];
     }
 
     $httpHeaders = array_merge(['Accept: application/json'], $headers);
+    $allowInsecureLocal = oauth_is_local_request() && trim((string)getenv('COMMERZA_OAUTH_STRICT_SSL')) !== '1';
 
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 20,
-        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYPEER => !$allowInsecureLocal,
+        CURLOPT_SSL_VERIFYHOST => $allowInsecureLocal ? 0 : 2,
         CURLOPT_HTTPHEADER => $httpHeaders,
     ]);
 
     $response = curl_exec($ch);
     $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = trim((string)curl_error($ch));
     curl_close($ch);
 
     if (!is_string($response) || $response === '') {
-        return [false, []];
+        return [false, [], $curlError !== '' ? $curlError : 'Empty response from provider.'];
     }
 
     $decoded = json_decode($response, true);
     if (!is_array($decoded)) {
         parse_str($response, $decoded);
         if (!is_array($decoded)) {
-            $decoded = [];
+            return [false, [], 'Invalid response from provider.'];
         }
     }
 
-    return [$status >= 200 && $status < 300, $decoded];
+    $ok = $status >= 200 && $status < 300;
+    $error = $ok ? '' : oauth_format_provider_error($decoded, $curlError);
+
+    return [$ok, $decoded, $error];
 }
 
 function oauth_generate_unique_phone(mysqli $con): string
@@ -184,35 +249,64 @@ if (!in_array($provider, ['google', 'facebook'], true)) {
 
 $appBase = oauth_app_base_url();
 
-$googleClientId = oauth_get_setting($con, 'google_oauth_client_id', oauth_first_non_empty_env([
+$googleClientId = oauth_first_non_empty_env([
     'COMMERZA_GOOGLE_CLIENT_ID',
     'GOOGLE_CLIENT_ID',
-]) ?: '610222424311-q5lpn4u4hnootrc87p9rvuuh6qmlr5g4.apps.googleusercontent.com');
+]);
+if ($googleClientId === '') {
+    $googleClientId = oauth_get_setting($con, 'google_oauth_client_id', '');
+}
 
-$googleClientSecret = oauth_get_setting($con, 'google_oauth_client_secret', oauth_first_non_empty_env([
+$googleClientSecret = oauth_first_non_empty_env([
     'COMMERZA_GOOGLE_CLIENT_SECRET',
     'GOOGLE_CLIENT_SECRET',
-]) ?: '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');
+]);
+if ($googleClientSecret === '') {
+    $googleClientSecret = oauth_get_setting($con, 'google_oauth_client_secret', '');
+}
 
-$googleRedirectUri = oauth_get_setting(
-    $con,
-    'google_oauth_redirect_uri',
-    $appBase . '/oauth.php?provider=google'
-);
+$googleRedirectUri = oauth_first_non_empty_env([
+        'COMMERZA_GOOGLE_REDIRECT_URI',
+        'GOOGLE_REDIRECT_URI',
+    ]);
+if ($googleRedirectUri === '') {
+    $googleRedirectUri = oauth_get_setting($con, 'google_oauth_redirect_uri', $appBase . '/oauth.php?provider=google');
+}
 
-$facebookClientId = oauth_get_setting($con, 'facebook_oauth_client_id', oauth_first_non_empty_env([
+$facebookClientId = oauth_first_non_empty_env([
     'COMMERZA_FACEBOOK_CLIENT_ID',
     'FACEBOOK_CLIENT_ID',
-]));
-$facebookClientSecret = oauth_get_setting($con, 'facebook_oauth_client_secret', oauth_first_non_empty_env([
+]);
+if ($facebookClientId === '') {
+    $facebookClientId = oauth_get_setting($con, 'facebook_oauth_client_id', '');
+}
+
+$facebookClientSecret = oauth_first_non_empty_env([
     'COMMERZA_FACEBOOK_CLIENT_SECRET',
     'FACEBOOK_CLIENT_SECRET',
-]));
-$facebookRedirectUri = oauth_get_setting(
-    $con,
-    'facebook_oauth_redirect_uri',
-    $appBase . '/oauth.php?provider=facebook'
-);
+]);
+if ($facebookClientSecret === '') {
+    $facebookClientSecret = oauth_get_setting($con, 'facebook_oauth_client_secret', '');
+}
+
+$facebookRedirectUri = oauth_first_non_empty_env([
+        'COMMERZA_FACEBOOK_REDIRECT_URI',
+        'FACEBOOK_REDIRECT_URI',
+    ]);
+if ($facebookRedirectUri === '') {
+    $facebookRedirectUri = oauth_get_setting($con, 'facebook_oauth_redirect_uri', $appBase . '/oauth.php?provider=facebook');
+}
+
+$googleClientId = trim($googleClientId);
+$googleClientSecret = trim($googleClientSecret);
+
+if ($googleClientId === 'YOUR_GOOGLE_CLIENT_ID') {
+    $googleClientId = '';
+}
+
+if ($googleClientSecret === 'YOUR_GOOGLE_CLIENT_SECRET') {
+    $googleClientSecret = '';
+}
 
 $providerConfig = [
     'google' => [
@@ -230,7 +324,7 @@ $providerConfig = [
 $config = $providerConfig[$provider];
 
 $currentHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
-$isLocalhost = preg_match('/^(localhost|127\.0\.0\.1|\[::1\]|::1)(:\d+)?$/', $currentHost) === 1;
+$isLocalhost = oauth_host_is_localhost($currentHost);
 
 if ($isLocalhost) {
     $expectedRedirectUri = $appBase . '/oauth.php?provider=' . $provider;
@@ -326,7 +420,7 @@ $email = '';
 $name = '';
 
 if ($provider === 'google') {
-    [$tokenOk, $tokenData] = oauth_post_form('https://oauth2.googleapis.com/token', [
+    [$tokenOk, $tokenData, $tokenError] = oauth_post_form('https://oauth2.googleapis.com/token', [
         'code' => $code,
         'client_id' => $config['client_id'],
         'client_secret' => $config['client_secret'],
@@ -335,22 +429,28 @@ if ($provider === 'google') {
     ]);
 
     if (!$tokenOk || empty($tokenData['access_token'])) {
-        oauth_redirect_with_error('Google token exchange failed.', $stateMode);
+        oauth_redirect_with_error(
+            oauth_public_error('Google token exchange failed.', oauth_format_provider_error($tokenData, $tokenError)),
+            $stateMode
+        );
     }
 
-    [$profileOk, $profile] = oauth_get_json(
+    [$profileOk, $profile, $profileError] = oauth_get_json(
         'https://openidconnect.googleapis.com/v1/userinfo',
         ['Authorization: Bearer ' . $tokenData['access_token']]
     );
 
     if (!$profileOk) {
-        oauth_redirect_with_error('Unable to fetch Google profile.', $stateMode);
+        oauth_redirect_with_error(
+            oauth_public_error('Unable to fetch Google profile.', oauth_format_provider_error($profile, $profileError)),
+            $stateMode
+        );
     }
 
     $email = strtolower(trim((string)($profile['email'] ?? '')));
     $name = trim((string)($profile['name'] ?? ''));
 } else {
-    [$tokenOk, $tokenData] = oauth_get_json(
+    [$tokenOk, $tokenData, $tokenError] = oauth_get_json(
         'https://graph.facebook.com/v20.0/oauth/access_token?' . http_build_query([
             'client_id' => $config['client_id'],
             'client_secret' => $config['client_secret'],
@@ -360,10 +460,13 @@ if ($provider === 'google') {
     );
 
     if (!$tokenOk || empty($tokenData['access_token'])) {
-        oauth_redirect_with_error('Facebook token exchange failed.', $stateMode);
+        oauth_redirect_with_error(
+            oauth_public_error('Facebook token exchange failed.', oauth_format_provider_error($tokenData, $tokenError)),
+            $stateMode
+        );
     }
 
-    [$profileOk, $profile] = oauth_get_json(
+    [$profileOk, $profile, $profileError] = oauth_get_json(
         'https://graph.facebook.com/me?' . http_build_query([
             'fields' => 'id,name,email',
             'access_token' => $tokenData['access_token'],
@@ -371,7 +474,10 @@ if ($provider === 'google') {
     );
 
     if (!$profileOk) {
-        oauth_redirect_with_error('Unable to fetch Facebook profile.', $stateMode);
+        oauth_redirect_with_error(
+            oauth_public_error('Unable to fetch Facebook profile.', oauth_format_provider_error($profile, $profileError)),
+            $stateMode
+        );
     }
 
     $email = strtolower(trim((string)($profile['email'] ?? '')));

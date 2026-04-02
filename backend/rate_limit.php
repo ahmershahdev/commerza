@@ -41,6 +41,8 @@ function commerza_rate_limit_ensure_table(mysqli $con): void
             attempts INT NOT NULL DEFAULT 0,
             window_started_at DATETIME NOT NULL,
             blocked_until DATETIME DEFAULT NULL,
+            strikes INT NOT NULL DEFAULT 0,
+            last_blocked_at DATETIME DEFAULT NULL,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             UNIQUE KEY uq_rate_limit_scope_identifier_ip (scope, identifier, ip_address),
@@ -48,6 +50,19 @@ function commerza_rate_limit_ensure_table(mysqli $con): void
             KEY idx_rate_limit_updated_at (updated_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci'
     );
+
+    $columns = [
+        'strikes' => 'INT NOT NULL DEFAULT 0',
+        'last_blocked_at' => 'DATETIME DEFAULT NULL',
+    ];
+
+    foreach ($columns as $name => $definition) {
+        $safeName = $con->real_escape_string($name);
+        $check = $con->query("SHOW COLUMNS FROM rate_limits LIKE '{$safeName}'");
+        if (!($check instanceof mysqli_result) || $check->num_rows === 0) {
+            $con->query("ALTER TABLE rate_limits ADD COLUMN {$name} {$definition}");
+        }
+    }
 
     $initialized = true;
 }
@@ -74,7 +89,9 @@ function commerza_rate_limit_check(
     string $ipAddress,
     int $maxAttempts,
     int $windowSeconds,
-    int $blockSeconds
+    int $blockSeconds,
+    int $escalatedBlockSeconds = 0,
+    int $escalationResetSeconds = 14400
 ): array {
     $scope = trim($scope);
     $identifier = commerza_rate_limit_normalize_identifier($identifier);
@@ -82,6 +99,8 @@ function commerza_rate_limit_check(
     $maxAttempts = max(1, $maxAttempts);
     $windowSeconds = max(60, $windowSeconds);
     $blockSeconds = max(60, $blockSeconds);
+    $escalatedBlockSeconds = max($blockSeconds, $escalatedBlockSeconds);
+    $escalationResetSeconds = max(60, $escalationResetSeconds);
 
     if ($scope === '') {
         return [
@@ -98,7 +117,7 @@ function commerza_rate_limit_check(
     $now = date('Y-m-d H:i:s', $nowTs);
 
     $selectStmt = $con->prepare(
-        'SELECT id, attempts, window_started_at, blocked_until
+        'SELECT id, attempts, window_started_at, blocked_until, strikes, last_blocked_at
          FROM rate_limits
          WHERE scope = ? AND identifier = ? AND ip_address = ?
          LIMIT 1'
@@ -141,8 +160,10 @@ function commerza_rate_limit_check(
 
     $recordId = (int)$row['id'];
     $attempts = max(0, (int)$row['attempts']);
+    $strikes = max(0, (int)($row['strikes'] ?? 0));
     $windowStartedAt = strtotime((string)($row['window_started_at'] ?? ''));
     $blockedUntil = strtotime((string)($row['blocked_until'] ?? ''));
+    $lastBlockedAt = strtotime((string)($row['last_blocked_at'] ?? ''));
 
     if ($blockedUntil !== false && $blockedUntil > $nowTs) {
         return [
@@ -156,16 +177,20 @@ function commerza_rate_limit_check(
     $windowExpired = $windowStartedAt === false || ($nowTs - $windowStartedAt) >= $windowSeconds;
 
     if ($windowExpired) {
+        if ($lastBlockedAt === false || ($nowTs - $lastBlockedAt) > $escalationResetSeconds) {
+            $strikes = 0;
+        }
+
         $attempts = 1;
         $updateStmt = $con->prepare(
             'UPDATE rate_limits
-             SET attempts = ?, window_started_at = ?, blocked_until = NULL
+             SET attempts = ?, window_started_at = ?, blocked_until = NULL, strikes = ?
              WHERE id = ?
              LIMIT 1'
         );
 
         if ($updateStmt) {
-            $updateStmt->bind_param('isi', $attempts, $now, $recordId);
+            $updateStmt->bind_param('isii', $attempts, $now, $strikes, $recordId);
             $updateStmt->execute();
             $updateStmt->close();
         }
@@ -181,27 +206,37 @@ function commerza_rate_limit_check(
     $attempts++;
 
     if ($attempts > $maxAttempts) {
-        $blockedUntilTs = $nowTs + $blockSeconds;
+        $withinEscalationWindow = $lastBlockedAt !== false && ($nowTs - $lastBlockedAt) <= $escalationResetSeconds;
+        if (!$withinEscalationWindow) {
+            $strikes = 0;
+        }
+
+        $nextStrike = $strikes + 1;
+        $appliedBlockSeconds = ($nextStrike >= 2) ? $escalatedBlockSeconds : $blockSeconds;
+
+        $blockedUntilTs = $nowTs + $appliedBlockSeconds;
         $blockedUntilText = date('Y-m-d H:i:s', $blockedUntilTs);
+        $lastBlockedAtText = $now;
 
         $blockStmt = $con->prepare(
             'UPDATE rate_limits
-             SET attempts = ?, blocked_until = ?
+             SET attempts = ?, blocked_until = ?, strikes = ?, last_blocked_at = ?
              WHERE id = ?
              LIMIT 1'
         );
 
         if ($blockStmt) {
-            $blockStmt->bind_param('isi', $attempts, $blockedUntilText, $recordId);
+            $blockStmt->bind_param('isisi', $attempts, $blockedUntilText, $nextStrike, $lastBlockedAtText, $recordId);
             $blockStmt->execute();
             $blockStmt->close();
         }
 
         return [
             'allowed' => false,
-            'retry_after' => $blockSeconds,
+            'retry_after' => $appliedBlockSeconds,
             'remaining' => 0,
             'limit' => $maxAttempts,
+            'block_level' => $nextStrike >= 2 ? 'elevated' : 'standard',
         ];
     }
 

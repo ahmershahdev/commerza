@@ -337,6 +337,25 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                                     </div>
                                 </div>
                             </div>
+                            <div class="col-12 col-sm-6 col-xl-3">
+                                <div class="card admin-card border-0 shadow-sm h-100">
+                                    <div class="card-body p-4">
+                                        <div class="d-flex justify-content-between align-items-start mb-3">
+                                            <div>
+                                                <p class="text-secondary small mb-2 text-uppercase fw-semibold">Refund Status</p>
+                                                <h3 class="fw-bold mb-0 text-light" id="dashboardRefundSummaryValue">0 / 0 / 0</h3>
+                                            </div>
+                                            <div class="icon-bg bg-secondary rounded-3 d-flex align-items-center justify-content-center"
+                                                style="width: 48px; height: 48px;">
+                                                <i class="bi bi-cash-coin text-light fs-4"></i>
+                                            </div>
+                                        </div>
+                                        <p class="mb-0 small text-info">
+                                            <i class="bi bi-info-circle"></i> <span class="fw-semibold" id="dashboardRefundSummaryInfo">Pending / Accepted / Rejected</span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="row g-4">
@@ -542,6 +561,7 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                                                         <th class="py-3 text-orange fw-semibold">Customer</th>
                                                         <th class="py-3 text-orange fw-semibold">Requested</th>
                                                         <th class="py-3 text-orange fw-semibold">Status</th>
+                                                        <th class="py-3 text-orange fw-semibold">Order Payment</th>
                                                         <th class="py-3 text-orange fw-semibold">Reason</th>
                                                         <th class="py-3 text-orange fw-semibold">Evidence</th>
                                                         <th class="py-3 pe-4 text-orange fw-semibold">Actions</th>
@@ -549,7 +569,7 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                                                 </thead>
                                                 <tbody>
                                                     <tr>
-                                                        <td colspan="7" class="text-center py-4 text-secondary">No refund requests yet.</td>
+                                                        <td colspan="8" class="text-center py-4 text-secondary">No refund requests yet.</td>
                                                     </tr>
                                                 </tbody>
                                             </table>
@@ -792,11 +812,16 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                             <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                                 <h3 class="h5 mb-0 fw-bold text-orange">All Product Reviews</h3>
                                 <div class="d-flex align-items-center gap-2">
-                                    <select class="form-select bg-secondary border-0 text-light form-select-sm" id="reviewVisibilityFilter" style="min-width: 160px;">
-                                        <option value="all">All Reviews</option>
-                                        <option value="visible">Visible Only</option>
-                                        <option value="hidden">Hidden Only</option>
-                                    </select>
+                                    <select class="form-select bg-secondary border-0 text-light form-select-sm" 
+        id="reviewVisibilityFilter" 
+        style="min-width: 120px; width: auto;">
+    <option value="all">All Reviews</option>
+    <option value="visible">Visible</option>
+    <option value="hidden">Hidden</option>
+</select>
+                                    <button class="btn btn-sm btn-orange" id="addReviewBtn" type="button">
+                                        <i class="bi bi-plus-circle me-1"></i>Add Review
+                                    </button> 
                                     <button class="btn btn-sm btn-outline-orange" id="refreshReviewsBtn" type="button">
                                         <i class="bi bi-arrow-clockwise me-1"></i>Refresh
                                     </button>

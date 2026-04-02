@@ -57,6 +57,72 @@ function orders_api_order_has_column(mysqli $con, string $column): bool
     return $result instanceof mysqli_result && $result->num_rows > 0;
 }
 
+function orders_api_table_has_column(mysqli $con, string $table, string $column): bool
+{
+    $table = trim($table);
+    $column = trim($column);
+
+    if ($table === '' || $column === '') {
+        return false;
+    }
+
+    if (preg_match('/^[a-zA-Z0-9_]+$/', $table) !== 1 || preg_match('/^[a-zA-Z0-9_]+$/', $column) !== 1) {
+        return false;
+    }
+
+    $escapedTable = $con->real_escape_string($table);
+    $escapedColumn = $con->real_escape_string($column);
+    $result = $con->query("SHOW COLUMNS FROM `{$escapedTable}` LIKE '{$escapedColumn}'");
+
+    return $result instanceof mysqli_result && $result->num_rows > 0;
+}
+
+function orders_api_prepare_delete_by_int_stmt(mysqli $con, string $table, string $column): ?mysqli_stmt
+{
+    if (!orders_api_table_has_column($con, $table, $column)) {
+        return null;
+    }
+
+    $stmt = $con->prepare("DELETE FROM `{$table}` WHERE `{$column}` = ?");
+    return $stmt ?: null;
+}
+
+function orders_api_prepare_delete_by_email_stmt(mysqli $con, string $table, string $column): ?mysqli_stmt
+{
+    if (!orders_api_table_has_column($con, $table, $column)) {
+        return null;
+    }
+
+    $stmt = $con->prepare("DELETE FROM `{$table}` WHERE LOWER(TRIM(`{$column}`)) = ?");
+    return $stmt ?: null;
+}
+
+function orders_api_close_statements(array $statements): void
+{
+    foreach ($statements as $stmt) {
+        if ($stmt instanceof mysqli_stmt) {
+            $stmt->close();
+        }
+    }
+}
+
+function orders_api_delete_user_profile_picture(string $relativePath): void
+{
+    $relativePath = trim(str_replace('\\', '/', $relativePath));
+    if ($relativePath === '' || strpos($relativePath, 'frontend/assets/images/users/') !== 0) {
+        return;
+    }
+
+    if (strpos($relativePath, '..') !== false) {
+        return;
+    }
+
+    $absolutePath = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+    if (is_file($absolutePath)) {
+        @unlink($absolutePath);
+    }
+}
+
 function orders_api_ensure_order_coupon_columns(mysqli $con): void
 {
     static $initialized = false;
@@ -143,6 +209,7 @@ function orders_api_fetch_refunds(mysqli $con): array
             o.customer_name,
             o.customer_email,
             o.status AS order_status,
+                o.payment_status AS order_payment_status,
             o.updated_at AS order_updated_at
          FROM refund_requests r
          INNER JOIN orders o ON o.id = r.order_id
@@ -168,6 +235,7 @@ function orders_api_fetch_refunds(mysqli $con): array
             'customerName' => (string)($row['customer_name'] ?? ''),
             'customerEmail' => (string)($row['customer_email'] ?? ''),
             'orderStatus' => (string)($row['order_status'] ?? ''),
+            'orderPaymentStatus' => (string)($row['order_payment_status'] ?? 'unpaid'),
             'reason' => (string)($row['reason'] ?? ''),
             'status' => (string)($row['status'] ?? 'pending'),
             'adminNote' => (string)($row['admin_note'] ?? ''),
@@ -401,9 +469,14 @@ function orders_api_fetch_metrics(mysqli $con): array
         'totalProducts' => 0,
         'avgOrderValue' => 0.0,
         'returningCustomerRate' => 0.0,
+        'pendingRefunds' => 0,
+        'acceptedRefunds' => 0,
+        'rejectedRefunds' => 0,
         'weeklyPerformance' => [],
         'topProducts' => [],
     ];
+
+    orders_api_ensure_refund_table($con);
 
     $revenueResult = $con->query(
         'SELECT COALESCE(SUM(grand_total), 0) AS total
@@ -466,6 +539,21 @@ function orders_api_fetch_metrics(mysqli $con): array
         if ($totalCustomers > 0) {
             $metrics['returningCustomerRate'] = round(($returningCustomers / $totalCustomers) * 100, 2);
         }
+    }
+
+    $refundSummaryResult = $con->query(
+        'SELECT
+            COALESCE(SUM(CASE WHEN status = "pending" THEN 1 ELSE 0 END), 0) AS pending_total,
+            COALESCE(SUM(CASE WHEN status = "accepted" THEN 1 ELSE 0 END), 0) AS accepted_total,
+            COALESCE(SUM(CASE WHEN status = "rejected" THEN 1 ELSE 0 END), 0) AS rejected_total
+         FROM refund_requests'
+    );
+
+    if ($refundSummaryResult) {
+        $row = $refundSummaryResult->fetch_assoc();
+        $metrics['pendingRefunds'] = (int)($row['pending_total'] ?? 0);
+        $metrics['acceptedRefunds'] = (int)($row['accepted_total'] ?? 0);
+        $metrics['rejectedRefunds'] = (int)($row['rejected_total'] ?? 0);
     }
 
     $weeklyMap = [];
@@ -773,25 +861,73 @@ if ($action === 'delete-customers') {
 
     orders_api_ensure_refund_table($con);
 
-    $fetchEmailStmt = $con->prepare('SELECT email FROM users WHERE id = ? LIMIT 1');
+    $fetchUserStmt = $con->prepare('SELECT email, profile_picture FROM users WHERE id = ? LIMIT 1');
     $fetchOrderIdsByUserStmt = $con->prepare('SELECT id FROM orders WHERE user_id = ?');
     $fetchOrderIdsByEmailStmt = $con->prepare('SELECT id FROM orders WHERE LOWER(TRIM(customer_email)) = ?');
-    $deleteRefundByOrderStmt = $con->prepare('DELETE FROM refund_requests WHERE order_id = ?');
-    $deleteRefundByUserStmt = $con->prepare('DELETE FROM refund_requests WHERE user_id = ?');
     $deleteOrderStmt = $con->prepare('DELETE FROM orders WHERE id = ? LIMIT 1');
-
     $deleteUserStmt = $con->prepare('DELETE FROM users WHERE id = ? LIMIT 1');
+
+    $orderCleanupTargets = [
+        ['refund_requests', 'order_id'],
+        ['coupon_redemptions', 'order_id'],
+        ['product_reviews', 'order_id'],
+    ];
+
+    $userCleanupTargets = [
+        ['refund_requests', 'user_id'],
+        ['coupon_redemptions', 'user_id'],
+        ['product_reviews', 'user_id'],
+        ['live_product_viewers', 'user_id'],
+        ['engagement_reminders', 'user_id'],
+        ['user_sessions', 'user_id'],
+        ['cart', 'user_id'],
+        ['wishlist', 'user_id'],
+        ['compare_list', 'user_id'],
+    ];
+
+    $emailCleanupTargets = [
+        ['newsletter_subscribers', 'email'],
+        ['email_suppressed', 'email'],
+        ['rate_limits', 'identifier'],
+    ];
+
+    $orderCleanupStatements = [];
+    $userCleanupStatements = [];
+    $emailCleanupStatements = [];
+
+    foreach ($orderCleanupTargets as $target) {
+        [$table, $column] = $target;
+        $stmt = orders_api_prepare_delete_by_int_stmt($con, $table, $column);
+        if ($stmt instanceof mysqli_stmt) {
+            $orderCleanupStatements[] = $stmt;
+        }
+    }
+
+    foreach ($userCleanupTargets as $target) {
+        [$table, $column] = $target;
+        $stmt = orders_api_prepare_delete_by_int_stmt($con, $table, $column);
+        if ($stmt instanceof mysqli_stmt) {
+            $userCleanupStatements[] = $stmt;
+        }
+    }
+
+    foreach ($emailCleanupTargets as $target) {
+        [$table, $column] = $target;
+        $stmt = orders_api_prepare_delete_by_email_stmt($con, $table, $column);
+        if ($stmt instanceof mysqli_stmt) {
+            $emailCleanupStatements[] = $stmt;
+        }
+    }
+
     if (
-        !$fetchEmailStmt ||
+        !$fetchUserStmt ||
         !$fetchOrderIdsByUserStmt ||
         !$fetchOrderIdsByEmailStmt ||
-        !$deleteRefundByOrderStmt ||
-        !$deleteRefundByUserStmt ||
         !$deleteOrderStmt ||
         !$deleteUserStmt
     ) {
-        if ($fetchEmailStmt) {
-            $fetchEmailStmt->close();
+        if ($fetchUserStmt) {
+            $fetchUserStmt->close();
         }
         if ($fetchOrderIdsByUserStmt) {
             $fetchOrderIdsByUserStmt->close();
@@ -799,30 +935,40 @@ if ($action === 'delete-customers') {
         if ($fetchOrderIdsByEmailStmt) {
             $fetchOrderIdsByEmailStmt->close();
         }
-        if ($deleteRefundByOrderStmt) {
-            $deleteRefundByOrderStmt->close();
-        }
-        if ($deleteRefundByUserStmt) {
-            $deleteRefundByUserStmt->close();
-        }
         if ($deleteOrderStmt) {
             $deleteOrderStmt->close();
         }
         if ($deleteUserStmt) {
             $deleteUserStmt->close();
         }
+        orders_api_close_statements($orderCleanupStatements);
+        orders_api_close_statements($userCleanupStatements);
+        orders_api_close_statements($emailCleanupStatements);
         orders_api_json(['ok' => false, 'message' => 'Unable to delete selected customers.'], 500);
     }
 
     $deleted = 0;
+    $failed = 0;
     foreach ($ids as $customerId) {
+        if (!$con->begin_transaction()) {
+            $failed++;
+            continue;
+        }
+
+        $operationOk = true;
         $customerEmail = '';
-        $fetchEmailStmt->bind_param('i', $customerId);
-        $fetchEmailStmt->execute();
-        $customerResult = $fetchEmailStmt->get_result();
+        $profilePicturePath = '';
+
+        $fetchUserStmt->bind_param('i', $customerId);
+        $fetchUserStmt->execute();
+        $customerResult = $fetchUserStmt->get_result();
         $customerRow = $customerResult ? $customerResult->fetch_assoc() : null;
         if ($customerRow) {
             $customerEmail = strtolower(trim((string)($customerRow['email'] ?? '')));
+            $profilePicturePath = trim((string)($customerRow['profile_picture'] ?? ''));
+        } else {
+            $con->rollback();
+            continue;
         }
 
         $orderIds = [];
@@ -852,35 +998,94 @@ if ($action === 'delete-customers') {
         $orderIds = array_values(array_unique(array_filter($orderIds, static fn(int $id): bool => $id > 0)));
 
         foreach ($orderIds as $orderId) {
-            $deleteRefundByOrderStmt->bind_param('i', $orderId);
-            $deleteRefundByOrderStmt->execute();
+            foreach ($orderCleanupStatements as $cleanupStmt) {
+                $cleanupStmt->bind_param('i', $orderId);
+                if (!$cleanupStmt->execute()) {
+                    $operationOk = false;
+                    break;
+                }
+            }
+
+            if (!$operationOk) {
+                break;
+            }
 
             $deleteOrderStmt->bind_param('i', $orderId);
-            $deleteOrderStmt->execute();
+            if (!$deleteOrderStmt->execute()) {
+                $operationOk = false;
+                break;
+            }
         }
 
-        $deleteRefundByUserStmt->bind_param('i', $customerId);
-        $deleteRefundByUserStmt->execute();
+        if ($operationOk) {
+            foreach ($userCleanupStatements as $cleanupStmt) {
+                $cleanupStmt->bind_param('i', $customerId);
+                if (!$cleanupStmt->execute()) {
+                    $operationOk = false;
+                    break;
+                }
+            }
+        }
 
-        $deleteUserStmt->bind_param('i', $customerId);
-        if ($deleteUserStmt->execute()) {
-            $deleted += max(0, (int)$deleteUserStmt->affected_rows);
+        if ($operationOk && $customerEmail !== '') {
+            foreach ($emailCleanupStatements as $cleanupStmt) {
+                $cleanupStmt->bind_param('s', $customerEmail);
+                if (!$cleanupStmt->execute()) {
+                    $operationOk = false;
+                    break;
+                }
+            }
+        }
+
+        $userDeletedRows = 0;
+
+        if ($operationOk) {
+            $deleteUserStmt->bind_param('i', $customerId);
+            if (!$deleteUserStmt->execute()) {
+                $operationOk = false;
+            } else {
+                $userDeletedRows = max(0, (int)$deleteUserStmt->affected_rows);
+            }
+        }
+
+        if ($operationOk) {
+            if ($con->commit()) {
+                $deleted += $userDeletedRows;
+                if ($userDeletedRows > 0) {
+                    orders_api_delete_user_profile_picture($profilePicturePath);
+                }
+            } else {
+                $con->rollback();
+                $failed++;
+            }
+        } else {
+            $con->rollback();
+            $failed++;
         }
     }
 
-    $fetchEmailStmt->close();
+    $fetchUserStmt->close();
     $fetchOrderIdsByUserStmt->close();
     $fetchOrderIdsByEmailStmt->close();
-    $deleteRefundByOrderStmt->close();
-    $deleteRefundByUserStmt->close();
     $deleteOrderStmt->close();
     $deleteUserStmt->close();
+    orders_api_close_statements($orderCleanupStatements);
+    orders_api_close_statements($userCleanupStatements);
+    orders_api_close_statements($emailCleanupStatements);
+
+    $message = 'No matching customers were deleted.';
+    if ($deleted > 0) {
+        $message = 'Selected customers deleted successfully.';
+        if ($failed > 0) {
+            $message .= ' Some records could not be deleted and were rolled back.';
+        }
+    } elseif ($failed > 0) {
+        $message = 'Unable to delete selected customers completely.';
+    }
 
     orders_api_json([
         'ok' => true,
-        'message' => $deleted > 0
-            ? 'Selected customers deleted successfully.'
-            : 'No matching customers were deleted.',
+        'message' => $message,
         'payload' => orders_api_summary_payload($con),
     ]);
 }
@@ -950,20 +1155,45 @@ if ($action === 'update-refund-status') {
         orders_api_json(['ok' => false, 'message' => 'Unable to update refund request.'], 500);
     }
 
-    if ($status === 'accepted') {
-        $orderId = (int)($refundRow['order_id'] ?? 0);
-        if ($orderId > 0) {
+    $orderId = (int)($refundRow['order_id'] ?? 0);
+    if ($orderId > 0) {
+        $orderUpdateStmt = null;
+
+        if ($status === 'accepted') {
             $orderUpdateStmt = $con->prepare(
                 'UPDATE orders
                  SET status = "Refunded", payment_status = "refunded"
                  WHERE id = ?
                  LIMIT 1'
             );
-            if ($orderUpdateStmt) {
-                $orderUpdateStmt->bind_param('i', $orderId);
-                $orderUpdateStmt->execute();
-                $orderUpdateStmt->close();
-            }
+        } elseif ($status === 'pending') {
+            $orderUpdateStmt = $con->prepare(
+                'UPDATE orders
+                 SET status = CASE WHEN status = "Refunded" THEN "Delivered" ELSE status END,
+                     payment_status = CASE WHEN payment_status = "unpaid" THEN "unpaid" ELSE "partially_refunded" END
+                 WHERE id = ?
+                 LIMIT 1'
+            );
+        } else {
+            $orderUpdateStmt = $con->prepare(
+                'UPDATE orders
+                 SET status = CASE WHEN status = "Refunded" THEN "Delivered" ELSE status END,
+                     payment_status = CASE WHEN payment_status IN ("partially_refunded", "refunded") THEN "paid" ELSE payment_status END
+                 WHERE id = ?
+                 LIMIT 1'
+            );
+        }
+
+        if (!$orderUpdateStmt) {
+            orders_api_json(['ok' => false, 'message' => 'Unable to sync refund status with order.'], 500);
+        }
+
+        $orderUpdateStmt->bind_param('i', $orderId);
+        $orderUpdated = $orderUpdateStmt->execute();
+        $orderUpdateStmt->close();
+
+        if (!$orderUpdated) {
+            orders_api_json(['ok' => false, 'message' => 'Unable to sync refund status with order.'], 500);
         }
     }
 

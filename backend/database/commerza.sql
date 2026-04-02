@@ -220,14 +220,7 @@ INSERT INTO `site_settings` (`setting_key`, `setting_val`, `label`, `setting_gro
 ('facebook_oauth_client_secret', '',                                                         'Facebook OAuth Client Secret', 'integrations'),
 ('facebook_oauth_redirect_uri', 'http://localhost/commerza/oauth.php?provider=facebook',   'Facebook OAuth Redirect URI', 'integrations'),
 ('stripe_publishable_key', '',                                                               'Stripe Publishable Key',    'integrations'),
-('stripe_secret_key', '',                                                                    'Stripe Secret Key',         'integrations'),
-('jazzcash_merchant_id', '',                                                                 'JazzCash Merchant ID',      'integrations'),
-('jazzcash_api_key', '',                                                                     'JazzCash API Key',          'integrations'),
-('jazzcash_integrity_salt', '',                                                              'JazzCash Integrity Salt',   'integrations'),
-('jazzcash_callback_url', 'http://localhost/commerza/backend/jazzcash_callback.php',        'JazzCash Callback URL',     'integrations'),
-('easypaisa_merchant_id', '',                                                                'Easypaisa Merchant ID',     'integrations'),
-('easypaisa_api_key', '',                                                                    'Easypaisa API Key',         'integrations'),
-('easypaisa_callback_url', 'http://localhost/commerza/backend/easypaisa_callback.php',      'Easypaisa Callback URL',    'integrations');
+('stripe_secret_key', '',                                                                    'Stripe Secret Key',         'integrations');
 
 -- ============================================================
 -- 2. TICKER
@@ -469,6 +462,22 @@ CREATE TABLE `product_reviews` (
   UNIQUE KEY `uq_review_user_product` (`user_id`,`product_id`),
   KEY `idx_review_product_visible` (`product_id`,`is_visible`),
   KEY `idx_review_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ============================================================
+-- 8D. PRODUCT REVIEW IMAGES
+-- ============================================================
+
+CREATE TABLE `product_review_images` (
+  `id`         int NOT NULL AUTO_INCREMENT,
+  `review_id`  int NOT NULL,
+  `image_path` varchar(255) NOT NULL,
+  `image_name` varchar(255) NOT NULL,
+  `image_size` int NOT NULL DEFAULT 0,
+  `sort_order` tinyint NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_review_images_review` (`review_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ============================================================
@@ -926,6 +935,10 @@ ALTER TABLE `order_items`
 -- wishlist
 ALTER TABLE `wishlist`
   ADD CONSTRAINT `fk_wl_user`      FOREIGN KEY (`user_id`)    REFERENCES `users`    (`id`) ON DELETE CASCADE;
+
+-- product_review_images
+ALTER TABLE `product_review_images`
+  ADD CONSTRAINT `fk_pri_review`   FOREIGN KEY (`review_id`)  REFERENCES `product_reviews` (`id`) ON DELETE CASCADE;
 
 -- wishlist_items
 ALTER TABLE `wishlist_items`

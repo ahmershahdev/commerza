@@ -1474,6 +1474,29 @@ function renderReviewsStats(stats = {}) {
   $("#reviewStatAverage").text(Number(stats.averageRating || 0).toFixed(2));
 }
 
+function renderAdminReviewImages(images) {
+  const list = Array.isArray(images) ? images : [];
+  if (!list.length) {
+    return "";
+  }
+
+  const thumbs = list
+    .slice(0, 2)
+    .map((image) => {
+      const path = (image?.path || "").toString().trim();
+      if (!path) {
+        return "";
+      }
+
+      return `<a href="../${encodeURI(path)}" target="_blank" rel="noopener" class="d-inline-block me-1 mt-2"><img src="../${encodeURI(path)}" alt="Review image" style="width:34px;height:34px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.2);"></a>`;
+    })
+    .join("");
+
+  return thumbs
+    ? `<div class="small text-info">Images: ${list.length}</div><div>${thumbs}</div>`
+    : "";
+}
+
 function renderReviewsTable() {
   const tbody = $("#reviewsTable tbody");
   if (!tbody.length) return;
@@ -1495,6 +1518,7 @@ function renderReviewsTable() {
     const stars = `${"★".repeat(rating)}${"☆".repeat(5 - rating)}`;
     const text = (review.reviewText || "").toString();
     const clipped = text.length > 120 ? `${text.slice(0, 120)}...` : text;
+    const imageMarkup = renderAdminReviewImages(review.images || []);
 
     tbody.append(`
       <tr class="border-bottom border-secondary">
@@ -1504,7 +1528,7 @@ function renderReviewsTable() {
           <div class="text-secondary small">${escapeHtml(review.userEmail || "")}</div>
         </td>
         <td class="py-3 text-warning">${stars}</td>
-        <td class="py-3 text-secondary small" title="${escapeHtml(text)}">${escapeHtml(clipped)}</td>
+        <td class="py-3 text-secondary small" title="${escapeHtml(text)}">${escapeHtml(clipped)}${imageMarkup}</td>
         <td class="py-3">${statusBadge}</td>
         <td class="py-3 text-secondary small">${escapeHtml(formatDateTime(review.updatedAt))}</td>
         <td class="pe-4 py-3">
@@ -1681,6 +1705,138 @@ async function deleteReviewById(reviewId) {
   }
 }
 
+async function addReviewByAdmin() {
+  const userIdInput = await showCustomPromptDialog(
+    "User ID:",
+    "",
+    "Add Review",
+  );
+  if (userIdInput === null) {
+    return;
+  }
+
+  const userId = parseInt((userIdInput || "").toString().trim(), 10);
+  if (!Number.isInteger(userId) || userId <= 0) {
+    showNotification("Enter a valid User ID.", "danger");
+    return;
+  }
+
+  const productIdInput = await showCustomPromptDialog(
+    "Product ID:",
+    "",
+    "Add Review",
+  );
+  if (productIdInput === null) {
+    return;
+  }
+
+  const productId = parseInt((productIdInput || "").toString().trim(), 10);
+  if (!Number.isInteger(productId) || productId <= 0) {
+    showNotification("Enter a valid Product ID.", "danger");
+    return;
+  }
+
+  const orderIdInput = await showCustomPromptDialog(
+    "Order ID (optional, leave empty for none):",
+    "",
+    "Add Review",
+  );
+  if (orderIdInput === null) {
+    return;
+  }
+
+  let orderId = 0;
+  const orderValue = (orderIdInput || "").toString().trim();
+  if (orderValue !== "") {
+    orderId = parseInt(orderValue, 10);
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      showNotification("Order ID must be a positive number.", "danger");
+      return;
+    }
+  }
+
+  const ratingInput = await showCustomPromptDialog(
+    "Rating (1-5):",
+    "5",
+    "Add Review",
+  );
+  if (ratingInput === null) {
+    return;
+  }
+
+  const rating = parseInt((ratingInput || "").toString().trim(), 10);
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    showNotification("Rating must be between 1 and 5.", "danger");
+    return;
+  }
+
+  const reviewTextInput = await showCustomPromptDialog(
+    "Review text:",
+    "",
+    "Add Review",
+  );
+  if (reviewTextInput === null) {
+    return;
+  }
+
+  const reviewText = (reviewTextInput || "").toString().trim();
+  if (reviewText.length < 10 || reviewText.length > 500) {
+    showNotification("Review text must be 10 to 500 characters.", "danger");
+    return;
+  }
+
+  const visibilityInput = await showCustomPromptDialog(
+    "Visible? (yes/no)",
+    "yes",
+    "Add Review",
+  );
+  if (visibilityInput === null) {
+    return;
+  }
+
+  const normalizedVisibility = (visibilityInput || "yes")
+    .toString()
+    .trim()
+    .toLowerCase();
+  const isVisible = !["no", "n", "0", "false", "hidden"].includes(
+    normalizedVisibility,
+  );
+
+  const adminNoteInput = await showCustomPromptDialog(
+    "Admin note (optional):",
+    "",
+    "Add Review",
+  );
+
+  const adminNote = (adminNoteInput || "").toString().trim();
+  if (adminNote.length > 500) {
+    showNotification("Admin note can be up to 500 characters.", "danger");
+    return;
+  }
+
+  try {
+    const result = await adminPostJson(ADMIN_REVIEWS_API, {
+      action: "add-review",
+      user_id: userId,
+      product_id: productId,
+      order_id: orderId,
+      rating,
+      review_text: reviewText,
+      is_visible: isVisible ? 1 : 0,
+      admin_note: adminNote,
+    });
+
+    adminReviews = Array.isArray(result?.payload?.reviews)
+      ? result.payload.reviews
+      : adminReviews;
+    renderReviewsStats(result?.payload?.stats || {});
+    renderReviewsTable();
+    showNotification(result?.message || "Review added.", "success");
+  } catch (error) {
+    showNotification(error?.message || "Unable to add review.", "danger");
+  }
+}
+
 function initReviewsSection() {
   if (!$("#reviewsSection").length) {
     return;
@@ -1696,6 +1852,12 @@ function initReviewsSection() {
     .off("click")
     .on("click", function () {
       loadReviewsData(false);
+    });
+
+  $("#addReviewBtn")
+    .off("click")
+    .on("click", function () {
+      addReviewByAdmin();
     });
 }
 
@@ -3172,6 +3334,26 @@ function renderAnalyticsSection() {
   ).filter(
     (refund) => (refund?.status || "").toString().toLowerCase() === "pending",
   ).length;
+  const acceptedRefundCount = (
+    Array.isArray(adminRefunds) ? adminRefunds : []
+  ).filter(
+    (refund) => (refund?.status || "").toString().toLowerCase() === "accepted",
+  ).length;
+  const rejectedRefundCount = (
+    Array.isArray(adminRefunds) ? adminRefunds : []
+  ).filter(
+    (refund) => (refund?.status || "").toString().toLowerCase() === "rejected",
+  ).length;
+
+  const pendingRefunds = Number(
+    adminMetrics?.pendingRefunds ?? pendingRefundCount,
+  );
+  const acceptedRefunds = Number(
+    adminMetrics?.acceptedRefunds ?? acceptedRefundCount,
+  );
+  const rejectedRefunds = Number(
+    adminMetrics?.rejectedRefunds ?? rejectedRefundCount,
+  );
 
   $("#analyticsRevenueValue").text(formatPkr(revenue));
   $("#analyticsOrdersValue").text(orderCount.toLocaleString());
@@ -3193,7 +3375,21 @@ function renderAnalyticsSection() {
 
   $("#storeHealthOpenOrders").text(openOrders.toLocaleString());
   $("#storeHealthLowStock").text(lowStockCount.toLocaleString());
-  $("#storeHealthPendingRefunds").text(pendingRefundCount.toLocaleString());
+  $("#storeHealthPendingRefunds").text(pendingRefunds.toLocaleString());
+
+  const dashboardRefundValue = document.getElementById(
+    "dashboardRefundSummaryValue",
+  );
+  if (dashboardRefundValue) {
+    dashboardRefundValue.textContent = `${pendingRefunds} / ${acceptedRefunds} / ${rejectedRefunds}`;
+  }
+
+  const dashboardRefundInfo = document.getElementById(
+    "dashboardRefundSummaryInfo",
+  );
+  if (dashboardRefundInfo) {
+    dashboardRefundInfo.textContent = "Pending / Accepted / Rejected";
+  }
 
   const actionItems = [];
   if (openOrders > 0) {
@@ -3206,9 +3402,9 @@ function renderAnalyticsSection() {
       `Restock ${lowStockCount} low-stock product(s) before they run out.`,
     );
   }
-  if (pendingRefundCount > 0) {
+  if (pendingRefunds > 0) {
     actionItems.push(
-      `Review ${pendingRefundCount} pending refund request(s) today.`,
+      `Review ${pendingRefunds} pending refund request(s) today.`,
     );
   }
   if (orderCount === 0) {
@@ -3329,7 +3525,7 @@ function renderRefundRequests() {
 
   if (!Array.isArray(adminRefunds) || adminRefunds.length === 0) {
     tbody.innerHTML =
-      '<tr><td colspan="7" class="text-center py-4 text-secondary">No refund requests yet.</td></tr>';
+      '<tr><td colspan="8" class="text-center py-4 text-secondary">No refund requests yet.</td></tr>';
     return;
   }
 
@@ -3352,6 +3548,25 @@ function renderRefundRequests() {
     const status = (refund.status || "pending").toLowerCase();
     const statusLabel =
       status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+    const orderPaymentStatus = (refund.orderPaymentStatus || "unpaid")
+      .toString()
+      .toLowerCase();
+    const orderPaymentLabel =
+      orderPaymentStatus === "refunded"
+        ? "Refunded"
+        : orderPaymentStatus === "partially_refunded"
+          ? "Refund Pending"
+          : orderPaymentStatus === "paid"
+            ? "Paid"
+            : "Unpaid";
+    const orderPaymentClass =
+      orderPaymentStatus === "refunded"
+        ? "bg-secondary"
+        : orderPaymentStatus === "partially_refunded"
+          ? "bg-warning text-dark"
+          : orderPaymentStatus === "paid"
+            ? "bg-success"
+            : "bg-dark border border-secondary";
 
     const row = document.createElement("tr");
     row.className = "border-bottom border-secondary";
@@ -3360,6 +3575,7 @@ function renderRefundRequests() {
       <td class="py-3 text-light">${customerName}</td>
       <td class="py-3 text-secondary small">${requestedAt}</td>
       <td class="py-3"><span class="badge ${refundBadgeClass(status)} rounded-pill">${escapeHtml(statusLabel)}</span></td>
+      <td class="py-3"><span class="badge ${orderPaymentClass} rounded-pill">${escapeHtml(orderPaymentLabel)}</span></td>
       <td class="py-3 text-secondary small">${reason}</td>
       <td class="py-3 text-secondary small">${evidenceUrl ? `<a href="${evidenceUrl}" target="_blank" rel="noopener" class="text-warning text-decoration-underline">${evidenceName}</a>` : "No file"}</td>
       <td class="pe-4 py-3">
@@ -3548,19 +3764,23 @@ function displayAllOrders() {
     const statusValue = (order.status || "Pending").toString();
     const paymentStatus = (order.paymentStatus || "").toString().toLowerCase();
     const paymentLabel =
-      paymentStatus === "paid"
-        ? "Paid"
-        : paymentStatus === "refunded"
-          ? "Refunded"
-          : paymentStatus === "pending"
-            ? "Pending"
-            : order.paymentMethod || "N/A";
+      paymentStatus === "refunded"
+        ? "Refunded"
+        : paymentStatus === "partially_refunded"
+          ? "Refund Pending"
+          : paymentStatus === "paid"
+            ? "Paid"
+            : paymentStatus === "unpaid"
+              ? "Unpaid"
+              : order.paymentMethod || "N/A";
     const paymentBadgeClass =
       paymentStatus === "refunded"
         ? "bg-secondary"
-        : paymentStatus === "pending"
+        : paymentStatus === "partially_refunded"
           ? "bg-warning text-dark"
-          : "bg-success";
+          : paymentStatus === "paid"
+            ? "bg-success"
+            : "bg-dark border border-secondary";
 
     const row = document.createElement("tr");
     row.className = "border-bottom border-secondary";

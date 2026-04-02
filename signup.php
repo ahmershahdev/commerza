@@ -188,13 +188,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         'user_signup',
         $rateIdentifier,
         $clientIp,
-        5,
-        3600,
-        3600
+        4,
+        2700,
+        2700,
+        14400,
+        86400
         );
 
         if (!$rate['allowed']) {
-        $errors[] = 'Too many signup attempts. Try again in ' . (int)$rate['retry_after'] . ' seconds.';
+        $retrySeconds = max(1, (int)$rate['retry_after']);
+        $retryMinutes = (int)ceil($retrySeconds / 60);
+        $errors[] = 'Too many signup attempts. Try again in ' . $retryMinutes . ' minute(s) (' . $retrySeconds . ' seconds).';
         }
       }
 

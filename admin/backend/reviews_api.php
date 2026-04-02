@@ -105,6 +105,88 @@ function admin_reviews_ensure_table(mysqli $con): void
     $initialized = true;
 }
 
+function admin_reviews_ensure_images_table(mysqli $con): void
+{
+    static $initialized = false;
+
+    if ($initialized) {
+        return;
+    }
+
+    $con->query(
+        'CREATE TABLE IF NOT EXISTS product_review_images (
+            id INT NOT NULL AUTO_INCREMENT,
+            review_id INT NOT NULL,
+            image_path VARCHAR(255) NOT NULL,
+            image_name VARCHAR(255) NOT NULL,
+            image_size INT NOT NULL DEFAULT 0,
+            sort_order TINYINT NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY idx_review_images_review (review_id),
+            CONSTRAINT fk_review_images_review FOREIGN KEY (review_id)
+                REFERENCES product_reviews (id)
+                ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci'
+    );
+
+    $initialized = true;
+}
+
+function admin_reviews_review_images(mysqli $con, int $reviewId): array
+{
+    if ($reviewId <= 0) {
+        return [];
+    }
+
+    $rows = [];
+    $stmt = $con->prepare(
+        'SELECT image_path, image_name, image_size
+         FROM product_review_images
+         WHERE review_id = ?
+         ORDER BY sort_order ASC, id ASC
+         LIMIT 2'
+    );
+
+    if (!$stmt) {
+        return $rows;
+    }
+
+    $stmt->bind_param('i', $reviewId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    while ($result && ($row = $result->fetch_assoc())) {
+        $rows[] = [
+            'path' => (string)($row['image_path'] ?? ''),
+            'name' => (string)($row['image_name'] ?? ''),
+            'size' => (int)($row['image_size'] ?? 0),
+        ];
+    }
+
+    $stmt->close();
+    return $rows;
+}
+
+function admin_reviews_delete_files(array $paths): void
+{
+    foreach ($paths as $relativePath) {
+        $relativePath = trim(str_replace('\\', '/', (string)$relativePath));
+        if ($relativePath === '' || strpos($relativePath, 'frontend/assets/images/reviews/') !== 0) {
+            continue;
+        }
+
+        if (strpos($relativePath, '..') !== false) {
+            continue;
+        }
+
+        $absolutePath = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+        if (is_file($absolutePath)) {
+            @unlink($absolutePath);
+        }
+    }
+}
+
 function admin_reviews_fetch_all(mysqli $con, string $visibility = 'all'): array
 {
     $rows = [];
@@ -163,6 +245,7 @@ function admin_reviews_fetch_all(mysqli $con, string $visibility = 'all'): array
             'adminNote' => (string)($row['admin_note'] ?? ''),
             'createdAt' => (string)($row['created_at'] ?? ''),
             'updatedAt' => (string)($row['updated_at'] ?? ''),
+            'images' => admin_reviews_review_images($con, (int)($row['id'] ?? 0)),
         ];
     }
 
@@ -212,6 +295,7 @@ function admin_reviews_exists(mysqli $con, int $reviewId): bool
 
 admin_require_login_api($con);
 admin_reviews_ensure_table($con);
+admin_reviews_ensure_images_table($con);
 
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $action = admin_reviews_action();
@@ -411,6 +495,18 @@ if ($action === 'delete-review') {
         ], 422);
     }
 
+    $imagePaths = [];
+    $imageStmt = $con->prepare('SELECT image_path FROM product_review_images WHERE review_id = ?');
+    if ($imageStmt) {
+        $imageStmt->bind_param('i', $reviewId);
+        $imageStmt->execute();
+        $imageResult = $imageStmt->get_result();
+        while ($imageResult && ($imageRow = $imageResult->fetch_assoc())) {
+            $imagePaths[] = (string)($imageRow['image_path'] ?? '');
+        }
+        $imageStmt->close();
+    }
+
     $stmt = $con->prepare('DELETE FROM product_reviews WHERE id = ? LIMIT 1');
     if (!$stmt) {
         admin_reviews_json([
@@ -431,9 +527,158 @@ if ($action === 'delete-review') {
         ], 404);
     }
 
+    admin_reviews_delete_files($imagePaths);
+
     admin_reviews_json([
         'ok' => true,
         'message' => 'Review deleted successfully.',
+        'payload' => [
+            'reviews' => admin_reviews_fetch_all($con),
+            'stats' => admin_reviews_stats($con),
+        ],
+    ]);
+}
+
+if ($action === 'add-review') {
+    $userId = (int)($body['user_id'] ?? 0);
+    $productId = (int)($body['product_id'] ?? 0);
+    $orderId = (int)($body['order_id'] ?? 0);
+    $rating = (int)($body['rating'] ?? 0);
+    $reviewText = trim((string)($body['review_text'] ?? ''));
+    $adminNote = trim((string)($body['admin_note'] ?? ''));
+    $isVisible = (int)($body['is_visible'] ?? 1) === 1 ? 1 : 0;
+
+    if ($userId <= 0 || $productId <= 0) {
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'User ID and Product ID are required.',
+        ], 422);
+    }
+
+    if ($rating < 1 || $rating > 5) {
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'Rating must be between 1 and 5.',
+        ], 422);
+    }
+
+    if (strlen($reviewText) < 10 || strlen($reviewText) > 500) {
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'Review text must be 10 to 500 characters.',
+        ], 422);
+    }
+
+    if (strlen($adminNote) > 500) {
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'Admin note can be up to 500 characters.',
+        ], 422);
+    }
+
+    $userCheckStmt = $con->prepare('SELECT id FROM users WHERE id = ? LIMIT 1');
+    $productCheckStmt = $con->prepare('SELECT id FROM products WHERE id = ? LIMIT 1');
+
+    if (!$userCheckStmt || !$productCheckStmt) {
+        if ($userCheckStmt) {
+            $userCheckStmt->close();
+        }
+        if ($productCheckStmt) {
+            $productCheckStmt->close();
+        }
+
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'Unable to validate review payload.',
+        ], 500);
+    }
+
+    $userCheckStmt->bind_param('i', $userId);
+    $userCheckStmt->execute();
+    $userCheckStmt->store_result();
+    $userExists = $userCheckStmt->num_rows > 0;
+    $userCheckStmt->close();
+
+    if (!$userExists) {
+        $productCheckStmt->close();
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'User not found.',
+        ], 404);
+    }
+
+    $productCheckStmt->bind_param('i', $productId);
+    $productCheckStmt->execute();
+    $productCheckStmt->store_result();
+    $productExists = $productCheckStmt->num_rows > 0;
+    $productCheckStmt->close();
+
+    if (!$productExists) {
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'Product not found.',
+        ], 404);
+    }
+
+    $effectiveOrderId = $orderId > 0 ? $orderId : null;
+    if ($effectiveOrderId !== null) {
+        $orderCheckStmt = $con->prepare('SELECT id FROM orders WHERE id = ? LIMIT 1');
+        if (!$orderCheckStmt) {
+            admin_reviews_json([
+                'ok' => false,
+                'message' => 'Unable to validate order id.',
+            ], 500);
+        }
+
+        $orderCheckStmt->bind_param('i', $effectiveOrderId);
+        $orderCheckStmt->execute();
+        $orderCheckStmt->store_result();
+        $orderExists = $orderCheckStmt->num_rows > 0;
+        $orderCheckStmt->close();
+
+        if (!$orderExists) {
+            admin_reviews_json([
+                'ok' => false,
+                'message' => 'Order not found.',
+            ], 404);
+        }
+    }
+
+    $orderIdValue = $effectiveOrderId ?? 0;
+
+    $upsertStmt = $con->prepare(
+        'INSERT INTO product_reviews (user_id, product_id, order_id, rating, review_text, is_verified_purchase, is_visible, admin_note)
+         VALUES (?, ?, NULLIF(?, 0), ?, ?, 1, ?, ?)
+         ON DUPLICATE KEY UPDATE
+            order_id = VALUES(order_id),
+            rating = VALUES(rating),
+            review_text = VALUES(review_text),
+            is_visible = VALUES(is_visible),
+            admin_note = VALUES(admin_note),
+            updated_at = NOW()'
+    );
+
+    if (!$upsertStmt) {
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'Unable to add review.',
+        ], 500);
+    }
+
+    $upsertStmt->bind_param('iiiisis', $userId, $productId, $orderIdValue, $rating, $reviewText, $isVisible, $adminNote);
+    $ok = $upsertStmt->execute();
+    $upsertStmt->close();
+
+    if (!$ok) {
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'Unable to add review.',
+        ], 500);
+    }
+
+    admin_reviews_json([
+        'ok' => true,
+        'message' => 'Review added successfully.',
         'payload' => [
             'reviews' => admin_reviews_fetch_all($con),
             'stats' => admin_reviews_stats($con),
