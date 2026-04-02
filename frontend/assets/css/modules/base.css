@@ -1,0 +1,187 @@
+::selection {
+  background: orangered;
+  color: black;
+}
+
+::-moz-selection {
+  background: orangered;
+  color: black;
+}
+
+img,
+video {
+  -webkit-user-drag: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #ff4500 0%, #ffcc00 100%);
+  border-radius: 10px;
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2);
+  cursor: grab;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #ffcc00 0%, #ff4500 100%);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body.dark-theme {
+  background-color: #050505;
+  color: #f0f0f0;
+  margin: 0;
+  padding: 0;
+  font-family: "Montserrat", sans-serif;
+  overflow-x: hidden;
+}
+
+body.dark-theme .text-secondary {
+  color: #c2c2c2 !important;
+}
+
+body.dark-theme {
+  animation: bodyFadeIn 1.5s ease;
+}
+
+@keyframes bodyFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+#customAlert {
+  background-color: #ff0000 !important;
+  border: none;
+  color: #fff;
+  font-family: "Montserrat", sans-serif;
+  font-weight: 700;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  font-family: "Inter", sans-serif;
+  font-weight: 500;
+}
+
+body,
+li,
+p,
+span {
+  font-family: "Inter", sans-serif;
+  font-weight: 400;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: "Montserrat", sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+h1 {
+  font-size: 3.5rem;
+  font-weight: 900;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  user-select: none;
+  display: block;
+  background: linear-gradient(
+    to right,
+    #ff4500 0%,
+    #ffcc00 25%,
+    #ffffff 50%,
+    #ffcc00 75%,
+    #ff4500 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation:
+    h1-shine 4s linear infinite,
+    reveal-up 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-top: 30px;
+  padding-left: 15px;
+  text-transform: uppercase;
+  user-select: none;
+  display: block;
+  background: linear-gradient(45deg, #ff4500, #ffcc00);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  border-left: 5px solid #ff4500;
+  box-shadow: -10px 0 15px -10px rgba(255, 69, 0, 0.6);
+  animation: reveal-up 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.3s forwards;
+}
+
+@keyframes reveal-up {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+    filter: blur(10px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes h1-shine {
+  to {
+    background-position: 200% center;
+  }
+}
+
+h3 {
+  font-size: 1.5rem;
+}
+
+h4 {
+  font-size: 1.25rem;
+}
+
+h5 {
+  font-size: 1.125rem;
+}
+
+h6 {
+  font-size: 1rem;
+}
+
+main {
+  padding-top: 70px;
+}
+

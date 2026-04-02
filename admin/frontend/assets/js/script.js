@@ -2,7 +2,6 @@ let productsData = [];
 let allSections = [];
 let nextId = 41;
 let nextSectionId = 1;
-const PRODUCTS_STORAGE_KEY = "commerza_products";
 const SITE_SETTINGS_KEY = "commerza_site_settings";
 let siteSettings = null;
 let nextSocialId = 1;
@@ -18,6 +17,22 @@ const EMAIL_SUPPRESSED_KEY = "commerza_email_suppressed";
 const VIEWERS_MODE_KEY = "commerza_viewers_mode";
 const PAGE_META_KEY = "commerza_page_meta";
 const PAGE_CONTENT_KEY = "commerza_page_content";
+const ADMIN_RUNTIME = window.CommerzaAdminRuntime || {};
+const ADMIN_CSRF_TOKEN = ADMIN_RUNTIME.csrfToken || "";
+const ADMIN_PRODUCTS_SYNC_API = "../backend/products_sync_api.php";
+const ADMIN_SECURITY_API = "../backend/security_api.php";
+const ADMIN_ORDERS_API = "../backend/orders_api.php";
+const ADMIN_VIEWERS_API = "../backend/viewers_api.php";
+const ADMIN_WEBSITE_API = "../backend/website_api.php";
+const ADMIN_MEDIA_API = "../backend/media_api.php";
+const ADMIN_COUPONS_API = "../backend/coupons_api.php";
+const ADMIN_REVIEWS_API = "../backend/reviews_api.php";
+let adminOrders = [];
+let adminCustomers = [];
+let adminMetrics = null;
+let adminRefunds = [];
+let adminCoupons = [];
+let adminReviews = [];
 
 (function () {
   if (window.__commerzaMediaProtectionEnabled) return;
@@ -36,7 +51,7 @@ const PAGE_CONTENT_KEY = "commerza_page_content";
   });
 
   document.addEventListener("selectstart", (event) => {
-    if (!event.target.closest("input, textarea, [contenteditable='true']")) {
+    if (event.target.closest("img, video")) {
       event.preventDefault();
     }
   });
@@ -148,23 +163,23 @@ let emailSelected = new Set();
 let emailFiltered = [];
 let emailTemplates = [];
 const ADMIN_PAGES = [
-  { id: "index.html", label: "Home" },
-  { id: "products.html", label: "Products" },
-  { id: "shop-category-a.html", label: "Shop Category A" },
-  { id: "shop-category-b.html", label: "Shop Category B" },
-  { id: "about.html", label: "About" },
-  { id: "contact.html", label: "Contact" },
-  { id: "faq.html", label: "FAQ" },
-  { id: "returns.html", label: "Returns" },
-  { id: "shipping.html", label: "Shipping" },
-  { id: "warranty.html", label: "Warranty" },
-  { id: "login.html", label: "Login" },
-  { id: "signup.html", label: "Signup" },
-  { id: "cart.html", label: "Cart" },
-  { id: "wishlist.html", label: "Wishlist" },
-  { id: "order-tracking.html", label: "Order Tracking" },
-  { id: "compare.html", label: "Compare" },
-  { id: "account.html", label: "Account" },
+  { id: "index.php", label: "Home" },
+  { id: "products.php", label: "Products" },
+  { id: "shop-category-a.php", label: "Shop Category A" },
+  { id: "shop-category-b.php", label: "Shop Category B" },
+  { id: "about.php", label: "About" },
+  { id: "contact.php", label: "Contact" },
+  { id: "faq.php", label: "FAQ" },
+  { id: "returns.php", label: "Returns" },
+  { id: "shipping.php", label: "Shipping" },
+  { id: "warranty.php", label: "Warranty" },
+  { id: "login.php", label: "Login" },
+  { id: "signup.php", label: "Signup" },
+  { id: "cart.php", label: "Cart" },
+  { id: "wishlist.php", label: "Wishlist" },
+  { id: "order-tracking.php", label: "Order Tracking" },
+  { id: "compare.php", label: "Compare" },
+  { id: "account.php", label: "Account" },
 ];
 // Notification timing rules keep the bell focused on recent actions.
 const NOTIFICATION_RULES = {
@@ -179,14 +194,355 @@ function normalizeEmailValue(email) {
   return (email || "").toString().trim().toLowerCase();
 }
 
+function escapeHtml(value) {
+  return (value || "")
+    .toString()
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function formatPkr(value) {
+  return `PKR ${Number(value || 0).toLocaleString()}`;
+}
+
 function readJsonStorage(key, fallback) {
-  const stored = localStorage.getItem(key);
+  const stored = sessionStorage.getItem(key);
   if (!stored) return fallback;
   try {
     return JSON.parse(stored);
   } catch (error) {
     return fallback;
   }
+}
+
+function getAdminOrdersData() {
+  if (Array.isArray(adminOrders) && adminOrders.length) {
+    return adminOrders;
+  }
+  return readJsonStorage(ORDERS_KEY, []);
+}
+
+function getAdminCustomersData() {
+  if (Array.isArray(adminCustomers) && adminCustomers.length) {
+    return adminCustomers;
+  }
+  return [];
+}
+
+function setAdminOrdersPayload(payload) {
+  adminOrders = Array.isArray(payload?.orders) ? payload.orders : [];
+  adminCustomers = Array.isArray(payload?.customers) ? payload.customers : [];
+  adminMetrics =
+    payload?.metrics && typeof payload.metrics === "object"
+      ? payload.metrics
+      : null;
+  adminRefunds = Array.isArray(payload?.refunds) ? payload.refunds : [];
+
+  sessionStorage.setItem(ORDERS_KEY, JSON.stringify(adminOrders));
+}
+
+async function loadAdminOrdersData(silent = false) {
+  try {
+    const response = await fetch(`${ADMIN_ORDERS_API}?action=summary`, {
+      method: "GET",
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result?.ok) {
+      throw new Error(result?.message || "Unable to load orders from server.");
+    }
+
+    setAdminOrdersPayload(result?.payload || {});
+    displayRecentOrders();
+    displayAllOrders();
+    displayAllCustomers();
+    calculateDashboardMetrics();
+    renderAnalyticsSection();
+    renderRefundRequests();
+    updateNotifications();
+
+    if ($("#emailSection").length) {
+      emailDirectory = buildEmailDirectory();
+      renderEmailRecipients();
+    }
+
+    return true;
+  } catch (error) {
+    if (!silent) {
+      showNotification(
+        error?.message || "Unable to sync orders and customers.",
+        "danger",
+      );
+    }
+    return false;
+  }
+}
+
+async function adminPostJson(url, payload) {
+  const response = await fetch(url, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRF-Token": ADMIN_CSRF_TOKEN,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  let result = null;
+  try {
+    result = await response.json();
+  } catch (error) {
+    result = null;
+  }
+
+  if (!response.ok || !result?.ok) {
+    const message = result?.message || "Request failed.";
+    throw new Error(message);
+  }
+
+  return result;
+}
+
+async function uploadAdminMedia(target, file) {
+  if (!target || !file) {
+    throw new Error("Select a valid file before uploading.");
+  }
+
+  const formData = new FormData();
+  formData.append("target", target);
+  formData.append("file", file);
+
+  const response = await fetch(ADMIN_MEDIA_API, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "X-CSRF-Token": ADMIN_CSRF_TOKEN,
+    },
+    body: formData,
+  });
+
+  let result = null;
+  try {
+    result = await response.json();
+  } catch (error) {
+    result = null;
+  }
+
+  if (!response.ok || !result?.ok) {
+    throw new Error(result?.message || "Upload failed.");
+  }
+
+  const path = (result?.payload?.path || "").toString();
+  if (!path) {
+    throw new Error("Uploaded file path is missing.");
+  }
+
+  return {
+    ...result,
+    payload: {
+      ...(result?.payload || {}),
+      path,
+    },
+  };
+}
+
+function bindUploadControl(buttonSelector, inputSelector, target, onComplete) {
+  $(buttonSelector)
+    .off("click")
+    .on("click", async function () {
+      const fileInput = document.querySelector(inputSelector);
+      const file = fileInput?.files?.[0] || null;
+      if (!file) {
+        showNotification("Please choose a file first.", "warning");
+        return;
+      }
+
+      const btn = $(this);
+      const originalHtml = btn.html();
+      btn
+        .prop("disabled", true)
+        .html('<span class="spinner-border spinner-border-sm"></span>');
+
+      try {
+        const result = await uploadAdminMedia(target, file);
+        const uploadedPath = result?.payload?.path || "";
+        if (typeof onComplete === "function") {
+          onComplete(uploadedPath);
+        }
+        if (fileInput) {
+          fileInput.value = "";
+        }
+        showNotification(result?.message || "File uploaded.", "success");
+      } catch (error) {
+        showNotification(error?.message || "Unable to upload file.", "danger");
+      } finally {
+        btn.prop("disabled", false).html(originalHtml);
+      }
+    });
+}
+
+function setLiveViewersModeUi(mode, storageReady = true) {
+  const normalized = mode === "fake" ? "fake" : "real";
+  $("#liveViewersMode").val(normalized);
+  $("#liveViewerFakeConfig").toggleClass("d-none", normalized !== "fake");
+  const statusLabel = storageReady
+    ? `Mode: ${normalized}`
+    : `Mode: ${normalized} | DB setup pending`;
+  $("#liveViewersModeBadge").text(statusLabel);
+}
+
+function renderLiveViewersTopProducts(products, storageReady = true) {
+  const tbody = $("#liveViewersTopProducts");
+  if (!tbody.length) {
+    return;
+  }
+
+  tbody.empty();
+
+  if (!Array.isArray(products) || products.length === 0) {
+    const message = storageReady
+      ? "No live viewer data yet."
+      : "Viewer storage table missing. Run SQL migration.";
+    tbody.append(`
+      <tr>
+        <td class="ps-3 py-3 text-secondary" colspan="2">${message}</td>
+      </tr>
+    `);
+    return;
+  }
+
+  products.forEach((item) => {
+    const productName = (item?.name || "Product").toString();
+    const viewers = Math.max(0, parseInt(item?.viewers, 10) || 0);
+    tbody.append(`
+      <tr class="border-bottom border-secondary">
+        <td class="ps-3 py-3 text-light fw-semibold">${productName}</td>
+        <td class="pe-3 py-3 text-end text-orange fw-semibold">${viewers}</td>
+      </tr>
+    `);
+  });
+}
+
+function renderLiveViewersPayload(payload) {
+  const settings = payload?.settings || {};
+  const stats = payload?.stats || {};
+  const storageReady = payload?.storage_ready !== false;
+
+  const mode = settings?.mode === "fake" ? "fake" : "real";
+  const fakeMin = Math.max(1, parseInt(settings?.fake_min, 10) || 120);
+  const fakeMax = Math.max(1, parseInt(settings?.fake_max, 10) || 165);
+  const windowSeconds = Math.max(
+    30,
+    Math.min(3600, parseInt(settings?.window_seconds, 10) || 180),
+  );
+
+  setLiveViewersModeUi(mode, storageReady);
+  $("#liveViewersFakeMin").val(fakeMin);
+  $("#liveViewersFakeMax").val(fakeMax);
+  $("#liveViewersWindow").val(windowSeconds);
+
+  $("#liveViewersActiveNow").text(
+    Math.max(0, parseInt(stats?.active_now, 10) || 0),
+  );
+  $("#liveViewersTrackedProducts").text(
+    Math.max(0, parseInt(stats?.tracked_products, 10) || 0),
+  );
+
+  renderLiveViewersTopProducts(stats?.top_products || [], storageReady);
+}
+
+async function loadLiveViewersAnalytics(silent = false) {
+  if (!$("#liveViewersMode").length) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(`${ADMIN_VIEWERS_API}?action=get`, {
+      method: "GET",
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result?.ok) {
+      throw new Error(result?.message || "Unable to load live viewers data.");
+    }
+
+    renderLiveViewersPayload(result?.payload || {});
+    return true;
+  } catch (error) {
+    if (!silent) {
+      showNotification(
+        error?.message || "Unable to load live viewers data.",
+        "danger",
+      );
+    }
+    return false;
+  }
+}
+
+async function saveLiveViewersSettings() {
+  const mode = $("#liveViewersMode").val() === "fake" ? "fake" : "real";
+  let fakeMin = parseInt($("#liveViewersFakeMin").val(), 10) || 120;
+  let fakeMax = parseInt($("#liveViewersFakeMax").val(), 10) || 165;
+  const windowSeconds = parseInt($("#liveViewersWindow").val(), 10) || 180;
+
+  fakeMin = Math.max(1, Math.min(5000, fakeMin));
+  fakeMax = Math.max(1, Math.min(5000, fakeMax));
+  const safeWindow = Math.max(30, Math.min(3600, windowSeconds));
+
+  if (fakeMax < fakeMin) {
+    const swap = fakeMin;
+    fakeMin = fakeMax;
+    fakeMax = swap;
+  }
+
+  try {
+    const result = await adminPostJson(ADMIN_VIEWERS_API, {
+      action: "save",
+      mode,
+      fake_min: fakeMin,
+      fake_max: fakeMax,
+      window_seconds: safeWindow,
+    });
+
+    renderLiveViewersPayload(result?.payload || {});
+    showNotification(result?.message || "Viewer settings updated.", "success");
+  } catch (error) {
+    showNotification(
+      error?.message || "Unable to save viewer settings.",
+      "danger",
+    );
+  }
+}
+
+function initLiveViewersAnalytics() {
+  if (!$("#liveViewersMode").length) {
+    return;
+  }
+
+  $("#liveViewersMode")
+    .off("change")
+    .on("change", function () {
+      setLiveViewersModeUi($(this).val());
+    });
+
+  $("#saveLiveViewersBtn").off("click").on("click", saveLiveViewersSettings);
+
+  $("#refreshLiveViewersBtn")
+    .off("click")
+    .on("click", function () {
+      loadLiveViewersAnalytics(false);
+    });
+
+  loadLiveViewersAnalytics(true);
 }
 
 function formatShortDate(value) {
@@ -216,7 +572,7 @@ function getNewsletterSubscribers() {
   const rawList = readJsonStorage(NEWSLETTER_SUBSCRIBERS_KEY, []);
   const list = Array.isArray(rawList) ? rawList : [];
   const legacyEmail = normalizeEmailValue(
-    localStorage.getItem(NEWSLETTER_EMAIL_KEY),
+    sessionStorage.getItem(NEWSLETTER_EMAIL_KEY),
   );
 
   if (
@@ -275,7 +631,7 @@ function getManualRecipients() {
 }
 
 function saveManualRecipients(list) {
-  localStorage.setItem(EMAIL_MANUAL_RECIPIENTS_KEY, JSON.stringify(list));
+  sessionStorage.setItem(EMAIL_MANUAL_RECIPIENTS_KEY, JSON.stringify(list));
 }
 
 function buildEmailDirectory() {
@@ -321,18 +677,18 @@ function buildEmailDirectory() {
     });
   });
 
-  const users = readJsonStorage(USERS_KEY, []);
+  const users = getAdminCustomersData();
   if (Array.isArray(users)) {
     users.forEach((user) => {
       addEntry(user.email, "Account", {
         name: user.name,
-        lastSeen: user.createdAt,
-        firstSeen: user.createdAt,
+        lastSeen: user.registeredAt,
+        firstSeen: user.registeredAt,
       });
     });
   }
 
-  const orders = readJsonStorage(ORDERS_KEY, []);
+  const orders = getAdminOrdersData();
   if (Array.isArray(orders)) {
     orders.forEach((order) => {
       addEntry(order.email, "Order", {
@@ -367,7 +723,7 @@ function getEmailTemplates() {
 }
 
 function saveEmailTemplates(list) {
-  localStorage.setItem(EMAIL_TEMPLATES_KEY, JSON.stringify(list));
+  sessionStorage.setItem(EMAIL_TEMPLATES_KEY, JSON.stringify(list));
 }
 
 function renderTemplateSelect() {
@@ -550,7 +906,10 @@ function removeEmailRecipient(email) {
     const filtered = newsletter.filter(
       (item) => normalizeEmailValue(item.email || item) !== normalized,
     );
-    localStorage.setItem(NEWSLETTER_SUBSCRIBERS_KEY, JSON.stringify(filtered));
+    sessionStorage.setItem(
+      NEWSLETTER_SUBSCRIBERS_KEY,
+      JSON.stringify(filtered),
+    );
   }
 
   emailDirectory = emailDirectory.filter((entry) => entry.email !== normalized);
@@ -597,7 +956,10 @@ function sendEmailFromComposer() {
       recipients,
       sentAt: new Date().toISOString(),
     });
-    localStorage.setItem(EMAIL_OUTBOX_KEY, JSON.stringify(outbox.slice(0, 50)));
+    sessionStorage.setItem(
+      EMAIL_OUTBOX_KEY,
+      JSON.stringify(outbox.slice(0, 50)),
+    );
   }
 
   window.location.href = mailto;
@@ -705,6 +1067,638 @@ function initEmailCenter() {
   $("#emailSendBtn").on("click", sendEmailFromComposer);
 }
 
+function formatDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return `${date.toISOString().slice(0, 10)} ${date.toTimeString().slice(0, 5)}`;
+}
+
+function resetCouponForm() {
+  $("#couponId").val("");
+  $("#couponCode").val("");
+  $("#couponTitle").val("");
+  $("#couponDescription").val("");
+  $("#couponDiscountType").val("fixed");
+  $("#couponDiscountValue").val("");
+  $("#couponMinOrder").val("0");
+  $("#couponMaxDiscount").val("").prop("disabled", true);
+  $("#couponUsageLimit").val("");
+  $("#couponPerUserLimit").val("");
+  $("#couponExpiresAt").val("");
+  $("#couponIsActive").prop("checked", true);
+}
+
+function populateCouponEmailSelect() {
+  const select = $("#couponEmailCouponId");
+  if (!select.length) return;
+
+  select.empty();
+
+  if (!adminCoupons.length) {
+    select.append('<option value="">No coupons available</option>');
+    return;
+  }
+
+  select.append('<option value="">Select a coupon</option>');
+  adminCoupons.forEach((coupon) => {
+    const code = escapeHtml(coupon.code || "");
+    const label = escapeHtml(coupon.discountLabel || "Offer");
+    select.append(`<option value="${coupon.id}">${code} · ${label}</option>`);
+  });
+}
+
+function renderCouponsTable() {
+  const tbody = $("#couponsTable tbody");
+  if (!tbody.length) return;
+
+  tbody.empty();
+
+  const total = adminCoupons.length;
+  const active = adminCoupons.filter(
+    (coupon) => coupon.isActive && !coupon.isExpired,
+  ).length;
+  const used = adminCoupons.reduce(
+    (sum, coupon) => sum + Math.max(0, parseInt(coupon.usedCount, 10) || 0),
+    0,
+  );
+
+  $("#couponStatsTotal").text(total);
+  $("#couponStatsActive").text(active);
+  $("#couponStatsUsed").text(used);
+
+  if (!adminCoupons.length) {
+    tbody.append(
+      '<tr><td colspan="6" class="text-center py-4 text-secondary">No coupons created yet.</td></tr>',
+    );
+    return;
+  }
+
+  adminCoupons.forEach((coupon) => {
+    const usageLimit = parseInt(coupon.usageLimit, 10) || 0;
+    const perUserLimit = parseInt(coupon.perUserLimit, 10) || 0;
+    const minOrder = Number(coupon.minOrder || 0);
+    const maxDiscount = Number(coupon.maxDiscount || 0);
+    const usedCount = parseInt(coupon.usedCount, 10) || 0;
+    const isActive = !!coupon.isActive;
+    const isExpired = !!coupon.isExpired;
+
+    const statusText = !isActive
+      ? "Inactive"
+      : isExpired
+        ? "Expired"
+        : "Active";
+    const statusClass = !isActive
+      ? "bg-secondary"
+      : isExpired
+        ? "bg-danger"
+        : "bg-success";
+
+    const limits = [
+      `Min: ${formatPkr(minOrder)}`,
+      usageLimit > 0 ? `Limit: ${usageLimit}` : "Limit: Unlimited",
+      perUserLimit > 0 ? `Per user: ${perUserLimit}` : "Per user: Unlimited",
+      coupon.discountType === "percent" && maxDiscount > 0
+        ? `Max discount: ${formatPkr(maxDiscount)}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join("<br>");
+
+    const expiryLabel = coupon.expiresAt
+      ? formatDateTime(coupon.expiresAt)
+      : "No expiry";
+
+    tbody.append(`
+      <tr class="border-bottom border-secondary">
+        <td class="ps-4 py-3">
+          <div class="text-light fw-semibold">${escapeHtml(coupon.code || "")}</div>
+          <div class="text-secondary small">${escapeHtml(coupon.title || "Untitled coupon")}</div>
+        </td>
+        <td class="py-3 text-light">
+          <div>${escapeHtml(coupon.discountLabel || "")}</div>
+          <div class="text-secondary small">Used ${usedCount} time(s)</div>
+        </td>
+        <td class="py-3 text-secondary small">${limits}</td>
+        <td class="py-3 text-secondary small">${escapeHtml(expiryLabel)}</td>
+        <td class="py-3"><span class="badge ${statusClass}">${statusText}</span></td>
+        <td class="pe-4 py-3">
+          <div class="d-flex flex-wrap gap-1">
+            <button class="btn btn-sm btn-outline-orange" onclick="editCouponById(${Number(coupon.id || 0)})"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm ${isActive ? "btn-outline-secondary" : "btn-outline-success"}" onclick="toggleCouponStatus(${Number(coupon.id || 0)}, ${isActive ? 0 : 1})">${isActive ? "Disable" : "Enable"}</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteCouponById(${Number(coupon.id || 0)})"><i class="bi bi-trash"></i></button>
+          </div>
+        </td>
+      </tr>
+    `);
+  });
+}
+
+function editCouponById(couponId) {
+  const coupon = adminCoupons.find(
+    (item) => Number(item.id) === Number(couponId),
+  );
+  if (!coupon) {
+    showNotification("Coupon not found.", "warning");
+    return;
+  }
+
+  $("#couponId").val(coupon.id || "");
+  $("#couponCode").val(coupon.code || "");
+  $("#couponTitle").val(coupon.title || "");
+  $("#couponDescription").val(coupon.description || "");
+  $("#couponDiscountType").val(coupon.discountType || "fixed");
+  $("#couponDiscountValue").val(coupon.discountValue || "");
+  $("#couponMinOrder").val(coupon.minOrder || 0);
+  $("#couponMaxDiscount")
+    .val(coupon.maxDiscount || "")
+    .prop("disabled", (coupon.discountType || "fixed") !== "percent");
+  $("#couponUsageLimit").val(coupon.usageLimit || "");
+  $("#couponPerUserLimit").val(coupon.perUserLimit || "");
+  $("#couponIsActive").prop("checked", !!coupon.isActive);
+
+  if (coupon.expiresAt) {
+    const parsed = new Date(coupon.expiresAt);
+    if (!Number.isNaN(parsed.getTime())) {
+      const localValue = new Date(
+        parsed.getTime() - parsed.getTimezoneOffset() * 60000,
+      )
+        .toISOString()
+        .slice(0, 16);
+      $("#couponExpiresAt").val(localValue);
+    }
+  } else {
+    $("#couponExpiresAt").val("");
+  }
+}
+
+async function loadCouponsData(silent = false) {
+  if (!$("#couponsSection").length) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(`${ADMIN_COUPONS_API}?action=list`, {
+      method: "GET",
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result?.ok) {
+      throw new Error(result?.message || "Unable to load coupons.");
+    }
+
+    adminCoupons = Array.isArray(result?.payload?.coupons)
+      ? result.payload.coupons
+      : [];
+
+    renderCouponsTable();
+    populateCouponEmailSelect();
+    return true;
+  } catch (error) {
+    if (!silent) {
+      showNotification(error?.message || "Unable to load coupons.", "danger");
+    }
+    return false;
+  }
+}
+
+async function saveCouponFromForm() {
+  const id = parseInt($("#couponId").val(), 10) || 0;
+  const code = ($("#couponCode").val() || "").toString().trim().toUpperCase();
+  const discountType = ($("#couponDiscountType").val() || "fixed").toString();
+  const discountValue = parseFloat($("#couponDiscountValue").val()) || 0;
+
+  if (!code || code.length < 3) {
+    showNotification("Coupon code must be at least 3 characters.", "danger");
+    return;
+  }
+
+  if (discountValue <= 0) {
+    showNotification("Discount value must be greater than zero.", "danger");
+    return;
+  }
+
+  const payload = {
+    action: "save-coupon",
+    id,
+    code,
+    title: ($("#couponTitle").val() || "").toString().trim(),
+    description: ($("#couponDescription").val() || "").toString().trim(),
+    discount_type: discountType,
+    discount_value: discountValue,
+    min_order: parseFloat($("#couponMinOrder").val()) || 0,
+    max_discount:
+      discountType === "percent"
+        ? parseFloat($("#couponMaxDiscount").val()) || null
+        : null,
+    usage_limit: parseInt($("#couponUsageLimit").val(), 10) || null,
+    per_user_limit: parseInt($("#couponPerUserLimit").val(), 10) || null,
+    expires_at: ($("#couponExpiresAt").val() || "").toString().trim(),
+    is_active: $("#couponIsActive").is(":checked") ? 1 : 0,
+  };
+
+  try {
+    const result = await adminPostJson(ADMIN_COUPONS_API, payload);
+    adminCoupons = Array.isArray(result?.payload?.coupons)
+      ? result.payload.coupons
+      : [];
+    renderCouponsTable();
+    populateCouponEmailSelect();
+    resetCouponForm();
+    showNotification(
+      result?.message || "Coupon saved successfully.",
+      "success",
+    );
+  } catch (error) {
+    showNotification(error?.message || "Unable to save coupon.", "danger");
+  }
+}
+
+async function toggleCouponStatus(couponId, isActive) {
+  const coupon = adminCoupons.find(
+    (item) => Number(item.id) === Number(couponId),
+  );
+  if (!coupon) {
+    showNotification("Coupon not found.", "warning");
+    return;
+  }
+
+  const payload = {
+    action: "save-coupon",
+    id: coupon.id,
+    code: coupon.code,
+    title: coupon.title || "",
+    description: coupon.description || "",
+    discount_type: coupon.discountType || "fixed",
+    discount_value: Number(coupon.discountValue || 0),
+    min_order: Number(coupon.minOrder || 0),
+    max_discount:
+      coupon.discountType === "percent"
+        ? Number(coupon.maxDiscount || 0) || null
+        : null,
+    usage_limit: parseInt(coupon.usageLimit, 10) || null,
+    per_user_limit: parseInt(coupon.perUserLimit, 10) || null,
+    expires_at: coupon.expiresAt || "",
+    is_active: isActive ? 1 : 0,
+  };
+
+  try {
+    const result = await adminPostJson(ADMIN_COUPONS_API, payload);
+    adminCoupons = Array.isArray(result?.payload?.coupons)
+      ? result.payload.coupons
+      : [];
+    renderCouponsTable();
+    populateCouponEmailSelect();
+    showNotification(result?.message || "Coupon status updated.", "success");
+  } catch (error) {
+    showNotification(
+      error?.message || "Unable to update coupon status.",
+      "danger",
+    );
+  }
+}
+
+async function deleteCouponById(couponId) {
+  const coupon = adminCoupons.find(
+    (item) => Number(item.id) === Number(couponId),
+  );
+  if (!coupon) {
+    showNotification("Coupon not found.", "warning");
+    return;
+  }
+
+  const confirmed = await showCustomConfirmDialog(
+    `Delete coupon ${coupon.code}?`,
+    "Delete Coupon",
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const result = await adminPostJson(ADMIN_COUPONS_API, {
+      action: "delete-coupon",
+      id: couponId,
+    });
+    adminCoupons = Array.isArray(result?.payload?.coupons)
+      ? result.payload.coupons
+      : [];
+    renderCouponsTable();
+    populateCouponEmailSelect();
+    showNotification(result?.message || "Coupon deleted.", "success");
+  } catch (error) {
+    showNotification(error?.message || "Unable to delete coupon.", "danger");
+  }
+}
+
+async function sendCouponEmail() {
+  const couponId = parseInt($("#couponEmailCouponId").val(), 10) || 0;
+  const recipientsRaw = ($("#couponEmailRecipients").val() || "").toString();
+  const subject = ($("#couponEmailSubject").val() || "").toString().trim();
+  const message = ($("#couponEmailMessage").val() || "").toString().trim();
+
+  if (couponId <= 0) {
+    showNotification("Select a coupon before sending email.", "danger");
+    return;
+  }
+
+  if (!recipientsRaw.trim()) {
+    showNotification("Add at least one recipient email.", "danger");
+    return;
+  }
+
+  const recipients = recipientsRaw
+    .split(/[\s,;]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (!recipients.length) {
+    showNotification("Add valid recipient email addresses.", "danger");
+    return;
+  }
+
+  try {
+    const result = await adminPostJson(ADMIN_COUPONS_API, {
+      action: "send-coupon-email",
+      coupon_id: couponId,
+      recipients,
+      subject,
+      message,
+    });
+
+    adminCoupons = Array.isArray(result?.payload?.coupons)
+      ? result.payload.coupons
+      : adminCoupons;
+    renderCouponsTable();
+    showNotification(result?.message || "Coupon email sent.", "success");
+  } catch (error) {
+    showNotification(
+      error?.message || "Unable to send coupon email.",
+      "danger",
+    );
+  }
+}
+
+function initCouponsSection() {
+  if (!$("#couponsSection").length) {
+    return;
+  }
+
+  $("#couponDiscountType")
+    .off("change")
+    .on("change", function () {
+      const isPercent = $(this).val() === "percent";
+      $("#couponMaxDiscount").prop("disabled", !isPercent);
+      if (!isPercent) {
+        $("#couponMaxDiscount").val("");
+      }
+    })
+    .trigger("change");
+
+  $("#saveCouponBtn").off("click").on("click", saveCouponFromForm);
+  $("#resetCouponBtn").off("click").on("click", resetCouponForm);
+  $("#refreshCouponsBtn")
+    .off("click")
+    .on("click", () => loadCouponsData(false));
+  $("#sendCouponEmailBtn").off("click").on("click", sendCouponEmail);
+
+  resetCouponForm();
+}
+
+function renderReviewsStats(stats = {}) {
+  $("#reviewStatTotal").text(parseInt(stats.total, 10) || 0);
+  $("#reviewStatVisible").text(parseInt(stats.visible, 10) || 0);
+  $("#reviewStatHidden").text(parseInt(stats.hidden, 10) || 0);
+  $("#reviewStatAverage").text(Number(stats.averageRating || 0).toFixed(2));
+}
+
+function renderReviewsTable() {
+  const tbody = $("#reviewsTable tbody");
+  if (!tbody.length) return;
+
+  tbody.empty();
+
+  if (!adminReviews.length) {
+    tbody.append(
+      '<tr><td colspan="7" class="text-center py-4 text-secondary">No reviews found.</td></tr>',
+    );
+    return;
+  }
+
+  adminReviews.forEach((review) => {
+    const statusBadge = review.isVisible
+      ? '<span class="badge bg-success">Visible</span>'
+      : '<span class="badge bg-secondary">Hidden</span>';
+    const rating = Math.max(1, Math.min(5, parseInt(review.rating, 10) || 0));
+    const stars = `${"★".repeat(rating)}${"☆".repeat(5 - rating)}`;
+    const text = (review.reviewText || "").toString();
+    const clipped = text.length > 120 ? `${text.slice(0, 120)}...` : text;
+
+    tbody.append(`
+      <tr class="border-bottom border-secondary">
+        <td class="ps-4 py-3 text-light fw-semibold">${escapeHtml(review.productName || "Product")}</td>
+        <td class="py-3 text-light">
+          <div>${escapeHtml(review.userName || "Customer")}</div>
+          <div class="text-secondary small">${escapeHtml(review.userEmail || "")}</div>
+        </td>
+        <td class="py-3 text-warning">${stars}</td>
+        <td class="py-3 text-secondary small" title="${escapeHtml(text)}">${escapeHtml(clipped)}</td>
+        <td class="py-3">${statusBadge}</td>
+        <td class="py-3 text-secondary small">${escapeHtml(formatDateTime(review.updatedAt))}</td>
+        <td class="pe-4 py-3">
+          <div class="d-flex flex-wrap gap-1">
+            <button class="btn btn-sm btn-outline-orange" onclick="editReviewById(${Number(review.id || 0)})">Edit</button>
+            <button class="btn btn-sm ${review.isVisible ? "btn-outline-secondary" : "btn-outline-success"}" onclick="toggleReviewVisibilityById(${Number(review.id || 0)}, ${review.isVisible ? 0 : 1})">${review.isVisible ? "Hide" : "Show"}</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteReviewById(${Number(review.id || 0)})"><i class="bi bi-trash"></i></button>
+          </div>
+        </td>
+      </tr>
+    `);
+  });
+}
+
+async function loadReviewsData(silent = false) {
+  if (!$("#reviewsSection").length) {
+    return false;
+  }
+
+  const visibility = ($("#reviewVisibilityFilter").val() || "all").toString();
+
+  try {
+    const response = await fetch(
+      `${ADMIN_REVIEWS_API}?action=list&visibility=${encodeURIComponent(visibility)}`,
+      {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+      },
+    );
+
+    const result = await response.json();
+    if (!response.ok || !result?.ok) {
+      throw new Error(result?.message || "Unable to load reviews.");
+    }
+
+    adminReviews = Array.isArray(result?.payload?.reviews)
+      ? result.payload.reviews
+      : [];
+    renderReviewsStats(result?.payload?.stats || {});
+    renderReviewsTable();
+    return true;
+  } catch (error) {
+    if (!silent) {
+      showNotification(error?.message || "Unable to load reviews.", "danger");
+    }
+    return false;
+  }
+}
+
+async function toggleReviewVisibilityById(reviewId, isVisible) {
+  try {
+    const result = await adminPostJson(ADMIN_REVIEWS_API, {
+      action: "set-visibility",
+      id: reviewId,
+      is_visible: isVisible ? 1 : 0,
+    });
+
+    adminReviews = Array.isArray(result?.payload?.reviews)
+      ? result.payload.reviews
+      : adminReviews;
+    renderReviewsStats(result?.payload?.stats || {});
+    renderReviewsTable();
+    showNotification(
+      result?.message || "Review visibility updated.",
+      "success",
+    );
+  } catch (error) {
+    showNotification(
+      error?.message || "Unable to update review visibility.",
+      "danger",
+    );
+  }
+}
+
+async function editReviewById(reviewId) {
+  const review = adminReviews.find(
+    (item) => Number(item.id) === Number(reviewId),
+  );
+  if (!review) {
+    showNotification("Review not found.", "warning");
+    return;
+  }
+
+  const ratingInput = await showCustomPromptDialog(
+    "Update rating (1-5):",
+    String(review.rating || 5),
+    "Edit Review Rating",
+  );
+  if (ratingInput === null) {
+    return;
+  }
+
+  const parsedRating = parseInt((ratingInput || "").toString().trim(), 10);
+  if (!Number.isInteger(parsedRating) || parsedRating < 1 || parsedRating > 5) {
+    showNotification("Rating must be between 1 and 5.", "danger");
+    return;
+  }
+
+  const textInput = await showCustomPromptDialog(
+    "Update review text:",
+    review.reviewText || "",
+    "Edit Review Text",
+  );
+  if (textInput === null) {
+    return;
+  }
+
+  const reviewText = (textInput || "").toString().trim();
+  if (reviewText.length < 10 || reviewText.length > 500) {
+    showNotification("Review text must be 10 to 500 characters.", "danger");
+    return;
+  }
+
+  const noteInput = await showCustomPromptDialog(
+    "Optional admin note:",
+    review.adminNote || "",
+    "Admin Note",
+  );
+
+  const adminNote = noteInput === null ? review.adminNote || "" : noteInput;
+
+  try {
+    const result = await adminPostJson(ADMIN_REVIEWS_API, {
+      action: "update-review",
+      id: reviewId,
+      rating: parsedRating,
+      review_text: reviewText,
+      admin_note: adminNote,
+    });
+
+    adminReviews = Array.isArray(result?.payload?.reviews)
+      ? result.payload.reviews
+      : adminReviews;
+    renderReviewsStats(result?.payload?.stats || {});
+    renderReviewsTable();
+    showNotification(result?.message || "Review updated.", "success");
+  } catch (error) {
+    showNotification(error?.message || "Unable to update review.", "danger");
+  }
+}
+
+async function deleteReviewById(reviewId) {
+  const review = adminReviews.find(
+    (item) => Number(item.id) === Number(reviewId),
+  );
+  if (!review) {
+    showNotification("Review not found.", "warning");
+    return;
+  }
+
+  const confirmed = await showCustomConfirmDialog(
+    "Delete this review permanently?",
+    "Delete Review",
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const result = await adminPostJson(ADMIN_REVIEWS_API, {
+      action: "delete-review",
+      id: reviewId,
+    });
+
+    adminReviews = Array.isArray(result?.payload?.reviews)
+      ? result.payload.reviews
+      : adminReviews;
+    renderReviewsStats(result?.payload?.stats || {});
+    renderReviewsTable();
+    showNotification(result?.message || "Review deleted.", "success");
+  } catch (error) {
+    showNotification(error?.message || "Unable to delete review.", "danger");
+  }
+}
+
+function initReviewsSection() {
+  if (!$("#reviewsSection").length) {
+    return;
+  }
+
+  $("#reviewVisibilityFilter")
+    .off("change")
+    .on("change", function () {
+      loadReviewsData(false);
+    });
+
+  $("#refreshReviewsBtn")
+    .off("click")
+    .on("click", function () {
+      loadReviewsData(false);
+    });
+}
+
 function isWithinDays(dateString, days) {
   if (!dateString) return false;
   const date = new Date(dateString);
@@ -723,37 +1717,30 @@ function get30DaysAgo() {
 
 function calculateDashboardMetrics() {
   const thirtyDaysAgo = get30DaysAgo();
+  const orders = getAdminOrdersData();
 
-  let orders = JSON.parse(localStorage.getItem("commerza_orders")) || [];
-  const recentOrders = orders.filter(
-    (o) => o.orderDate >= thirtyDaysAgo && o.status === "Delivered",
-  );
-  const totalRevenue = recentOrders.reduce(
-    (sum, order) => sum + (order.total || 0),
-    0,
-  );
+  const fallbackRevenue = orders
+    .filter(
+      (order) =>
+        order.orderDate >= thirtyDaysAgo &&
+        (order.status || "").toLowerCase() === "delivered",
+    )
+    .reduce((sum, order) => sum + Number(order.total || 0), 0);
 
-  const totalOrdersCount = orders.filter(
-    (o) => o.orderDate >= thirtyDaysAgo,
+  const fallbackOrders = orders.filter(
+    (order) => order.orderDate >= thirtyDaysAgo,
   ).length;
 
-  const customerSet = new Set();
+  const fallbackCustomerSet = new Set();
   orders
-    .filter((o) => o.orderDate >= thirtyDaysAgo)
-    .forEach((o) => {
-      customerSet.add(o.customerName);
+    .filter((order) => order.orderDate >= thirtyDaysAgo)
+    .forEach((order) => {
+      if (order.customerName) {
+        fallbackCustomerSet.add(order.customerName);
+      }
     });
-  const totalCustomers = customerSet.size;
-
-  document.getElementById("totalRevenueValue").textContent =
-    "PKR " + totalRevenue.toLocaleString();
-
-  document.getElementById("totalOrdersValue").textContent = totalOrdersCount;
-
-  document.getElementById("totalCustomersValue").textContent = totalCustomers;
 
   let totalProducts = 0;
-
   if (allSections && allSections.length > 0) {
     allSections.forEach((section) => {
       if (section.products && Array.isArray(section.products)) {
@@ -762,30 +1749,57 @@ function calculateDashboardMetrics() {
     });
   }
 
-  document.getElementById("totalProductsValue").textContent = totalProducts;
+  const revenue = Number(adminMetrics?.totalRevenue ?? fallbackRevenue);
+  const totalOrdersCount = Number(adminMetrics?.totalOrders ?? fallbackOrders);
+  const totalCustomers = Number(
+    adminMetrics?.totalCustomers ?? fallbackCustomerSet.size,
+  );
+  const productsCount = Number(adminMetrics?.totalProducts ?? totalProducts);
+
+  document.getElementById("totalRevenueValue").textContent =
+    "PKR " + revenue.toLocaleString();
+  document.getElementById("totalOrdersValue").textContent = totalOrdersCount;
+  document.getElementById("totalCustomersValue").textContent = totalCustomers;
+  document.getElementById("totalProductsValue").textContent = productsCount;
 }
 
 function loadProductsFromJSON() {
-  const stored = localStorage.getItem(PRODUCTS_STORAGE_KEY);
-  if (stored) {
-    try {
-      const data = JSON.parse(stored);
-      hydrateProductsData(data);
-      return;
-    } catch (error) {
-      console.warn("Invalid stored products, reloading from JSON");
-    }
-  }
+  return fetch(`${ADMIN_PRODUCTS_SYNC_API}?action=get-products`, {
+    method: "GET",
+    credentials: "same-origin",
+  })
+    .then(async (response) => {
+      const responseText = await response.text();
+      let result = null;
 
-  fetch("../../products.json")
-    .then((response) => response.json())
-    .then((data) => {
-      hydrateProductsData(data);
+      try {
+        result = responseText ? JSON.parse(responseText) : null;
+      } catch (error) {
+        throw new Error(
+          "Invalid server response while loading products. Please re-login and refresh the admin page.",
+        );
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          result?.message || "Could not load products from server.",
+        );
+      }
+
+      return result;
+    })
+    .then((result) => {
+      if (!result?.ok || !result?.payload) {
+        throw new Error(
+          result?.message || "Could not load products from server.",
+        );
+      }
+      hydrateProductsData(result.payload);
     })
     .catch((error) => {
-      console.error("Error loading products.json:", error);
+      console.error("Error loading products from backend:", error);
       showNotification(
-        "Error loading products. Please refresh the page.",
+        error?.message || "Error loading products. Please refresh the page.",
         "danger",
       );
     });
@@ -817,8 +1831,8 @@ function hydrateProductsData(data) {
   updateNotifications();
 }
 
-function saveProductsToJSON() {
-  const dataToSave = {
+function buildProductsPayload() {
+  return {
     meta: {
       total: productsData.length,
       currency: "PKR",
@@ -829,9 +1843,27 @@ function saveProductsToJSON() {
       products: productsData.filter((p) => p.sectionId === section.sectionId),
     })),
   };
+}
 
-  localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(dataToSave));
-  console.log("Products synced to localStorage:", dataToSave);
+function saveProductsToJSON() {
+  const dataToSave = buildProductsPayload();
+
+  adminPostJson(ADMIN_PRODUCTS_SYNC_API, {
+    action: "save-products",
+    sections: dataToSave.sections,
+  })
+    .then((result) => {
+      if (result?.payload) {
+        hydrateProductsData(result.payload);
+      }
+    })
+    .catch((error) => {
+      console.error("Error syncing products to backend:", error);
+      showNotification(
+        error?.message || "Could not sync products to backend.",
+        "danger",
+      );
+    });
 }
 
 function renderProductsTable() {
@@ -862,7 +1894,7 @@ function renderProductsTable() {
         : `<span class="badge bg-warning text-dark rounded-pill">Low (${product.stock})</span>`;
     tbody.append(`
             <tr class="border-bottom border-secondary">
-                <td class="ps-4 py-3"><img src="../../${product.image}" alt="${product.name}" class="rounded" width="50" height="50" style="object-fit: cover; cursor: pointer;" onerror="this.src='assests/images/products/placeholder.webp'"></td>
+                <td class="ps-4 py-3"><img src="../../${product.image}" alt="${product.name}" class="rounded" width="50" height="50" style="object-fit: cover; cursor: pointer;" onerror="this.src='assets/images/products/placeholder.webp'"></td>
                 <td class="py-3 text-light fw-semibold" style="max-width: 200px;">${product.name}</td>
                 <td class="py-3 text-secondary small"><span class="d-block text-warning">${product.sectionName}</span><span class="text-secondary">${product.category}</span></td>
                 <td class="py-3 text-light fw-semibold"><span class="text-secondary" style="text-decoration: line-through; font-size: 0.9rem;">${product.price}</span><span class="ms-2 text-orange">${product.salePrice}</span></td>
@@ -899,24 +1931,31 @@ function editProduct(id) {
     $("#productMovement").val(movementType);
 
     $("#productImage").val(product.image);
+    $("#productVideo").val(product.video || "");
     $("#productDescription").val(product.description);
     $("#productModalLabel").text("Edit Product");
     new bootstrap.Modal(document.getElementById("productModal")).show();
   }
 }
 
-function deleteProduct(id) {
-  if (confirm("Delete this product?")) {
-    const index = productsData.findIndex((p) => p.id === id);
-    if (index > -1) {
-      const name = productsData[index].name;
-      productsData.splice(index, 1);
-      saveProductsToJSON();
-      renderProductsTable();
-      calculateDashboardMetrics();
-      updateNotifications();
-      showNotification(`"${name}" deleted!`, "success");
-    }
+async function deleteProduct(id) {
+  const confirmed = await showCustomConfirmDialog(
+    "Delete this product?",
+    "Delete Product",
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  const index = productsData.findIndex((p) => p.id === id);
+  if (index > -1) {
+    const name = productsData[index].name;
+    productsData.splice(index, 1);
+    saveProductsToJSON();
+    renderProductsTable();
+    calculateDashboardMetrics();
+    updateNotifications();
+    showNotification(`"${name}" deleted!`, "success");
   }
 }
 
@@ -1023,8 +2062,13 @@ function editSection(sectionId) {
   $("#saveSectionBtn").html('<i class="bi bi-save2 me-1"></i>Update Section');
 }
 
-function deleteSection(sectionId) {
-  if (!confirm("Delete this section and all its products?")) return;
+async function deleteSection(sectionId) {
+  const confirmed = await showCustomConfirmDialog(
+    "Delete this section and all its products?",
+    "Delete Section",
+  );
+  if (!confirmed) return;
+
   allSections = allSections.filter(
     (section) => section.sectionId !== sectionId,
   );
@@ -1153,6 +2197,137 @@ function showNotification(message, type) {
   );
 }
 
+function showAdminDialog(options = {}) {
+  const modalEl = document.getElementById("adminDialogModal");
+  if (!modalEl || typeof bootstrap === "undefined") {
+    if (options.type === "prompt") {
+      return Promise.resolve(null);
+    }
+    return Promise.resolve(false);
+  }
+
+  const titleEl = document.getElementById("adminDialogTitle");
+  const messageEl = document.getElementById("adminDialogMessage");
+  const inputWrap = document.getElementById("adminDialogInputWrap");
+  const inputEl = document.getElementById("adminDialogInput");
+  const cancelBtn = document.getElementById("adminDialogCancelBtn");
+  const okBtn = document.getElementById("adminDialogOkBtn");
+
+  if (
+    !titleEl ||
+    !messageEl ||
+    !inputWrap ||
+    !inputEl ||
+    !cancelBtn ||
+    !okBtn
+  ) {
+    if (options.type === "prompt") {
+      return Promise.resolve(null);
+    }
+    return Promise.resolve(false);
+  }
+
+  const dialogType = options.type || "confirm";
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl, {
+    backdrop: "static",
+    keyboard: false,
+  });
+
+  titleEl.textContent = (options.title || "Confirm Action").toString();
+  messageEl.textContent = (options.message || "Are you sure?").toString();
+  okBtn.textContent = (options.confirmText || "Continue").toString();
+  cancelBtn.textContent = (options.cancelText || "Cancel").toString();
+
+  if (dialogType === "prompt") {
+    inputWrap.classList.remove("d-none");
+    inputEl.value = (options.defaultValue || "").toString();
+  } else {
+    inputWrap.classList.add("d-none");
+    inputEl.value = "";
+  }
+
+  if (dialogType === "alert") {
+    cancelBtn.classList.add("d-none");
+  } else {
+    cancelBtn.classList.remove("d-none");
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+
+    const cleanup = () => {
+      okBtn.removeEventListener("click", onConfirm);
+      cancelBtn.removeEventListener("click", onCancel);
+      modalEl.removeEventListener("hidden.bs.modal", onHidden);
+    };
+
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(value);
+    };
+
+    const onConfirm = () => {
+      const value = dialogType === "prompt" ? inputEl.value : true;
+      finish(value);
+      modal.hide();
+    };
+
+    const onCancel = () => {
+      if (dialogType === "prompt") {
+        finish(null);
+      } else {
+        finish(false);
+      }
+      modal.hide();
+    };
+
+    const onHidden = () => {
+      if (settled) return;
+      if (dialogType === "prompt") {
+        finish(null);
+      } else {
+        finish(false);
+      }
+    };
+
+    okBtn.addEventListener("click", onConfirm);
+    cancelBtn.addEventListener("click", onCancel);
+    modalEl.addEventListener("hidden.bs.modal", onHidden);
+
+    modal.show();
+    if (dialogType === "prompt") {
+      setTimeout(() => inputEl.focus(), 100);
+    }
+  });
+}
+
+function showCustomConfirmDialog(message, title = "Confirm Action") {
+  return showAdminDialog({
+    type: "confirm",
+    title,
+    message,
+    confirmText: "Yes, Continue",
+    cancelText: "Cancel",
+  });
+}
+
+function showCustomPromptDialog(
+  message,
+  defaultValue = "",
+  title = "Add Note",
+) {
+  return showAdminDialog({
+    type: "prompt",
+    title,
+    message,
+    defaultValue,
+    confirmText: "Save",
+    cancelText: "Skip",
+  });
+}
+
 function showStatusNotification(orderId, oldStatus, newStatus) {
   const notif = $(
     `<div class="alert alert-info alert-dismissible fade show" role="alert" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; min-width: 380px; background-color: #1a3a4a; border: 2px solid #0d6efd; border-radius: 8px; padding: 30px; box-shadow: 0 4px 15px rgba(13, 110, 253, 0.3);"><div style="color: #fff; text-align: center;"><i class="bi bi-arrow-left-right" style="font-size: 2rem; color: #0d6efd; display: block; margin-bottom: 10px;"></i><h5 style="margin: 10px 0; color: #0d6efd;">Order Status Updated!</h5><p style="margin: 5px 0; font-size: 0.95rem;">Order: <strong>${orderId}</strong></p><p style="margin: 10px 0; font-size: 0.9rem; color: #b0b0b0;"><span style="background-color: #332a1a; padding: 4px 8px; border-radius: 4px;">${oldStatus}</span><i class="bi bi-arrow-right" style="margin: 0 8px; color: #0d6efd;"></i><span style="background-color: #1a332a; padding: 4px 8px; border-radius: 4px;">${newStatus}</span></p></div><button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button></div>`,
@@ -1167,7 +2342,7 @@ function updateNotifications() {
   if (!list.length || !count.length) return;
 
   const notifications = [];
-  const orders = JSON.parse(localStorage.getItem("commerza_orders")) || [];
+  const orders = getAdminOrdersData();
 
   const recentOrders = orders.filter((order) =>
     isWithinDays(order.orderDate, NOTIFICATION_RULES.recentOrderDays),
@@ -1200,18 +2375,12 @@ function updateNotifications() {
     });
   }
 
-  const newCustomers = new Set();
-  orders.forEach((order) => {
-    if (
-      isWithinDays(order.orderDate, NOTIFICATION_RULES.newCustomerDays) &&
-      order.customerName
-    ) {
-      newCustomers.add(order.customerName);
-    }
-  });
-  if (newCustomers.size > 0) {
+  const newCustomers = getAdminCustomersData().filter((customer) =>
+    isWithinDays(customer.registeredAt, NOTIFICATION_RULES.newCustomerDays),
+  );
+  if (newCustomers.length > 0) {
     notifications.push({
-      text: `New customers: ${newCustomers.size} (last ${NOTIFICATION_RULES.newCustomerDays} days)`,
+      text: `New customers: ${newCustomers.length} (last ${NOTIFICATION_RULES.newCustomerDays} days)`,
       icon: "bi-person-check",
       type: "success",
     });
@@ -1239,13 +2408,28 @@ function updateNotifications() {
     });
   }
 
+  const pendingRefunds = (
+    Array.isArray(adminRefunds) ? adminRefunds : []
+  ).filter(
+    (refund) => (refund?.status || "").toString().toLowerCase() === "pending",
+  );
+  if (pendingRefunds.length > 0) {
+    notifications.push({
+      text: `${pendingRefunds.length} refund request(s) waiting review`,
+      icon: "bi-cash-coin",
+      type: "info",
+    });
+  }
+
+  const latestNotifications = notifications.slice(0, 3);
+
   list.empty();
   list.append(
-    '<li><h6 class="dropdown-header text-secondary">Notifications</h6></li>',
+    '<li><h6 class="dropdown-header text-secondary">Latest 3 Notifications</h6></li>',
   );
   list.append('<li><hr class="dropdown-divider border-secondary"></li>');
 
-  if (notifications.length === 0) {
+  if (latestNotifications.length === 0) {
     count.text("0");
     count.addClass("d-none");
     list.append(
@@ -1254,42 +2438,26 @@ function updateNotifications() {
     return;
   }
 
-  count.text(Math.min(notifications.length, 9));
+  count.text(String(latestNotifications.length));
   count.removeClass("d-none");
 
-  notifications.forEach((notif, index) => {
+  latestNotifications.forEach((notif, index) => {
     list.append(`
             <li><a class="dropdown-item text-light d-flex align-items-center gap-2" href="#" onclick="return false;">
                 <i class="bi ${notif.icon} text-${notif.type}"></i>
                 <span>${notif.text}</span>
             </a></li>
         `);
-    if (index < notifications.length - 1) {
+    if (index < latestNotifications.length - 1) {
       list.append('<li><hr class="dropdown-divider border-secondary"></li>');
     }
   });
 }
 
 $(document).ready(function () {
-  const config = window.CommerzaAdminConfig || {};
-  const authKey = "commerza_admin_auth";
-  const emailKey = "commerza_admin_email";
-  const passwordKey = "commerza_admin_password";
-  const resetKeyStorage = "commerza_admin_reset_key";
-  const defaultEmail = (
-    config.adminEmailDefault || "commerza.ahmer@gmail.com"
-  ).toLowerCase();
-  const defaultPassword = config.adminPasswordDefault || "Commerza@2026";
-  const defaultResetKey = config.resetKey || "COMMERZA-RESET-2026";
-
-  if (!localStorage.getItem(emailKey)) {
-    localStorage.setItem(emailKey, defaultEmail);
-  }
-  if (!localStorage.getItem(passwordKey)) {
-    localStorage.setItem(passwordKey, defaultPassword);
-  }
-  if (!localStorage.getItem(resetKeyStorage)) {
-    localStorage.setItem(resetKeyStorage, defaultResetKey);
+  const adminIdentity = ADMIN_RUNTIME.admin || {};
+  if (adminIdentity?.email) {
+    $("#securityPasswordEmail, #securityKeyEmail").val(adminIdentity.email);
   }
 
   const sidebar = document.getElementById("sidebarMenu");
@@ -1319,11 +2487,130 @@ $(document).ready(function () {
   applyButtonCooldown("#resetSocialBtn");
   applyButtonCooldown("#saveTickerBtn");
   applyButtonCooldown("#resetTickerBtn");
+  applyButtonCooldown("#saveFeaturedVideosBtn");
   applyButtonCooldown("#saveSliderBtn");
   applyButtonCooldown("#resetSliderBtn");
   applyButtonCooldown("#saveAdminEmailBtn");
   applyButtonCooldown("#saveAdminPasswordBtn");
   applyButtonCooldown("#saveAdminResetKeyBtn");
+  applyButtonCooldown("#saveLiveViewersBtn");
+  applyButtonCooldown("#bulkDeleteOrdersBtn");
+  applyButtonCooldown("#bulkDeleteCustomersBtn");
+  applyButtonCooldown("#saveCouponBtn");
+  applyButtonCooldown("#resetCouponBtn");
+  applyButtonCooldown("#sendCouponEmailBtn");
+  applyButtonCooldown("#refreshCouponsBtn");
+  applyButtonCooldown("#refreshReviewsBtn");
+
+  bindUploadControl("#uploadSiteLogoBtn", "#siteLogoFile", "logo", (path) => {
+    $("#siteLogo").val(path);
+  });
+  bindUploadControl(
+    "#uploadSiteFaviconBtn",
+    "#siteFaviconFile",
+    "favicon",
+    (path) => {
+      $("#siteFavicon").val(path);
+    },
+  );
+  bindUploadControl(
+    "#uploadSocialIconBtn",
+    "#socialIconFile",
+    "social-icon",
+    (path) => {
+      $("#socialIcon").val(path);
+    },
+  );
+  bindUploadControl(
+    "#uploadSliderImageBtn",
+    "#sliderImageFile",
+    "slider-image",
+    (path) => {
+      $("#sliderImage").val(path);
+    },
+  );
+  bindUploadControl(
+    "#uploadSliderVideoBtn",
+    "#sliderVideoFile",
+    "slider-video",
+    (path) => {
+      $("#sliderVideo").val(path);
+    },
+  );
+  bindUploadControl(
+    "#uploadHomeFeatureVideoBtn",
+    "#homeFeatureVideoFile",
+    "slider-video",
+    (path) => {
+      $("#homeFeatureVideo").val(path);
+    },
+  );
+  bindUploadControl(
+    "#uploadCategoryAFeatureVideoBtn",
+    "#categoryAFeatureVideoFile",
+    "product-video",
+    (path) => {
+      $("#categoryAFeatureVideo").val(path);
+    },
+  );
+  bindUploadControl(
+    "#uploadProductImageBtn",
+    "#productImageFile",
+    "product-image",
+    (path) => {
+      $("#productImage").val(path);
+    },
+  );
+  bindUploadControl(
+    "#uploadProductVideoBtn",
+    "#productVideoFile",
+    "product-video",
+    (path) => {
+      $("#productVideo").val(path);
+    },
+  );
+
+  $("#ordersSelectAll")
+    .off("change")
+    .on("change", function () {
+      const checked = this.checked;
+      $(".order-select-row").prop("checked", checked);
+    });
+
+  $(document)
+    .off("change", ".order-select-row")
+    .on("change", ".order-select-row", function () {
+      const total = $(".order-select-row").length;
+      const selected = $(".order-select-row:checked").length;
+      $("#ordersSelectAll").prop("checked", total > 0 && total === selected);
+    });
+
+  $("#customersSelectAll")
+    .off("change")
+    .on("change", function () {
+      const checked = this.checked;
+      $(".customer-select-row").prop("checked", checked);
+    });
+
+  $(document)
+    .off("change", ".customer-select-row")
+    .on("change", ".customer-select-row", function () {
+      const total = $(".customer-select-row").length;
+      const selected = $(".customer-select-row:checked").length;
+      $("#customersSelectAll").prop("checked", total > 0 && total === selected);
+    });
+
+  $("#bulkDeleteOrdersBtn").off("click").on("click", bulkDeleteOrders);
+  $("#bulkDeleteCustomersBtn").off("click").on("click", bulkDeleteCustomers);
+
+  $(document)
+    .off("click", ".refund-status-btn")
+    .on("click", ".refund-status-btn", function () {
+      const refundId = parseInt($(this).data("refund-id"), 10) || 0;
+      const status = ($(this).data("status") || "pending").toString();
+      if (refundId <= 0) return;
+      updateRefundStatus(refundId, status);
+    });
 
   $(document).on("click", ".password-toggle", function () {
     const target = $(this).data("target");
@@ -1333,17 +2620,31 @@ $(document).ready(function () {
     $(this).toggleClass("bi-eye bi-eye-slash");
   });
 
-  loadProductsFromJSON();
-  initWebsiteSettings();
-  initEmailCenter();
+  const initialProductsLoad = loadProductsFromJSON();
+  const initialOrdersLoad = loadAdminOrdersData(true);
+  const initialCouponsLoad = loadCouponsData(true);
+  const initialReviewsLoad = loadReviewsData(true);
 
-  setTimeout(() => {
+  initCouponsSection();
+  initReviewsSection();
+  initWebsiteSettings();
+  initLiveViewersAnalytics();
+
+  Promise.allSettled([
+    Promise.resolve(initialProductsLoad),
+    Promise.resolve(initialOrdersLoad),
+    Promise.resolve(initialCouponsLoad),
+    Promise.resolve(initialReviewsLoad),
+  ]).finally(() => {
+    initEmailCenter();
     calculateDashboardMetrics();
     displayRecentOrders();
     displayAllOrders();
     displayAllCustomers();
+    renderAnalyticsSection();
+    renderRefundRequests();
     updateNotifications();
-  }, 1000);
+  });
 
   $("#saveProductBtn")
     .off("click")
@@ -1372,13 +2673,14 @@ $(document).ready(function () {
         salePrice: parseInt($("#productSalePrice").val()),
         stock: parseInt($("#productStock").val()),
         image: $("#productImage").val(),
+        video: $("#productVideo").val().trim(),
         description: $("#productDescription").val(),
         movement: $("#productMovement").val(),
         category: section ? section.category : "Uncategorized",
         subcategory: section ? section.subcategory : "General",
         sectionName: section ? section.sectionName : "General",
         sectionId: sectionId,
-        page: section ? section.page : "index.html",
+        page: section ? section.page : "index.php",
         createdAt: existingProduct?.createdAt || new Date().toISOString(),
       };
 
@@ -1421,7 +2723,7 @@ $(document).ready(function () {
       const formId = $("#sectionFormId").val();
       const sectionName = $("#sectionName").val().trim();
       const rawId = $("#sectionId").val().trim();
-      const page = $("#sectionPage").val().trim() || "index.html";
+      const page = $("#sectionPage").val().trim() || "index.php";
       const category = $("#sectionCategory").val().trim() || "Uncategorized";
       const subcategory = $("#sectionSubcategory").val().trim() || "General";
 
@@ -1494,7 +2796,6 @@ $(document).ready(function () {
   $("#saveContactBtn")
     .off("click")
     .on("click", function () {
-      if (!siteSettings) return;
       const address = $("#siteAddress").val().trim();
       const email = $("#siteEmail").val().trim();
       const phone = $("#sitePhone").val().trim();
@@ -1504,15 +2805,30 @@ $(document).ready(function () {
         return;
       }
 
-      siteSettings.contact = { address, email, phone };
-      saveSiteSettings();
-      showNotification("Contact details updated!", "success");
+      adminPostJson(ADMIN_WEBSITE_API, {
+        action: "save-contact",
+        address,
+        email,
+        phone,
+      })
+        .then((result) => {
+          applyWebsiteSettingsPayload(result?.payload || null);
+          showNotification(
+            result?.message || "Contact details updated!",
+            "success",
+          );
+        })
+        .catch((error) => {
+          showNotification(
+            error?.message || "Unable to update contact details.",
+            "danger",
+          );
+        });
     });
 
   $("#saveBrandBtn")
     .off("click")
     .on("click", function () {
-      if (!siteSettings) return;
       const name = $("#siteName").val().trim();
       const logo = $("#siteLogo").val().trim();
       const favicon = $("#siteFavicon").val().trim();
@@ -1525,49 +2841,58 @@ $(document).ready(function () {
         return;
       }
 
-      siteSettings.brand = { name, logo, favicon };
-      saveSiteSettings();
-      showNotification("Branding updated!", "success");
-      if (typeof window.applyAdminBranding === "function") {
-        window.applyAdminBranding();
-      }
+      adminPostJson(ADMIN_WEBSITE_API, {
+        action: "save-brand",
+        name,
+        logo,
+        favicon,
+      })
+        .then((result) => {
+          applyWebsiteSettingsPayload(result?.payload || null);
+          showNotification(result?.message || "Branding updated!", "success");
+          if (typeof window.applyAdminBranding === "function") {
+            window.applyAdminBranding();
+          }
+        })
+        .catch((error) => {
+          showNotification(
+            error?.message || "Unable to update branding.",
+            "danger",
+          );
+        });
     });
 
   $("#saveSocialBtn")
     .off("click")
     .on("click", function () {
-      if (!siteSettings) return;
       const id = $("#socialId").val();
       const label = $("#socialLabel").val().trim();
       const url = $("#socialUrl").val().trim();
       const icon = $("#socialIcon").val().trim();
 
-      if (!label || !url || !icon) {
-        showNotification("Please fill in label, URL and icon", "danger");
+      if (!label || !url) {
+        showNotification("Please fill in label and URL", "danger");
         return;
       }
 
-      if (id) {
-        const index = siteSettings.socialLinks.findIndex(
-          (link) => link.id === parseInt(id),
-        );
-        if (index !== -1) {
-          siteSettings.socialLinks[index] = {
-            id: parseInt(id),
-            label,
-            url,
-            icon,
-          };
-          showNotification("Social link updated!", "success");
-        }
-      } else {
-        siteSettings.socialLinks.push({ id: nextSocialId++, label, url, icon });
-        showNotification("Social link added!", "success");
-      }
-
-      saveSiteSettings();
-      renderSocialLinksTable();
-      resetSocialForm();
+      adminPostJson(ADMIN_WEBSITE_API, {
+        action: "save-social",
+        id: id ? parseInt(id, 10) : 0,
+        label,
+        url,
+        icon,
+      })
+        .then((result) => {
+          applyWebsiteSettingsPayload(result?.payload || null);
+          resetSocialForm();
+          showNotification(result?.message || "Social link saved!", "success");
+        })
+        .catch((error) => {
+          showNotification(
+            error?.message || "Unable to save social link.",
+            "danger",
+          );
+        });
     });
 
   $("#resetSocialBtn").on("click", function () {
@@ -1577,7 +2902,6 @@ $(document).ready(function () {
   $("#saveTickerBtn")
     .off("click")
     .on("click", function () {
-      if (!siteSettings) return;
       const enabled = $("#tickerEnabled").is(":checked");
       const messages = $("#tickerMessages")
         .val()
@@ -1590,19 +2914,64 @@ $(document).ready(function () {
         return;
       }
 
-      siteSettings.ticker = { enabled, messages };
-      saveSiteSettings();
-      showNotification("Ticker updated!", "success");
+      adminPostJson(ADMIN_WEBSITE_API, {
+        action: "save-ticker",
+        enabled,
+        messages,
+      })
+        .then((result) => {
+          applyWebsiteSettingsPayload(result?.payload || null);
+          showNotification(result?.message || "Ticker updated!", "success");
+        })
+        .catch((error) => {
+          showNotification(
+            error?.message || "Unable to save ticker.",
+            "danger",
+          );
+        });
     });
 
   $("#resetTickerBtn").on("click", function () {
     resetTickerForm();
   });
 
+  $("#saveFeaturedVideosBtn")
+    .off("click")
+    .on("click", function () {
+      const homeVideo = $("#homeFeatureVideo").val().trim();
+      const categoryAVideo = $("#categoryAFeatureVideo").val().trim();
+
+      if (!homeVideo || !categoryAVideo) {
+        showNotification(
+          "Please add both featured video paths before saving.",
+          "danger",
+        );
+        return;
+      }
+
+      adminPostJson(ADMIN_WEBSITE_API, {
+        action: "save-feature-videos",
+        home_video: homeVideo,
+        category_a_video: categoryAVideo,
+      })
+        .then((result) => {
+          applyWebsiteSettingsPayload(result?.payload || null);
+          showNotification(
+            result?.message || "Featured videos updated!",
+            "success",
+          );
+        })
+        .catch((error) => {
+          showNotification(
+            error?.message || "Unable to save featured videos.",
+            "danger",
+          );
+        });
+    });
+
   $("#saveSliderBtn")
     .off("click")
     .on("click", function () {
-      if (!siteSettings) return;
       const id = $("#sliderId").val();
       const image = $("#sliderImage").val().trim();
       const alt = $("#sliderAlt").val().trim();
@@ -1611,14 +2980,16 @@ $(document).ready(function () {
       const text = $("#sliderText").val().trim();
       const buttonText = $("#sliderButtonText").val().trim();
       const buttonLink = $("#sliderButtonLink").val().trim();
+      const video = $("#sliderVideo").val().trim();
 
       if (!image || !heading) {
         showNotification("Please add image and heading", "danger");
         return;
       }
 
-      const slide = {
-        id: id ? parseInt(id) : nextSliderId++,
+      adminPostJson(ADMIN_WEBSITE_API, {
+        action: "save-slider",
+        id: id ? parseInt(id, 10) : 0,
         image,
         alt,
         label,
@@ -1626,24 +2997,16 @@ $(document).ready(function () {
         text,
         buttonText,
         buttonLink,
-      };
-
-      if (id) {
-        const index = siteSettings.sliderImages.findIndex(
-          (item) => item.id === parseInt(id),
-        );
-        if (index !== -1) {
-          siteSettings.sliderImages[index] = slide;
-          showNotification("Slide updated!", "success");
-        }
-      } else {
-        siteSettings.sliderImages.push(slide);
-        showNotification("Slide added!", "success");
-      }
-
-      saveSiteSettings();
-      renderSliderTable();
-      resetSliderForm();
+        video,
+      })
+        .then((result) => {
+          applyWebsiteSettingsPayload(result?.payload || null);
+          resetSliderForm();
+          showNotification(result?.message || "Slide saved!", "success");
+        })
+        .catch((error) => {
+          showNotification(error?.message || "Unable to save slide.", "danger");
+        });
     });
 
   $("#resetSliderBtn").on("click", function () {
@@ -1651,24 +3014,23 @@ $(document).ready(function () {
   });
 
   $("#saveAdminEmailBtn").on("click", function () {
-    const currentPassword = $("#securityEmailPassword").val();
-    const resetKey = $("#securityEmailResetKey").val();
-    const newEmail = ($("#securityEmailNew").val() || "").trim().toLowerCase();
+    const currentPassword = (
+      $("#securityEmailPassword").val() || ""
+    ).toString();
+    const resetKey = ($("#securityEmailResetKey").val() || "")
+      .toString()
+      .trim();
+    const newEmail = ($("#securityEmailNew").val() || "")
+      .toString()
+      .trim()
+      .toLowerCase();
     const confirmEmail = ($("#securityEmailConfirm").val() || "")
+      .toString()
       .trim()
       .toLowerCase();
 
-    const storedPassword = localStorage.getItem(passwordKey) || defaultPassword;
-    const storedResetKey =
-      localStorage.getItem(resetKeyStorage) || defaultResetKey;
-
     if (!currentPassword || !resetKey) {
       showNotification("Password and reset key are required", "danger");
-      return;
-    }
-
-    if (currentPassword !== storedPassword || resetKey !== storedResetKey) {
-      showNotification("Invalid password or reset key", "danger");
       return;
     }
 
@@ -1682,35 +3044,45 @@ $(document).ready(function () {
       return;
     }
 
-    localStorage.setItem(emailKey, newEmail);
-    const authData = JSON.parse(localStorage.getItem(authKey) || "{}");
-    authData.email = newEmail;
-    authData.loggedInAt = authData.loggedInAt || new Date().toISOString();
-    localStorage.setItem(authKey, JSON.stringify(authData));
-    showNotification("Admin email updated!", "success");
+    adminPostJson(ADMIN_SECURITY_API, {
+      action: "update-email",
+      currentPassword,
+      resetKey,
+      newEmail,
+      confirmEmail,
+    })
+      .then((result) => {
+        if (result?.email) {
+          $("#securityPasswordEmail, #securityKeyEmail").val(result.email);
+        }
+        $(
+          "#securityEmailPassword, #securityEmailResetKey, #securityEmailNew, #securityEmailConfirm",
+        ).val("");
+        showNotification(result?.message || "Admin email updated!", "success");
+      })
+      .catch((error) => {
+        showNotification(
+          error?.message || "Could not update admin email.",
+          "danger",
+        );
+      });
   });
 
   $("#saveAdminPasswordBtn").on("click", function () {
     const currentEmail = ($("#securityPasswordEmail").val() || "")
+      .toString()
       .trim()
       .toLowerCase();
-    const resetKey = $("#securityPasswordResetKey").val();
-    const newPassword = $("#securityPasswordNew").val();
-    const confirmPassword = $("#securityPasswordConfirm").val();
-
-    const storedEmail = (
-      localStorage.getItem(emailKey) || defaultEmail
-    ).toLowerCase();
-    const storedResetKey =
-      localStorage.getItem(resetKeyStorage) || defaultResetKey;
+    const resetKey = ($("#securityPasswordResetKey").val() || "")
+      .toString()
+      .trim();
+    const newPassword = ($("#securityPasswordNew").val() || "").toString();
+    const confirmPassword = (
+      $("#securityPasswordConfirm").val() || ""
+    ).toString();
 
     if (!currentEmail || !resetKey) {
       showNotification("Email and reset key are required", "danger");
-      return;
-    }
-
-    if (currentEmail !== storedEmail || resetKey !== storedResetKey) {
-      showNotification("Invalid email or reset key", "danger");
       return;
     }
 
@@ -1719,30 +3091,41 @@ $(document).ready(function () {
       return;
     }
 
-    localStorage.setItem(passwordKey, newPassword);
-    showNotification("Admin password updated!", "success");
+    adminPostJson(ADMIN_SECURITY_API, {
+      action: "update-password",
+      currentEmail,
+      resetKey,
+      newPassword,
+      confirmPassword,
+    })
+      .then((result) => {
+        $(
+          "#securityPasswordResetKey, #securityPasswordNew, #securityPasswordConfirm",
+        ).val("");
+        showNotification(
+          result?.message || "Admin password updated!",
+          "success",
+        );
+      })
+      .catch((error) => {
+        showNotification(
+          error?.message || "Could not update admin password.",
+          "danger",
+        );
+      });
   });
 
   $("#saveAdminResetKeyBtn").on("click", function () {
     const currentEmail = ($("#securityKeyEmail").val() || "")
+      .toString()
       .trim()
       .toLowerCase();
-    const currentPassword = $("#securityKeyPassword").val();
-    const newKey = ($("#securityKeyNew").val() || "").trim();
-    const confirmKey = ($("#securityKeyConfirm").val() || "").trim();
-
-    const storedEmail = (
-      localStorage.getItem(emailKey) || defaultEmail
-    ).toLowerCase();
-    const storedPassword = localStorage.getItem(passwordKey) || defaultPassword;
+    const currentPassword = ($("#securityKeyPassword").val() || "").toString();
+    const newKey = ($("#securityKeyNew").val() || "").toString().trim();
+    const confirmKey = ($("#securityKeyConfirm").val() || "").toString().trim();
 
     if (!currentEmail || !currentPassword) {
       showNotification("Email and password are required", "danger");
-      return;
-    }
-
-    if (currentEmail !== storedEmail || currentPassword !== storedPassword) {
-      showNotification("Invalid email or password", "danger");
       return;
     }
 
@@ -1751,13 +3134,294 @@ $(document).ready(function () {
       return;
     }
 
-    localStorage.setItem(resetKeyStorage, newKey);
-    showNotification("Reset key updated!", "success");
+    adminPostJson(ADMIN_SECURITY_API, {
+      action: "update-reset-key",
+      currentEmail,
+      currentPassword,
+      newKey,
+      confirmKey,
+    })
+      .then((result) => {
+        $("#securityKeyPassword, #securityKeyNew, #securityKeyConfirm").val("");
+        showNotification(result?.message || "Reset key updated!", "success");
+      })
+      .catch((error) => {
+        showNotification(
+          error?.message || "Could not update reset key.",
+          "danger",
+        );
+      });
   });
 });
 
+function renderAnalyticsSection() {
+  const revenue = Number(adminMetrics?.totalRevenue || 0);
+  const orderCount = Math.max(0, parseInt(adminMetrics?.totalOrders, 10) || 0);
+  const avgOrderValue = Number(adminMetrics?.avgOrderValue || 0);
+  const returningRate = Number(adminMetrics?.returningCustomerRate || 0);
+  const orders = getAdminOrdersData();
+  const openOrders = orders.filter((order) => {
+    const status = (order?.status || "").toString().toLowerCase();
+    return ["pending", "confirmed", "processing"].includes(status);
+  }).length;
+  const lowStockCount = productsData.filter(
+    (product) => Number(product.stock) <= NOTIFICATION_RULES.lowStockThreshold,
+  ).length;
+  const pendingRefundCount = (
+    Array.isArray(adminRefunds) ? adminRefunds : []
+  ).filter(
+    (refund) => (refund?.status || "").toString().toLowerCase() === "pending",
+  ).length;
+
+  $("#analyticsRevenueValue").text(formatPkr(revenue));
+  $("#analyticsOrdersValue").text(orderCount.toLocaleString());
+  $("#analyticsAovValue").text(formatPkr(avgOrderValue));
+  $("#analyticsReturningValue").text(`${returningRate.toFixed(1)}%`);
+
+  $("#analyticsRevenueHint").html(
+    '<i class="bi bi-calendar-week"></i> Last 30 days',
+  );
+  $("#analyticsOrdersHint").html(
+    '<i class="bi bi-calendar-week"></i> Last 30 days',
+  );
+  $("#analyticsAovHint").html(
+    '<i class="bi bi-calculator"></i> Sales divided by orders',
+  );
+  $("#analyticsReturningHint").html(
+    '<i class="bi bi-people"></i> Customers who came back',
+  );
+
+  $("#storeHealthOpenOrders").text(openOrders.toLocaleString());
+  $("#storeHealthLowStock").text(lowStockCount.toLocaleString());
+  $("#storeHealthPendingRefunds").text(pendingRefundCount.toLocaleString());
+
+  const actionItems = [];
+  if (openOrders > 0) {
+    actionItems.push(
+      `Process ${openOrders} open order(s) to keep delivery speed high.`,
+    );
+  }
+  if (lowStockCount > 0) {
+    actionItems.push(
+      `Restock ${lowStockCount} low-stock product(s) before they run out.`,
+    );
+  }
+  if (pendingRefundCount > 0) {
+    actionItems.push(
+      `Review ${pendingRefundCount} pending refund request(s) today.`,
+    );
+  }
+  if (orderCount === 0) {
+    actionItems.push(
+      "No recent orders yet. Push one offer through Email Center.",
+    );
+  }
+  if (returningRate < 20 && orderCount > 0) {
+    actionItems.push(
+      "Repeat customers are low. Send a follow-up offer to past buyers.",
+    );
+  }
+  if (!actionItems.length) {
+    actionItems.push(
+      "Everything looks healthy. Keep monitoring stock and orders daily.",
+    );
+  }
+
+  const actionList = $("#analyticsActionList");
+  if (actionList.length) {
+    actionList.empty();
+    actionItems.slice(0, 5).forEach((item) => {
+      actionList.append(
+        `<li class="list-group-item bg-transparent border-secondary text-light">${escapeHtml(item)}</li>`,
+      );
+    });
+  }
+
+  const weekly = Array.isArray(adminMetrics?.weeklyPerformance)
+    ? adminMetrics.weeklyPerformance
+    : [];
+  const topProducts = Array.isArray(adminMetrics?.topProducts)
+    ? adminMetrics.topProducts
+    : [];
+
+  const weeklyWrap = $("#weeklyPerformanceRows");
+  if (weeklyWrap.length) {
+    weeklyWrap.empty();
+
+    if (!weekly.length) {
+      weeklyWrap.append(
+        '<div class="text-secondary small">No weekly performance data yet.</div>',
+      );
+    } else {
+      const maxRevenue = Math.max(
+        ...weekly.map((item) => Number(item?.revenue || 0)),
+        0,
+      );
+
+      weekly.forEach((item, idx) => {
+        const label = escapeHtml(item?.label || "Day");
+        const revenueValue = Number(item?.revenue || 0);
+        const ordersValue = Math.max(0, parseInt(item?.orders, 10) || 0);
+        const width = maxRevenue > 0 ? (revenueValue / maxRevenue) * 100 : 0;
+        const barClass =
+          idx % 4 === 0
+            ? "bg-orange"
+            : idx % 4 === 1
+              ? "bg-info"
+              : idx % 4 === 2
+                ? "bg-success"
+                : "bg-warning";
+
+        weeklyWrap.append(`
+          <div class="mb-3">
+            <div class="d-flex justify-content-between mb-2">
+              <span class="text-light">${label}</span>
+              <span class="text-secondary">${formatPkr(revenueValue)} · ${ordersValue} order${ordersValue === 1 ? "" : "s"}</span>
+            </div>
+            <div class="progress" style="height: 6px;">
+              <div class="progress-bar ${barClass}" style="width: ${Math.max(4, Math.min(100, width)).toFixed(1)}%"></div>
+            </div>
+          </div>
+        `);
+      });
+    }
+  }
+
+  const topProductsWrap = $("#topProductsList");
+  if (topProductsWrap.length) {
+    topProductsWrap.empty();
+
+    if (!topProducts.length) {
+      topProductsWrap.append(
+        '<div class="text-secondary small">No top-product data yet.</div>',
+      );
+    } else {
+      topProducts.forEach((item) => {
+        const name = escapeHtml(item?.name || "Product");
+        const orders = Math.max(0, parseInt(item?.orders, 10) || 0);
+        const revenueTotal = Number(item?.revenue || 0);
+        topProductsWrap.append(`
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <p class="text-light mb-1 fw-semibold">${name}</p>
+              <p class="text-secondary small mb-0">${orders} units sold</p>
+            </div>
+            <span class="text-orange fw-semibold">${formatPkr(revenueTotal)}</span>
+          </div>
+        `);
+      });
+    }
+  }
+}
+
+function refundBadgeClass(status) {
+  const normalized = (status || "").toLowerCase();
+  if (normalized === "accepted") return "bg-success";
+  if (normalized === "rejected") return "bg-danger";
+  return "bg-warning text-dark";
+}
+
+function renderRefundRequests() {
+  const tbody = document.querySelector("#refundTable tbody");
+  if (!tbody) return;
+
+  tbody.innerHTML = "";
+
+  if (!Array.isArray(adminRefunds) || adminRefunds.length === 0) {
+    tbody.innerHTML =
+      '<tr><td colspan="7" class="text-center py-4 text-secondary">No refund requests yet.</td></tr>';
+    return;
+  }
+
+  adminRefunds.forEach((refund) => {
+    const orderNumber = escapeHtml(
+      refund.orderNumber || `#${refund.orderId || "-"}`,
+    );
+    const customerName = escapeHtml(refund.customerName || "Customer");
+    const requestedAt = escapeHtml(formatShortDate(refund.requestedAt));
+    const reason = escapeHtml(refund.reason || "No reason provided");
+    const evidencePath = (refund.evidencePath || "").toString().trim();
+    const evidenceName = escapeHtml(
+      refund.evidenceName || "View uploaded file",
+    );
+    const evidenceUrl = evidencePath
+      ? evidencePath.startsWith("http")
+        ? evidencePath
+        : `../../${encodeURI(evidencePath)}`
+      : "";
+    const status = (refund.status || "pending").toLowerCase();
+    const statusLabel =
+      status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+
+    const row = document.createElement("tr");
+    row.className = "border-bottom border-secondary";
+    row.innerHTML = `
+      <td class="ps-4 py-3 text-light fw-semibold">${orderNumber}</td>
+      <td class="py-3 text-light">${customerName}</td>
+      <td class="py-3 text-secondary small">${requestedAt}</td>
+      <td class="py-3"><span class="badge ${refundBadgeClass(status)} rounded-pill">${escapeHtml(statusLabel)}</span></td>
+      <td class="py-3 text-secondary small">${reason}</td>
+      <td class="py-3 text-secondary small">${evidenceUrl ? `<a href="${evidenceUrl}" target="_blank" rel="noopener" class="text-warning text-decoration-underline">${evidenceName}</a>` : "No file"}</td>
+      <td class="pe-4 py-3">
+        <div class="d-flex flex-wrap gap-1">
+          <button class="btn btn-sm btn-outline-warning refund-status-btn" data-refund-id="${Number(refund.id || 0)}" data-status="pending">Pending</button>
+          <button class="btn btn-sm btn-outline-success refund-status-btn" data-refund-id="${Number(refund.id || 0)}" data-status="accepted">Accept</button>
+          <button class="btn btn-sm btn-outline-danger refund-status-btn" data-refund-id="${Number(refund.id || 0)}" data-status="rejected">Reject</button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(row);
+  });
+}
+
+async function updateRefundStatus(refundId, status) {
+  const normalizedStatus = (status || "pending").toLowerCase();
+  if (!["pending", "accepted", "rejected"].includes(normalizedStatus)) {
+    showNotification("Invalid refund status.", "danger");
+    return;
+  }
+
+  const notePrompt =
+    normalizedStatus === "pending"
+      ? "Optional note for this refund request:"
+      : `Optional note for ${normalizedStatus} decision:`;
+  const adminNote = await showCustomPromptDialog(
+    notePrompt,
+    "",
+    "Refund Decision Note",
+  );
+  if (adminNote === null) {
+    return;
+  }
+
+  try {
+    const result = await adminPostJson(ADMIN_ORDERS_API, {
+      action: "update-refund-status",
+      refund_id: Number(refundId || 0),
+      status: normalizedStatus,
+      admin_note: adminNote.trim(),
+    });
+
+    setAdminOrdersPayload(result?.payload || {});
+    displayRecentOrders();
+    displayAllOrders();
+    displayAllCustomers();
+    calculateDashboardMetrics();
+    renderAnalyticsSection();
+    renderRefundRequests();
+    updateNotifications();
+
+    showNotification(result?.message || "Refund request updated.", "success");
+  } catch (error) {
+    showNotification(
+      error?.message || "Unable to update refund request.",
+      "danger",
+    );
+  }
+}
+
 function displayRecentOrders() {
-  let orders = JSON.parse(localStorage.getItem("commerza_orders")) || [];
+  let orders = getAdminOrdersData();
   orders = orders
     .sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate))
     .slice(0, 5);
@@ -1774,6 +3438,10 @@ function displayRecentOrders() {
   }
 
   orders.forEach((order, idx) => {
+    const items = Array.isArray(order.items) ? order.items : [];
+    const customerName = (order.customerName || "Customer").toString();
+    const shortName = customerName.split(" ")[0] || customerName;
+    const totalAmount = Number(order.total || 0);
     const statusColor =
       order.status === "Pending"
         ? "bg-warning text-dark"
@@ -1784,12 +3452,11 @@ function displayRecentOrders() {
             : "bg-success";
     const row = document.createElement("tr");
     row.className = "border-bottom border-secondary";
-    const itemCount = order.items.length;
     row.innerHTML = `
             <td class="ps-4 py-3 fw-semibold text-light">${order.orderId}</td>
-            <td class="py-3 text-light">${order.customerName.split(" ")[0]}</td>
+        <td class="py-3 text-light">${shortName}</td>
             <td class="py-3 text-secondary small">${order.orderDate}</td>
-            <td class="py-3 text-light fw-semibold">PKR ${order.total.toLocaleString()}</td>
+        <td class="py-3 text-light fw-semibold">PKR ${totalAmount.toLocaleString()}</td>
             <td class="pe-4 py-3">
                 <span class="badge ${statusColor} rounded-pill px-3 py-2">${order.status}</span>
             </td>
@@ -1804,9 +3471,9 @@ function displayRecentOrders() {
     detailsRow.innerHTML = `
             <td colspan="5" class="py-3 px-4">
                 <div style="background-color: #2a2a2a; padding: 15px; border-radius: 6px;">
-                    <h6 class="text-orange mb-3 fw-bold">📦 Products in Order</h6>
+            <h6 class="text-orange mb-3 fw-bold">Products in Order</h6>
                     <div style="display: flex; flex-direction: column; gap: 10px;">
-                        ${order.items
+                        ${items
                           .map((item, i) => {
                             const price =
                               typeof item.price === "string"
@@ -1824,7 +3491,7 @@ function displayRecentOrders() {
                                 <img src="${imgSrc}" alt="${item.name}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; background-color: #333;" onerror="this.src='https://via.placeholder.com/50?text=No+Image';">
                                 <div style="flex: 1;">
                                     <p class="text-light fw-semibold mb-1" style="font-size: 0.95rem;">${item.name}</p>
-                                    <p class="text-secondary mb-0" style="font-size: 0.85rem;">Price: <strong class="text-orange">PKR ${price.toLocaleString()}</strong> × <strong>${qty}</strong> = <strong class="text-orange">PKR ${lineTotal.toLocaleString()}</strong></p>
+                                  <p class="text-secondary mb-0" style="font-size: 0.85rem;">Price: <strong class="text-orange">PKR ${price.toLocaleString()}</strong> x <strong>${qty}</strong> = <strong class="text-orange">PKR ${lineTotal.toLocaleString()}</strong></p>
                                 </div>
                             </div>
                         `;
@@ -1836,43 +3503,79 @@ function displayRecentOrders() {
         `;
     tbody.appendChild(detailsRow);
   });
+
+  $("#ordersSelectAll").prop("checked", false);
 }
 
 function displayAllOrders() {
-  let orders = JSON.parse(localStorage.getItem("commerza_orders")) || [];
+  let orders = getAdminOrdersData();
   orders = orders.sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate));
 
-  let tbody = document.querySelector("#ordersSection .table tbody");
+  const tbody = document.querySelector("#ordersTable tbody");
   if (!tbody) return;
 
   tbody.innerHTML = "";
 
+  const statusClass = (status) => {
+    const normalized = (status || "").toLowerCase();
+    if (normalized === "pending") return "bg-warning text-dark";
+    if (normalized === "processing" || normalized === "confirmed") {
+      return "bg-info text-dark";
+    }
+    if (normalized === "shipped") return "bg-primary";
+    if (normalized === "cancelled") return "bg-danger";
+    if (normalized === "refunded") return "bg-secondary";
+    return "bg-success";
+  };
+
   if (orders.length === 0) {
     tbody.innerHTML =
-      '<tr><td colspan="7" class="text-center py-4 text-secondary">No orders found</td></tr>';
+      '<tr><td colspan="8" class="text-center py-4 text-secondary">No orders found</td></tr>';
     return;
   }
 
   orders.forEach((order, idx) => {
-    const statusColor =
-      order.status === "Pending"
-        ? "bg-warning text-dark"
-        : order.status === "Shipped"
-          ? "bg-info text-dark"
-          : order.status === "Cancelled"
-            ? "bg-danger"
-            : "bg-success";
+    const items = Array.isArray(order.items) ? order.items : [];
+    const totalAmount = Number(order.total || 0);
+    const rawOrderId = (order.orderId || "-").toString();
+    const safeOrderId = escapeHtml(rawOrderId);
+    const encodedOrderId = encodeURIComponent(rawOrderId);
+    const safeCustomerName = escapeHtml(order.customerName || "Customer");
+    const safeDate = escapeHtml(order.orderDate || "-");
+    const safeEmail = escapeHtml(order.email || "N/A");
+    const safePhone = escapeHtml(order.phone || "N/A");
+    const safeAddress = escapeHtml(order.address || "N/A");
+    const statusValue = (order.status || "Pending").toString();
+    const paymentStatus = (order.paymentStatus || "").toString().toLowerCase();
+    const paymentLabel =
+      paymentStatus === "paid"
+        ? "Paid"
+        : paymentStatus === "refunded"
+          ? "Refunded"
+          : paymentStatus === "pending"
+            ? "Pending"
+            : order.paymentMethod || "N/A";
+    const paymentBadgeClass =
+      paymentStatus === "refunded"
+        ? "bg-secondary"
+        : paymentStatus === "pending"
+          ? "bg-warning text-dark"
+          : "bg-success";
+
     const row = document.createElement("tr");
     row.className = "border-bottom border-secondary";
     row.innerHTML = `
-            <td class="ps-4 py-3 fw-semibold text-light">${order.orderId}</td>
-            <td class="py-3 text-light">${order.customerName}</td>
-            <td class="py-3 text-secondary small">${order.orderDate}</td>
-            <td class="py-3 text-light fw-semibold">PKR ${order.total.toLocaleString()}</td>
-            <td class="py-3"><span class="badge bg-info text-dark rounded-pill">${order.paymentMethod}</span></td>
-            <td class="py-3"><span class="badge ${statusColor} rounded-pill">${order.status}</span></td>
+            <td class="ps-4 py-3" onclick="event.stopPropagation();">
+          <input type="checkbox" class="form-check-input order-select-row" value="${encodedOrderId}">
+            </td>
+            <td class="ps-4 py-3 fw-semibold text-light">${safeOrderId}</td>
+            <td class="py-3 text-light">${safeCustomerName}</td>
+            <td class="py-3 text-secondary small">${safeDate}</td>
+            <td class="py-3 text-light fw-semibold">${formatPkr(totalAmount)}</td>
+            <td class="py-3"><span class="badge ${paymentBadgeClass} rounded-pill">${escapeHtml(paymentLabel)}</span></td>
+            <td class="py-3"><span class="badge ${statusClass(statusValue)} rounded-pill">${escapeHtml(statusValue)}</span></td>
             <td class="pe-4 py-3">
-                <button class="btn btn-sm btn-outline-danger" onclick="deleteOrder('${order.orderId}'); event.stopPropagation();"><i class="bi bi-trash"></i></button>
+              <button class="btn btn-sm btn-outline-danger" onclick="deleteOrder(decodeURIComponent('${encodedOrderId}')); event.stopPropagation();"><i class="bi bi-trash"></i></button>
             </td>
         `;
     row.style.cursor = "pointer";
@@ -1884,42 +3587,43 @@ function displayAllOrders() {
     detailsRow.style.display = "none";
     detailsRow.className = "bg-dark";
     detailsRow.innerHTML = `
-            <td colspan="7" class="py-3 px-4">
+            <td colspan="8" class="py-3 px-4">
                 <div style="background-color: #2a2a2a; padding: 20px; border-radius: 6px;">
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <h6 class="text-orange mb-3 fw-bold">📋 Customer Details</h6>
-                            <p class="text-secondary mb-1"><strong class="text-light">Name:</strong> ${order.customerName}</p>
-                            <p class="text-secondary mb-1"><strong class="text-light">Email:</strong> ${order.email || "N/A"}</p>
-                            <p class="text-secondary mb-1"><strong class="text-light">Phone:</strong> ${order.phone}</p>
-                            <p class="text-secondary"><strong class="text-light">Address:</strong> ${order.address}</p>
+                      <h6 class="text-orange mb-3 fw-bold">Customer Details</h6>
+                            <p class="text-secondary mb-1"><strong class="text-light">Name:</strong> ${safeCustomerName}</p>
+                            <p class="text-secondary mb-1"><strong class="text-light">Email:</strong> ${safeEmail}</p>
+                            <p class="text-secondary mb-1"><strong class="text-light">Phone:</strong> ${safePhone}</p>
+                            <p class="text-secondary"><strong class="text-light">Address:</strong> ${safeAddress}</p>
                         </div>
                         <div class="col-md-6">
-                            <h6 class="text-orange mb-3 fw-bold">💳 Order Summary</h6>
-                            <p class="text-secondary mb-1"><strong class="text-light">Subtotal:</strong> PKR ${order.subtotal.toLocaleString()}</p>
-                            <p class="text-secondary mb-1"><strong class="text-light">Shipping:</strong> PKR ${order.shipping}</p>
-                            <p class="text-orange fw-bold"><strong>Total:</strong> PKR ${order.total.toLocaleString()}</p>
+                      <h6 class="text-orange mb-3 fw-bold">Order Summary</h6>
+                            <p class="text-secondary mb-1"><strong class="text-light">Subtotal:</strong> ${formatPkr(order.subtotal || 0)}</p>
+                            <p class="text-secondary mb-1"><strong class="text-light">Shipping:</strong> ${formatPkr(order.shipping || 0)}</p>
+                            <p class="text-secondary mb-1"><strong class="text-light">Discount:</strong> ${Number(order.discount || 0) > 0 ? `- ${formatPkr(order.discount || 0)}` : formatPkr(0)}${order.couponCode ? ` <span class="badge bg-dark border border-secondary ms-1">${escapeHtml(order.couponCode)}</span>` : ""}</p>
+                            <p class="text-orange fw-bold"><strong>Total:</strong> ${formatPkr(order.total || 0)}</p>
                             <div style="margin-top: 15px;">
-                                <h6 class="text-orange mb-2 fw-bold">📊 Change Status</h6>
+                        <h6 class="text-orange mb-2 fw-bold">Change Status</h6>
                                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                    <button class="btn btn-sm btn-warning text-dark fw-semibold" onclick="updateOrderStatus('${order.orderId}', 'Pending'); event.stopPropagation();"><i class="bi bi-hourglass"></i> Pending</button>
-                                    <button class="btn btn-sm btn-info text-dark fw-semibold" onclick="updateOrderStatus('${order.orderId}', 'Shipped'); event.stopPropagation();"><i class="bi bi-truck"></i> Shipped</button>
-                                    <button class="btn btn-sm btn-success fw-semibold" onclick="updateOrderStatus('${order.orderId}', 'Delivered'); event.stopPropagation();"><i class="bi bi-check-circle"></i> Delivered</button>
-                                    <button class="btn btn-sm btn-danger fw-semibold" onclick="updateOrderStatus('${order.orderId}', 'Cancelled'); event.stopPropagation();"><i class="bi bi-x-circle"></i> Cancel</button>
+                                  <button class="btn btn-sm btn-warning text-dark fw-semibold" onclick="updateOrderStatus(decodeURIComponent('${encodedOrderId}'), 'Pending'); event.stopPropagation();"><i class="bi bi-hourglass"></i> Pending</button>
+                                  <button class="btn btn-sm btn-info text-dark fw-semibold" onclick="updateOrderStatus(decodeURIComponent('${encodedOrderId}'), 'Shipped'); event.stopPropagation();"><i class="bi bi-truck"></i> Shipped</button>
+                                  <button class="btn btn-sm btn-success fw-semibold" onclick="updateOrderStatus(decodeURIComponent('${encodedOrderId}'), 'Delivered'); event.stopPropagation();"><i class="bi bi-check-circle"></i> Delivered</button>
+                                  <button class="btn btn-sm btn-danger fw-semibold" onclick="updateOrderStatus(decodeURIComponent('${encodedOrderId}'), 'Cancelled'); event.stopPropagation();"><i class="bi bi-x-circle"></i> Cancel</button>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <hr style="border-color: #444;">
-                    <h6 class="text-orange mb-3 fw-bold">📦 Products in Order</h6>
+                      <h6 class="text-orange mb-3 fw-bold">Products in Order</h6>
                     <div style="display: flex; flex-direction: column; gap: 12px;">
-                        ${order.items
-                          .map((item, i) => {
+                        ${items
+                          .map((item) => {
                             const price =
                               typeof item.price === "string"
                                 ? parseInt(item.price.replace(/\D/g, ""))
-                                : item.price;
-                            const qty = parseInt(item.quantity) || 0;
+                                : Number(item.price || 0);
+                            const qty = parseInt(item.quantity, 10) || 0;
                             const lineTotal = price * qty;
                             const imgSrc = item.image
                               ? item.image.startsWith("http")
@@ -1927,14 +3631,14 @@ function displayAllOrders() {
                                 : "../../" + item.image
                               : "https://via.placeholder.com/60?text=No+Image";
                             return `
-                            <div style="background-color: #1a1a1a; padding: 12px; border-radius: 4px; border: 1px solid #444; display: flex; gap: 12px;">
-                                <img src="${imgSrc}" alt="${item.name}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; background-color: #333;" onerror="this.src='https://via.placeholder.com/60?text=No+Image';">
+                              <div style="background-color: #1a1a1a; padding: 12px; border-radius: 4px; border: 1px solid #444; display: flex; gap: 12px;">
+                                <img src="${imgSrc}" alt="${escapeHtml(item.name || "Item")}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; background-color: #333;" onerror="this.src='https://via.placeholder.com/60?text=No+Image';">
                                 <div style="flex: 1;">
-                                    <p class="text-light fw-semibold mb-1" style="font-size: 0.95rem;">${item.name}</p>
-                                    <p class="text-secondary mb-0" style="font-size: 0.9rem;"><strong>Unit Price:</strong> PKR ${price.toLocaleString()} | <strong>Quantity:</strong> ${qty} | <strong class="text-orange">Total: PKR ${lineTotal.toLocaleString()}</strong></p>
+                                  <p class="text-light fw-semibold mb-1" style="font-size: 0.95rem;">${escapeHtml(item.name || "Item")}</p>
+                                  <p class="text-secondary mb-0" style="font-size: 0.9rem;"><strong>Unit Price:</strong> ${formatPkr(price)} | <strong>Quantity:</strong> ${qty} | <strong class="text-orange">Total: ${formatPkr(lineTotal)}</strong></p>
                                 </div>
-                            </div>
-                        `;
+                              </div>
+                            `;
                           })
                           .join("")}
                     </div>
@@ -1946,78 +3650,228 @@ function displayAllOrders() {
 }
 
 function displayAllCustomers() {
-  let orders = JSON.parse(localStorage.getItem("commerza_orders")) || [];
-
-  const customerMap = {};
-  orders.forEach((order) => {
-    if (!customerMap[order.customerName]) {
-      customerMap[order.customerName] = {
-        name: order.customerName,
-        email: order.email,
-        phone: order.phone,
-        orderCount: 0,
-        totalSpent: 0,
-      };
-    }
-    customerMap[order.customerName].orderCount++;
-    customerMap[order.customerName].totalSpent += order.total;
-  });
-
-  let tbody = document.querySelector("#customersSection .table tbody");
+  let tbody = document.querySelector("#customersTable tbody");
   if (!tbody) return;
 
   tbody.innerHTML = "";
 
-  const customers = Object.values(customerMap);
+  const customers = getAdminCustomersData();
 
   if (customers.length === 0) {
     tbody.innerHTML =
-      '<tr><td colspan="6" class="text-center py-4 text-secondary">No customers found</td></tr>';
+      '<tr><td colspan="7" class="text-center py-4 text-secondary">No customers found</td></tr>';
     return;
   }
 
   customers.forEach((customer) => {
-    const initials = customer.name
-      .split(" ")
-      .map((n) => n[0])
-      .join("");
+    const customerId = Number(customer.id || customer.userId || 0);
+    const canDelete = customerId > 0;
+    const customerName = escapeHtml(customer.name || "Customer");
+    const customerEmail = escapeHtml(customer.email || "N/A");
+    const customerPhone = escapeHtml(customer.phone || "N/A");
+    const ordersCount = Math.max(0, parseInt(customer.orderCount, 10) || 0);
+    const totalSpent = Number(customer.totalSpent || 0);
+
     const row = document.createElement("tr");
     row.className = "border-bottom border-secondary";
     row.innerHTML = `
             <td class="ps-4 py-3">
-                <img src="https://ui-avatars.com/api/?name=${customer.name}&background=ff6600&color=000" alt="Customer" class="rounded-circle" width="40" height="40">
+              <input type="checkbox" class="form-check-input customer-select-row" value="${customerId}" ${canDelete ? "" : "disabled"}>
             </td>
-            <td class="py-3 text-light fw-semibold">${customer.name}</td>
-            <td class="py-3 text-secondary">${customer.email || "N/A"}</td>
-            <td class="py-3 text-secondary">${customer.phone || "N/A"}</td>
-            <td class="py-3 text-light">${customer.orderCount}</td>
-            <td class="pe-4 py-3 text-light fw-semibold">PKR ${customer.totalSpent.toLocaleString()}</td>
+            <td class="ps-4 py-3">
+                <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(customer.name || "Customer")}&background=ff6600&color=000" alt="Customer" class="rounded-circle" width="40" height="40">
+            </td>
+            <td class="py-3 text-light fw-semibold">${customerName}</td>
+            <td class="py-3 text-secondary">${customerEmail}</td>
+            <td class="py-3 text-secondary">${customerPhone}</td>
+            <td class="py-3 text-light">${ordersCount}</td>
+            <td class="pe-4 py-3 text-light fw-semibold">${formatPkr(totalSpent)}</td>
         `;
     tbody.appendChild(row);
   });
+
+  $("#customersSelectAll").prop("checked", false);
 }
 
 function deleteOrder(orderId) {
-  if (confirm("Are you sure you want to cancel this order?")) {
-    updateOrderStatus(orderId, "Cancelled");
+  showCustomConfirmDialog(
+    "Are you sure you want to cancel this order?",
+    "Cancel Order",
+  ).then((confirmed) => {
+    if (confirmed) {
+      updateOrderStatus(orderId, "Cancelled");
+    }
+  });
+}
+
+function decodeSelectedOrderNumber(value) {
+  const raw = (value || "").toString().trim();
+  if (!raw) return "";
+
+  try {
+    return decodeURIComponent(raw);
+  } catch (error) {
+    return raw;
   }
 }
 
-function updateOrderStatus(orderId, newStatus) {
-  let orders = JSON.parse(localStorage.getItem("commerza_orders")) || [];
-  const orderIndex = orders.findIndex((o) => o.orderId === orderId);
+function selectedOrderNumbers() {
+  return $(".order-select-row:checked")
+    .map(function () {
+      return decodeSelectedOrderNumber($(this).val());
+    })
+    .get()
+    .filter(Boolean);
+}
 
-  if (orderIndex !== -1) {
-    const oldStatus = orders[orderIndex].status;
-    orders[orderIndex].status = newStatus;
-    localStorage.setItem("commerza_orders", JSON.stringify(orders));
+function selectedCustomerIds() {
+  return $(".customer-select-row:checked")
+    .map(function () {
+      return parseInt($(this).val(), 10) || 0;
+    })
+    .get()
+    .filter((id) => id > 0);
+}
 
+async function bulkDeleteOrders() {
+  const orderNumbers = selectedOrderNumbers();
+  if (!orderNumbers.length) {
+    showNotification("Select at least one order to delete.", "warning");
+    return;
+  }
+
+  const confirmed = await showCustomConfirmDialog(
+    `Delete ${orderNumbers.length} selected order(s)?`,
+    "Delete Selected Orders",
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const result = await adminPostJson(ADMIN_ORDERS_API, {
+      action: "delete-orders",
+      order_numbers: orderNumbers,
+    });
+
+    setAdminOrdersPayload(result?.payload || {});
     displayRecentOrders();
     displayAllOrders();
     displayAllCustomers();
     calculateDashboardMetrics();
+    renderAnalyticsSection();
+    renderRefundRequests();
+    updateNotifications();
+    $("#ordersSelectAll").prop("checked", false);
+
+    showNotification(result?.message || "Selected orders deleted.", "success");
+  } catch (error) {
+    showNotification(
+      error?.message || "Unable to delete selected orders.",
+      "danger",
+    );
+  }
+}
+
+async function bulkDeleteCustomers() {
+  const customerIds = selectedCustomerIds();
+  if (!customerIds.length) {
+    showNotification("Select at least one customer to delete.", "warning");
+    return;
+  }
+
+  const confirmed = await showCustomConfirmDialog(
+    `Delete ${customerIds.length} selected customer(s)?`,
+    "Delete Selected Customers",
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const result = await adminPostJson(ADMIN_ORDERS_API, {
+      action: "delete-customers",
+      customer_ids: customerIds,
+    });
+
+    setAdminOrdersPayload(result?.payload || {});
+    displayRecentOrders();
+    displayAllOrders();
+    displayAllCustomers();
+    calculateDashboardMetrics();
+    renderAnalyticsSection();
+    renderRefundRequests();
+    updateNotifications();
+    $("#customersSelectAll").prop("checked", false);
+
+    showNotification(
+      result?.message || "Selected customers deleted.",
+      "success",
+    );
+  } catch (error) {
+    showNotification(
+      error?.message || "Unable to delete selected customers.",
+      "danger",
+    );
+  }
+}
+
+async function updateOrderStatus(orderId, newStatus) {
+  const orders = getAdminOrdersData();
+  const targetOrder = orders.find((order) => order.orderId === orderId);
+
+  if (!targetOrder) {
+    showNotification("Order not found.", "danger");
+    return;
+  }
+
+  const oldStatus = targetOrder.status;
+  if (oldStatus === newStatus) {
+    showNotification("Order is already in the selected status.", "warning");
+    return;
+  }
+
+  try {
+    const payload = new URLSearchParams();
+    payload.set("action", "update-status");
+    payload.set("order_number", orderId);
+    payload.set("status", newStatus);
+
+    const response = await fetch(ADMIN_ORDERS_API, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+        "X-CSRF-Token": ADMIN_CSRF_TOKEN,
+      },
+      body: payload.toString(),
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result?.ok) {
+      throw new Error(result?.message || "Unable to update order status.");
+    }
+
+    setAdminOrdersPayload(result?.payload || {});
+    displayRecentOrders();
+    displayAllOrders();
+    displayAllCustomers();
+    calculateDashboardMetrics();
+    renderAnalyticsSection();
+    renderRefundRequests();
+    updateNotifications();
+
+    if ($("#emailSection").length) {
+      emailDirectory = buildEmailDirectory();
+      renderEmailRecipients();
+    }
 
     showStatusNotification(orderId, oldStatus, newStatus);
+  } catch (error) {
+    showNotification(
+      error?.message || "Unable to update order status.",
+      "danger",
+    );
   }
 }
 
@@ -2077,7 +3931,7 @@ function buildDefaultSiteSettings() {
         heading: "Chronograph Precision",
         text: "Engineered movements with dual finish cases",
         buttonText: "Explore Now",
-        buttonLink: "shop-category-a.html",
+        buttonLink: "shop-category-a.php",
       },
       {
         id: 2,
@@ -2087,7 +3941,7 @@ function buildDefaultSiteSettings() {
         heading: "Every Style, One Place",
         text: "From minimalist to bold statement pieces",
         buttonText: "View Collection",
-        buttonLink: "shop-category-b.html",
+        buttonLink: "shop-category-b.php",
       },
       {
         id: 3,
@@ -2097,15 +3951,20 @@ function buildDefaultSiteSettings() {
         heading: "Limited Editions",
         text: "Hand assembled luxury with skeleton dials",
         buttonText: "Shop Limited",
-        buttonLink: "shop-category-b.html",
+        buttonLink: "shop-category-b.php",
       },
     ],
+    featuredVideos: {
+      home: "frontend/assets/videos/slider/steel_watch_1.mp4",
+      categoryA:
+        "frontend/assets/videos/products/smart/automatic_watches_carousel.mp4",
+    },
   };
 }
 
 function loadSiteSettings() {
   const defaults = buildDefaultSiteSettings();
-  const stored = localStorage.getItem(SITE_SETTINGS_KEY);
+  const stored = sessionStorage.getItem(SITE_SETTINGS_KEY);
   if (!stored) return defaults;
 
   try {
@@ -2130,6 +3989,10 @@ function loadSiteSettings() {
       sliderImages: Array.isArray(parsed.sliderImages)
         ? parsed.sliderImages
         : defaults.sliderImages,
+      featuredVideos: {
+        ...defaults.featuredVideos,
+        ...(parsed.featuredVideos || {}),
+      },
     };
   } catch (error) {
     console.warn("Invalid site settings, using defaults");
@@ -2138,13 +4001,38 @@ function loadSiteSettings() {
 }
 
 function saveSiteSettings() {
-  localStorage.setItem(SITE_SETTINGS_KEY, JSON.stringify(siteSettings));
+  sessionStorage.setItem(SITE_SETTINGS_KEY, JSON.stringify(siteSettings));
 }
 
-function initWebsiteSettings() {
-  if (!$("#websiteSection").length) return;
+function applyWebsiteSettingsPayload(payload) {
+  const defaults = buildDefaultSiteSettings();
+  const source = payload && typeof payload === "object" ? payload : {};
 
-  siteSettings = loadSiteSettings();
+  siteSettings = {
+    ...defaults,
+    ...source,
+    brand: { ...defaults.brand, ...(source.brand || {}) },
+    contact: { ...defaults.contact, ...(source.contact || {}) },
+    ticker: {
+      ...defaults.ticker,
+      ...(source.ticker || {}),
+      messages:
+        Array.isArray(source.ticker?.messages) && source.ticker.messages.length
+          ? source.ticker.messages
+          : defaults.ticker.messages,
+    },
+    socialLinks: Array.isArray(source.socialLinks)
+      ? source.socialLinks
+      : defaults.socialLinks,
+    sliderImages: Array.isArray(source.sliderImages)
+      ? source.sliderImages
+      : defaults.sliderImages,
+    featuredVideos: {
+      ...defaults.featuredVideos,
+      ...(source.featuredVideos || {}),
+    },
+  };
+
   nextSocialId =
     Math.max(0, ...siteSettings.socialLinks.map((link) => link.id || 0)) + 1;
   nextSliderId =
@@ -2159,15 +4047,69 @@ function initWebsiteSettings() {
 
   $("#tickerEnabled").prop("checked", siteSettings.ticker?.enabled !== false);
   $("#tickerMessages").val((siteSettings.ticker?.messages || []).join("\n"));
+  $("#homeFeatureVideo").val(siteSettings.featuredVideos?.home || "");
+  $("#categoryAFeatureVideo").val(siteSettings.featuredVideos?.categoryA || "");
 
   renderSocialLinksTable();
   renderSliderTable();
+  saveSiteSettings();
+
+  if (typeof window.applyAdminBranding === "function") {
+    window.applyAdminBranding();
+  }
+}
+
+async function loadWebsiteSettingsFromApi(silent = false) {
+  try {
+    const response = await fetch(`${ADMIN_WEBSITE_API}?action=get`, {
+      method: "GET",
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result?.ok) {
+      throw new Error(result?.message || "Unable to load website settings.");
+    }
+
+    applyWebsiteSettingsPayload(result?.payload || null);
+    return true;
+  } catch (error) {
+    if (!silent) {
+      showNotification(
+        error?.message || "Unable to load website settings.",
+        "danger",
+      );
+    }
+    return false;
+  }
+}
+
+function initWebsiteSettings() {
+  if (!$("#websiteSection").length) return;
+
+  applyWebsiteSettingsPayload(loadSiteSettings());
+  loadWebsiteSettingsFromApi(true);
 }
 
 function resetTickerForm() {
   const defaults = buildDefaultSiteSettings();
   $("#tickerEnabled").prop("checked", defaults.ticker.enabled);
   $("#tickerMessages").val(defaults.ticker.messages.join("\n"));
+}
+
+function renderSocialIconPreview(iconValue) {
+  const icon = (iconValue || "").toString().trim();
+  if (!icon) {
+    return '<span class="text-secondary small">-</span>';
+  }
+
+  if (/^bi\s+bi-[a-z0-9-]+$/i.test(icon)) {
+    return `<i class="${escapeHtml(icon)} text-orange"></i>`;
+  }
+
+  const previewPath = resolveAdminImagePath(icon);
+  return `<img src="${escapeHtml(previewPath)}" alt="Icon" style="width: 22px; height: 22px; object-fit: contain;" onerror="this.style.display='none'; this.nextElementSibling && (this.nextElementSibling.style.display='inline');"><span class="text-secondary small" style="display:none;">Invalid</span>`;
 }
 
 function renderSocialLinksTable() {
@@ -2183,11 +4125,14 @@ function renderSocialLinksTable() {
   }
 
   siteSettings.socialLinks.forEach((link) => {
+    const safeLabel = escapeHtml(link.label || "");
+    const safeUrl = escapeHtml(link.url || "");
+    const iconPreview = renderSocialIconPreview(link.icon || "");
     tbody.append(`
             <tr class="border-bottom border-secondary">
-                <td class="ps-4 py-3 text-light fw-semibold">${link.label}</td>
-                <td class="py-3 text-secondary small">${link.url}</td>
-                <td class="py-3"><i class="${link.icon} text-orange"></i></td>
+          <td class="ps-4 py-3 text-light fw-semibold">${safeLabel}</td>
+          <td class="py-3 text-secondary small">${safeUrl}</td>
+          <td class="py-3">${iconPreview}</td>
                 <td class="pe-4 py-3">
                     <button class="btn btn-sm btn-outline-orange me-1" onclick="editSocialLink(${link.id})"><i class="bi bi-pencil"></i></button>
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteSocialLink(${link.id})"><i class="bi bi-trash"></i></button>
@@ -2207,15 +4152,28 @@ function editSocialLink(id) {
   $("#saveSocialBtn").html('<i class="bi bi-save2 me-1"></i>Update Social');
 }
 
-function deleteSocialLink(id) {
-  if (!confirm("Delete this social link?")) return;
-  siteSettings.socialLinks = siteSettings.socialLinks.filter(
-    (link) => link.id !== id,
+async function deleteSocialLink(id) {
+  const confirmed = await showCustomConfirmDialog(
+    "Delete this social link?",
+    "Delete Social Link",
   );
-  saveSiteSettings();
-  renderSocialLinksTable();
-  resetSocialForm();
-  showNotification("Social link deleted!", "success");
+  if (!confirmed) return;
+
+  adminPostJson(ADMIN_WEBSITE_API, {
+    action: "delete-social",
+    id,
+  })
+    .then((result) => {
+      applyWebsiteSettingsPayload(result?.payload || null);
+      resetSocialForm();
+      showNotification(result?.message || "Social link deleted!", "success");
+    })
+    .catch((error) => {
+      showNotification(
+        error?.message || "Unable to delete social link.",
+        "danger",
+      );
+    });
 }
 
 function resetSocialForm() {
@@ -2247,11 +4205,18 @@ function renderSliderTable() {
 
   siteSettings.sliderImages.forEach((item) => {
     const preview = resolveAdminImagePath(item.image);
+    const safeHeading = escapeHtml(item.heading || "Untitled");
+    const safeAlt = escapeHtml(item.alt || "Slide");
+    const safeButtonText = escapeHtml(item.buttonText || "CTA");
+    const safeButtonLink = escapeHtml(item.buttonLink || "#");
+    const videoBadge = item.video
+      ? '<span class="badge bg-secondary ms-2">Video</span>'
+      : "";
     tbody.append(`
             <tr class="border-bottom border-secondary">
-                <td class="ps-4 py-3"><img src="${preview}" alt="${item.alt || "Slide"}" style="width: 90px; height: 50px; object-fit: cover; border-radius: 6px;" onerror="this.src='assests/images/products/placeholder.webp'"></td>
-                <td class="py-3 text-light fw-semibold">${item.heading || "Untitled"}</td>
-                <td class="py-3 text-secondary small">${item.buttonText || "CTA"} → ${item.buttonLink || "#"}</td>
+                <td class="ps-4 py-3"><img src="${preview}" alt="${safeAlt}" style="width: 90px; height: 50px; object-fit: cover; border-radius: 6px;" onerror="this.src='assets/images/products/placeholder.webp'"></td>
+                <td class="py-3 text-light fw-semibold">${safeHeading}${videoBadge}</td>
+                <td class="py-3 text-secondary small">${safeButtonText} -> ${safeButtonLink}</td>
                 <td class="pe-4 py-3">
                     <button class="btn btn-sm btn-outline-orange me-1" onclick="editSlider(${item.id})"><i class="bi bi-pencil"></i></button>
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteSlider(${item.id})"><i class="bi bi-trash"></i></button>
@@ -2272,18 +4237,29 @@ function editSlider(id) {
   $("#sliderText").val(item.text || "");
   $("#sliderButtonText").val(item.buttonText || "");
   $("#sliderButtonLink").val(item.buttonLink || "");
+  $("#sliderVideo").val(item.video || "");
   $("#saveSliderBtn").html('<i class="bi bi-save2 me-1"></i>Update Slide');
 }
 
-function deleteSlider(id) {
-  if (!confirm("Delete this slide?")) return;
-  siteSettings.sliderImages = siteSettings.sliderImages.filter(
-    (slide) => slide.id !== id,
+async function deleteSlider(id) {
+  const confirmed = await showCustomConfirmDialog(
+    "Delete this slide?",
+    "Delete Slide",
   );
-  saveSiteSettings();
-  renderSliderTable();
-  resetSliderForm();
-  showNotification("Slide deleted!", "success");
+  if (!confirmed) return;
+
+  adminPostJson(ADMIN_WEBSITE_API, {
+    action: "delete-slider",
+    id,
+  })
+    .then((result) => {
+      applyWebsiteSettingsPayload(result?.payload || null);
+      resetSliderForm();
+      showNotification(result?.message || "Slide deleted!", "success");
+    })
+    .catch((error) => {
+      showNotification(error?.message || "Unable to delete slide.", "danger");
+    });
 }
 
 function resetSliderForm() {
@@ -2295,6 +4271,7 @@ function resetSliderForm() {
   $("#sliderText").val("");
   $("#sliderButtonText").val("");
   $("#sliderButtonLink").val("");
+  $("#sliderVideo").val("");
   $("#saveSliderBtn").html('<i class="bi bi-plus-circle me-1"></i>Add Slide');
 }
 
@@ -2307,5 +4284,5 @@ function getSuppressedEmails() {
 }
 
 function saveSuppressedEmails(set) {
-  localStorage.setItem(EMAIL_SUPPRESSED_KEY, JSON.stringify(Array.from(set)));
+  sessionStorage.setItem(EMAIL_SUPPRESSED_KEY, JSON.stringify(Array.from(set)));
 }
