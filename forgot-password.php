@@ -82,6 +82,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit("Forbidden.");
     }
 
+    $captchaCheck = commerza_captcha_verify_submission($con, $_POST, 'user_forgot_password');
+    if (!(bool)$captchaCheck['ok']) {
+      $errors[] = (string)$captchaCheck['message'];
+    }
+
     $email_value = strtolower(trim((string)($_POST['forgot_password_email'] ?? '')));
 
     if (!filter_var($email_value, FILTER_VALIDATE_EMAIL) || strlen($email_value) > 150) {
@@ -106,6 +111,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       if (!$rate['allowed']) {
         $retrySeconds = max(1, (int)$rate['retry_after']);
         $retryMinutes = (int)ceil($retrySeconds / 60);
+        commerza_security_log_rate_limit_block(
+          $con,
+          'user_forgot_password',
+          'user',
+          $email_value !== '' ? $email_value : 'anonymous',
+          $clientIp,
+          $retrySeconds
+        );
         $errors[] = "Too many reset requests. Try again in " . $retryMinutes . " minute(s) (" . $retrySeconds . " seconds).";
       }
     }
@@ -123,10 +136,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->close();
 
         if (!$user) {
-          $errors[] = "No account is registered with this email address.";
+          commerza_security_log_event($con, [
+            'event_type' => 'password_reset_requested_unknown_email',
+            'severity' => 'warning',
+            'actor_type' => 'user',
+            'actor_identifier' => $email_value,
+            'ip_address' => $clientIp,
+          ]);
+
+          $success = "If an account exists for this email, a reset code has been sent.";
+          $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+          $canSend = false;
+        } else {
+          $canSend = empty($errors);
         }
 
-        $canSend = empty($errors);
         $lastEmailSentAt = (int)($_SESSION['forgot_password_last_sent_at'] ?? 0);
         $lastEmailTarget = (string)($_SESSION['forgot_password_last_sent_email'] ?? '');
 
@@ -137,7 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($canSend && $user) {
           $resetCode = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-          $tokenHash = password_hash($resetCode, PASSWORD_DEFAULT);
+          $tokenHash = commerza_password_hash($resetCode);
           $expiry = date('Y-m-d H:i:s', time() + (15 * 60));
 
           $updateStmt = $con->prepare("UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE id = ? LIMIT 1");
@@ -161,6 +185,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               );
 
               if ($mailSent) {
+                commerza_security_log_event($con, [
+                  'event_type' => 'password_reset_code_sent',
+                  'severity' => 'info',
+                  'actor_type' => 'user',
+                  'actor_identifier' => $email_value,
+                  'user_id' => (int)$user['id'],
+                  'ip_address' => $clientIp,
+                ]);
                 $_SESSION['forgot_password_last_sent_at'] = time();
                 $_SESSION['forgot_password_last_sent_email'] = $email_value;
                 commerza_rate_limit_reset(
@@ -172,6 +204,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $success = "Reset code sent successfully. Please check your inbox.";
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
               } else {
+                commerza_security_log_event($con, [
+                  'event_type' => 'password_reset_email_send_failed',
+                  'severity' => 'warning',
+                  'actor_type' => 'user',
+                  'actor_identifier' => $email_value,
+                  'user_id' => (int)$user['id'],
+                  'ip_address' => $clientIp,
+                  'details' => [
+                    'mail_error' => $mailError ?? '',
+                  ],
+                ]);
                 $errors[] = $mailError ?: "Unable to send reset email right now.";
               }
             }
@@ -198,11 +241,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; connect-src 'self' https://cdn.jsdelivr.net; base-uri 'self'; form-action 'self'">
+    content="default-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://fonts.googleapis.com https://fonts.gstatic.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdn.jsdelivr.net https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; connect-src 'self' https://cdn.jsdelivr.net https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; frame-src 'self' https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'">
   <title>Forgot Password | Commerza</title>
   <link rel="canonical" href="https://commerza.ahmershah.dev/forgot-password.php" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script type="application/ld+json">
+  <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebPage",
@@ -447,6 +490,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           value="<?= htmlspecialchars($email_value) ?>" />
       </div>
 
+      <?= commerza_captcha_widget_html($con, 'user_forgot_password') ?>
+
       <div class="d-grid">
         <button type="submit" class="btn reset-btn" id="forgotPasswordSubmitBtn">Send Reset Code</button>
       </div>
@@ -465,7 +510,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="frontend/assets/js/global-protection.js"></script>
-  <script>
+  <?= commerza_captcha_script_tag($con) ?>
+  <script <?= commerza_csp_nonce_attr() ?>>
     $(function () {
       $("#serverAlert, #successAlert").each(function () {
         const element = $(this);

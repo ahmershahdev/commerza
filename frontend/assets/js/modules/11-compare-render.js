@@ -1,3 +1,26 @@
+function compareEscapeHtml(value) {
+  return (value || "")
+    .toString()
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function compareSanitizeAssetUrl(value) {
+  const raw = (value || "").toString().trim();
+  if (!raw) {
+    return "";
+  }
+
+  if (!/^(https?:\/\/|\/|frontend\/assets\/)/i.test(raw)) {
+    return "";
+  }
+
+  return raw.replace(/[\u0000-\u001F\u007F]/g, "");
+}
+
 function renderComparePage() {
   const container = $("#compare-container");
   if (!container.length) return;
@@ -19,13 +42,19 @@ function renderComparePage() {
     {
       label: "Image",
       key: "image",
-      render: (item) =>
-        `<img src="${item.image}" alt="${item.name}" style="width: 120px; height: 120px; object-fit: cover; border-radius: 10px;" />`,
+      render: (item) => {
+        const safeImage = compareEscapeHtml(
+          compareSanitizeAssetUrl(item.image),
+        );
+        const safeName = compareEscapeHtml(item.name || "Product image");
+        return `<img src="${safeImage}" alt="${safeName}" style="width: 120px; height: 120px; object-fit: cover; border-radius: 10px;" />`;
+      },
     },
     {
       label: "Name",
       key: "name",
-      render: (item) => `<div class="text-white fw-bold">${item.name}</div>`,
+      render: (item) =>
+        `<div class="text-white fw-bold">${compareEscapeHtml(item.name || "")}</div>`,
     },
     {
       label: "Price",
@@ -42,7 +71,8 @@ function renderComparePage() {
     {
       label: "Movement",
       key: "movement",
-      render: (item) => (item.movement ? item.movement.toString() : "Quartz"),
+      render: (item) =>
+        compareEscapeHtml(item.movement ? item.movement.toString() : "Quartz"),
     },
     {
       label: "Stock",
@@ -52,8 +82,14 @@ function renderComparePage() {
     {
       label: "Action",
       key: "action",
-      render: (item) =>
-        `<button class="btn product-btn-buy compare-remove-btn" data-product-id="${item.id}" data-product-name="${item.name}">Remove</button>`,
+      render: (item) => {
+        const numericProductId = Number.parseInt(item.id, 10);
+        const safeProductId = Number.isInteger(numericProductId)
+          ? String(numericProductId)
+          : "";
+        const safeName = compareEscapeHtml(item.name || "");
+        return `<button class="btn product-btn-buy compare-remove-btn" data-product-id="${safeProductId}" data-product-name="${safeName}">Remove</button>`;
+      },
     },
   ];
 

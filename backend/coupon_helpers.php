@@ -376,13 +376,84 @@ function commerza_coupon_register_redemption(mysqli $con, int $couponId, int $us
     $userParam = $userId > 0 ? $userId : null;
     $discountAmount = round(max(0, $discountAmount), 2);
 
+    $couponStmt = $con->prepare(
+        'SELECT id, is_active, usage_limit, per_user_limit, expires_at
+         FROM coupons
+         WHERE id = ?
+         LIMIT 1
+         FOR UPDATE'
+    );
+
+    if (!$couponStmt) {
+        return false;
+    }
+
+    $couponStmt->bind_param('i', $couponId);
+    $couponStmt->execute();
+    $couponResult = $couponStmt->get_result();
+    $couponRow = $couponResult ? $couponResult->fetch_assoc() : null;
+    $couponStmt->close();
+
+    if (!$couponRow || (int)($couponRow['is_active'] ?? 0) !== 1) {
+        return false;
+    }
+
+    $expiresAt = trim((string)($couponRow['expires_at'] ?? ''));
+    if ($expiresAt !== '' && strtotime($expiresAt) !== false && strtotime($expiresAt) < time()) {
+        return false;
+    }
+
+    $usageLimit = (int)($couponRow['usage_limit'] ?? 0);
+    if ($usageLimit > 0) {
+        $usageStmt = $con->prepare(
+            'SELECT COUNT(*) AS total
+             FROM coupon_redemptions
+             WHERE coupon_id = ?'
+        );
+
+        if (!$usageStmt) {
+            return false;
+        }
+
+        $usageStmt->bind_param('i', $couponId);
+        $usageStmt->execute();
+        $usageResult = $usageStmt->get_result();
+        $usageRow = $usageResult ? $usageResult->fetch_assoc() : null;
+        $usageStmt->close();
+
+        $usedCount = $usageRow ? (int)($usageRow['total'] ?? 0) : 0;
+        if ($usedCount >= $usageLimit) {
+            return false;
+        }
+    }
+
+    $perUserLimit = (int)($couponRow['per_user_limit'] ?? 0);
+    if ($perUserLimit > 0 && $userId > 0) {
+        $userUsageStmt = $con->prepare(
+            'SELECT COUNT(*) AS total
+             FROM coupon_redemptions
+             WHERE coupon_id = ? AND user_id = ?'
+        );
+
+        if (!$userUsageStmt) {
+            return false;
+        }
+
+        $userUsageStmt->bind_param('ii', $couponId, $userId);
+        $userUsageStmt->execute();
+        $userUsageResult = $userUsageStmt->get_result();
+        $userUsageRow = $userUsageResult ? $userUsageResult->fetch_assoc() : null;
+        $userUsageStmt->close();
+
+        $userUsedCount = $userUsageRow ? (int)($userUsageRow['total'] ?? 0) : 0;
+        if ($userUsedCount >= $perUserLimit) {
+            return false;
+        }
+    }
+
     $stmt = $con->prepare(
         'INSERT INTO coupon_redemptions (coupon_id, user_id, order_id, discount_amount)
-         VALUES (?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE
-            user_id = VALUES(user_id),
-            discount_amount = VALUES(discount_amount),
-            used_at = CURRENT_TIMESTAMP'
+         VALUES (?, ?, ?, ?)'
     );
 
     if (!$stmt) {
@@ -391,9 +462,14 @@ function commerza_coupon_register_redemption(mysqli $con, int $couponId, int $us
 
     $stmt->bind_param('iiid', $couponId, $userParam, $orderId, $discountAmount);
     $ok = $stmt->execute();
+    $errno = (int)$stmt->errno;
     $stmt->close();
 
-    return $ok;
+    if ($ok) {
+        return true;
+    }
+
+    return $errno === 1062;
 }
 
 function commerza_coupon_format_payload(array $state): ?array

@@ -50,7 +50,7 @@ if ($categoryVideoStmt) {
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <script type="application/ld+json">
+  <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebPage",
@@ -67,7 +67,7 @@ if ($categoryVideoStmt) {
       }
     }
     </script>
-  <script type="application/ld+json">
+  <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "CollectionPage",
@@ -637,7 +637,7 @@ if ($categoryVideoStmt) {
     </div>
   </footer>
 
-  <script type="application/json">
+  <script <?= commerza_csp_nonce_attr() ?> type="application/json">
 {
   "page": "shop-category-a",
   "name": "The Automatic Vault & Smart Evolution Series",
@@ -830,7 +830,7 @@ if ($categoryVideoStmt) {
   <script src="frontend/assets/js/global-protection.js" defer></script>
   <script src="frontend/assets/js/auth.js" defer></script>
   <script src="frontend/assets/js/script.js" defer></script>
-  <script>
+  <script <?= commerza_csp_nonce_attr() ?>>
     document.addEventListener("DOMContentLoaded", function () {
       if (typeof window.commerzaOnReady !== "function") {
         return;

@@ -54,7 +54,7 @@ if ($homeVideoStmt) {
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <script type="application/ld+json">
+  <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@graph": [
@@ -493,7 +493,7 @@ if ($homeVideoStmt) {
         </div>
       </section>
 
-      <script type="application/ld+json">
+      <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "ItemList",
@@ -945,7 +945,7 @@ if ($homeVideoStmt) {
   <script src="frontend/assets/js/global-protection.js" defer></script>
   <script src="frontend/assets/js/auth.js" defer></script>
   <script src="frontend/assets/js/script.js" defer></script>
-  <script>
+  <script <?= commerza_csp_nonce_attr() ?>>
     window.CommerzaCsrfToken = "<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>";
 
     document.addEventListener("DOMContentLoaded", function () {

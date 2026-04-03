@@ -16,7 +16,8 @@ if (!($con instanceof mysqli)) {
     exit;
 }
 
-admin_require_login_api($con);
+$admin = admin_require_login_api($con);
+admin_require_permission_api($admin, 'media.manage');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);

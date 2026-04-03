@@ -33,6 +33,21 @@ let adminMetrics = null;
 let adminRefunds = [];
 let adminCoupons = [];
 let adminReviews = [];
+let securityEventsState = {
+  events: [],
+  page: 1,
+  perPage: 25,
+  total: 0,
+  totalPages: 0,
+  filters: {
+    eventType: "",
+    severity: "",
+    actorType: "",
+    search: "",
+    from: "",
+    to: "",
+  },
+};
 
 (function () {
   if (window.__commerzaMediaProtectionEnabled) return;
@@ -202,6 +217,19 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function sanitizeAdminMediaUrl(value) {
+  const raw = (value || "").toString().trim();
+  if (!raw) {
+    return "";
+  }
+
+  if (!/^(https?:\/\/|\.\.\/\.\.\/|\/|frontend\/assets\/)/i.test(raw)) {
+    return "";
+  }
+
+  return raw.replace(/[\u0000-\u001F\u007F]/g, "");
 }
 
 function formatPkr(value) {
@@ -1861,6 +1889,233 @@ function initReviewsSection() {
     });
 }
 
+function securitySeverityBadgeClass(severity) {
+  const normalized = (severity || "").toString().toLowerCase();
+  if (normalized === "critical") return "bg-danger";
+  if (normalized === "warning") return "bg-warning text-dark";
+  return "bg-info text-dark";
+}
+
+function renderSecurityEventsTable() {
+  const tbody = $("#securityEventsTable tbody");
+  if (!tbody.length) {
+    return;
+  }
+
+  tbody.empty();
+
+  const events = Array.isArray(securityEventsState.events)
+    ? securityEventsState.events
+    : [];
+
+  if (!events.length) {
+    tbody.append(
+      '<tr><td colspan="6" class="text-center py-4 text-secondary">No security events found for these filters.</td></tr>',
+    );
+    return;
+  }
+
+  events.forEach((eventItem) => {
+    const eventType = (eventItem?.event_type || "unknown_event").toString();
+    const severity = (eventItem?.severity || "info").toString();
+    const actorType = (eventItem?.actor_type || "-").toString();
+    const actorIdentifier = (eventItem?.actor_identifier || "-").toString();
+    const ipAddress = (eventItem?.ip_address || "-").toString();
+    const detailsPreview = (eventItem?.details_preview || "-").toString();
+    const createdAt = formatDateTime(eventItem?.created_at || "");
+
+    const detailsTitle =
+      eventItem?.details && typeof eventItem.details === "object"
+        ? escapeHtml(JSON.stringify(eventItem.details))
+        : "";
+
+    tbody.append(`
+      <tr class="border-bottom border-secondary">
+        <td class="ps-4 py-3 text-secondary small">${escapeHtml(createdAt)}</td>
+        <td class="py-3 text-light fw-semibold">${escapeHtml(eventType)}</td>
+        <td class="py-3"><span class="badge ${securitySeverityBadgeClass(severity)} rounded-pill">${escapeHtml(severity)}</span></td>
+        <td class="py-3 text-secondary small">${escapeHtml(actorType)}</td>
+        <td class="py-3 text-secondary small"><div>${escapeHtml(actorIdentifier)}</div><div class="text-warning">${escapeHtml(ipAddress)}</div></td>
+        <td class="pe-4 py-3 text-secondary small" title="${detailsTitle}">${escapeHtml(detailsPreview)}</td>
+      </tr>
+    `);
+  });
+}
+
+function renderSecurityEventsMeta() {
+  const meta = $("#securityEventsMeta");
+  if (!meta.length) {
+    return;
+  }
+
+  const page = Math.max(1, parseInt(securityEventsState.page, 10) || 1);
+  const totalPages = Math.max(
+    1,
+    parseInt(securityEventsState.totalPages, 10) || 1,
+  );
+  const total = Math.max(0, parseInt(securityEventsState.total, 10) || 0);
+
+  meta.text(
+    `Page ${page} of ${totalPages} · ${total.toLocaleString()} event(s)`,
+  );
+
+  $("#securityEventsPrevBtn").prop("disabled", page <= 1);
+  $("#securityEventsNextBtn").prop("disabled", page >= totalPages);
+}
+
+function securityEventsFilterPayload() {
+  return {
+    eventType: ($("#securityEventTypeFilter").val() || "").toString().trim(),
+    severity: ($("#securitySeverityFilter").val() || "").toString().trim(),
+    actorType: ($("#securityActorTypeFilter").val() || "").toString().trim(),
+    search: ($("#securityEventSearchFilter").val() || "").toString().trim(),
+    from: ($("#securityFromFilter").val() || "").toString().trim(),
+    to: ($("#securityToFilter").val() || "").toString().trim(),
+  };
+}
+
+async function loadSecurityEvents(silent = false) {
+  if (!$("#securityEventsSection").length) {
+    return false;
+  }
+
+  const filters = securityEventsState.filters || {};
+  const page = Math.max(1, parseInt(securityEventsState.page, 10) || 1);
+  const perPage = Math.max(5, parseInt(securityEventsState.perPage, 10) || 25);
+
+  const params = new URLSearchParams();
+  params.set("action", "list-events");
+  params.set("page", String(page));
+  params.set("per_page", String(Math.min(perPage, 100)));
+
+  if (filters.eventType) params.set("event_type", filters.eventType);
+  if (filters.severity) params.set("severity", filters.severity);
+  if (filters.actorType) params.set("actor_type", filters.actorType);
+  if (filters.search) params.set("search", filters.search);
+  if (filters.from) params.set("from", filters.from);
+  if (filters.to) params.set("to", filters.to);
+
+  try {
+    const response = await fetch(`${ADMIN_SECURITY_API}?${params.toString()}`, {
+      method: "GET",
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result?.ok) {
+      throw new Error(result?.message || "Unable to load security events.");
+    }
+
+    const payload = result?.payload || {};
+    const pagination = payload?.pagination || {};
+
+    securityEventsState.events = Array.isArray(payload?.events)
+      ? payload.events
+      : [];
+    securityEventsState.page = Math.max(
+      1,
+      parseInt(pagination?.page, 10) || securityEventsState.page || 1,
+    );
+    securityEventsState.perPage = Math.max(
+      5,
+      parseInt(pagination?.per_page, 10) || securityEventsState.perPage || 25,
+    );
+    securityEventsState.total = Math.max(
+      0,
+      parseInt(pagination?.total, 10) || 0,
+    );
+    securityEventsState.totalPages = Math.max(
+      1,
+      parseInt(pagination?.total_pages, 10) || 1,
+    );
+
+    renderSecurityEventsTable();
+    renderSecurityEventsMeta();
+    return true;
+  } catch (error) {
+    if (!silent) {
+      showNotification(
+        error?.message || "Unable to load security events.",
+        "danger",
+      );
+    }
+    return false;
+  }
+}
+
+function applySecurityEventsFilters(resetPage = true) {
+  securityEventsState.filters = securityEventsFilterPayload();
+  if (resetPage) {
+    securityEventsState.page = 1;
+  }
+  loadSecurityEvents(false);
+}
+
+function clearSecurityEventsFilters() {
+  $("#securityEventTypeFilter").val("");
+  $("#securitySeverityFilter").val("");
+  $("#securityActorTypeFilter").val("");
+  $("#securityEventSearchFilter").val("");
+  $("#securityFromFilter").val("");
+  $("#securityToFilter").val("");
+
+  securityEventsState.filters = {
+    eventType: "",
+    severity: "",
+    actorType: "",
+    search: "",
+    from: "",
+    to: "",
+  };
+  securityEventsState.page = 1;
+  loadSecurityEvents(false);
+}
+
+function initSecurityEventsSection() {
+  if (!$("#securityEventsSection").length) {
+    return;
+  }
+
+  $("#securityEventsApplyBtn")
+    .off("click")
+    .on("click", function () {
+      applySecurityEventsFilters(true);
+    });
+
+  $("#securityEventsClearBtn")
+    .off("click")
+    .on("click", function () {
+      clearSecurityEventsFilters();
+    });
+
+  $("#securityEventsRefreshBtn")
+    .off("click")
+    .on("click", function () {
+      loadSecurityEvents(false);
+    });
+
+  $("#securityEventsPrevBtn")
+    .off("click")
+    .on("click", function () {
+      if (securityEventsState.page <= 1) {
+        return;
+      }
+      securityEventsState.page -= 1;
+      loadSecurityEvents(false);
+    });
+
+  $("#securityEventsNextBtn")
+    .off("click")
+    .on("click", function () {
+      if (securityEventsState.page >= securityEventsState.totalPages) {
+        return;
+      }
+      securityEventsState.page += 1;
+      loadSecurityEvents(false);
+    });
+}
+
 function isWithinDays(dateString, days) {
   if (!dateString) return false;
   const date = new Date(dateString);
@@ -2663,6 +2918,9 @@ $(document).ready(function () {
   applyButtonCooldown("#sendCouponEmailBtn");
   applyButtonCooldown("#refreshCouponsBtn");
   applyButtonCooldown("#refreshReviewsBtn");
+  applyButtonCooldown("#securityEventsApplyBtn");
+  applyButtonCooldown("#securityEventsClearBtn");
+  applyButtonCooldown("#securityEventsRefreshBtn");
 
   bindUploadControl("#uploadSiteLogoBtn", "#siteLogoFile", "logo", (path) => {
     $("#siteLogo").val(path);
@@ -2786,9 +3044,11 @@ $(document).ready(function () {
   const initialOrdersLoad = loadAdminOrdersData(true);
   const initialCouponsLoad = loadCouponsData(true);
   const initialReviewsLoad = loadReviewsData(true);
+  const initialSecurityEventsLoad = loadSecurityEvents(true);
 
   initCouponsSection();
   initReviewsSection();
+  initSecurityEventsSection();
   initWebsiteSettings();
   initLiveViewersAnalytics();
 
@@ -2797,6 +3057,7 @@ $(document).ready(function () {
     Promise.resolve(initialOrdersLoad),
     Promise.resolve(initialCouponsLoad),
     Promise.resolve(initialReviewsLoad),
+    Promise.resolve(initialSecurityEventsLoad),
   ]).finally(() => {
     initEmailCenter();
     calculateDashboardMetrics();
@@ -3657,6 +3918,10 @@ function displayRecentOrders() {
     const items = Array.isArray(order.items) ? order.items : [];
     const customerName = (order.customerName || "Customer").toString();
     const shortName = customerName.split(" ")[0] || customerName;
+    const safeOrderId = escapeHtml(order.orderId || "");
+    const safeShortName = escapeHtml(shortName);
+    const safeOrderDate = escapeHtml(order.orderDate || "");
+    const safeStatus = escapeHtml(order.status || "Pending");
     const totalAmount = Number(order.total || 0);
     const statusColor =
       order.status === "Pending"
@@ -3669,12 +3934,12 @@ function displayRecentOrders() {
     const row = document.createElement("tr");
     row.className = "border-bottom border-secondary";
     row.innerHTML = `
-            <td class="ps-4 py-3 fw-semibold text-light">${order.orderId}</td>
-        <td class="py-3 text-light">${shortName}</td>
-            <td class="py-3 text-secondary small">${order.orderDate}</td>
+        <td class="ps-4 py-3 fw-semibold text-light">${safeOrderId}</td>
+      <td class="py-3 text-light">${safeShortName}</td>
+        <td class="py-3 text-secondary small">${safeOrderDate}</td>
         <td class="py-3 text-light fw-semibold">PKR ${totalAmount.toLocaleString()}</td>
             <td class="pe-4 py-3">
-                <span class="badge ${statusColor} rounded-pill px-3 py-2">${order.status}</span>
+          <span class="badge ${statusColor} rounded-pill px-3 py-2">${safeStatus}</span>
             </td>
         `;
     row.style.cursor = "pointer";
@@ -3697,16 +3962,23 @@ function displayRecentOrders() {
                                 : item.price;
                             const qty = parseInt(item.quantity) || 0;
                             const lineTotal = price * qty;
-                            const imgSrc = item.image
+                            const rawImgSrc = item.image
                               ? item.image.startsWith("http")
                                 ? item.image
                                 : "../../" + item.image
                               : "https://via.placeholder.com/50?text=No+Image";
+                            const imgSrc = escapeHtml(
+                              sanitizeAdminMediaUrl(rawImgSrc) ||
+                                "https://via.placeholder.com/50?text=No+Image",
+                            );
+                            const safeItemName = escapeHtml(
+                              item.name || "Item",
+                            );
                             return `
                             <div style="background-color: #1a1a1a; padding: 12px; border-radius: 4px; border: 1px solid #444; display: flex; gap: 12px;">
-                                <img src="${imgSrc}" alt="${item.name}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; background-color: #333;" onerror="this.src='https://via.placeholder.com/50?text=No+Image';">
+                                <img src="${imgSrc}" alt="${safeItemName}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; background-color: #333;" onerror="this.src='https://via.placeholder.com/50?text=No+Image';">
                                 <div style="flex: 1;">
-                                    <p class="text-light fw-semibold mb-1" style="font-size: 0.95rem;">${item.name}</p>
+                                    <p class="text-light fw-semibold mb-1" style="font-size: 0.95rem;">${safeItemName}</p>
                                   <p class="text-secondary mb-0" style="font-size: 0.85rem;">Price: <strong class="text-orange">PKR ${price.toLocaleString()}</strong> x <strong>${qty}</strong> = <strong class="text-orange">PKR ${lineTotal.toLocaleString()}</strong></p>
                                 </div>
                             </div>
@@ -3781,6 +4053,12 @@ function displayAllOrders() {
           : paymentStatus === "paid"
             ? "bg-success"
             : "bg-dark border border-secondary";
+    const safeUserNote = escapeHtml((order.userNote || "").toString());
+    const safeAdminNote = escapeHtml((order.adminNote || "").toString());
+    const safeDeliveryEstimate = escapeHtml(
+      (order.deliveryEstimate || "").toString(),
+    );
+    const invoiceUrl = `../../invoice.php?order=${encodedOrderId}`;
 
     const row = document.createElement("tr");
     row.className = "border-bottom border-secondary";
@@ -3822,6 +4100,9 @@ function displayAllOrders() {
                             <p class="text-secondary mb-1"><strong class="text-light">Subtotal:</strong> ${formatPkr(order.subtotal || 0)}</p>
                             <p class="text-secondary mb-1"><strong class="text-light">Shipping:</strong> ${formatPkr(order.shipping || 0)}</p>
                             <p class="text-secondary mb-1"><strong class="text-light">Discount:</strong> ${Number(order.discount || 0) > 0 ? `- ${formatPkr(order.discount || 0)}` : formatPkr(0)}${order.couponCode ? ` <span class="badge bg-dark border border-secondary ms-1">${escapeHtml(order.couponCode)}</span>` : ""}</p>
+                            <p class="text-secondary mb-1"><strong class="text-light">Delivery Estimate:</strong> ${safeDeliveryEstimate || "Not set"}</p>
+                            <p class="text-secondary mb-1"><strong class="text-light">Customer Note:</strong> ${safeUserNote || "-"}</p>
+                            <p class="text-secondary mb-1"><strong class="text-light">Admin Note:</strong> ${safeAdminNote || "-"}</p>
                             <p class="text-orange fw-bold"><strong>Total:</strong> ${formatPkr(order.total || 0)}</p>
                             <div style="margin-top: 15px;">
                         <h6 class="text-orange mb-2 fw-bold">Change Status</h6>
@@ -3830,6 +4111,8 @@ function displayAllOrders() {
                                   <button class="btn btn-sm btn-info text-dark fw-semibold" onclick="updateOrderStatus(decodeURIComponent('${encodedOrderId}'), 'Shipped'); event.stopPropagation();"><i class="bi bi-truck"></i> Shipped</button>
                                   <button class="btn btn-sm btn-success fw-semibold" onclick="updateOrderStatus(decodeURIComponent('${encodedOrderId}'), 'Delivered'); event.stopPropagation();"><i class="bi bi-check-circle"></i> Delivered</button>
                                   <button class="btn btn-sm btn-danger fw-semibold" onclick="updateOrderStatus(decodeURIComponent('${encodedOrderId}'), 'Cancelled'); event.stopPropagation();"><i class="bi bi-x-circle"></i> Cancel</button>
+                                  <button class="btn btn-sm btn-outline-orange fw-semibold" onclick="updateOrderLogistics(decodeURIComponent('${encodedOrderId}')); event.stopPropagation();"><i class="bi bi-pencil-square"></i> Logistics</button>
+                                  <a class="btn btn-sm btn-outline-light fw-semibold" href="${invoiceUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation();"><i class="bi bi-file-earmark-pdf"></i> Invoice</a>
                                 </div>
                             </div>
                         </div>
@@ -3845,11 +4128,15 @@ function displayAllOrders() {
                                 : Number(item.price || 0);
                             const qty = parseInt(item.quantity, 10) || 0;
                             const lineTotal = price * qty;
-                            const imgSrc = item.image
+                            const rawImgSrc = item.image
                               ? item.image.startsWith("http")
                                 ? item.image
                                 : "../../" + item.image
                               : "https://via.placeholder.com/60?text=No+Image";
+                            const imgSrc = escapeHtml(
+                              sanitizeAdminMediaUrl(rawImgSrc) ||
+                                "https://via.placeholder.com/60?text=No+Image",
+                            );
                             return `
                               <div style="background-color: #1a1a1a; padding: 12px; border-radius: 4px; border: 1px solid #444; display: flex; gap: 12px;">
                                 <img src="${imgSrc}" alt="${escapeHtml(item.name || "Item")}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; background-color: #333;" onerror="this.src='https://via.placeholder.com/60?text=No+Image';">
@@ -4090,6 +4377,71 @@ async function updateOrderStatus(orderId, newStatus) {
   } catch (error) {
     showNotification(
       error?.message || "Unable to update order status.",
+      "danger",
+    );
+  }
+}
+
+async function updateOrderLogistics(orderId) {
+  const orders = getAdminOrdersData();
+  const targetOrder = orders.find((order) => order.orderId === orderId);
+
+  if (!targetOrder) {
+    showNotification("Order not found.", "danger");
+    return;
+  }
+
+  const estimateDefault = (targetOrder.deliveryEstimate || "")
+    .toString()
+    .replace(" ", "T")
+    .slice(0, 16);
+
+  const deliveryEstimate = await showCustomPromptDialog(
+    "Set delivery estimate (YYYY-MM-DD or YYYY-MM-DDTHH:MM). Leave empty to clear.",
+    estimateDefault,
+    "Update Delivery Estimate",
+  );
+
+  if (deliveryEstimate === null) {
+    return;
+  }
+
+  const adminNote = await showCustomPromptDialog(
+    "Add or update an internal admin note for this order.",
+    (targetOrder.adminNote || "").toString(),
+    "Update Admin Note",
+  );
+
+  if (adminNote === null) {
+    return;
+  }
+
+  try {
+    const result = await adminPostJson(ADMIN_ORDERS_API, {
+      action: "update-logistics",
+      order_number: orderId,
+      delivery_estimate: (deliveryEstimate || "").toString().trim(),
+      admin_note: (adminNote || "").toString().trim(),
+    });
+
+    setAdminOrdersPayload(result?.payload || {});
+    displayRecentOrders();
+    displayAllOrders();
+    displayAllCustomers();
+    calculateDashboardMetrics();
+    renderAnalyticsSection();
+    renderRefundRequests();
+    updateNotifications();
+
+    if ($("#emailSection").length) {
+      emailDirectory = buildEmailDirectory();
+      renderEmailRecipients();
+    }
+
+    showNotification(result?.message || "Order logistics updated.", "success");
+  } catch (error) {
+    showNotification(
+      error?.message || "Unable to update order logistics.",
       "danger",
     );
   }

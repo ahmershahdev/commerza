@@ -252,6 +252,7 @@ function coupons_api_boolean_value($value): int
 }
 
 $admin = admin_require_login_api($con);
+admin_require_permission_api($admin, 'coupons.manage');
 commerza_ensure_coupon_schema($con);
 
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));

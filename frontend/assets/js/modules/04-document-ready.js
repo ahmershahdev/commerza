@@ -677,21 +677,27 @@ $(document).ready(function () {
         Number.isFinite(effectivePrice) && effectivePrice > 0
           ? `${effectivePrice.toLocaleString()} PKR`
           : "N/A";
+      const safeItemName = escapeHtml(item.name || "Product");
+      const safeItemImage = escapeHtml(
+        sanitizeClientAssetUrl(item.image) ||
+          "https://via.placeholder.com/80?text=Image",
+      );
+      const safeQuantity = Math.max(0, parseInt(item.quantity, 10) || 0);
 
       container.append(`
                 <div class="card product-card mb-3">
                   <div class="card-body d-flex align-items-center gap-3">
-                    <img src="${item.image}" class="cart-img me-3" alt="${item.name}" />
+                    <img src="${safeItemImage}" class="cart-img me-3" alt="${safeItemName}" />
                     <div class="flex-grow-1 text-center">
-                      <h3 class="product-name mb-1">${item.name}</h3>
+                      <h3 class="product-name mb-1">${safeItemName}</h3>
                       <p class="product-desc mb-2 cart-item-price">${displayPrice}</p>
                       <div class="d-flex align-items-center justify-content-center gap-3 mx-auto" style="max-width: 150px;">
                         <button class="btn btn-sm product-btn-cart change-qty" data-index="${index}" data-action="minus">−</button>
-                        <span class="text-white fw-bold">${item.quantity}</span>
+                        <span class="text-white fw-bold">${safeQuantity}</span>
                         <button class="btn btn-sm product-btn-cart change-qty" data-index="${index}" data-action="plus">+</button>
                       </div>
                     </div>
-                    <button class="btn btn-sm btn-danger remove-item ms-3 align-self-start" data-index="${index}" aria-label="Remove ${item.name} from cart">
+                    <button class="btn btn-sm btn-danger remove-item ms-3 align-self-start" data-index="${index}" aria-label="Remove ${safeItemName} from cart">
                       <i class="bi bi-trash"></i>
                     </button>
                   </div>
@@ -794,6 +800,8 @@ $(document).ready(function () {
   ];
 
   let productsCache = null;
+  let activeSuggestRequest = null;
+  let suggestDebounceTimer = null;
   let reviewsCsrfToken = "";
   let liveViewerIntervalId = null;
 
@@ -815,11 +823,40 @@ $(document).ready(function () {
     label.text(`${normalized} people viewing now`);
   }
 
-  async function fetchLiveViewerCount(productId, heartbeat) {
+  async function sendLiveViewerHeartbeat(productId) {
+    const csrfToken = (window.CommerzaCsrfToken || reviewsCsrfToken || "")
+      .toString()
+      .trim();
+
+    if (!csrfToken) {
+      return;
+    }
+
+    const body = new URLSearchParams({
+      action: "heartbeat",
+      product_id: String(productId),
+      csrf_token: csrfToken,
+    });
+
+    const response = await fetch("backend/viewers_api.php", {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+      },
+      body: body.toString(),
+    });
+
+    if (!response.ok) {
+      throw new Error("Unable to send live viewer heartbeat.");
+    }
+  }
+
+  async function fetchLiveViewerCount(productId) {
     const params = new URLSearchParams({
       action: "count",
       product_id: String(productId),
-      heartbeat: heartbeat ? "1" : "0",
     });
 
     const response = await fetch(
@@ -858,10 +895,11 @@ $(document).ready(function () {
 
     const syncCount = async (heartbeat) => {
       try {
-        const result = await fetchLiveViewerCount(
-          normalizedProductId,
-          heartbeat,
-        );
+        if (heartbeat) {
+          await sendLiveViewerHeartbeat(normalizedProductId);
+        }
+
+        const result = await fetchLiveViewerCount(normalizedProductId);
         updateLiveViewerBadge(result.count);
 
         if (!liveViewerIntervalId) {
@@ -1221,10 +1259,14 @@ $(document).ready(function () {
     const description =
       product.description ||
       "Discover premium Commerza watches and accessories.";
-    const canonicalUrl = `${window.location.origin}/products.php?${product.id != null ? `id=${product.id}` : `name=${encodeURIComponent(product.name)}`}`;
-    const imageUrl = product.image?.startsWith("http")
-      ? product.image
-      : `${window.location.origin}/${product.image}`;
+    const numericProductId = Number.parseInt(product.id, 10);
+    const canonicalUrl = `${window.location.origin}/products.php?${Number.isInteger(numericProductId) ? `id=${numericProductId}` : `name=${encodeURIComponent(product.name)}`}`;
+    const normalizedImage = sanitizeClientAssetUrl(product.image);
+    const imageUrl = normalizedImage.startsWith("http")
+      ? normalizedImage
+      : normalizedImage
+        ? `${window.location.origin}/${normalizedImage.replace(/^\/+/, "")}`
+        : "";
 
     document.title = title;
     $('meta[name="description"]').attr("content", description);
@@ -1302,6 +1344,26 @@ $(document).ready(function () {
         : product.movement === "auto"
           ? "movement-auto"
           : "movement-quartz";
+    const numericProductId = Number.parseInt(product.id, 10);
+    const safeProductId = Number.isInteger(numericProductId)
+      ? String(numericProductId)
+      : "";
+    const safeName = escapeHtml(product.name || "Product");
+    const safeDescription = escapeHtml(product.description || "");
+    const safeSectionName = escapeHtml(product.sectionName || "Commerza");
+    const safeMovementLabel = escapeHtml(movementLabel);
+    const safeStockText = escapeHtml(stockText);
+    const safeImage = escapeHtml(sanitizeClientAssetUrl(product.image));
+    const safePriceValue = Number.isFinite(Number(product.price))
+      ? String(Number(product.price))
+      : "0";
+    const safeSalePriceValue = Number.isFinite(Number(product.salePrice))
+      ? String(Number(product.salePrice))
+      : safePriceValue;
+    const safeStockValue = Number.isFinite(Number(product.stock))
+      ? String(Number(product.stock))
+      : "";
+    const safeMovementValue = escapeHtml((product.movement || "").toString());
     const wishlistActive = isInWishlist(product.id, product.name);
     const wishlistIcon = wishlistActive ? "bi-heart-fill" : "bi-heart";
     const compareActive = isInCompare(product.id, product.name);
@@ -1312,21 +1374,21 @@ $(document).ready(function () {
                 <div class="row g-4 align-items-center">
                     <div class="col-lg-5">
                         <div class="product-media">
-                            <img src="${product.image}" class="p-image" alt="${product.name}">
+                      <img src="${safeImage}" class="p-image" alt="${safeName}">
                         </div>
                     </div>
                     <div class="col-lg-7">
                         <div class="product-badge-row">
-                            <span class="movement-badge ${movementClass}">${movementLabel}</span>
-                            <span class="stock-pill">${stockText}</span>
+                      <span class="movement-badge ${movementClass}">${safeMovementLabel}</span>
+                      <span class="stock-pill">${safeStockText}</span>
                           <span class="live-viewers">
                                 <span class="live-dot" aria-hidden="true"></span>
                                 <i class="bi bi-eye" aria-hidden="true"></i>
                             <span data-live-viewers-text>Loading live viewers...</span>
                             </span>
                         </div>
-                        <h1 class="product-name">${product.name}</h1>
-                        <p class="product-desc">${product.description || ""}</p>
+                    <h1 class="product-name">${safeName}</h1>
+                    <p class="product-desc">${safeDescription}</p>
                         <div class="price-stack">
                             ${originalPrice ? `<span class="price-original">${originalPrice} PKR</span>` : ""}
                             ${salePrice ? `<span class="price-sale">${salePrice} PKR</span>` : ""}
@@ -1334,24 +1396,24 @@ $(document).ready(function () {
                         <div class="spec-grid">
                             <div class="spec-card">
                                 <span class="spec-label">Movement</span>
-                                <span class="spec-value">${movementLabel}</span>
+                        <span class="spec-value">${safeMovementLabel}</span>
                             </div>
                             <div class="spec-card">
                                 <span class="spec-label">Collection</span>
-                                <span class="spec-value">${product.sectionName || "Commerza"}</span>
+                        <span class="spec-value">${safeSectionName}</span>
                             </div>
                             <div class="spec-card">
                                 <span class="spec-label">Availability</span>
-                                <span class="spec-value">${stockText}</span>
+                        <span class="spec-value">${safeStockText}</span>
                             </div>
                         </div>
                         <div class="product-actions">
-                            <a href="#" class="btn product-btn-buy product-btn-cart" data-product-id="${product.id ?? ""}" data-product-name="${product.name}" data-product-image="${product.image}" data-product-price="${product.price}" data-product-sale-price="${product.salePrice}">Buy Now</a>
-                            <a href="#" class="btn product-btn-cart" data-product-id="${product.id ?? ""}" data-product-name="${product.name}" data-product-image="${product.image}" data-product-price="${product.price}" data-product-sale-price="${product.salePrice}">Add to Cart</a>
-                            <button class="btn product-btn-buy wishlist-btn ${wishlistActive ? "active" : ""}" data-product-id="${product.id ?? ""}" data-product-name="${product.name}" data-product-image="${product.image}" data-product-price="${product.price}" data-product-sale-price="${product.salePrice}" type="button">
+                      <a href="#" class="btn product-btn-buy product-btn-cart" data-product-id="${safeProductId}" data-product-name="${safeName}" data-product-image="${safeImage}" data-product-price="${safePriceValue}" data-product-sale-price="${safeSalePriceValue}">Buy Now</a>
+                      <a href="#" class="btn product-btn-cart" data-product-id="${safeProductId}" data-product-name="${safeName}" data-product-image="${safeImage}" data-product-price="${safePriceValue}" data-product-sale-price="${safeSalePriceValue}">Add to Cart</a>
+                      <button class="btn product-btn-buy wishlist-btn ${wishlistActive ? "active" : ""}" data-product-id="${safeProductId}" data-product-name="${safeName}" data-product-image="${safeImage}" data-product-price="${safePriceValue}" data-product-sale-price="${safeSalePriceValue}" type="button">
                                 ${wishlistActive ? "In Wishlist" : "Add to Wishlist"}
                             </button>
-                            <button class="btn product-btn-buy compare-btn" data-product-id="${product.id ?? ""}" data-product-name="${product.name}" data-product-image="${product.image}" data-product-price="${product.price}" data-product-sale-price="${product.salePrice}" data-product-stock="${product.stock ?? ""}" data-product-movement="${product.movement ?? ""}" type="button">
+                      <button class="btn product-btn-buy compare-btn" data-product-id="${safeProductId}" data-product-name="${safeName}" data-product-image="${safeImage}" data-product-price="${safePriceValue}" data-product-sale-price="${safeSalePriceValue}" data-product-stock="${safeStockValue}" data-product-movement="${safeMovementValue}" type="button">
                                 <i class="bi ${compareIcon}"></i> Compare
                             </button>
                             <a href="compare.php" class="btn product-btn-cart compare-link">View Compare</a>
@@ -1371,8 +1433,10 @@ $(document).ready(function () {
     const container = $("#product-share-buttons");
     if (!container.length || !product) return;
 
-    const url = `${window.location.origin}/products.php?${product.id != null ? `id=${product.id}` : `name=${encodeURIComponent(product.name)}`}`;
-    const text = encodeURIComponent(`Check out ${product.name} on Commerza.`);
+    const numericProductId = Number.parseInt(product.id, 10);
+    const shareName = (product.name || "this product").toString().slice(0, 120);
+    const url = `${window.location.origin}/products.php?${Number.isInteger(numericProductId) ? `id=${numericProductId}` : `name=${encodeURIComponent(shareName)}`}`;
+    const text = encodeURIComponent(`Check out ${shareName} on Commerza.`);
     container.html(`
             <a class="btn" href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}" target="_blank" rel="noopener">Facebook</a>
             <a class="btn" href="https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${text}" target="_blank" rel="noopener">X</a>
@@ -1404,6 +1468,19 @@ $(document).ready(function () {
       .replace(/'/g, "&#39;");
   }
 
+  function sanitizeClientAssetUrl(value) {
+    const raw = (value || "").toString().trim();
+    if (!raw) {
+      return "";
+    }
+
+    if (!/^(https?:\/\/|\/|frontend\/assets\/)/i.test(raw)) {
+      return "";
+    }
+
+    return raw.replace(/[\u0000-\u001F\u007F]/g, "");
+  }
+
   function formatReviewDate(value) {
     if (!value) return "";
     const date = new Date(value);
@@ -1422,7 +1499,7 @@ $(document).ready(function () {
     const html = list
       .slice(0, 2)
       .map((image) => {
-        const path = (image?.path || "").toString().trim();
+        const path = sanitizeClientAssetUrl((image?.path || "").toString());
         if (!path) {
           return "";
         }
@@ -1781,6 +1858,30 @@ $(document).ready(function () {
       });
   }
 
+  function clearSearchSuggestions(form) {
+    form.find(".search-suggestions").removeClass("show").empty();
+  }
+
+  function fetchSearchSuggestions(query, limit = 6) {
+    return $.ajax({
+      url: "backend/products_api.php",
+      method: "GET",
+      dataType: "json",
+      cache: true,
+      data: {
+        action: "suggest",
+        q: query,
+        limit,
+      },
+    }).then((data) => {
+      if (!data?.ok || !Array.isArray(data?.suggestions)) {
+        return [];
+      }
+
+      return data.suggestions;
+    });
+  }
+
   $(document).on("submit", ".search-form", function (e) {
     e.preventDefault();
     const query = $(this).find('input[type="search"]').val() || "";
@@ -1806,9 +1907,9 @@ $(document).ready(function () {
       products
         .map(
           (p) => `
-            <button type="button" class="suggestion-item" data-name="${p.name}">
-                <span class="suggestion-name">${p.name}</span>
-                <span class="suggestion-price">${parseInt(p.salePrice).toLocaleString()} PKR</span>
+            <button type="button" class="suggestion-item" data-name="${encodeURIComponent(p.name || "")}">
+                <span class="suggestion-name">${escapeHtml(p.name || "")}</span>
+                <span class="suggestion-price">${Number(p.salePrice || 0).toLocaleString()} PKR</span>
             </button>
         `,
         )
@@ -1817,45 +1918,69 @@ $(document).ready(function () {
     list.addClass("show");
   }
 
-  function buildSuggestions(query) {
-    const trimmed = query.trim();
-    if (trimmed.length < 2) return [];
-    if (!productsCache) return [];
-    const normalized = trimmed.toLowerCase();
-    const allProducts = uniqueProducts(getAllProducts(productsCache));
-    return allProducts
-      .filter((p) => {
-        const haystack = `${p.name} ${p.description}`.toLowerCase();
-        return haystack.includes(normalized);
-      })
-      .slice(0, 6);
-  }
-
   $(document).on("input", '.search-form input[type="search"]', function () {
     const input = $(this);
+    const form = input.closest(".search-form");
     const value = input.val().trim();
+
+    if (suggestDebounceTimer) {
+      clearTimeout(suggestDebounceTimer);
+      suggestDebounceTimer = null;
+    }
+
+    if (
+      activeSuggestRequest &&
+      typeof activeSuggestRequest.abort === "function"
+    ) {
+      activeSuggestRequest.abort();
+      activeSuggestRequest = null;
+    }
+
     if (value.length === 0) {
       resetProductSections();
-      input
-        .closest(".search-form")
-        .find(".search-suggestions")
-        .removeClass("show")
-        .empty();
+      clearSearchSuggestions(form);
       return;
     }
-    fetchProductsData().done(() => {
-      const suggestions = buildSuggestions(value);
-      renderSuggestions(input, suggestions);
-    });
+
+    if (value.length < 2) {
+      clearSearchSuggestions(form);
+      return;
+    }
+
+    const querySnapshot = value;
+    suggestDebounceTimer = setTimeout(() => {
+      activeSuggestRequest = fetchSearchSuggestions(querySnapshot, 6)
+        .done((suggestions) => {
+          if (input.val().trim() !== querySnapshot) {
+            return;
+          }
+
+          renderSuggestions(input, suggestions);
+        })
+        .fail((xhr, status) => {
+          if (status !== "abort") {
+            clearSearchSuggestions(form);
+          }
+        })
+        .always(() => {
+          activeSuggestRequest = null;
+        });
+    }, 180);
   });
 
   $(document).on("click", ".suggestion-item", function (e) {
     e.preventDefault();
     e.stopPropagation();
-    const name = $(this).data("name");
+    const encodedName = ($(this).attr("data-name") || "").toString();
+    let name = "";
+    try {
+      name = decodeURIComponent(encodedName || "");
+    } catch {
+      name = encodedName;
+    }
     const form = $(this).closest(".search-form");
     form.find('input[type="search"]').val(name);
-    form.find(".search-suggestions").removeClass("show").empty();
+    clearSearchSuggestions(form);
     handleSearch(name);
   });
 

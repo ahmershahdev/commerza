@@ -39,6 +39,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = (string)($_POST['user_login_password'] ?? '');
     $rememberMe = !empty($_POST['remember_me']);
 
+    $captchaCheck = commerza_captcha_verify_submission($con, $_POST, 'user_login');
+    if (!(bool)$captchaCheck['ok']) {
+      $errors[] = (string)$captchaCheck['message'];
+    }
+
     if (!filter_var($email_value, FILTER_VALIDATE_EMAIL) || strlen($email_value) > 150) {
         $errors[] = "Invalid email or password.";
     }
@@ -65,6 +70,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       if (!$rate['allowed']) {
         $retrySeconds = max(1, (int)$rate['retry_after']);
         $retryMinutes = (int)ceil($retrySeconds / 60);
+        commerza_security_log_rate_limit_block(
+          $con,
+          'user_login',
+          'user',
+          $email_value !== '' ? $email_value : 'anonymous',
+          $clientIp,
+          $retrySeconds
+        );
         $errors[] = "Too many login attempts. Try again in " . $retryMinutes . " minute(s) (" . $retrySeconds . " seconds).";
       }
     }
@@ -80,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $result = $stmt->get_result();
             $user = $result ? $result->fetch_assoc() : null;
 
-            if ($user && password_verify($password, (string)$user['password_hash'])) {
+            if ($user && commerza_password_verify($password, (string)$user['password_hash'])) {
                 $stmt->close();
                 session_regenerate_id(true);
                 $_SESSION['user_id'] = (int)$user['id'];
@@ -97,11 +110,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 (string)($user['full_name'] ?? ''),
                 $clientIp
               );
+              commerza_security_log_auth_attempt(
+                $con,
+                'user',
+                (string)($user['email'] ?? $email_value),
+                $clientIp,
+                true,
+                'login_success',
+                (int)$user['id'],
+                0
+              );
+
+              if (commerza_password_needs_rehash((string)$user['password_hash'])) {
+                $rehash = commerza_password_hash($password);
+                if ($rehash !== '') {
+                  $rehashStmt = $con->prepare('UPDATE users SET password_hash = ? WHERE id = ? LIMIT 1');
+                  if ($rehashStmt) {
+                    $userId = (int)$user['id'];
+                    $rehashStmt->bind_param('si', $rehash, $userId);
+                    $rehashStmt->execute();
+                    $rehashStmt->close();
+                  }
+                }
+              }
+
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 header("Location: account.php");
                 exit;
             }
 
+            commerza_security_log_auth_attempt(
+              $con,
+              'user',
+              $email_value !== '' ? $email_value : 'anonymous',
+              $clientIp,
+              false,
+              'invalid_credentials',
+              0,
+              0
+            );
             $errors[] = "Invalid email or password.";
             $stmt->close();
         }
@@ -125,11 +172,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; connect-src 'self' https://cdn.jsdelivr.net; base-uri 'self'; form-action 'self'">
+    content="default-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://fonts.googleapis.com https://fonts.gstatic.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdn.jsdelivr.net https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; connect-src 'self' https://cdn.jsdelivr.net https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; frame-src 'self' https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'">
   <title>Login | Commerza</title>
   <link rel="canonical" href="https://commerza.ahmershah.dev/login.php" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script type="application/ld+json">
+  <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebPage",
@@ -494,6 +541,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <label class="form-check-label" for="rememberMe">Remember me for 30 days</label>
       </div>
 
+      <?= commerza_captcha_widget_html($con, 'user_login') ?>
+
       <div class="d-grid">
         <button type="submit" class="btn login-btn" id="loginSubmitBtn">Login</button>
       </div>
@@ -524,7 +573,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="frontend/assets/js/global-protection.js"></script>
-  <script>
+  <?= commerza_captcha_script_tag($con) ?>
+  <script <?= commerza_csp_nonce_attr() ?>>
     $(function () {
       let submitted = false;
 

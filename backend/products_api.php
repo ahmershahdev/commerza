@@ -88,7 +88,25 @@ if ($productResult) {
     }
 }
 
-echo json_encode([
+$response = [
     'ok' => true,
     'sections' => array_values($sections),
-], JSON_UNESCAPED_SLASHES);
+];
+
+$json = json_encode($response, JSON_UNESCAPED_SLASHES);
+if (!is_string($json)) {
+    $json = '{"ok":false,"message":"Unable to encode response."}';
+}
+
+$etag = '"' . sha1($json) . '"';
+header('Cache-Control: public, max-age=120, stale-while-revalidate=300');
+header('ETag: ' . $etag);
+header('Vary: Accept-Encoding');
+
+$ifNoneMatch = trim((string)($_SERVER['HTTP_IF_NONE_MATCH'] ?? ''));
+if ($ifNoneMatch !== '' && $ifNoneMatch === $etag) {
+    http_response_code(304);
+    exit;
+}
+
+echo $json;

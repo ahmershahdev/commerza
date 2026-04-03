@@ -15,7 +15,8 @@ if (!($con instanceof mysqli)) {
     exit;
 }
 
-admin_require_login_api($con);
+$admin = admin_require_login_api($con);
+admin_require_permission_api($admin, 'viewers.manage');
 
 function admin_viewers_json(array $payload, int $status = 200): void
 {

@@ -1,3 +1,10 @@
+<?php
+require_once __DIR__ . '/backend/data.php';
+
+if (empty($_SESSION['csrf_token'])) {
+  $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -14,7 +21,7 @@
   <meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
   <title>Product | Commerza</title>
   <link rel="canonical" href="https://commerza.ahmershah.dev/products.php" />
-  <script type="application/ld+json">
+  <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebPage",
@@ -308,6 +315,9 @@
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="frontend/assets/js/global-protection.js"></script>
   <script src="frontend/assets/js/auth.js"></script>
+  <script <?= commerza_csp_nonce_attr() ?>>
+    window.CommerzaCsrfToken = <?= json_encode((string)$_SESSION['csrf_token']) ?>;
+  </script>
   <script src="frontend/assets/js/script.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"

@@ -16,7 +16,8 @@ if (!($con instanceof mysqli)) {
     exit;
 }
 
-admin_require_login_api($con);
+$admin = admin_require_login_api($con);
+admin_require_permission_api($admin, 'website.manage');
 
 function website_api_json(array $payload, int $status = 200): void
 {
