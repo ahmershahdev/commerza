@@ -1,3 +1,6 @@
+<?php
+require_once __DIR__ . '/backend/data.php';
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -15,7 +18,7 @@
   <meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
   <title>Returns & Refunds | Commerza</title>
   <link rel="canonical" href="https://commerza.ahmershah.dev/returns.php" />
-  <script type="application/ld+json">
+  <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebPage",

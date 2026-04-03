@@ -670,7 +670,8 @@ if (!isset($con) || !($con instanceof mysqli)) {
     orders_api_json(['ok' => false, 'message' => 'Service unavailable.'], 500);
 }
 
-admin_require_login_api($con);
+$admin = admin_require_login_api($con);
+admin_require_permission_api($admin, 'orders.manage');
 
 $method = $_SERVER['REQUEST_METHOD'];
 $requestBody = orders_api_request_body();

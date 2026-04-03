@@ -1,3 +1,6 @@
+<?php
+require_once __DIR__ . '/backend/data.php';
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -50,7 +53,7 @@
 			color: #bdbdbd;
 		}
 	</style>
-	<script type="application/ld+json">
+	<script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
 		{
 			"@context": "https://schema.org",
 			"@graph": [

@@ -509,7 +509,7 @@ if ($existingUser) {
     $userId = (int)$existingUser['id'];
 } else {
     $phone = oauth_generate_unique_phone($con);
-    $passwordHash = password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT);
+    $passwordHash = commerza_password_hash(bin2hex(random_bytes(24)));
     $displayName = strlen($name) > 100 ? substr($name, 0, 100) : $name;
 
     $insertStmt = $con->prepare(

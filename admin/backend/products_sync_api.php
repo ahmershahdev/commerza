@@ -16,7 +16,8 @@ if (!($con instanceof mysqli)) {
     exit;
 }
 
-admin_require_login_api($con);
+$admin = admin_require_login_api($con);
+admin_require_permission_api($admin, 'products.manage');
 
 function admin_normalize_page_value(string $page): string
 {

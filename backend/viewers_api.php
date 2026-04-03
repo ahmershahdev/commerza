@@ -202,12 +202,28 @@ function viewers_cleanup(mysqli $con, int $windowSeconds): void
     }
 }
 
-$action = strtolower(trim((string)($_REQUEST['action'] ?? 'count')));
-$productId = (int)($_REQUEST['product_id'] ?? 0);
+$method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+if (!in_array($method, ['GET', 'POST'], true)) {
+    viewers_json([
+        'ok' => false,
+        'message' => 'Method not allowed.',
+    ], 405);
+}
+
+$input = $method === 'POST' ? $_POST : $_GET;
+$action = strtolower(trim((string)($input['action'] ?? 'count')));
+$productId = (int)($input['product_id'] ?? 0);
 $sessionKey = session_id();
 $userId = isset($_SESSION['user_id']) && is_numeric($_SESSION['user_id'])
     ? (int)$_SESSION['user_id']
     : null;
+
+if ($action === 'heartbeat') {
+    header('Cache-Control: no-store, max-age=0');
+} else {
+    header('Cache-Control: public, max-age=5, stale-while-revalidate=15');
+    header('Vary: Accept-Encoding');
+}
 
 $mode = strtolower(trim(viewers_setting($con, 'live_viewers_mode', 'real')));
 $mode = in_array($mode, ['real', 'fake'], true) ? $mode : 'real';
@@ -224,6 +240,24 @@ if ($fakeMax < $fakeMin) {
 $tableReady = viewers_table_ready($con);
 
 if ($action === 'heartbeat') {
+    if ($method !== 'POST') {
+        viewers_json([
+            'ok' => false,
+            'message' => 'Method not allowed.',
+        ], 405);
+    }
+
+    if (
+        empty($_POST['csrf_token'])
+        || empty($_SESSION['csrf_token'])
+        || !hash_equals((string)$_SESSION['csrf_token'], (string)$_POST['csrf_token'])
+    ) {
+        viewers_json([
+            'ok' => false,
+            'message' => 'Forbidden.',
+        ], 403);
+    }
+
     if ($productId <= 0) {
         viewers_json([
             'ok' => false,
@@ -232,6 +266,34 @@ if ($action === 'heartbeat') {
     }
 
     if ($tableReady) {
+        $clientIp = viewers_client_ip();
+        $rate = commerza_rate_limit_check(
+            $con,
+            'viewers_heartbeat',
+            $sessionKey,
+            $clientIp,
+            120,
+            60,
+            120
+        );
+
+        if (!(bool)($rate['allowed'] ?? true)) {
+            $retrySeconds = max(1, (int)($rate['retry_after'] ?? 1));
+            commerza_security_log_rate_limit_block(
+                $con,
+                'viewers_heartbeat',
+                'user',
+                $sessionKey,
+                $clientIp,
+                $retrySeconds
+            );
+
+            viewers_json([
+                'ok' => false,
+                'message' => 'Too many heartbeat requests. Please wait and retry.',
+            ], 429);
+        }
+
         viewers_touch($con, $sessionKey, $userId, $productId);
         viewers_cleanup($con, $windowSeconds);
     }
@@ -244,16 +306,18 @@ if ($action === 'heartbeat') {
 }
 
 if ($action === 'count') {
+    if ($method !== 'GET') {
+        viewers_json([
+            'ok' => false,
+            'message' => 'Method not allowed.',
+        ], 405);
+    }
+
     if ($productId <= 0) {
         viewers_json([
             'ok' => false,
             'message' => 'Invalid product id.',
         ], 422);
-    }
-
-    $touchRequested = (string)($_REQUEST['heartbeat'] ?? '') === '1';
-    if ($touchRequested && $tableReady) {
-        viewers_touch($con, $sessionKey, $userId, $productId);
     }
 
     if ($tableReady) {

@@ -18,6 +18,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 
   $action = strtolower(trim((string)($_POST['action'] ?? '')));
+
+  $captchaContexts = [
+    'send_reset_code' => 'admin_forgot_password_send',
+    'reset_password' => 'admin_forgot_password_reset',
+  ];
+
+  if (isset($captchaContexts[$action])) {
+    $captchaCheck = commerza_captcha_verify_submission($con, $_POST, (string)$captchaContexts[$action]);
+    if (!(bool)$captchaCheck['ok']) {
+      $errors[] = (string)$captchaCheck['message'];
+    }
+  }
+
   $admin = admin_get_primary_admin($con);
   $clientIp = admin_get_client_ip();
 
@@ -37,6 +50,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     );
 
     if (!$rate['allowed']) {
+      commerza_security_log_rate_limit_block(
+        $con,
+        'admin_forgot_password_send',
+        'admin',
+        (string)($admin['email'] ?? 'admin'),
+        $clientIp,
+        max(1, (int)$rate['retry_after'])
+      );
       $errors[] = 'Too many reset requests. Try again in ' . (int)$rate['retry_after'] . ' seconds.';
     }
   }
@@ -82,6 +103,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     );
 
     if (!$rate['allowed']) {
+      commerza_security_log_rate_limit_block(
+        $con,
+        'admin_forgot_password_reset',
+        'admin',
+        (string)($admin['email'] ?? 'admin'),
+        $clientIp,
+        max(1, (int)$rate['retry_after'])
+      );
       $errors[] = 'Too many reset attempts. Try again in ' . (int)$rate['retry_after'] . ' seconds.';
     }
   }
@@ -99,16 +128,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $errors[] = 'Passwords do not match.';
     }
 
-    if (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,64}$/', $newPassword)) {
-      $errors[] = 'Password must be 8-64 chars with upper, lower, number, and special character.';
+    $passwordPolicyError = null;
+    if (!commerza_password_validate($newPassword, $passwordPolicyError)) {
+      $errors[] = $passwordPolicyError !== null ? $passwordPolicyError : commerza_password_policy_description();
     }
 
     if (empty($errors) && !admin_verify_reset_code($admin, $code)) {
+      commerza_security_log_event($con, [
+        'event_type' => 'admin_password_reset_failed',
+        'severity' => 'warning',
+        'actor_type' => 'admin',
+        'actor_identifier' => (string)($admin['email'] ?? 'admin'),
+        'admin_id' => (int)($admin['id'] ?? 0),
+        'ip_address' => $clientIp,
+        'details' => [
+          'reason' => 'invalid_or_expired_reset_code',
+        ],
+      ]);
       $errors[] = 'Invalid or expired reset code.';
     }
 
     if (empty($errors)) {
-      $hash = password_hash($newPassword, PASSWORD_DEFAULT);
+      $hash = commerza_password_hash($newPassword);
       $updateStmt = $con->prepare(
         'UPDATE admin_users
          SET password_hash = ?
@@ -127,6 +168,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$ok) {
           $errors[] = 'Could not update password. Please try again.';
         } else {
+          commerza_security_log_event($con, [
+            'event_type' => 'admin_password_reset_success',
+            'severity' => 'info',
+            'actor_type' => 'admin',
+            'actor_identifier' => (string)($admin['email'] ?? 'admin'),
+            'admin_id' => $adminId,
+            'ip_address' => $clientIp,
+          ]);
           admin_clear_reset_code($con, $adminId);
           commerza_rate_limit_reset(
             $con,
@@ -155,7 +204,7 @@ $csrfToken = admin_generate_csrf_token();
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; connect-src 'self' https://cdn.jsdelivr.net; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://fonts.googleapis.com https://fonts.gstatic.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdn.jsdelivr.net https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; connect-src 'self' https://cdn.jsdelivr.net https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; frame-src 'self' https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'">
   <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken) ?>">
   <title>Admin Forgot Password | Commerza</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -382,6 +431,7 @@ $csrfToken = admin_generate_csrf_token();
     <form action="admin-forgot-password.php" method="POST" id="sendResetForm" class="mb-3">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
       <input type="hidden" name="action" value="send_reset_code">
+      <?= commerza_captcha_widget_html($con, 'admin_forgot_password_send') ?>
       <div class="d-grid">
         <button type="submit" class="btn reset-btn" id="sendResetCodeBtn">Send Reset Code</button>
       </div>
@@ -414,6 +464,8 @@ $csrfToken = admin_generate_csrf_token();
         </div>
       </div>
 
+      <?= commerza_captcha_widget_html($con, 'admin_forgot_password_reset') ?>
+
       <div class="d-grid">
         <button type="submit" class="btn reset-btn" id="resetPasswordBtn">Update Password</button>
       </div>
@@ -430,7 +482,8 @@ $csrfToken = admin_generate_csrf_token();
   </main>
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script>
+  <?= commerza_captcha_script_tag($con) ?>
+  <script <?= commerza_csp_nonce_attr() ?>>
     window.CommerzaAdminResetComplete = <?= $resetComplete ? 'true' : 'false' ?>;
   </script>
   <script src="assets/js/pages/admin-auth-common.js"></script>

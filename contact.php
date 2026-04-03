@@ -119,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
   <title>Contact Us | Commerza</title>
   <link rel="canonical" href="https://commerza.ahmershah.dev/contact.php" />
-  <script type="application/ld+json">
+  <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "ContactPage",
@@ -464,7 +464,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="frontend/assets/js/global-protection.js" defer></script>
   <script src="frontend/assets/js/script.js" defer></script>
-  <script>
+  <script <?= commerza_csp_nonce_attr() ?>>
     $(function () {
       $("#serverAlert, #successAlert").each(function () {
         const element = $(this);

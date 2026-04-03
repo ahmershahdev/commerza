@@ -29,7 +29,7 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/style.css?v=<?= (int)$adminCssVersion ?>">
-    <script src="assets/js/admin-config.js"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/admin-config.js"></script>
 </head>
 
 <body class="dark-theme">
@@ -135,6 +135,15 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                                     type="button" aria-controls="websiteSection" aria-selected="false">
                                     <i class="bi bi-globe2 me-2 fs-5"></i>
                                     <span>Website</span>
+                                </button>
+                            </li>
+                            <li class="nav-item mb-1">
+                                <button
+                                    class="nav-link rounded-2 d-flex align-items-center py-2 px-3 w-100 text-start border-0"
+                                    id="security-events-tab" data-bs-toggle="pill" data-bs-target="#securityEventsSection"
+                                    type="button" aria-controls="securityEventsSection" aria-selected="false">
+                                    <i class="bi bi-shield-check me-2 fs-5"></i>
+                                    <span>Security Events</span>
                                 </button>
                             </li>
                             <li class="nav-item mb-1">
@@ -1438,6 +1447,99 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                             </div>
                         </div>
                     </div>
+                    <div class="tab-pane fade" id="securityEventsSection">
+                        <div class="helper-banner mb-4">
+                            <div>
+                                <h2 class="h5 mb-2 text-light">Security Event Monitoring</h2>
+                                <p class="mb-0 text-secondary">Review login failures, suspicious activity, and rate-limit blocks in one place.</p>
+                            </div>
+                            <span class="step-chip">Tip: Filter by severity and date range for faster incident triage.</span>
+                        </div>
+
+                        <div class="card admin-card border-0 shadow-sm mb-4">
+                            <div class="card-header bg-dark border-bottom border-secondary py-3">
+                                <h3 class="h5 mb-0 fw-bold text-orange">Filters</h3>
+                            </div>
+                            <div class="card-body p-4">
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-12 col-md-6 col-xl-2">
+                                        <label class="form-label text-light" for="securityEventTypeFilter">Event Type</label>
+                                        <input type="text" id="securityEventTypeFilter" class="form-control bg-secondary border-0 text-light" placeholder="login_failed">
+                                    </div>
+                                    <div class="col-6 col-md-3 col-xl-2">
+                                        <label class="form-label text-light" for="securitySeverityFilter">Severity</label>
+                                        <select id="securitySeverityFilter" class="form-select bg-secondary border-0 text-light">
+                                            <option value="">All</option>
+                                            <option value="info">Info</option>
+                                            <option value="warning">Warning</option>
+                                            <option value="critical">Critical</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6 col-md-3 col-xl-2">
+                                        <label class="form-label text-light" for="securityActorTypeFilter">Actor</label>
+                                        <select id="securityActorTypeFilter" class="form-select bg-secondary border-0 text-light">
+                                            <option value="">All</option>
+                                            <option value="user">User</option>
+                                            <option value="admin">Admin</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-12 col-md-6 col-xl-3">
+                                        <label class="form-label text-light" for="securityEventSearchFilter">Search</label>
+                                        <input type="text" id="securityEventSearchFilter" class="form-control bg-secondary border-0 text-light" placeholder="identifier, IP, user-agent">
+                                    </div>
+                                    <div class="col-6 col-md-3 col-xl-1">
+                                        <label class="form-label text-light" for="securityFromFilter">From</label>
+                                        <input type="date" id="securityFromFilter" class="form-control bg-secondary border-0 text-light">
+                                    </div>
+                                    <div class="col-6 col-md-3 col-xl-1">
+                                        <label class="form-label text-light" for="securityToFilter">To</label>
+                                        <input type="date" id="securityToFilter" class="form-control bg-secondary border-0 text-light">
+                                    </div>
+                                    <div class="col-12 col-xl-1 d-grid gap-2">
+                                        <button class="btn btn-orange" id="securityEventsApplyBtn" type="button">Apply</button>
+                                        <button class="btn btn-outline-secondary" id="securityEventsClearBtn" type="button">Clear</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card admin-card border-0 shadow-sm mb-4">
+                            <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center">
+                                <h3 class="h5 mb-0 fw-bold text-orange">Security Events Log</h3>
+                                <button class="btn btn-sm btn-outline-orange" id="securityEventsRefreshBtn" type="button">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                                </button>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-dark table-hover align-middle mb-0" id="securityEventsTable">
+                                        <thead class="border-bottom border-secondary">
+                                            <tr>
+                                                <th class="ps-4 py-3 text-orange fw-semibold">Time</th>
+                                                <th class="py-3 text-orange fw-semibold">Event</th>
+                                                <th class="py-3 text-orange fw-semibold">Severity</th>
+                                                <th class="py-3 text-orange fw-semibold">Actor</th>
+                                                <th class="py-3 text-orange fw-semibold">Identifier / IP</th>
+                                                <th class="pe-4 py-3 text-orange fw-semibold">Details</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td colspan="6" class="text-center py-4 text-secondary">No events loaded yet.</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="card-footer bg-dark border-top border-secondary d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                <small class="text-secondary" id="securityEventsMeta">Page 1</small>
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-secondary" id="securityEventsPrevBtn" type="button">Previous</button>
+                                    <button class="btn btn-sm btn-outline-secondary" id="securityEventsNextBtn" type="button">Next</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="tab-pane fade" id="homepageSection">
                         <div class="helper-banner mb-4">
                             <div>
@@ -1710,11 +1812,11 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    <script <?= commerza_csp_nonce_attr() ?> src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
         crossorigin="anonymous"></script>
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script>
+    <script <?= commerza_csp_nonce_attr() ?> src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script <?= commerza_csp_nonce_attr() ?>>
         window.CommerzaAdminRuntime = {
             csrfToken: <?= json_encode($adminCsrfToken, JSON_UNESCAPED_SLASHES) ?>,
             admin: {
@@ -1724,6 +1826,6 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
             }
         };
     </script>
-    <script src="assets/js/script.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/script.js?v=<?= (int)$adminJsVersion ?>"></script>
 </body>
 </html>

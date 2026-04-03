@@ -17,6 +17,7 @@ if (!($con instanceof mysqli)) {
 }
 
 $admin = admin_require_login_api($con);
+admin_require_permission_api($admin, 'security.manage');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -106,7 +107,7 @@ if ($action === 'update-email') {
         exit;
     }
 
-    if (!password_verify($currentPassword, (string)$currentAdmin['password_hash'])) {
+    if (!commerza_password_verify($currentPassword, (string)$currentAdmin['password_hash'])) {
         http_response_code(422);
         echo json_encode([
             'ok' => false,
@@ -246,16 +247,17 @@ if ($action === 'update-password') {
         exit;
     }
 
-    if (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,64}$/', $newPassword)) {
+    $passwordPolicyError = null;
+    if (!commerza_password_validate($newPassword, $passwordPolicyError)) {
         http_response_code(422);
         echo json_encode([
             'ok' => false,
-            'message' => 'Password must be 8-64 chars with upper, lower, number, and special character.',
+            'message' => $passwordPolicyError !== null ? $passwordPolicyError : commerza_password_policy_description(),
         ]);
         exit;
     }
 
-    $hash = password_hash($newPassword, PASSWORD_DEFAULT);
+    $hash = commerza_password_hash($newPassword);
 
     $updateStmt = $con->prepare(
         'UPDATE admin_users
@@ -317,7 +319,7 @@ if ($action === 'update-reset-key') {
         exit;
     }
 
-    if (!password_verify($currentPassword, (string)$currentAdmin['password_hash'])) {
+    if (!commerza_password_verify($currentPassword, (string)$currentAdmin['password_hash'])) {
         http_response_code(422);
         echo json_encode([
             'ok' => false,

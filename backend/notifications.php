@@ -66,6 +66,34 @@ function commerza_notifications_get_admin_email(mysqli $con): string
     return filter_var($fallback, FILTER_VALIDATE_EMAIL) ? $fallback : '';
 }
 
+function commerza_notifications_public_url(string $path = ''): string
+{
+    $configuredBase = trim((string)(getenv('COMMERZA_PUBLIC_URL') ?: getenv('APP_URL') ?: ''));
+    if ($configuredBase !== '' && filter_var($configuredBase, FILTER_VALIDATE_URL)) {
+        $base = rtrim($configuredBase, '/');
+    } else {
+        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || ((int)($_SERVER['SERVER_PORT'] ?? 0) === 443);
+        $scheme = $isHttps ? 'https' : 'http';
+        $host = trim((string)($_SERVER['HTTP_HOST'] ?? 'localhost'));
+        if ($host === '') {
+            $host = 'localhost';
+        }
+
+        $base = $scheme . '://' . $host;
+    }
+
+    if ($path === '') {
+        return $base;
+    }
+
+    if ($path[0] !== '/') {
+        $path = '/' . $path;
+    }
+
+    return $base . $path;
+}
+
 function commerza_notifications_layout(string $title, string $intro, string $bodyHtml, string $siteName): string
 {
     $safeTitle = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
@@ -341,6 +369,101 @@ function commerza_notify_order_status_change(mysqli $con, array $order, string $
             $error
         );
     }
+}
+
+function commerza_notify_order_shipped(mysqli $con, array $order): bool
+{
+    $customerEmail = trim((string)($order['customer_email'] ?? ''));
+    if (!filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
+        return false;
+    }
+
+    $orderNumber = htmlspecialchars((string)($order['order_number'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $customerName = htmlspecialchars((string)($order['customer_name'] ?? 'Customer'), ENT_QUOTES, 'UTF-8');
+
+    $deliveryEstimateRaw = trim((string)($order['delivery_estimate'] ?? ''));
+    $deliveryEstimateText = '';
+    $deliveryEstimateTs = $deliveryEstimateRaw !== '' ? strtotime($deliveryEstimateRaw) : false;
+    if ($deliveryEstimateTs !== false) {
+        $deliveryEstimateText = date('d M Y, h:i A', $deliveryEstimateTs);
+    }
+
+    $body =
+        '<p>Hello ' . $customerName . ',</p>' .
+        '<p>Your order <strong>' . $orderNumber . '</strong> has been shipped.</p>' .
+        ($deliveryEstimateText !== ''
+            ? '<p><strong>Estimated delivery:</strong> ' . htmlspecialchars($deliveryEstimateText, ENT_QUOTES, 'UTF-8') . '</p>'
+            : '<p>We will deliver your package as soon as possible.</p>') .
+        '<p>You can monitor updates from your account and order tracking page.</p>';
+
+    $error = null;
+    return commerza_notifications_send(
+        $con,
+        $customerEmail,
+        'Commerza order shipped',
+        'Order Shipped',
+        'Good news. Your order is now on the way.',
+        $body,
+        $error
+    );
+}
+
+function commerza_notify_order_delivered(mysqli $con, array $order): bool
+{
+    $customerEmail = trim((string)($order['customer_email'] ?? ''));
+    if (!filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
+        return false;
+    }
+
+    $orderNumber = htmlspecialchars((string)($order['order_number'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $customerName = htmlspecialchars((string)($order['customer_name'] ?? 'Customer'), ENT_QUOTES, 'UTF-8');
+
+    $body =
+        '<p>Hello ' . $customerName . ',</p>' .
+        '<p>Your order <strong>' . $orderNumber . '</strong> is marked as delivered.</p>' .
+        '<p>Thank you for shopping with Commerza. If anything is not right, contact support right away.</p>';
+
+    $error = null;
+    return commerza_notifications_send(
+        $con,
+        $customerEmail,
+        'Commerza order delivered',
+        'Order Delivered',
+        'Your package has arrived.',
+        $body,
+        $error
+    );
+}
+
+function commerza_notify_review_request_after_delivery(mysqli $con, array $order, int $orderId = 0): bool
+{
+    $customerEmail = trim((string)($order['customer_email'] ?? ''));
+    if (!filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
+        return false;
+    }
+
+    $orderNumber = htmlspecialchars((string)($order['order_number'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $customerName = htmlspecialchars((string)($order['customer_name'] ?? 'Customer'), ENT_QUOTES, 'UTF-8');
+    $accountUrl = commerza_notifications_public_url('/account.php');
+    $safeAccountUrl = htmlspecialchars($accountUrl, ENT_QUOTES, 'UTF-8');
+
+    $body =
+        '<p>Hello ' . $customerName . ',</p>' .
+        '<p>We hope you are enjoying order <strong>' . $orderNumber . '</strong>.</p>' .
+        '<p>Your feedback matters. Please leave a product review from your account.</p>' .
+        '<p><a href="' . $safeAccountUrl . '" style="display:inline-block;padding:10px 14px;background:#ff6a00;color:#111;text-decoration:none;font-weight:700;border-radius:8px;">Write a Review</a></p>' .
+        '<p style="color:#bdbdbd;font-size:13px;">This request is sent after delivery to improve product quality and service.</p>';
+
+    $error = null;
+    return commerza_notifications_send(
+        $con,
+        $customerEmail,
+        'How was your Commerza order?',
+        'Share Your Review',
+        'Tell us about your delivered order experience.',
+        $body,
+        $error
+    );
 }
 
 function commerza_notifications_ensure_reminder_table(mysqli $con): void

@@ -15,6 +15,10 @@ function admin_ensure_schema(mysqli $con): void
             profile_picture VARCHAR(255) DEFAULT NULL,
             reset_token VARCHAR(255) DEFAULT NULL,
             reset_token_expiry DATETIME DEFAULT NULL,
+            two_factor_code_hash VARCHAR(255) DEFAULT NULL,
+            two_factor_expires_at DATETIME DEFAULT NULL,
+            two_factor_attempts INT NOT NULL DEFAULT 0,
+            two_factor_last_sent_at DATETIME DEFAULT NULL,
             last_login_at DATETIME DEFAULT NULL,
             last_login_ip VARCHAR(45) DEFAULT NULL,
             is_active TINYINT(1) NOT NULL DEFAULT 1,
@@ -24,6 +28,21 @@ function admin_ensure_schema(mysqli $con): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci';
 
     $con->query($createTableSql);
+
+    $missingColumns = [
+        'two_factor_code_hash' => 'VARCHAR(255) DEFAULT NULL',
+        'two_factor_expires_at' => 'DATETIME DEFAULT NULL',
+        'two_factor_attempts' => 'INT NOT NULL DEFAULT 0',
+        'two_factor_last_sent_at' => 'DATETIME DEFAULT NULL',
+    ];
+
+    foreach ($missingColumns as $column => $definition) {
+        $safeColumn = $con->real_escape_string($column);
+        $check = $con->query("SHOW COLUMNS FROM admin_users LIKE '{$safeColumn}'");
+        if (!($check instanceof mysqli_result) || $check->num_rows === 0) {
+            $con->query("ALTER TABLE admin_users ADD COLUMN {$column} {$definition}");
+        }
+    }
 
     $defaultEmail = 'commerza.ahmer@gmail.com';
     $defaultPassword = 'Commerza@2026';
@@ -39,7 +58,7 @@ function admin_ensure_schema(mysqli $con): void
         return;
     }
 
-    $hash = password_hash($defaultPassword, PASSWORD_DEFAULT);
+    $hash = commerza_password_hash($defaultPassword);
     $insertStmt = $con->prepare(
         'INSERT INTO admin_users (full_name, email, password_hash, role, is_active)
          VALUES (?, ?, ?, "admin", 1)'
@@ -137,7 +156,17 @@ function admin_get_by_email(mysqli $con, string $email): ?array
     }
 
     $stmt = $con->prepare(
-        'SELECT id, full_name, email, password_hash, reset_token, reset_token_expiry, is_active
+        'SELECT
+            id,
+            full_name,
+            email,
+            password_hash,
+            reset_token,
+            reset_token_expiry,
+            two_factor_code_hash,
+            two_factor_expires_at,
+            two_factor_attempts,
+            is_active
          FROM admin_users
          WHERE email = ?
          LIMIT 1'
@@ -159,7 +188,7 @@ function admin_get_by_email(mysqli $con, string $email): ?array
 function admin_get_by_id(mysqli $con, int $adminId): ?array
 {
     $stmt = $con->prepare(
-        'SELECT id, full_name, email, is_active
+        'SELECT id, full_name, email, role, is_active
          FROM admin_users
          WHERE id = ?
          LIMIT 1'
@@ -222,6 +251,7 @@ function admin_login_user(mysqli $con, array $admin): void
 
     $_SESSION['admin_user_id'] = (int)$admin['id'];
     $_SESSION['admin_authenticated_at'] = time();
+    unset($_SESSION['admin_2fa_pending']);
 
     admin_update_last_login($con, (int)$admin['id']);
     admin_generate_csrf_token();
@@ -229,7 +259,12 @@ function admin_login_user(mysqli $con, array $admin): void
 
 function admin_logout_user(): void
 {
-    unset($_SESSION['admin_user_id'], $_SESSION['admin_authenticated_at'], $_SESSION['admin_csrf_token']);
+    unset(
+        $_SESSION['admin_user_id'],
+        $_SESSION['admin_authenticated_at'],
+        $_SESSION['admin_csrf_token'],
+        $_SESSION['admin_2fa_pending']
+    );
 }
 
 function admin_safe_redirect_target(?string $value, string $fallback = 'admin-panel.php'): string
@@ -250,6 +285,7 @@ function admin_safe_redirect_target(?string $value, string $fallback = 'admin-pa
     $allowed = [
         'admin-panel.php',
         'admin-login.php',
+        'admin-verify-2fa.php',
         'admin-forgot-password.php',
         'admin-forgot-email.php',
     ];
@@ -301,13 +337,44 @@ function admin_require_login_api(mysqli $con): array
     return $admin;
 }
 
+function admin_has_permission(array $admin, string $permission): bool
+{
+    $permission = strtolower(trim($permission));
+    if ($permission === '') {
+        return true;
+    }
+
+    $role = strtolower(trim((string)($admin['role'] ?? 'admin')));
+
+    // Current schema supports admin role only; this keeps future role checks centralized.
+    if ($role === 'admin') {
+        return true;
+    }
+
+    return false;
+}
+
+function admin_require_permission_api(array $admin, string $permission): void
+{
+    if (admin_has_permission($admin, $permission)) {
+        return;
+    }
+
+    http_response_code(403);
+    echo json_encode([
+        'ok' => false,
+        'message' => 'Forbidden.',
+    ]);
+    exit;
+}
+
 function admin_store_reset_code(mysqli $con, int $adminId, string $code): bool
 {
     if (!preg_match('/^\d{6}$/', $code)) {
         return false;
     }
 
-    $hash = password_hash($code, PASSWORD_DEFAULT);
+    $hash = commerza_password_hash($code);
 
     $stmt = $con->prepare(
         'UPDATE admin_users
@@ -345,7 +412,7 @@ function admin_verify_reset_code(array $admin, string $code): bool
         return false;
     }
 
-    return password_verify($code, $hash);
+    return commerza_password_verify($code, $hash);
 }
 
 function admin_clear_reset_code(mysqli $con, int $adminId): void
@@ -408,4 +475,351 @@ function admin_send_password_reset_code_email(
         'Commerza Admin',
         $errorMessage
     );
+}
+
+function admin_generate_two_factor_code(): string
+{
+    return str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+}
+
+function admin_two_factor_user_agent_hash(): string
+{
+    $userAgent = (string)($_SERVER['HTTP_USER_AGENT'] ?? 'unknown');
+    return hash('sha256', $userAgent);
+}
+
+function admin_set_two_factor_pending_session(array $admin, string $nextTarget): void
+{
+    $_SESSION['admin_2fa_pending'] = [
+        'admin_id' => (int)($admin['id'] ?? 0),
+        'email' => (string)($admin['email'] ?? ''),
+        'next' => admin_safe_redirect_target($nextTarget, 'admin-panel.php'),
+        'created_at' => time(),
+        'ip' => admin_get_client_ip(),
+        'ua_hash' => admin_two_factor_user_agent_hash(),
+    ];
+}
+
+function admin_get_two_factor_pending_session(): ?array
+{
+    $pending = $_SESSION['admin_2fa_pending'] ?? null;
+    if (!is_array($pending)) {
+        return null;
+    }
+
+    $adminId = isset($pending['admin_id']) ? (int)$pending['admin_id'] : 0;
+    $email = strtolower(trim((string)($pending['email'] ?? '')));
+    $createdAt = isset($pending['created_at']) ? (int)$pending['created_at'] : 0;
+    $ip = (string)($pending['ip'] ?? '');
+    $uaHash = (string)($pending['ua_hash'] ?? '');
+    $next = admin_safe_redirect_target((string)($pending['next'] ?? ''), 'admin-panel.php');
+
+    if ($adminId <= 0 || !filter_var($email, FILTER_VALIDATE_EMAIL) || $createdAt <= 0) {
+        unset($_SESSION['admin_2fa_pending']);
+        return null;
+    }
+
+    if ((time() - $createdAt) > 900) {
+        unset($_SESSION['admin_2fa_pending']);
+        return null;
+    }
+
+    if ($ip !== admin_get_client_ip() || $uaHash !== admin_two_factor_user_agent_hash()) {
+        unset($_SESSION['admin_2fa_pending']);
+        return null;
+    }
+
+    return [
+        'admin_id' => $adminId,
+        'email' => $email,
+        'next' => $next,
+        'created_at' => $createdAt,
+    ];
+}
+
+function admin_clear_two_factor_pending_session(): void
+{
+    unset($_SESSION['admin_2fa_pending']);
+}
+
+function admin_send_two_factor_code_email(
+    string $recipientEmail,
+    string $recipientName,
+    string $code,
+    ?string &$errorMessage = null
+): bool {
+    $safeName = htmlspecialchars($recipientName !== '' ? $recipientName : 'Admin', ENT_QUOTES, 'UTF-8');
+    $safeCode = htmlspecialchars($code, ENT_QUOTES, 'UTF-8');
+
+    $subject = 'Commerza Admin Login Verification Code';
+
+    $body = '<!DOCTYPE html>
+<html>
+  <body style="margin:0;padding:0;background:#080808;font-family:Arial,sans-serif;color:#f5f5f5;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#080808;padding:24px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;background:#121212;border:1px solid #2d2d2d;border-radius:12px;overflow:hidden;">
+            <tr>
+              <td style="padding:24px 28px;">
+                <h1 style="margin:0 0 14px 0;color:#ff6600;font-size:22px;">Two-Factor Login Verification</h1>
+                <p style="margin:0 0 10px 0;line-height:1.6;color:#d7d7d7;">Hello ' . $safeName . ',</p>
+                <p style="margin:0 0 14px 0;line-height:1.6;color:#d7d7d7;">Use this 6-digit code to complete your admin login. It expires in 10 minutes.</p>
+                <div style="display:inline-block;padding:12px 18px;background:#1b1b1b;border:1px solid #ff6600;border-radius:8px;font-size:24px;letter-spacing:3px;font-weight:700;color:#ffcc00;">' . $safeCode . '</div>
+                <p style="margin:18px 0 0 0;line-height:1.6;color:#8f8f8f;font-size:13px;">If you did not attempt to login, change your password immediately.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>';
+
+    return commerza_send_html_mail(
+        $recipientEmail,
+        $subject,
+        $body,
+        'no-reply@commerza.ahmershah.dev',
+        'Commerza Admin Security',
+        $errorMessage
+    );
+}
+
+function admin_clear_two_factor_challenge(mysqli $con, int $adminId): void
+{
+    $stmt = $con->prepare(
+        'UPDATE admin_users
+         SET two_factor_code_hash = NULL,
+             two_factor_expires_at = NULL,
+             two_factor_attempts = 0
+         WHERE id = ?
+         LIMIT 1'
+    );
+
+    if (!$stmt) {
+        return;
+    }
+
+    $stmt->bind_param('i', $adminId);
+    $stmt->execute();
+    $stmt->close();
+}
+
+function admin_issue_two_factor_challenge(mysqli $con, array $admin, string $nextTarget, ?string &$errorMessage = null): bool
+{
+    $adminId = (int)($admin['id'] ?? 0);
+    $email = strtolower(trim((string)($admin['email'] ?? '')));
+    $fullName = (string)($admin['full_name'] ?? 'Admin');
+
+    if ($adminId <= 0 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errorMessage = 'Invalid admin account state.';
+        return false;
+    }
+
+    $code = admin_generate_two_factor_code();
+    $hash = commerza_password_hash($code);
+    if ($hash === '') {
+        $errorMessage = 'Unable to generate verification code.';
+        return false;
+    }
+
+    $stmt = $con->prepare(
+        'UPDATE admin_users
+         SET two_factor_code_hash = ?,
+             two_factor_expires_at = DATE_ADD(NOW(), INTERVAL 10 MINUTE),
+             two_factor_attempts = 0,
+             two_factor_last_sent_at = NOW()
+         WHERE id = ? AND is_active = 1
+         LIMIT 1'
+    );
+
+    if (!$stmt) {
+        $errorMessage = 'Unable to start two-factor authentication.';
+        return false;
+    }
+
+    $stmt->bind_param('si', $hash, $adminId);
+    $ok = $stmt->execute();
+    $affectedRows = (int)$stmt->affected_rows;
+    $stmt->close();
+
+    if (!$ok || $affectedRows !== 1) {
+        $errorMessage = 'Unable to start two-factor authentication.';
+        return false;
+    }
+
+    $mailError = null;
+    $mailSent = admin_send_two_factor_code_email($email, $fullName, $code, $mailError);
+    if (!$mailSent) {
+        admin_clear_two_factor_challenge($con, $adminId);
+        $errorMessage = $mailError ?: 'Unable to send verification email.';
+        return false;
+    }
+
+    admin_set_two_factor_pending_session($admin, $nextTarget);
+    return true;
+}
+
+function admin_verify_two_factor_code(mysqli $con, int $adminId, string $code): array
+{
+    if ($adminId <= 0) {
+        return [
+            'ok' => false,
+            'status' => 'invalid_session',
+            'message' => 'Two-factor session expired. Please login again.',
+            'admin' => null,
+        ];
+    }
+
+    if (!preg_match('/^\d{6}$/', $code)) {
+        return [
+            'ok' => false,
+            'status' => 'invalid_code_format',
+            'message' => 'Enter the 6-digit verification code.',
+            'admin' => null,
+        ];
+    }
+
+    if (!$con->begin_transaction()) {
+        return [
+            'ok' => false,
+            'status' => 'server_error',
+            'message' => 'Unable to verify code right now.',
+            'admin' => null,
+        ];
+    }
+
+    $selectStmt = $con->prepare(
+        'SELECT id, full_name, email, is_active, two_factor_code_hash, two_factor_expires_at, two_factor_attempts
+         FROM admin_users
+         WHERE id = ?
+         LIMIT 1
+         FOR UPDATE'
+    );
+
+    if (!$selectStmt) {
+        $con->rollback();
+        return [
+            'ok' => false,
+            'status' => 'server_error',
+            'message' => 'Unable to verify code right now.',
+            'admin' => null,
+        ];
+    }
+
+    $selectStmt->bind_param('i', $adminId);
+    $selectStmt->execute();
+    $result = $selectStmt->get_result();
+    $admin = $result ? $result->fetch_assoc() : null;
+    $selectStmt->close();
+
+    if (!$admin || (int)($admin['is_active'] ?? 0) !== 1) {
+        $con->rollback();
+        return [
+            'ok' => false,
+            'status' => 'invalid_session',
+            'message' => 'Two-factor session expired. Please login again.',
+            'admin' => null,
+        ];
+    }
+
+    $codeHash = (string)($admin['two_factor_code_hash'] ?? '');
+    $expiresAt = (string)($admin['two_factor_expires_at'] ?? '');
+    $attempts = (int)($admin['two_factor_attempts'] ?? 0);
+    $expiryTs = strtotime($expiresAt);
+
+    if ($codeHash === '' || $expiresAt === '' || $expiryTs === false || $expiryTs < time()) {
+        admin_clear_two_factor_challenge($con, (int)$admin['id']);
+        $con->commit();
+        return [
+            'ok' => false,
+            'status' => 'expired',
+            'message' => 'Verification code expired. Please login again.',
+            'admin' => null,
+        ];
+    }
+
+    if ($attempts >= 6) {
+        admin_clear_two_factor_challenge($con, (int)$admin['id']);
+        $con->commit();
+        return [
+            'ok' => false,
+            'status' => 'locked',
+            'message' => 'Too many invalid verification attempts. Please login again.',
+            'admin' => null,
+        ];
+    }
+
+    if (commerza_password_verify($code, $codeHash)) {
+        admin_clear_two_factor_challenge($con, (int)$admin['id']);
+        if (!$con->commit()) {
+            $con->rollback();
+            return [
+                'ok' => false,
+                'status' => 'server_error',
+                'message' => 'Unable to verify code right now.',
+                'admin' => null,
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'status' => 'verified',
+            'message' => 'Verification successful.',
+            'admin' => $admin,
+        ];
+    }
+
+    $nextAttempts = $attempts + 1;
+    if ($nextAttempts >= 6) {
+        admin_clear_two_factor_challenge($con, (int)$admin['id']);
+    } else {
+        $attemptStmt = $con->prepare(
+            'UPDATE admin_users
+             SET two_factor_attempts = ?
+             WHERE id = ?
+             LIMIT 1'
+        );
+
+        if (!$attemptStmt) {
+            $con->rollback();
+            return [
+                'ok' => false,
+                'status' => 'server_error',
+                'message' => 'Unable to verify code right now.',
+                'admin' => null,
+            ];
+        }
+
+        $attemptStmt->bind_param('ii', $nextAttempts, $adminId);
+        $attemptStmt->execute();
+        $attemptStmt->close();
+    }
+
+    if (!$con->commit()) {
+        $con->rollback();
+        return [
+            'ok' => false,
+            'status' => 'server_error',
+            'message' => 'Unable to verify code right now.',
+            'admin' => null,
+        ];
+    }
+
+    if ($nextAttempts >= 6) {
+        return [
+            'ok' => false,
+            'status' => 'locked',
+            'message' => 'Too many invalid verification attempts. Please login again.',
+            'admin' => null,
+        ];
+    }
+
+    return [
+        'ok' => false,
+        'status' => 'invalid_code',
+        'message' => 'Invalid verification code.',
+        'admin' => null,
+    ];
 }

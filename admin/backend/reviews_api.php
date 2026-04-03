@@ -191,14 +191,7 @@ function admin_reviews_fetch_all(mysqli $con, string $visibility = 'all'): array
 {
     $rows = [];
 
-    $where = '';
-    if ($visibility === 'visible') {
-        $where = 'WHERE r.is_visible = 1';
-    } elseif ($visibility === 'hidden') {
-        $where = 'WHERE r.is_visible = 0';
-    }
-
-    $sql =
+    $baseSelect =
         'SELECT
             r.id,
             r.user_id,
@@ -218,10 +211,15 @@ function admin_reviews_fetch_all(mysqli $con, string $visibility = 'all'): array
          FROM product_reviews r
          INNER JOIN users u ON u.id = r.user_id
          INNER JOIN products p ON p.id = r.product_id
-         LEFT JOIN orders o ON o.id = r.order_id
-         ' . $where . '
-         ORDER BY r.updated_at DESC, r.id DESC
-         LIMIT 500';
+         LEFT JOIN orders o ON o.id = r.order_id';
+
+    if ($visibility === 'visible') {
+        $sql = $baseSelect . ' WHERE r.is_visible = 1 ORDER BY r.updated_at DESC, r.id DESC LIMIT 500';
+    } elseif ($visibility === 'hidden') {
+        $sql = $baseSelect . ' WHERE r.is_visible = 0 ORDER BY r.updated_at DESC, r.id DESC LIMIT 500';
+    } else {
+        $sql = $baseSelect . ' ORDER BY r.updated_at DESC, r.id DESC LIMIT 500';
+    }
 
     $result = $con->query($sql);
     if (!$result) {
@@ -293,7 +291,8 @@ function admin_reviews_exists(mysqli $con, int $reviewId): bool
     return $exists;
 }
 
-admin_require_login_api($con);
+$admin = admin_require_login_api($con);
+admin_require_permission_api($admin, 'reviews.manage');
 admin_reviews_ensure_table($con);
 admin_reviews_ensure_images_table($con);
 
