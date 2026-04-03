@@ -8,7 +8,7 @@
   const SITE_SETTINGS_KEY = 'commerza_site_settings';
 
   function getSiteSettings() {
-    const stored = localStorage.getItem(SITE_SETTINGS_KEY);
+    const stored = sessionStorage.getItem(SITE_SETTINGS_KEY);
     if (!stored) return null;
     try {
       return JSON.parse(stored);
@@ -122,3 +122,4 @@
     applyAdminBranding();
   });
 })();
+
