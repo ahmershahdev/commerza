@@ -1,0 +1,163 @@
+﻿#emailSection .input-group .btn {
+  border-left: 1px solid rgba(255, 122, 26, 0.35);
+}
+
+#emailSection .dropdown-menu {
+  background: linear-gradient(
+    180deg,
+    rgba(12, 12, 18, 0.98),
+    rgba(8, 8, 12, 0.98)
+  ) !important;
+  border: 1px solid rgba(255, 122, 26, 0.3) !important;
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.7),
+    0 0 14px rgba(255, 122, 26, 0.15);
+}
+
+#emailSection .dropdown-item {
+  color: #e4d7c8 !important;
+}
+
+#emailSection .dropdown-item:hover,
+#emailSection .dropdown-item:focus {
+  color: #fff2db !important;
+}
+
+#emailSection .badge {
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+}
+
+#emailSection .input-group .form-control {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+#emailSection .input-group .btn {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+#emailSection .email-template-menu .dropdown-item {
+  padding: 10px 16px;
+  font-size: 0.85rem;
+  letter-spacing: 0.4px;
+  text-transform: none;
+  border-radius: 10px;
+  margin: 2px 8px;
+}
+
+#emailSection .email-template-menu .dropdown-item:hover,
+#emailSection .email-template-menu .dropdown-item:focus {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 122, 26, 0.28),
+    rgba(255, 204, 0, 0.12)
+  );
+  color: #ffe7c2 !important;
+  padding-left: 18px;
+}
+
+#emailSection #emailPreview {
+  background: linear-gradient(
+    180deg,
+    rgba(10, 10, 14, 0.96),
+    rgba(6, 6, 10, 0.98)
+  );
+  border: 1px solid rgba(255, 122, 26, 0.3);
+  color: #efe7dc;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85rem;
+  user-select: none;
+}
+
+.admin-topbar {
+  background: linear-gradient(
+    180deg,
+    rgba(12, 12, 16, 0.98),
+    rgba(6, 6, 8, 0.6)
+  );
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+  backdrop-filter: blur(8px);
+}
+
+.admin-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 5, 8, 0.7);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.3s ease,
+    visibility 0.3s ease;
+  z-index: 1040;
+}
+
+body.sidebar-open .admin-backdrop {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (hover: none) {
+  html {
+    scrollbar-width: thin;
+    scroll-behavior: smooth;
+    scrollbar-color: orangered transparent;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 260px;
+    z-index: 1050;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+
+  .admin-sidebar.collapse:not(.show) {
+    display: block;
+    transform: translateX(-100%);
+  }
+
+  .admin-sidebar.collapse.show {
+    transform: translateX(0);
+    box-shadow: 4px 0 12px rgba(255, 69, 0, 0.3);
+  }
+
+  body::after {
+    content: none;
+  }
+}
+
+@media (max-width: 576px) {
+  .navbar-logo {
+    height: 32px;
+  }
+
+  .brand-text {
+    font-size: 1.25rem;
+  }
+
+  .admin-sidebar .text-center {
+    padding-inline: 8px;
+  }
+
+  .admin-sidebar .text-center p,
+  .admin-sidebar .text-center small {
+    overflow-wrap: anywhere;
+  }
+
+  .admin-sidebar .rounded-circle {
+    width: 52px;
+    height: 52px;
+  }
+}

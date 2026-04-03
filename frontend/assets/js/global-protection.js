@@ -15,7 +15,7 @@
   });
 
   document.addEventListener("selectstart", (event) => {
-    if (!event.target.closest("input, textarea, [contenteditable='true']")) {
+    if (event.target.closest("img, video")) {
       event.preventDefault();
     }
   });

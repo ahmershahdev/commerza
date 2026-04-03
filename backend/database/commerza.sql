@@ -32,8 +32,8 @@ INSERT INTO `products` ( `sectionId`, `name`, `description`, `image`, `price`, `
 ('featured-collection', 'Louis Vuitton Escale, Automatic, 39mm, Rose Gold', 'The Escale Automatic 39 mm in rose gold features intricate yet refined details that echo those found adorning the Maison\'s iconic trunks. Enriched by a textured dial, this time-only timepiece is a celebration of technical precision.', 'frontend/assets/images/products/featured/skeleton-gold-steel.webp', 11500.00, 8900.00, 28, 'auto'),
 ('featured-collection', 'Louis Vuitton Escale, Automatic, 40mm, Yellow gold and tiger\'s eye', 'Limited to 30 pieces, the Escale Automatic 40mm watch in 750/1000 yellow gold and tiger\'s eye is a singular expression of rigor, innovation, and elegance.', 'frontend/assets/images/products/featured/brown-gold-dial.webp', 12800.00, 9600.00, 38, 'auto'),
 ('featured-collection', 'Louis Vuitton Escale, Automatic, 39mm, Platinum', 'Limited to 50 pieces, this Escale Automatic 39 mm in platinum features intricate yet refined details that echo those found adorning the Maison\'s iconic trunks.', 'frontend/assets/images/products/featured/black-gold-dial.webp', 10200.00, 7800.00, 52, 'auto'),
-('featured-collection', 'Louis Vuitton Escale, Automatic, 39mm, Rose Gold', 'Limited to 100 pieces and tribute to Gaston-Louis Vuitton, this Escale Automatic 39 mm in rose gold features intricate yet refined details that echo those found adorning the Maison\'s iconic trunks.', 'frontend/assets/images/products/featured/brown-premium-watch.webp', 13500.00, 10200.00, 25, 'auto'),
-('featured-collection', 'Louis Vuitton Escale, Automatic, 39mm, Platinum', 'The Escale Automatic 39 mm in platinum features intricate yet refined details that echo those found adorning the Maison\'s iconic trunks.', 'frontend/assets/images/products/featured/premium-black-gold.webp', 16500.00, 12400.00, 18, 'auto'),
+('featured-collection', 'Louis Vuitton Escale Voyage, Automatic, 39mm, Rose Gold', 'Limited to 100 pieces and tribute to Gaston-Louis Vuitton, this Escale Automatic 39 mm in rose gold features intricate yet refined details that echo those found adorning the Maison\'s iconic trunks.', 'frontend/assets/images/products/featured/brown-premium-watch.webp', 13500.00, 10200.00, 25, 'auto'),
+('featured-collection', 'Louis Vuitton Escale Horizon, Automatic, 39mm, Platinum', 'The Escale Automatic 39 mm in platinum features intricate yet refined details that echo those found adorning the Maison\'s iconic trunks.', 'frontend/assets/images/products/featured/premium-black-gold.webp', 16500.00, 12400.00, 18, 'auto'),
 ('featured-collection', 'Louis Vuitton Escale Worldtime, Automatic, 40mm, Platinum', 'The Louis Vuitton Escale Worldtime 40mm in platinum stands as the foremost Louis Vuitton timepiece, embodying the House\'s art of travel.', 'frontend/assets/images/products/featured/black-minimalist.webp', 11000.00, 8300.00, 41, 'auto'),
 ('featured-collection', 'Louis Vuitton Escale Twin Zone, Automatic, 40mm, Rose Gold', 'The Louis Vuitton Escale Twin Zone 40mm watch in 750/1000 rose gold is an elegant interpretation of the Art of Travel. Powered by the in-house automatic LFTVO15.01 movement.', 'frontend/assets/images/products/featured/black-feather.webp', 18500.00, 14200.00, 22, 'auto'),
 ('featured-collection', 'Louis Vuitton Escale, Automatic, 40mm, Platinum and malachite', 'Limited to 30 pieces, the Escale Automatic 40mm watch in platinum and malachite is an irrepressible demonstration of hard stones craftsmanship.', 'frontend/assets/images/products/featured/luxury-white-gold.webp', 21500.00, 16800.00, 15, 'auto'),
@@ -42,8 +42,8 @@ INSERT INTO `products` ( `sectionId`, `name`, `description`, `image`, `price`, `
 ('automatic-vault', 'Louis Vuitton Escale, Automatic, 39mm, Rose Gold', 'The Escale Automatic 39 mm in rose gold features intricate yet refined details that echo those found adorning the Maison\'s iconic trunks. Enriched by a textured dial, this time-only timepiece is a celebration of technical precision.', 'frontend/assets/images/products/featured/skeleton-gold-steel.webp', 11500.00, 8900.00, 28, 'auto'),
 ('automatic-vault', 'Louis Vuitton Escale, Automatic, 40mm, Yellow gold and tiger\'s eye', 'Limited to 30 pieces, the Escale Automatic 40mm watch in 750/1000 yellow gold and tiger\'s eye is a singular expression of rigor, innovation, and elegance.', 'frontend/assets/images/products/featured/brown-gold-dial.webp', 12800.00, 9600.00, 38, 'auto'),
 ('automatic-vault', 'Louis Vuitton Escale, Automatic, 39mm, Platinum', 'Limited to 50 pieces, this Escale Automatic 39 mm in platinum features intricate yet refined details that echo those found adorning the Maison\'s iconic trunks.', 'frontend/assets/images/products/featured/black-gold-dial.webp', 10200.00, 7800.00, 52, 'auto'),
-('automatic-vault', 'Louis Vuitton Escale, Automatic, 39mm, Rose Gold', 'Limited to 100 pieces and tribute to Gaston-Louis Vuitton, this Escale Automatic 39 mm in rose gold features intricate yet refined details that echo those found adorning the Maison\'s iconic trunks.', 'frontend/assets/images/products/featured/brown-premium-watch.webp', 13500.00, 10200.00, 25, 'auto'),
-('automatic-vault', 'Louis Vuitton Escale, Automatic, 39mm, Platinum', 'The Escale Automatic 39 mm in platinum features intricate yet refined details that echo those found adorning the Maison\'s iconic trunks.', 'frontend/assets/images/products/featured/premium-black-gold.webp', 16500.00, 12400.00, 18, 'auto'),
+('automatic-vault', 'Louis Vuitton Escale Voyage, Automatic, 39mm, Rose Gold', 'Limited to 100 pieces and tribute to Gaston-Louis Vuitton, this Escale Automatic 39 mm in rose gold features intricate yet refined details that echo those found adorning the Maison\'s iconic trunks.', 'frontend/assets/images/products/featured/brown-premium-watch.webp', 13500.00, 10200.00, 25, 'auto'),
+('automatic-vault', 'Louis Vuitton Escale Atelier, Automatic, 39mm, Platinum', 'The Escale Automatic 39 mm in platinum features intricate yet refined details that echo those found adorning the Maison\'s iconic trunks.', 'frontend/assets/images/products/featured/premium-black-gold.webp', 16500.00, 12400.00, 18, 'auto'),
 ('automatic-vault', 'Louis Vuitton Escale Worldtime, Automatic, 40mm, Platinum', 'The Louis Vuitton Escale Worldtime 40mm in platinum stands as the foremost Louis Vuitton timepiece, embodying the House\'s art of travel.', 'frontend/assets/images/products/featured/black-minimalist.webp', 11000.00, 8300.00, 41, 'auto'),
 ('smart-evolution', 'Visionary Smartwatch', 'The ZERO Visionary Smartwatch combines cutting-edge technology with a sleek modern design, giving you the ultimate balance of style, performance, and wellness.', 'frontend/assets/images/products/smart/Fajr - Hybrid Digital Rectangle Watch.webp', 7000.00, 5500.00, 35, 'smart'),
 ('smart-evolution', 'Crown Smartwatch', 'Experience technology that\'s beyond luxury with the all-new Crown Smartwatch packed with features that are never before seen in the industry with a Vegan Leather Strap.', 'frontend/assets/images/products/smart/Fajr - Hybrid Digital Round Watch.webp', 7500.00, 6500.00, 29, 'smart'),
@@ -53,20 +53,81 @@ INSERT INTO `products` ( `sectionId`, `name`, `description`, `image`, `price`, `
 ('smart-evolution', 'Vogue Smartwatch', 'The Vogue Smartwatch from ZeroLifestyle is a perfect blend of style, functionality, and durability. Designed for fitness enthusiasts and busy professionals alike, this smartwatch offers a plethora of features.', 'frontend/assets/images/products/smart/T800 Ultra 2 49 mm.webp', 16800.00, 12600.00, 17, 'smart'),
 ('smart-evolution', 'Luna Pro', 'The Luna Pro Smartwatch blends modern design with powerful health and lifestyle features, delivering a premium experience for everyday life. With advanced sensors, fitness tracking, and a customizable interface.', 'frontend/assets/images/products/smart/Ultra 8 Smart Watch.webp', 20500.00, 15500.00, 12, 'smart'),
 ('signature-collection', 'TAG Heuer Aquaracer Professional 200 Date', 'Elegance is in every detail of this TAG Heuer Aquaracer, Blending the strength of stainless steel plated with 18K 3N yellow gold.', 'frontend/assets/images/products/minimal/DENIM 3 - The Minimalist Watch.webp', 7000.00, 5500.00, 48, 'quartz'),
-('signature-collection', 'TAG Heuer Aquaracer Professional 300 Date', 'The TAG Heuer Aquaracer Professional 300 Date embodies precision, elegance, and performance, crafted for modern explorers who embrace the depths of the ocean.', 'frontend/assets/images/products/minimal/DI-STAR - CHAIN WATCH WITH DATE TWO TONE.webp', 7500.00, 6500.00, 36, 'quartz'),
-('signature-collection', 'TAG Heuer Aquaracer Professional 300 Date', 'Take a dip in the intensely refreshing waters of lagoons and coral reefs that inspire this TAG Heuer Aquaracer. The vivid, VS diamond-studded 1.40mm (0.078 ct) dial stands out and the professional, life-proof case.', 'frontend/assets/images/products/minimal/Fued - Tomi Face Gear Dual Leather Straps Watch.webp', 9000.00, 8000.00, 31, 'quartz'),
+('signature-collection', 'TAG Heuer Aquaracer Professional 300 Date Marine Blue', 'The TAG Heuer Aquaracer Professional 300 Date embodies precision, elegance, and performance, crafted for modern explorers who embrace the depths of the ocean.', 'frontend/assets/images/products/minimal/DI-STAR - CHAIN WATCH WITH DATE TWO TONE.webp', 7500.00, 6500.00, 36, 'quartz'),
+('signature-collection', 'TAG Heuer Aquaracer Professional 300 Date Coral Diamond', 'Take a dip in the intensely refreshing waters of lagoons and coral reefs that inspire this TAG Heuer Aquaracer. The vivid, VS diamond-studded 1.40mm (0.078 ct) dial stands out and the professional, life-proof case.', 'frontend/assets/images/products/minimal/Fued - Tomi Face Gear Dual Leather Straps Watch.webp', 9000.00, 8000.00, 31, 'quartz'),
 ('signature-collection', 'TAG Heuer Aquaracer Professional 300 GMT', 'The sea is your playground when you wear this extremely versatile TAG Heuer Aquaracer Professional 300 on your wrist. Featuring the powerful Calibre TH31-03 movement.', 'frontend/assets/images/products/minimal/Galcia - Round Minimalist Watch WITH DATE.webp', 10000.00, 9000.00, 27, 'quartz'),
-('signature-collection', 'TAG Heuer Aquaracer Professional 300 Date', 'With a luminous pastel green dial and rugged build, the TAG Heuer Aquaracer Professional 300 Date is ready for deep dives and sunlit shores alike.', 'frontend/assets/images/products/minimal/Square Tom - Minimalist Watch.webp', 11200.00, 8500.00, 33, 'quartz'),
-('signature-collection', 'TAG Heuer Aquaracer Professional 300 Date', 'The TAG Heuer Aquaracer Professional 300 Date is inspired by the vivid colors of coral reefs found in the depths of the ocean.', 'frontend/assets/images/products/minimal/TOMI T 105 - Tomi Face Gear Black Dial.webp', 13200.00, 9900.00, 20, 'quartz'),
+('signature-collection', 'TAG Heuer Aquaracer Professional 300 Date Pastel Green', 'With a luminous pastel green dial and rugged build, the TAG Heuer Aquaracer Professional 300 Date is ready for deep dives and sunlit shores alike.', 'frontend/assets/images/products/minimal/Square Tom - Minimalist Watch.webp', 11200.00, 8500.00, 33, 'quartz'),
+('signature-collection', 'TAG Heuer Aquaracer Professional 300 Date Reef Blue', 'The TAG Heuer Aquaracer Professional 300 Date is inspired by the vivid colors of coral reefs found in the depths of the ocean.', 'frontend/assets/images/products/minimal/TOMI T 105 - Tomi Face Gear Black Dial.webp', 13200.00, 9900.00, 20, 'quartz'),
 ('signature-collection', 'TAG Heuer Aquaracer Professional 200 Date', 'Embrace the warm colours of autumn with this 30mm TAG Heuer Aquaracer and its intense ruby-red mother-of-pearl dial.', 'frontend/assets/images/products/minimal/TOMI- Round Minimalist Watch WITH DATE.webp', 15800.00, 11800.00, 16, 'quartz'),
 ('signature-collection', 'TAG Heuer Aquaracer Professional 200 Solargraph', 'Immerse yourself in the celestial allure of the northern lights with this TAG Heuer Aquaracer, equipped with the advanced Solargraph Calibre TH50-01.', 'frontend/assets/images/products/minimal/X - Round Minimalist Watch (Half Cut).webp', 10800.00, 8200.00, 39, 'quartz'),
 ('sports-sales-division', 'TAG Heuer Carrera Chronograph Tourbillon Extreme Sport', 'Embrace the fusion of luxury and performance with the TAG Heuer Carrera Chronograph Tourbillon, a striking embodiment of motorsport passion.', 'frontend/assets/images/products/sports/Aura - Never Stop Minimal Watch with Date -N905.webp', 7000.00, 5500.00, 44, 'quartz'),
 ('sports-sales-division', 'TAG Heuer Carrera Chronograph Extreme Sport', 'Immerse yourself in the essence of motorsport with this striking 44mm TAG Heuer Carrera Chronograph. Dressed entirely in black, it strikes a bold statement of elegance and power.', 'frontend/assets/images/products/sports/Chrona - Never Stop Minimal Watch - N928.webp', 7500.00, 6500.00, 34, 'quartz'),
-('sports-sales-division', 'TAG Heuer Carrera Chronograph Extreme Sport', 'Elevate your wrist game with the TAG Heuer Carrera Chronograph, a testament to the thrill of motorsport. With its bold design and blue accents.', 'frontend/assets/images/products/sports/Dagahra- Never Stop Casual sports Watch with date - N911.webp', 9000.00, 8000.00, 26, 'quartz'),
+('sports-sales-division', 'TAG Heuer Carrera Chronograph Extreme Sport Carbon Blue', 'Elevate your wrist game with the TAG Heuer Carrera Chronograph, a testament to the thrill of motorsport. With its bold design and blue accents.', 'frontend/assets/images/products/sports/Dagahra- Never Stop Casual sports Watch with date - N911.webp', 9000.00, 8000.00, 26, 'quartz'),
 ('sports-sales-division', 'TAG Heuer Carrera Chronograph Extreme Sport Twin-Time', 'The TAG Heuer Carrera Chronograph Extreme Sport Twin-Time redefines performance with a motorsport-inspired design.', 'frontend/assets/images/products/sports/Newmoon - Never Stop Chronograph sports Watch with date - N902.webp', 10000.00, 9000.00, 23, 'quartz'),
-('sports-sales-division', 'TAG Heuer Carrera Chronograph Extreme Sport', 'Audacity meets elegance in this one-of-a-kind TAG Heuer Carrera Chronograph. With its skeleton design and rose gold accents.', 'frontend/assets/images/products/sports/RECDIS - Skmei 3 Time Sports Watch With Stainless Steel.webp', 17800.00, 13400.00, 11, 'quartz'),
+('sports-sales-division', 'TAG Heuer Carrera Chronograph Extreme Sport Skeleton Rose Gold', 'Audacity meets elegance in this one-of-a-kind TAG Heuer Carrera Chronograph. With its skeleton design and rose gold accents.', 'frontend/assets/images/products/sports/RECDIS - Skmei 3 Time Sports Watch With Stainless Steel.webp', 17800.00, 13400.00, 11, 'quartz'),
 ('sports-sales-division', 'TAG Heuer Carrera Chronograph Tourbillon Extreme Sport I F1® 75th Anniversary Limited Edition', 'Created to celebrate 75 years of Formula 1®, the TAG Heuer Carrera Chronograph Tourbillon Extreme Sport I F1® 75th Anniversary Limited Edition is limited to just 75 pieces', 'frontend/assets/images/products/sports/TOKDIS - Dual Time Sports Watch With Stainless Steel.webp', 16200.00, 12200.00, 13, 'quartz'),
 ('sports-sales-division', 'TAG Heuer Carrera Chronograph Tourbillon Extreme Sport TH-Carbonspring', 'Built to withstand intense performance conditions, the TAG Heuer Carrera Chronograph Tourbillon Extreme Sport TH-Carbonspring fuses high-tech materials.', 'frontend/assets/images/products/sports/Yraz - Never Stop Casual sports Watch with date.webp', 19800.00, 15100.00, 9, 'quartz');
+
+-- Optional normalization for existing databases with legacy duplicate names.
+UPDATE `products`
+SET `name` = 'Louis Vuitton Escale Voyage, Automatic, 39mm, Rose Gold'
+WHERE `sectionId` = 'featured-collection'
+  AND `name` = 'Louis Vuitton Escale, Automatic, 39mm, Rose Gold'
+  AND `price` = 13500.00;
+
+UPDATE `products`
+SET `name` = 'Louis Vuitton Escale Horizon, Automatic, 39mm, Platinum'
+WHERE `sectionId` = 'featured-collection'
+  AND `name` = 'Louis Vuitton Escale, Automatic, 39mm, Platinum'
+  AND `price` = 16500.00;
+
+UPDATE `products`
+SET `name` = 'Louis Vuitton Escale Voyage, Automatic, 39mm, Rose Gold'
+WHERE `sectionId` = 'automatic-vault'
+  AND `name` = 'Louis Vuitton Escale, Automatic, 39mm, Rose Gold'
+  AND `price` = 13500.00;
+
+UPDATE `products`
+SET `name` = 'Louis Vuitton Escale Atelier, Automatic, 39mm, Platinum'
+WHERE `sectionId` = 'automatic-vault'
+  AND `name` = 'Louis Vuitton Escale, Automatic, 39mm, Platinum'
+  AND `price` = 16500.00;
+
+UPDATE `products`
+SET `name` = 'TAG Heuer Aquaracer Professional 300 Date Marine Blue'
+WHERE `sectionId` = 'signature-collection'
+  AND `name` = 'TAG Heuer Aquaracer Professional 300 Date'
+  AND `price` = 7500.00;
+
+UPDATE `products`
+SET `name` = 'TAG Heuer Aquaracer Professional 300 Date Coral Diamond'
+WHERE `sectionId` = 'signature-collection'
+  AND `name` = 'TAG Heuer Aquaracer Professional 300 Date'
+  AND `price` = 9000.00;
+
+UPDATE `products`
+SET `name` = 'TAG Heuer Aquaracer Professional 300 Date Pastel Green'
+WHERE `sectionId` = 'signature-collection'
+  AND `name` = 'TAG Heuer Aquaracer Professional 300 Date'
+  AND `price` = 11200.00;
+
+UPDATE `products`
+SET `name` = 'TAG Heuer Aquaracer Professional 300 Date Reef Blue'
+WHERE `sectionId` = 'signature-collection'
+  AND `name` = 'TAG Heuer Aquaracer Professional 300 Date'
+  AND `price` = 13200.00;
+
+UPDATE `products`
+SET `name` = 'TAG Heuer Carrera Chronograph Extreme Sport Carbon Blue'
+WHERE `sectionId` = 'sports-sales-division'
+  AND `name` = 'TAG Heuer Carrera Chronograph Extreme Sport'
+  AND `price` = 9000.00;
+
+UPDATE `products`
+SET `name` = 'TAG Heuer Carrera Chronograph Extreme Sport Skeleton Rose Gold'
+WHERE `sectionId` = 'sports-sales-division'
+  AND `name` = 'TAG Heuer Carrera Chronograph Extreme Sport'
+  AND `price` = 17800.00;
 
 CREATE TABLE `sections` (
   `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -147,7 +208,19 @@ INSERT INTO `site_settings` (`setting_key`, `setting_val`, `label`, `setting_gro
 ('tiktok_url',          '',                                                                 'TikTok URL',                'social'),
 ('footer_text',         '© 2026 Commerza. All rights reserved.',                            'Footer Copyright Text',     'general'),
 ('ticker_enabled',      '1',                                                                'Enable Ticker (0/1)',       'general'),
-('admin_reset_key',     'COMMERZA-RESET-2026',                                                  'Admin Reset Key',           'security');
+('admin_reset_key',     'COMMERZA-RESET-2026',                                               'Admin Reset Key',           'security'),
+('live_viewers_mode',   'real',                                                             'Live Viewers Mode',         'analytics'),
+('live_viewers_fake_min', '120',                                                            'Live Viewers Fake Min',     'analytics'),
+('live_viewers_fake_max', '165',                                                            'Live Viewers Fake Max',     'analytics'),
+('live_viewers_window_seconds', '180',                                                      'Live Viewers Window Seconds', 'analytics'),
+('google_oauth_client_id', '',                                                               'Google OAuth Client ID',    'integrations'),
+('google_oauth_client_secret', '',                                                           'Google OAuth Client Secret','integrations'),
+('google_oauth_redirect_uri', 'http://localhost/commerza/oauth.php?provider=google',       'Google OAuth Redirect URI', 'integrations'),
+('facebook_oauth_client_id', '',                                                             'Facebook OAuth Client ID',  'integrations'),
+('facebook_oauth_client_secret', '',                                                         'Facebook OAuth Client Secret', 'integrations'),
+('facebook_oauth_redirect_uri', 'http://localhost/commerza/oauth.php?provider=facebook',   'Facebook OAuth Redirect URI', 'integrations'),
+('stripe_publishable_key', '',                                                               'Stripe Publishable Key',    'integrations'),
+('stripe_secret_key', '',                                                                    'Stripe Secret Key',         'integrations');
 
 -- ============================================================
 -- 2. TICKER
@@ -251,6 +324,26 @@ CREATE TABLE `cart_items` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ============================================================
+-- 6A. LIVE PRODUCT VIEWERS
+-- Active viewer heartbeat rows for product detail pages
+-- ============================================================
+
+CREATE TABLE `live_product_viewers` (
+  `id`           int          NOT NULL AUTO_INCREMENT,
+  `session_key`  varchar(128) NOT NULL,
+  `user_id`      int          DEFAULT NULL,
+  `product_id`   int          NOT NULL,
+  `ip_address`   varchar(45)  DEFAULT NULL,
+  `first_seen_at` timestamp   NOT NULL DEFAULT current_timestamp(),
+  `last_seen_at`  datetime    NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_live_product_session` (`session_key`, `product_id`),
+  KEY `user_id` (`user_id`),
+  KEY `product_id` (`product_id`),
+  KEY `last_seen_at` (`last_seen_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ============================================================
 -- 7. ORDERS
 -- Matches checkout: name, email, phone, address (textarea), COD
 -- ============================================================
@@ -269,6 +362,8 @@ CREATE TABLE `orders` (
   -- Financials
   `subtotal`           decimal(10,2) NOT NULL,
   `shipping_cost`      decimal(10,2) NOT NULL DEFAULT 0.00,
+  `discount_total`     decimal(10,2) NOT NULL DEFAULT 0.00,
+  `coupon_code`        varchar(50) DEFAULT NULL,
   `grand_total`        decimal(10,2) NOT NULL,
 
   -- Status (values match frontend JS: Pending, Shipped, Delivered, Cancelled)
@@ -303,6 +398,86 @@ CREATE TABLE `order_items` (
   PRIMARY KEY (`id`),
   KEY `order_id`   (`order_id`),
   KEY `product_id` (`product_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ============================================================
+-- 8A. COUPONS
+-- ============================================================
+
+CREATE TABLE `coupons` (
+  `id`              int NOT NULL AUTO_INCREMENT,
+  `code`            varchar(50) NOT NULL,
+  `title`           varchar(120) DEFAULT NULL,
+  `description`     varchar(255) DEFAULT NULL,
+  `discount_type`   enum('percent','fixed') NOT NULL DEFAULT 'fixed',
+  `discount_value`  decimal(10,2) NOT NULL,
+  `min_order`       decimal(10,2) NOT NULL DEFAULT 0.00,
+  `max_discount`    decimal(10,2) DEFAULT NULL,
+  `usage_limit`     int DEFAULT NULL,
+  `per_user_limit`  int DEFAULT NULL,
+  `expires_at`      datetime DEFAULT NULL,
+  `is_active`       tinyint(1) NOT NULL DEFAULT 1,
+  `created_by`      int DEFAULT NULL,
+  `created_at`      timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at`      timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_coupon_code` (`code`),
+  KEY `idx_coupon_active_expiry` (`is_active`,`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ============================================================
+-- 8B. COUPON REDEMPTIONS
+-- ============================================================
+
+CREATE TABLE `coupon_redemptions` (
+  `id`               int NOT NULL AUTO_INCREMENT,
+  `coupon_id`        int NOT NULL,
+  `user_id`          int DEFAULT NULL,
+  `order_id`         int DEFAULT NULL,
+  `discount_amount`  decimal(10,2) NOT NULL DEFAULT 0.00,
+  `used_at`          timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_coupon_order` (`coupon_id`,`order_id`),
+  KEY `idx_coupon_user` (`coupon_id`,`user_id`),
+  KEY `idx_coupon_used_at` (`used_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ============================================================
+-- 8C. PRODUCT REVIEWS
+-- ============================================================
+
+CREATE TABLE `product_reviews` (
+  `id`                   int NOT NULL AUTO_INCREMENT,
+  `user_id`              int NOT NULL,
+  `product_id`           int NOT NULL,
+  `order_id`             int DEFAULT NULL,
+  `rating`               tinyint NOT NULL,
+  `review_text`          varchar(500) NOT NULL,
+  `is_verified_purchase` tinyint(1) NOT NULL DEFAULT 1,
+  `is_visible`           tinyint(1) NOT NULL DEFAULT 1,
+  `admin_note`           varchar(500) DEFAULT NULL,
+  `created_at`           datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at`           datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_review_user_product` (`user_id`,`product_id`),
+  KEY `idx_review_product_visible` (`product_id`,`is_visible`),
+  KEY `idx_review_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ============================================================
+-- 8D. PRODUCT REVIEW IMAGES
+-- ============================================================
+
+CREATE TABLE `product_review_images` (
+  `id`         int NOT NULL AUTO_INCREMENT,
+  `review_id`  int NOT NULL,
+  `image_path` varchar(255) NOT NULL,
+  `image_name` varchar(255) NOT NULL,
+  `image_size` int NOT NULL DEFAULT 0,
+  `sort_order` tinyint NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_review_images_review` (`review_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ============================================================
@@ -648,7 +823,7 @@ INSERT INTO `page_meta` (`page`, `meta_title`, `meta_description`) VALUES
 ('shipping.html',       'Shipping | Commerza',                               'Shipping rates and delivery information.'),
 ('account.html',        'My Account | Commerza',                             'Manage your Commerza profile and orders.'),
 ('products.html',       'All Products | Commerza',                           'Browse the full Commerza watch collection.'),
-('compare.html',        'Compare Watches | Commerza',                        'Compare luxury timepieces side by side.'),
+('compare.php',         'Compare Watches | Commerza',                        'Compare luxury timepieces side by side.'),
 ('login.html',          'Login | Commerza',                                  'Sign in to your Commerza account.'),
 ('signup.html',         'Create Account | Commerza',                         'Join Commerza and start your luxury journey.'),
 ('forgot-password.html','Forgot Password | Commerza',                        'Reset your Commerza account password.');
@@ -760,6 +935,10 @@ ALTER TABLE `order_items`
 -- wishlist
 ALTER TABLE `wishlist`
   ADD CONSTRAINT `fk_wl_user`      FOREIGN KEY (`user_id`)    REFERENCES `users`    (`id`) ON DELETE CASCADE;
+
+-- product_review_images
+ALTER TABLE `product_review_images`
+  ADD CONSTRAINT `fk_pri_review`   FOREIGN KEY (`review_id`)  REFERENCES `product_reviews` (`id`) ON DELETE CASCADE;
 
 -- wishlist_items
 ALTER TABLE `wishlist_items`
