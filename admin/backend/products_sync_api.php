@@ -112,7 +112,13 @@ if (!is_array($body)) {
     $body = [];
 }
 
-$action = strtolower(trim((string)($_REQUEST['action'] ?? ($body['action'] ?? 'get-products'))));
+$method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+$action = 'get-products';
+if ($method === 'GET') {
+    $action = strtolower(trim((string)($_GET['action'] ?? 'get-products')));
+} elseif ($method === 'POST') {
+    $action = strtolower(trim((string)($_POST['action'] ?? ($body['action'] ?? 'get-products'))));
+}
 
 if ($action === 'get-products') {
     try {

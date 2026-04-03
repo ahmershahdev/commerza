@@ -208,7 +208,7 @@ INSERT INTO `site_settings` (`setting_key`, `setting_val`, `label`, `setting_gro
 ('tiktok_url',          '',                                                                 'TikTok URL',                'social'),
 ('footer_text',         '© 2026 Commerza. All rights reserved.',                            'Footer Copyright Text',     'general'),
 ('ticker_enabled',      '1',                                                                'Enable Ticker (0/1)',       'general'),
-('admin_reset_key',     'COMMERZA-RESET-2026',                                               'Admin Reset Key',           'security'),
+('admin_reset_key',     'CHANGE-ME-IMMEDIATELY',                                             'Admin Reset Key',           'security'),
 ('live_viewers_mode',   'real',                                                             'Live Viewers Mode',         'analytics'),
 ('live_viewers_fake_min', '120',                                                            'Live Viewers Fake Min',     'analytics'),
 ('live_viewers_fake_max', '165',                                                            'Live Viewers Fake Max',     'analytics'),
