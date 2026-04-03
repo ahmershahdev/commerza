@@ -141,11 +141,11 @@ CREATE TABLE `sections` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 INSERT INTO `sections` (`sectionId`, `sectionName`, `category`, `subcategory`, `page`) VALUES
-('automatic-vault', 'The Automatic Vault', 'Premium Watches', 'Mechanical & Smart Timepieces', 'shop-category-a.html'),
-('featured-collection', 'Featured Collection', 'Premium Watches & Accessories', 'Luxury Timepieces', 'index.html'),
-('signature-collection', 'The Signature Collection', 'Lifestyle & Utility Watches', 'Minimalist & Sports Timepieces', 'shop-category-b.html'),
-('smart-evolution', 'Smart Evolution Series', 'Premium Watches', 'Mechanical & Smart Timepieces', 'shop-category-a.html'),
-('sports-sales-division', 'The Sports & Sales Division', 'Lifestyle & Utility Watches', 'Minimalist & Sports Timepieces', 'shop-category-b.html');
+('automatic-vault', 'The Automatic Vault', 'Premium Watches', 'Mechanical & Smart Timepieces', 'shop-category-a.php'),
+('featured-collection', 'Featured Collection', 'Premium Watches & Accessories', 'Luxury Timepieces', 'index.php'),
+('signature-collection', 'The Signature Collection', 'Lifestyle & Utility Watches', 'Minimalist & Sports Timepieces', 'shop-category-b.php'),
+('smart-evolution', 'Smart Evolution Series', 'Premium Watches', 'Mechanical & Smart Timepieces', 'shop-category-a.php'),
+('sports-sales-division', 'The Sports & Sales Division', 'Lifestyle & Utility Watches', 'Minimalist & Sports Timepieces', 'shop-category-b.php');
 
 CREATE TABLE `users` (
   `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -208,7 +208,7 @@ INSERT INTO `site_settings` (`setting_key`, `setting_val`, `label`, `setting_gro
 ('tiktok_url',          '',                                                                 'TikTok URL',                'social'),
 ('footer_text',         '© 2026 Commerza. All rights reserved.',                            'Footer Copyright Text',     'general'),
 ('ticker_enabled',      '1',                                                                'Enable Ticker (0/1)',       'general'),
-('admin_reset_key',     'COMMERZA-RESET-2026',                                               'Admin Reset Key',           'security'),
+('admin_reset_key',     'CHANGE-ME-IMMEDIATELY',                                             'Admin Reset Key',           'security'),
 ('live_viewers_mode',   'real',                                                             'Live Viewers Mode',         'analytics'),
 ('live_viewers_fake_min', '120',                                                            'Live Viewers Fake Min',     'analytics'),
 ('live_viewers_fake_max', '165',                                                            'Live Viewers Fake Max',     'analytics'),
@@ -220,7 +220,13 @@ INSERT INTO `site_settings` (`setting_key`, `setting_val`, `label`, `setting_gro
 ('facebook_oauth_client_secret', '',                                                         'Facebook OAuth Client Secret', 'integrations'),
 ('facebook_oauth_redirect_uri', 'http://localhost/commerza/oauth.php?provider=facebook',   'Facebook OAuth Redirect URI', 'integrations'),
 ('stripe_publishable_key', '',                                                               'Stripe Publishable Key',    'integrations'),
-('stripe_secret_key', '',                                                                    'Stripe Secret Key',         'integrations');
+('stripe_secret_key', '',                                                                    'Stripe Secret Key',         'integrations'),
+('captcha_enabled', '0',                                                                     'Enable CAPTCHA (0/1)',      'security'),
+('captcha_provider', 'turnstile',                                                           'CAPTCHA Provider',          'security'),
+('turnstile_site_key', '',                                                                   'Cloudflare Turnstile Site Key', 'security'),
+('turnstile_secret_key', '',                                                                 'Cloudflare Turnstile Secret Key', 'security'),
+('recaptcha_site_key', '',                                                                   'Google reCAPTCHA Site Key', 'security'),
+('recaptcha_secret_key', '',                                                                 'Google reCAPTCHA Secret Key', 'security');
 
 -- ============================================================
 -- 2. TICKER
@@ -252,7 +258,7 @@ INSERT INTO `ticker` (`message`, `link_url`, `link_text`, `sort_order`) VALUES
 CREATE TABLE `slider` (
   `id`             int     NOT NULL AUTO_INCREMENT,
   `title`           varchar(150) DEFAULT NULL,
-  `subtitle`        varchar(255) DEFAULT NULL,
+  `page`             varchar(100) NOT NULL UNIQUE COMMENT 'Filename, e.g. index.php or about.php',
   `description`     text         DEFAULT NULL,
   `image_url`       varchar(255) NOT NULL,
   `alt_text`        varchar(255) DEFAULT NULL COMMENT 'Image alt text for SEO/accessibility',
@@ -270,9 +276,9 @@ CREATE TABLE `slider` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 INSERT INTO `slider` (`title`, `subtitle`, `description`, `image_url`, `alt_text`, `video_url`, `cta_text`, `cta_url`, `cta_text_2`, `cta_url_2`, `overlay_opacity`, `sort_order`) VALUES
-('Chronograph Precision',  'Premium Collection', 'Engineered movements with dual finish cases',   'frontend/assets/images/slider/watch-banner-chronograph.webp', 'luxury chronograph watch banner premium collection', NULL, 'Explore Now',     'shop-category-a.html', NULL, NULL, 0.40, 1),
-('Every Style, One Place', 'Complete Series',    'From minimalist to bold statement pieces',      'frontend/assets/images/slider/watch-banner-collection.webp',  'complete watch collection showcase all styles',      NULL, 'View Collection', 'shop-category-b.html', NULL, NULL, 0.40, 2),
-('Limited Editions',       'Exclusive Launch',   'Hand assembled luxury with skeleton dials',     'frontend/assets/images/slider/watch-banner-premium.webp',     'premium watches exclusive luxury timepieces',        NULL, 'Shop Limited',    'shop-category-b.html', NULL, NULL, 0.45, 3);
+('Chronograph Precision',  'Premium Collection', 'Engineered movements with dual finish cases',   'frontend/assets/images/slider/watch-banner-chronograph.webp', 'luxury chronograph watch banner premium collection', NULL, 'Explore Now',     'shop-category-a.php', NULL, NULL, 0.40, 1),
+('Every Style, One Place', 'Complete Series',    'From minimalist to bold statement pieces',      'frontend/assets/images/slider/watch-banner-collection.webp',  'complete watch collection showcase all styles',      NULL, 'View Collection', 'shop-category-b.php', NULL, NULL, 0.40, 2),
+('Limited Editions',       'Exclusive Launch',   'Hand assembled luxury with skeleton dials',     'frontend/assets/images/slider/watch-banner-premium.webp',     'premium watches exclusive luxury timepieces',        NULL, 'Shop Limited',    'shop-category-b.php', NULL, NULL, 0.45, 3);
 
 -- ============================================================
 -- 4. CONTACT MESSAGES
@@ -331,7 +337,7 @@ CREATE TABLE `cart_items` (
 CREATE TABLE `live_product_viewers` (
   `id`           int          NOT NULL AUTO_INCREMENT,
   `session_key`  varchar(128) NOT NULL,
-  `user_id`      int          DEFAULT NULL,
+  `page`          varchar(100) NOT NULL COMMENT 'Filename, e.g. about.php',
   `product_id`   int          NOT NULL,
   `ip_address`   varchar(45)  DEFAULT NULL,
   `first_seen_at` timestamp   NOT NULL DEFAULT current_timestamp(),
@@ -800,7 +806,7 @@ INSERT INTO `social_links` (`label`, `url`, `icon`, `sort_order`) VALUES
 
 CREATE TABLE `page_meta` (
   `id`              int     NOT NULL AUTO_INCREMENT,
-  `page`             varchar(100) NOT NULL UNIQUE COMMENT 'Filename, e.g. index.html or about.html',
+  `page`             varchar(100) NOT NULL UNIQUE COMMENT 'Filename, e.g. index.php or about.php',
   `meta_title`       varchar(150) DEFAULT NULL,
   `meta_description` varchar(255) DEFAULT NULL,
   `created_at`       timestamp    NOT NULL DEFAULT current_timestamp(),
@@ -809,24 +815,24 @@ CREATE TABLE `page_meta` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 INSERT INTO `page_meta` (`page`, `meta_title`, `meta_description`) VALUES
-('index.html',          'Commerza | Full-Stack Ecommerce',                   'Commerza brings you premium automatic watches - crafted with elegant leather, gold dials, and modern design.'),
-('about.html',          'About Us | Commerza',                               'Learn about Commerza''s story, vision, and team.'),
-('contact.html',        'Contact Us | Commerza',                             'Get in touch with the Commerza team.'),
-('shop-category-a.html','Premium Watches | Commerza',                        'Explore mechanical and smart timepieces.'),
-('shop-category-b.html','Lifestyle Watches | Commerza',                      'Browse minimalist and sports timepieces.'),
-('cart.html',           'Your Cart | Commerza',                              'Review and complete your Commerza order.'),
-('wishlist.html',       'Wishlist | Commerza',                               'Your saved watches on Commerza.'),
-('order-tracking.html', 'Track Your Order | Commerza',                       'Track the status of your Commerza order.'),
-('returns.html',        'Returns & Refunds | Commerza',                      'Hassle-free returns within 30 days.'),
-('warranty.html',       'Warranty | Commerza',                               'Commerza warranty information and claims.'),
-('faq.html',            'FAQ | Commerza',                                    'Frequently asked questions about Commerza.'),
-('shipping.html',       'Shipping | Commerza',                               'Shipping rates and delivery information.'),
-('account.html',        'My Account | Commerza',                             'Manage your Commerza profile and orders.'),
-('products.html',       'All Products | Commerza',                           'Browse the full Commerza watch collection.'),
+('index.php',          'Commerza | Full-Stack Ecommerce',                   'Commerza brings you premium automatic watches - crafted with elegant leather, gold dials, and modern design.'),
+('about.php',          'About Us | Commerza',                               'Learn about Commerza''s story, vision, and team.'),
+('contact.php',        'Contact Us | Commerza',                             'Get in touch with the Commerza team.'),
+('shop-category-a.php','Premium Watches | Commerza',                        'Explore mechanical and smart timepieces.'),
+('shop-category-b.php','Lifestyle Watches | Commerza',                      'Browse minimalist and sports timepieces.'),
+('cart.php',           'Your Cart | Commerza',                              'Review and complete your Commerza order.'),
+('wishlist.php',       'Wishlist | Commerza',                               'Your saved watches on Commerza.'),
+('order-tracking.php', 'Track Your Order | Commerza',                       'Track the status of your Commerza order.'),
+('returns.php',        'Returns & Refunds | Commerza',                      'Hassle-free returns within 30 days.'),
+('warranty.php',       'Warranty | Commerza',                               'Commerza warranty information and claims.'),
+('faq.php',            'FAQ | Commerza',                                    'Frequently asked questions about Commerza.'),
+('shipping.php',       'Shipping | Commerza',                               'Shipping rates and delivery information.'),
+('account.php',        'My Account | Commerza',                             'Manage your Commerza profile and orders.'),
+('products.php',       'All Products | Commerza',                           'Browse the full Commerza watch collection.'),
 ('compare.php',         'Compare Watches | Commerza',                        'Compare luxury timepieces side by side.'),
-('login.html',          'Login | Commerza',                                  'Sign in to your Commerza account.'),
-('signup.html',         'Create Account | Commerza',                         'Join Commerza and start your luxury journey.'),
-('forgot-password.html','Forgot Password | Commerza',                        'Reset your Commerza account password.');
+('login.php',          'Login | Commerza',                                  'Sign in to your Commerza account.'),
+('signup.php',         'Create Account | Commerza',                         'Join Commerza and start your luxury journey.'),
+('forgot-password.php','Forgot Password | Commerza',                        'Reset your Commerza account password.');
 
 -- ============================================================
 -- 22. COMPARE LIST
@@ -886,7 +892,7 @@ CREATE TABLE `admin_sessions` (
 
 CREATE TABLE `page_content` (
   `id`           int     NOT NULL AUTO_INCREMENT,
-  `page`          varchar(100) NOT NULL COMMENT 'Filename, e.g. about.html',
+  `page`          varchar(100) NOT NULL COMMENT 'Filename, e.g. about.php',
   `section_key`   varchar(100) NOT NULL COMMENT 'Content block identifier',
   `content`       text         DEFAULT NULL COMMENT 'HTML or plain-text content',
   `created_at`    timestamp    NOT NULL DEFAULT current_timestamp(),

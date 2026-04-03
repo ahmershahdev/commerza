@@ -46,7 +46,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $flowAction = (string)($_POST['flow_action'] ?? 'start_signup');
 
-    if ($flowAction === 'verify_signup' || $flowAction === 'resend_code') {
+    $captchaContext = '';
+    if ($flowAction === 'start_signup') {
+      $captchaContext = 'user_signup_start';
+    } elseif ($flowAction === 'resend_code') {
+      $captchaContext = 'user_signup_resend';
+    }
+
+    if ($captchaContext !== '') {
+      $captchaCheck = commerza_captcha_verify_submission($con, $_POST, $captchaContext);
+      if (!(bool)$captchaCheck['ok']) {
+        $errors[] = (string)$captchaCheck['message'];
+      }
+    }
+
+    if (empty($errors) && ($flowAction === 'verify_signup' || $flowAction === 'resend_code')) {
       $pending = $_SESSION['signup_pending'] ?? null;
       if (!is_array($pending)) {
         $errors[] = 'Signup session expired. Please start again.';
@@ -86,35 +100,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
               if ($password_hash === '') {
                 $errors[] = 'Signup session invalid. Please start again.';
                 unset($_SESSION['signup_pending']);
-              } else {
-                $dupStmt = $con->prepare("SELECT email, phone FROM users WHERE email = ? OR phone = ? LIMIT 2");
-                if (!$dupStmt) {
-                  $errors[] = 'Something went wrong. Please try again.';
-                } else {
-                  $dupStmt->bind_param("ss", $email, $phone);
-                  $dupStmt->execute();
-                  $dupResult = $dupStmt->get_result();
-                  $emailTaken = false;
-                  $phoneTaken = false;
-
-                  if ($dupResult) {
-                    while ($row = $dupResult->fetch_assoc()) {
-                      if (isset($row['email']) && strcasecmp((string)$row['email'], $email) === 0) {
-                        $emailTaken = true;
-                      }
-
-                      if (isset($row['phone']) && (string)$row['phone'] === $phone) {
-                        $phoneTaken = true;
-                      }
-                    }
-                  }
-                  $dupStmt->close();
-
-                  if ($emailTaken || $phoneTaken) {
-                    $errors[] = 'Email or phone already registered.';
-                    unset($_SESSION['signup_pending']);
-                  }
-                }
               }
 
               if (empty($errors)) {
@@ -136,7 +121,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                   }
 
                   if ((int)$stmt->errno === 1062 || (int)$con->errno === 1062) {
+                    commerza_security_log_event($con, [
+                      'event_type' => 'signup_duplicate_conflict',
+                      'severity' => 'warning',
+                      'actor_type' => 'user',
+                      'actor_identifier' => $email !== '' ? $email : $phone,
+                      'ip_address' => commerza_client_ip(),
+                      'details' => [
+                        'reason' => 'duplicate_email_or_phone_during_verify',
+                      ],
+                    ]);
                     $errors[] = 'Email or phone already exists.';
+                    unset($_SESSION['signup_pending']);
                   } else {
                     $errors[] = 'Something went wrong. Please try again.';
                   }
@@ -148,7 +144,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
           }
         }
       }
-    } else {
+    } elseif (empty($errors)) {
       $full_name = trim((string)($_POST['user_full_name'] ?? ''));
       $email = strtolower(trim((string)($_POST['user_signup_email'] ?? '')));
       $phone = preg_replace('/\s+/', '', trim((string)($_POST['user_signup_phone'] ?? '')));
@@ -176,8 +172,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $errors[] = 'Passwords do not match.';
       }
 
-      if (!preg_match('/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[@$!%*?&]).{6,20}$/', $password)) {
-        $errors[] = 'Password does not meet requirements.';
+      $passwordPolicyError = null;
+      if (!commerza_password_validate($password, $passwordPolicyError)) {
+        $errors[] = $passwordPolicyError !== null ? $passwordPolicyError : commerza_password_policy_description();
       }
 
       $clientIp = commerza_client_ip();
@@ -198,6 +195,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if (!$rate['allowed']) {
         $retrySeconds = max(1, (int)$rate['retry_after']);
         $retryMinutes = (int)ceil($retrySeconds / 60);
+        commerza_security_log_rate_limit_block(
+          $con,
+          'user_signup',
+          'user',
+          $rateIdentifier,
+          $clientIp,
+          $retrySeconds
+        );
         $errors[] = 'Too many signup attempts. Try again in ' . $retryMinutes . ' minute(s) (' . $retrySeconds . ' seconds).';
         }
       }
@@ -245,7 +250,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
           'full_name' => $full_name,
           'email' => $email,
           'phone' => $phone,
-          'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+          'password_hash' => commerza_password_hash($password),
           'code_hash' => hash('sha256', $verificationCode),
           'expires_at' => time() + 600,
           'attempts' => 0,
@@ -281,11 +286,11 @@ if (!empty($_SESSION['oauth_error'])) {
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; connect-src 'self' https://cdn.jsdelivr.net; base-uri 'self'; form-action 'self'" />
+    content="default-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://fonts.googleapis.com https://fonts.gstatic.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdn.jsdelivr.net https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; connect-src 'self' https://cdn.jsdelivr.net https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; frame-src 'self' https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sign Up | Commerza</title>
   <link rel="canonical" href="https://commerza.ahmershah.dev/signup.php" />
-  <script type="application/ld+json">
+  <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebPage",
@@ -729,6 +734,7 @@ if (!empty($_SESSION['oauth_error'])) {
           <form action="signup.php" method="POST" class="mt-2 d-grid gap-2">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
             <input type="hidden" name="flow_action" value="resend_code">
+            <?= commerza_captcha_widget_html($con, 'user_signup_resend') ?>
             <button type="submit" class="btn oauth-btn">Resend Code</button>
             <a href="signup.php?reset_pending=1" class="btn btn-outline-secondary">Start Over</a>
           </form>
@@ -792,6 +798,8 @@ if (!empty($_SESSION['oauth_error'])) {
               <div id="passwordStrength" class="progress-bar" role="progressbar" style="width:0%"></div>
             </div>
 
+            <?= commerza_captcha_widget_html($con, 'user_signup_start') ?>
+
             <div class="d-grid">
               <button type="submit" id="submitBtn" class="btn signup-btn">Create Account</button>
             </div>
@@ -815,7 +823,8 @@ if (!empty($_SESSION['oauth_error'])) {
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="frontend/assets/js/global-protection.js"></script>
-  <script>
+  <?= commerza_captcha_script_tag($con) ?>
+  <script <?= commerza_csp_nonce_attr() ?>>
     $(function () {
       let submitted = false;
       const csrf = $('input[name="csrf_token"]').val();

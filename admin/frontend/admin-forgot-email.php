@@ -18,6 +18,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit('Forbidden.');
   }
 
+  $captchaCheck = commerza_captcha_verify_submission($con, $_POST, 'admin_forgot_email');
+  if (!(bool)$captchaCheck['ok']) {
+    $errors[] = (string)$captchaCheck['message'];
+  }
+
   $clientIp = admin_get_client_ip();
 
   $resetKey = trim((string)($_POST['reset_key'] ?? ''));
@@ -63,6 +68,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     );
 
     if (!$rate['allowed']) {
+      commerza_security_log_rate_limit_block(
+        $con,
+        'admin_forgot_email_change',
+        'admin',
+        (string)($targetAdmin['email'] ?? 'admin'),
+        $clientIp,
+        max(1, (int)$rate['retry_after'])
+      );
       $errors[] = 'Too many attempts. Try again in ' . (int)$rate['retry_after'] . ' seconds.';
     }
   }
@@ -131,7 +144,7 @@ $csrfToken = admin_generate_csrf_token();
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; connect-src 'self' https://cdn.jsdelivr.net; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://fonts.googleapis.com https://fonts.gstatic.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdn.jsdelivr.net https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; connect-src 'self' https://cdn.jsdelivr.net https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; frame-src 'self' https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'">
   <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken) ?>">
   <title>Admin Forgot Email | Commerza</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -351,6 +364,8 @@ $csrfToken = admin_generate_csrf_token();
           placeholder="Re-enter new email" required autocomplete="email" maxlength="150" value="<?= htmlspecialchars($confirmEmailValue) ?>" />
       </div>
 
+      <?= commerza_captcha_widget_html($con, 'admin_forgot_email') ?>
+
       <div class="d-grid">
         <button type="submit" class="btn reset-btn" id="forgotEmailSubmitBtn">Reset Email</button>
       </div>
@@ -366,6 +381,7 @@ $csrfToken = admin_generate_csrf_token();
     </form>
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <?= commerza_captcha_script_tag($con) ?>
     <script src="assets/js/pages/admin-auth-common.js"></script>
     <script src="assets/js/pages/admin-forgot-email.js"></script>
 

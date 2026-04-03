@@ -1,11 +1,7 @@
 (function () {
-  window.CommerzaAdminConfig = {
-    adminEmailDefault: 'commerza.ahmer@gmail.com',
-    adminPasswordDefault: 'Commerza@2026',
-    resetKey: 'COMMERZA-RESET-2026'
-  };
+  window.CommerzaAdminConfig = {};
 
-  const SITE_SETTINGS_KEY = 'commerza_site_settings';
+  const SITE_SETTINGS_KEY = "commerza_site_settings";
 
   function getSiteSettings() {
     const stored = sessionStorage.getItem(SITE_SETTINGS_KEY);
@@ -13,7 +9,7 @@
     try {
       return JSON.parse(stored);
     } catch (error) {
-      console.warn('Invalid site settings found');
+      console.warn("Invalid site settings found");
       return null;
     }
   }
@@ -31,20 +27,25 @@
       'meta[property="og:title"]',
       'meta[property="og:description"]',
       'meta[name="twitter:title"]',
-      'meta[name="twitter:description"]'
+      'meta[name="twitter:description"]',
     ];
 
-    document.querySelectorAll(selectors.join(','))
-      .forEach(meta => {
-        const content = meta.getAttribute('content') || '';
-        if (!content) return;
-        meta.setAttribute('content', replaceBrand(content));
-      });
+    document.querySelectorAll(selectors.join(",")).forEach((meta) => {
+      const content = meta.getAttribute("content") || "";
+      if (!content) return;
+      meta.setAttribute("content", replaceBrand(content));
+    });
   }
 
   function replaceBrandTextNodes(root, brandName) {
     if (!root || !brandName) return;
-    const skipTags = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'INPUT']);
+    const skipTags = new Set([
+      "SCRIPT",
+      "STYLE",
+      "NOSCRIPT",
+      "TEXTAREA",
+      "INPUT",
+    ]);
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
     let node = walker.nextNode();
 
@@ -64,52 +65,58 @@
     const brand = settings?.brand;
     if (!brand) return;
 
-    const name = (brand.name || '').trim();
-    const logo = (brand.logo || '').trim();
-    const favicon = (brand.favicon || '').trim();
+    const name = (brand.name || "").trim();
+    const logo = (brand.logo || "").trim();
+    const favicon = (brand.favicon || "").trim();
 
     const resolveAdminAssetPath = (value) => {
       if (!value) return value;
       if (/^(https?:|data:|blob:)/i.test(value)) return value;
-      if (value.startsWith('/')) return value;
-      if (value.startsWith('frontend/')) return `../../${value}`;
+      if (value.startsWith("/")) return value;
+      if (value.startsWith("frontend/")) return `../../${value}`;
       return value;
     };
 
     if (name) {
       updateMetaForBrand(name);
       replaceBrandTextNodes(document.body, name);
-      document.querySelectorAll('.brand-text').forEach(node => {
+      document.querySelectorAll(".brand-text").forEach((node) => {
         node.textContent = name;
       });
     }
 
     if (logo) {
       const resolvedLogo = resolveAdminAssetPath(logo);
-      document.querySelectorAll('.navbar-logo, .offcanvas-logo').forEach(img => {
-        img.src = resolvedLogo;
-        if (name) {
-          img.alt = `${name} Logo`;
-        }
-      });
+      document
+        .querySelectorAll(".navbar-logo, .offcanvas-logo")
+        .forEach((img) => {
+          img.src = resolvedLogo;
+          if (name) {
+            img.alt = `${name} Logo`;
+          }
+        });
     } else if (name) {
-      document.querySelectorAll('.navbar-logo, .offcanvas-logo').forEach(img => {
-        if (!img.alt || img.alt.toLowerCase().includes('commerza')) {
-          img.alt = `${name} Logo`;
-        }
-      });
+      document
+        .querySelectorAll(".navbar-logo, .offcanvas-logo")
+        .forEach((img) => {
+          if (!img.alt || img.alt.toLowerCase().includes("commerza")) {
+            img.alt = `${name} Logo`;
+          }
+        });
     }
 
     if (favicon) {
       const resolvedFavicon = resolveAdminAssetPath(favicon);
-      const links = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]');
+      const links = document.querySelectorAll(
+        'link[rel="icon"], link[rel="shortcut icon"]',
+      );
       if (links.length) {
-        links.forEach(link => {
+        links.forEach((link) => {
           link.href = resolvedFavicon;
         });
       } else if (document.head) {
-        const link = document.createElement('link');
-        link.rel = 'icon';
+        const link = document.createElement("link");
+        link.rel = "icon";
         link.href = resolvedFavicon;
         document.head.appendChild(link);
       }
@@ -118,8 +125,7 @@
 
   window.applyAdminBranding = applyAdminBranding;
 
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener("DOMContentLoaded", () => {
     applyAdminBranding();
   });
 })();
-

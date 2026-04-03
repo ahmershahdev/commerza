@@ -844,11 +844,34 @@ if (!$stmt) {
 
 $stmt->bind_param('iiiis', $userId, $productId, $orderId, $rating, $reviewText);
 $ok = $stmt->execute();
+$insertErrno = (int)$stmt->errno;
 $reviewId = (int)$stmt->insert_id;
 $stmt->close();
 
 if (!$ok || $reviewId <= 0) {
     $con->rollback();
+
+    if ($insertErrno === 1062) {
+        commerza_security_log_event($con, [
+            'event_type' => 'review_submit_conflict',
+            'severity' => 'warning',
+            'actor_type' => 'user',
+            'actor_identifier' => (string)$userId,
+            'user_id' => $userId,
+            'ip_address' => commerza_client_ip(),
+            'details' => [
+                'product_id' => $productId,
+                'reason' => 'concurrent_duplicate_review',
+            ],
+        ]);
+
+        reviews_api_json([
+            'ok' => false,
+            'message' => 'A review for this product already exists on your account. Please refresh and edit your existing review.',
+            'csrf_token' => $_SESSION['csrf_token'],
+        ], 409);
+    }
+
     reviews_api_json([
         'ok' => false,
         'message' => 'Unable to save your review right now.',

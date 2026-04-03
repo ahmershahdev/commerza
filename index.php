@@ -44,6 +44,10 @@ if ($homeVideoStmt) {
   <meta property="og:url" content="https://commerza.ahmershah.dev/">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Commerza Premium Automatic Watches">
+  <meta name="twitter:description" content="Explore Commerza's collection of premium automatic watches with elegant leather and gold dials.">
+  <meta name="twitter:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
   <title>Commerza | Full-Stack Ecommerce</title>
   <link rel="canonical" href="https://commerza.ahmershah.dev/" />
   <link rel="icon" href="frontend/assets/images/favicon/commerza-watches-icon.ico">
@@ -51,10 +55,12 @@ if ($homeVideoStmt) {
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
     integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <script type="application/ld+json">
+  <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@graph": [
@@ -493,7 +499,7 @@ if ($homeVideoStmt) {
         </div>
       </section>
 
-      <script type="application/ld+json">
+      <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "ItemList",
@@ -945,7 +951,7 @@ if ($homeVideoStmt) {
   <script src="frontend/assets/js/global-protection.js" defer></script>
   <script src="frontend/assets/js/auth.js" defer></script>
   <script src="frontend/assets/js/script.js" defer></script>
-  <script>
+  <script <?= commerza_csp_nonce_attr() ?>>
     window.CommerzaCsrfToken = "<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>";
 
     document.addEventListener("DOMContentLoaded", function () {

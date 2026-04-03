@@ -76,6 +76,65 @@ commerza_bootstrap_env();
 $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
     || ((int)($_SERVER['SERVER_PORT'] ?? 0) === 443);
 
+function commerza_csp_nonce_value(): string
+{
+    static $nonce = '';
+
+    if ($nonce !== '') {
+        return $nonce;
+    }
+
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        $existing = trim((string)($_SESSION['commerza_csp_nonce'] ?? ''));
+        if ($existing !== '') {
+            $nonce = $existing;
+            return $nonce;
+        }
+    }
+
+    try {
+        $nonce = rtrim(strtr(base64_encode(random_bytes(18)), '+/', '-_'), '=');
+    } catch (Throwable $exception) {
+        $nonce = substr(hash('sha256', microtime(true) . '|' . mt_rand()), 0, 24);
+    }
+
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        $_SESSION['commerza_csp_nonce'] = $nonce;
+    }
+
+    return $nonce;
+}
+
+function commerza_csp_nonce_attr(): string
+{
+    $nonce = commerza_csp_nonce_value();
+
+    if ($nonce === '') {
+        return '';
+    }
+
+    return 'nonce="' . htmlspecialchars($nonce, ENT_QUOTES, 'UTF-8') . '"';
+}
+
+function commerza_content_security_policy_header(): string
+{
+    $scriptNonce = "'nonce-" . commerza_csp_nonce_value() . "'";
+
+    return implode('; ', [
+        "default-src 'self'",
+        "base-uri 'self'",
+        "frame-ancestors 'self'",
+        "object-src 'none'",
+        "img-src 'self' data: https:",
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
+        "script-src 'self' 'unsafe-inline' " . $scriptNonce . " https://cdn.jsdelivr.net https://code.jquery.com https://js.stripe.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com",
+        "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net",
+        "connect-src 'self' https://api.stripe.com https://r.stripe.com https://cdn.jsdelivr.net https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com",
+        "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com",
+        "form-action 'self'",
+    ]);
+}
+
 if (session_status() === PHP_SESSION_NONE) {
     $cookieParams = session_get_cookie_params();
     session_set_cookie_params([
@@ -100,7 +159,15 @@ if (!headers_sent()) {
     header('X-Content-Type-Options: nosniff');
     header('Referrer-Policy: strict-origin-when-cross-origin');
     header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
+    header('Content-Security-Policy: ' . commerza_content_security_policy_header());
+    header('Cross-Origin-Opener-Policy: same-origin');
+    header('Cross-Origin-Resource-Policy: same-site');
+    header('X-Permitted-Cross-Domain-Policies: none');
     header('X-XSS-Protection: 0');
+
+    if ($isHttps) {
+        header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+    }
 }
 
 $host = trim((string)(getenv('COMMERZA_DB_HOST') ?: getenv('DB_HOST') ?: 'localhost'));
@@ -124,6 +191,8 @@ mysqli_set_charset($con, "utf8mb4");
 
 require_once __DIR__ . '/expiry_cleanup.php';
 require_once __DIR__ . '/rate_limit.php';
+require_once __DIR__ . '/security_helpers.php';
+require_once __DIR__ . '/security_events.php';
 
 if (function_exists('commerza_should_run_expiry_cleanup') && commerza_should_run_expiry_cleanup()) {
     commerza_run_expiry_cleanup($con);

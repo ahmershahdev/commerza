@@ -35,17 +35,17 @@ if ($field === 'email') {
         echo json_encode(['error' => 'Invalid email']);
         exit;
     }
-    $column = 'email';
+    $sql = 'SELECT 1 FROM users WHERE email = ? LIMIT 1';
 } else {
     if (!preg_match('/^\d{11,15}$/', $value)) {
         http_response_code(400);
         echo json_encode(['error' => 'Invalid phone']);
         exit;
     }
-    $column = 'phone';
+    $sql = 'SELECT 1 FROM users WHERE phone = ? LIMIT 1';
 }
 
-$stmt = $con->prepare("SELECT 1 FROM users WHERE {$column} = ? LIMIT 1");
+$stmt = $con->prepare($sql);
 
 if (!$stmt) {
     http_response_code(500);
