@@ -38,7 +38,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   $action = strtolower(trim((string)($_POST['action'] ?? 'verify')));
 
-  if ($action === 'resend') {
+  $captchaContext = $action === 'resend' ? 'admin_2fa_resend' : 'admin_2fa_verify';
+  $captchaCheck = commerza_captcha_verify_submission($con, $_POST, $captchaContext);
+  if (!(bool)$captchaCheck['ok']) {
+    $errors[] = (string)$captchaCheck['message'];
+  }
+
+  if (empty($errors) && $action === 'resend') {
     $rate = commerza_rate_limit_check(
       $con,
       'admin_2fa_resend',
@@ -83,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
       }
     }
-  } else {
+  } elseif (empty($errors)) {
     $codeValue = trim((string)($_POST['verification_code'] ?? ''));
 
     $rate = commerza_rate_limit_check(
@@ -338,6 +344,8 @@ function admin_mask_email(string $email): string
         >
       </div>
 
+      <?= commerza_captcha_widget_html($con, 'admin_2fa_verify') ?>
+
       <div class="d-grid mb-2">
         <button type="submit" class="btn btn-primary">Verify & Login</button>
       </div>
@@ -346,11 +354,13 @@ function admin_mask_email(string $email): string
     <form action="admin-verify-2fa.php" method="POST" class="d-inline">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
       <input type="hidden" name="action" value="resend">
+      <?= commerza_captcha_widget_html($con, 'admin_2fa_resend') ?>
       <button type="submit" class="btn btn-link p-0">Resend code</button>
     </form>
     <span class="text-secondary px-2">|</span>
     <a href="admin-login.php" class="btn-link">Back to login</a>
   </main>
+  <?= commerza_captcha_script_tag($con) ?>
 </body>
 
 </html>

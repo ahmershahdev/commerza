@@ -277,8 +277,14 @@ function website_api_payload(mysqli $con): array
 
 website_api_ensure_schema($con);
 
-$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-$action = strtolower(trim((string)($_REQUEST['action'] ?? 'get')));
+$method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+$action = 'get';
+
+if ($method === 'GET') {
+    $action = strtolower(trim((string)($_GET['action'] ?? 'get')));
+} elseif ($method === 'POST') {
+    $action = strtolower(trim((string)($_POST['action'] ?? 'get')));
+}
 
 if ($method === 'GET' && $action === 'get') {
     website_api_json([

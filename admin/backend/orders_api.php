@@ -673,9 +673,14 @@ if (!isset($con) || !($con instanceof mysqli)) {
 $admin = admin_require_login_api($con);
 admin_require_permission_api($admin, 'orders.manage');
 
-$method = $_SERVER['REQUEST_METHOD'];
+$method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $requestBody = orders_api_request_body();
-$action = strtolower(trim((string)($requestBody['action'] ?? ($_REQUEST['action'] ?? 'summary'))));
+$action = 'summary';
+if ($method === 'GET') {
+    $action = strtolower(trim((string)($_GET['action'] ?? 'summary')));
+} elseif ($method === 'POST') {
+    $action = strtolower(trim((string)($requestBody['action'] ?? ($_POST['action'] ?? 'summary'))));
+}
 
 if ($action === 'summary') {
     orders_api_json([

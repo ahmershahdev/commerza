@@ -119,7 +119,8 @@ function admin_get_client_ip(): string
 
 function admin_get_reset_key(mysqli $con): string
 {
-    $defaultKey = 'COMMERZA-RESET-2026';
+    $legacyDefaultKey = 'COMMERZA-RESET-2026';
+    $envKey = trim((string)getenv('COMMERZA_ADMIN_RESET_KEY'));
 
     $stmt = $con->prepare(
         'SELECT setting_val
@@ -129,7 +130,7 @@ function admin_get_reset_key(mysqli $con): string
     );
 
     if (!$stmt) {
-        return $defaultKey;
+        return $envKey !== '' ? $envKey : $legacyDefaultKey;
     }
 
     $keyName = 'admin_reset_key';
@@ -139,12 +140,17 @@ function admin_get_reset_key(mysqli $con): string
     $row = $result ? $result->fetch_assoc() : null;
     $stmt->close();
 
-    if (!$row) {
-        return $defaultKey;
+    $value = trim((string)($row['setting_val'] ?? ''));
+
+    if ($envKey !== '' && ($value === '' || hash_equals($legacyDefaultKey, $value))) {
+        return $envKey;
     }
 
-    $value = trim((string)($row['setting_val'] ?? ''));
-    return $value !== '' ? $value : $defaultKey;
+    if ($value !== '') {
+        return $value;
+    }
+
+    return $envKey !== '' ? $envKey : $legacyDefaultKey;
 }
 
 function admin_get_by_email(mysqli $con, string $email): ?array

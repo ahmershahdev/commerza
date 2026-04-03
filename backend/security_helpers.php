@@ -162,6 +162,154 @@ function commerza_captcha_normalize_provider(string $value): string
     return 'turnstile';
 }
 
+function commerza_captcha_context_key(string $context): string
+{
+    $normalized = strtolower(trim($context));
+    if ($normalized === '') {
+        $normalized = 'default';
+    }
+
+    $normalized = preg_replace('/[^a-z0-9_\-]+/', '_', $normalized);
+    if (!is_string($normalized) || $normalized === '') {
+        return 'default';
+    }
+
+    return substr($normalized, 0, 80);
+}
+
+function commerza_captcha_builtin_issue(string $context): array
+{
+    $contextKey = commerza_captcha_context_key($context);
+    $store = $_SESSION['commerza_builtin_captcha'] ?? [];
+    if (!is_array($store)) {
+        $store = [];
+    }
+
+    $challenge = $store[$contextKey] ?? null;
+    $isReusable =
+        is_array($challenge)
+        && isset($challenge['question'], $challenge['nonce'], $challenge['answer_hash'], $challenge['expires_at'])
+        && (int)$challenge['expires_at'] > time() + 30;
+
+    if ($isReusable) {
+        return [
+            'question' => (string)$challenge['question'],
+            'nonce' => (string)$challenge['nonce'],
+        ];
+    }
+
+    try {
+        $left = random_int(2, 12);
+        $right = random_int(1, 9);
+        $operator = random_int(0, 1) === 0 ? '+' : '-';
+        $nonce = bin2hex(random_bytes(8));
+    } catch (Throwable $exception) {
+        $left = mt_rand(2, 12);
+        $right = mt_rand(1, 9);
+        $operator = mt_rand(0, 1) === 0 ? '+' : '-';
+        $nonce = substr(hash('sha256', microtime(true) . '|' . mt_rand()), 0, 16);
+    }
+
+    if ($operator === '-' && $left < $right) {
+        $tmp = $left;
+        $left = $right;
+        $right = $tmp;
+    }
+
+    $answer = $operator === '+' ? ($left + $right) : ($left - $right);
+    $answerHash = hash('sha256', (string)$answer . '|' . $nonce . '|' . $contextKey);
+
+    $store[$contextKey] = [
+        'question' => $left . ' ' . $operator . ' ' . $right,
+        'nonce' => $nonce,
+        'answer_hash' => $answerHash,
+        'expires_at' => time() + 600,
+    ];
+
+    $_SESSION['commerza_builtin_captcha'] = $store;
+
+    return [
+        'question' => $store[$contextKey]['question'],
+        'nonce' => $nonce,
+    ];
+}
+
+function commerza_captcha_builtin_verify(array $request, string $context, string $answerField): array
+{
+    $answerRaw = trim((string)($request[$answerField] ?? ''));
+    $nonce = trim((string)($request['commerza_captcha_token'] ?? ''));
+
+    if ($answerRaw === '' || $nonce === '') {
+        return [
+            'ok' => false,
+            'message' => 'Please complete the CAPTCHA challenge.',
+            'skipped' => false,
+        ];
+    }
+
+    if (preg_match('/^-?\d{1,4}$/', $answerRaw) !== 1) {
+        return [
+            'ok' => false,
+            'message' => 'Invalid CAPTCHA answer format.',
+            'skipped' => false,
+        ];
+    }
+
+    $store = $_SESSION['commerza_builtin_captcha'] ?? [];
+    if (!is_array($store)) {
+        $store = [];
+    }
+
+    $contextKey = commerza_captcha_context_key($context);
+    $challenge = $store[$contextKey] ?? null;
+    if (!is_array($challenge)) {
+        return [
+            'ok' => false,
+            'message' => 'CAPTCHA expired. Please refresh and try again.',
+            'skipped' => false,
+        ];
+    }
+
+    $expiresAt = (int)($challenge['expires_at'] ?? 0);
+    if ($expiresAt <= time()) {
+        unset($store[$contextKey]);
+        $_SESSION['commerza_builtin_captcha'] = $store;
+        return [
+            'ok' => false,
+            'message' => 'CAPTCHA expired. Please refresh and try again.',
+            'skipped' => false,
+        ];
+    }
+
+    $storedNonce = (string)($challenge['nonce'] ?? '');
+    $storedHash = (string)($challenge['answer_hash'] ?? '');
+    if ($storedNonce === '' || $storedHash === '' || !hash_equals($storedNonce, $nonce)) {
+        return [
+            'ok' => false,
+            'message' => 'CAPTCHA validation failed. Please try again.',
+            'skipped' => false,
+        ];
+    }
+
+    $candidateHash = hash('sha256', $answerRaw . '|' . $nonce . '|' . $contextKey);
+    if (!hash_equals($storedHash, $candidateHash)) {
+        return [
+            'ok' => false,
+            'message' => 'CAPTCHA answer is incorrect.',
+            'skipped' => false,
+        ];
+    }
+
+    unset($store[$contextKey]);
+    $_SESSION['commerza_builtin_captcha'] = $store;
+
+    return [
+        'ok' => true,
+        'message' => '',
+        'skipped' => false,
+    ];
+}
+
 function commerza_captcha_config(mysqli $con): array
 {
     static $cache = null;
@@ -177,7 +325,13 @@ function commerza_captcha_config(mysqli $con): array
     );
 
     $enabledRaw = strtolower(trim($enabledRaw));
-    $enabled = !in_array($enabledRaw, ['0', 'false', 'off', 'disabled', 'no'], true);
+    $requiredRaw = strtolower(trim(commerza_env_first_non_empty(['COMMERZA_CAPTCHA_REQUIRED'])));
+    if ($requiredRaw === '') {
+        $requiredRaw = '1';
+    }
+
+    $forceRequired = !in_array($requiredRaw, ['0', 'false', 'off', 'disabled', 'no'], true);
+    $enabled = $forceRequired || !in_array($enabledRaw, ['0', 'false', 'off', 'disabled', 'no'], true);
 
     $providerRaw = commerza_security_setting(
         $con,
@@ -223,7 +377,16 @@ function commerza_captcha_config(mysqli $con): array
         $responseField = 'cf-turnstile-response';
     }
 
-    $isUsable = $enabled && $provider !== '' && $siteKey !== '' && $secretKey !== '';
+    if ($enabled && ($provider === '' || $siteKey === '' || $secretKey === '')) {
+        $provider = 'builtin';
+        $siteKey = '';
+        $secretKey = '';
+        $scriptUrl = '';
+        $verifyUrl = '';
+        $responseField = 'commerza_captcha_answer';
+    }
+
+    $isUsable = $enabled && $provider !== '' && ($provider === 'builtin' || ($siteKey !== '' && $secretKey !== ''));
 
     $cache = [
         'enabled' => $isUsable,
@@ -251,6 +414,10 @@ function commerza_captcha_script_tag(mysqli $con): string
         return '';
     }
 
+    if ((string)($config['provider'] ?? '') === 'builtin') {
+        return '';
+    }
+
     $scriptUrl = htmlspecialchars((string)$config['script_url'], ENT_QUOTES, 'UTF-8');
     $nonceAttr = function_exists('commerza_csp_nonce_attr') ? (' ' . commerza_csp_nonce_attr()) : '';
 
@@ -267,6 +434,19 @@ function commerza_captcha_widget_html(mysqli $con, string $context = ''): string
     $provider = (string)$config['provider'];
     $siteKey = htmlspecialchars((string)$config['site_key'], ENT_QUOTES, 'UTF-8');
     $safeContext = htmlspecialchars($context, ENT_QUOTES, 'UTF-8');
+
+    if ($provider === 'builtin') {
+        $challenge = commerza_captcha_builtin_issue($context);
+        $question = htmlspecialchars((string)($challenge['question'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $nonce = htmlspecialchars((string)($challenge['nonce'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $field = htmlspecialchars((string)($config['response_field'] ?? 'commerza_captcha_answer'), ENT_QUOTES, 'UTF-8');
+
+        return '<div class="captcha-wrapper mt-3">'
+            . '<label class="form-label" for="captcha-' . $safeContext . '">Security Check: Solve ' . $question . '</label>'
+            . '<input type="text" class="form-control" id="captcha-' . $safeContext . '" name="' . $field . '" placeholder="Enter answer" inputmode="numeric" pattern="-?[0-9]{1,4}" maxlength="4" required>'
+            . '<input type="hidden" name="commerza_captcha_token" value="' . $nonce . '">'
+            . '</div>';
+    }
 
     if ($provider === 'recaptcha') {
         $widget = '<div class="g-recaptcha" data-sitekey="' . $siteKey . '"></div>';
@@ -358,6 +538,10 @@ function commerza_captcha_verify_submission(mysqli $con, array $request, string 
             'message' => '',
             'skipped' => true,
         ];
+    }
+
+    if ((string)($config['provider'] ?? '') === 'builtin') {
+        return commerza_captcha_builtin_verify($request, $context, (string)($config['response_field'] ?? 'commerza_captcha_answer'));
     }
 
     $field = (string)($config['response_field'] ?? '');

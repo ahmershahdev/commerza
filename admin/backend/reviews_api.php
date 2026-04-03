@@ -41,8 +41,14 @@ function admin_reviews_request_body(): array
 
 function admin_reviews_action(): string
 {
-    if (isset($_REQUEST['action'])) {
-        return strtolower(trim((string)$_REQUEST['action']));
+    $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+
+    if ($method === 'GET' && isset($_GET['action'])) {
+        return strtolower(trim((string)$_GET['action']));
+    }
+
+    if ($method === 'POST' && isset($_POST['action'])) {
+        return strtolower(trim((string)$_POST['action']));
     }
 
     $body = admin_reviews_request_body();

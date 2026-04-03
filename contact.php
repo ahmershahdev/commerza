@@ -21,6 +21,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit("Forbidden.");
     }
 
+  $captchaCheck = commerza_captcha_verify_submission($con, $_POST, 'contact_form');
+  if (!(bool)$captchaCheck['ok']) {
+    $errors[] = (string)$captchaCheck['message'];
+  }
+
     $contact_name = trim((string)($_POST['contact_name'] ?? ''));
     $contact_email = strtolower(trim((string)($_POST['contact_email'] ?? '')));
     $contact_message = trim((string)($_POST['contact_message'] ?? ''));
@@ -56,6 +61,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       if (!$rate['allowed']) {
         $retrySeconds = max(1, (int)$rate['retry_after']);
         $retryMinutes = (int)ceil($retrySeconds / 60);
+        commerza_security_log_rate_limit_block(
+          $con,
+          'contact_form',
+          'user',
+          $contact_email !== '' ? $contact_email : 'anonymous',
+          $clientIp,
+          $retrySeconds
+        );
         $errors[] = "Too many messages sent. Try again in " . $retryMinutes . " minute(s) (" . $retrySeconds . " seconds).";
       }
     }
@@ -88,6 +101,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $insertStmt->bind_param("ssss", $contact_name, $contact_email, $contact_message, $ip_value);
 
             if ($insertStmt->execute()) {
+              commerza_security_log_event($con, [
+                'event_type' => 'contact_message_submitted',
+                'severity' => 'info',
+                'actor_type' => 'user',
+                'actor_identifier' => $contact_email,
+                'ip_address' => $clientIp,
+              ]);
                 $success = "Message sent successfully. We will get back to you soon.";
                 $contact_name = '';
                 $contact_email = '';
@@ -117,6 +137,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta property="og:url" content="https://commerza.ahmershah.dev/contact.php">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Contact Us | Commerza">
+  <meta name="twitter:description" content="Get in touch with Commerza customer service for premium watch inquiries.">
+  <meta name="twitter:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
   <title>Contact Us | Commerza</title>
   <link rel="canonical" href="https://commerza.ahmershah.dev/contact.php" />
   <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
@@ -393,6 +417,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   placeholder="Write your message" required autocomplete="off" minlength="10" maxlength="3000"><?= htmlspecialchars($contact_message) ?></textarea>
               </div>
 
+              <?= commerza_captcha_widget_html($con, 'contact_form') ?>
+
               <button type="submit" class="btn product-btn-buy px-4" id="contactSubmitBtn">
                 Send Message
               </button>
@@ -463,6 +489,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     crossorigin="anonymous"></script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="frontend/assets/js/global-protection.js" defer></script>
+  <?= commerza_captcha_script_tag($con) ?>
   <script src="frontend/assets/js/script.js" defer></script>
   <script <?= commerza_csp_nonce_attr() ?>>
     $(function () {
