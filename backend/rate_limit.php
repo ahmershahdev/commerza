@@ -116,14 +116,7 @@ function commerza_rate_limit_check(
     $nowTs = time();
     $now = date('Y-m-d H:i:s', $nowTs);
 
-    $selectStmt = $con->prepare(
-        'SELECT id, attempts, window_started_at, blocked_until, strikes, last_blocked_at
-         FROM rate_limits
-         WHERE scope = ? AND identifier = ? AND ip_address = ?
-         LIMIT 1'
-    );
-
-    if (!$selectStmt) {
+    if (!$con->begin_transaction()) {
         return [
             'allowed' => true,
             'retry_after' => 0,
@@ -132,40 +125,87 @@ function commerza_rate_limit_check(
         ];
     }
 
-    $selectStmt->bind_param('sss', $scope, $identifier, $ipAddress);
+    $upsertStmt = $con->prepare(
+        'INSERT INTO rate_limits (
+            scope,
+            identifier,
+            ip_address,
+            attempts,
+            window_started_at,
+            blocked_until,
+            strikes,
+            last_blocked_at
+         ) VALUES (?, ?, ?, 0, ?, NULL, 0, NULL)
+         ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)'
+    );
+
+    if (!$upsertStmt) {
+        $con->rollback();
+        return [
+            'allowed' => true,
+            'retry_after' => 0,
+            'remaining' => $maxAttempts,
+            'limit' => $maxAttempts,
+        ];
+    }
+
+    $upsertStmt->bind_param('ssss', $scope, $identifier, $ipAddress, $now);
+    $upsertOk = $upsertStmt->execute();
+    $recordId = (int)$con->insert_id;
+    $upsertStmt->close();
+
+    if (!$upsertOk || $recordId <= 0) {
+        $con->rollback();
+        return [
+            'allowed' => true,
+            'retry_after' => 0,
+            'remaining' => $maxAttempts,
+            'limit' => $maxAttempts,
+        ];
+    }
+
+    $selectStmt = $con->prepare(
+        'SELECT attempts, window_started_at, blocked_until, strikes, last_blocked_at
+         FROM rate_limits
+         WHERE id = ?
+         LIMIT 1
+         FOR UPDATE'
+    );
+
+    if (!$selectStmt) {
+        $con->rollback();
+        return [
+            'allowed' => true,
+            'retry_after' => 0,
+            'remaining' => $maxAttempts,
+            'limit' => $maxAttempts,
+        ];
+    }
+
+    $selectStmt->bind_param('i', $recordId);
     $selectStmt->execute();
     $result = $selectStmt->get_result();
     $row = $result ? $result->fetch_assoc() : null;
     $selectStmt->close();
 
     if (!$row) {
-        $insertStmt = $con->prepare(
-            'INSERT INTO rate_limits (scope, identifier, ip_address, attempts, window_started_at, blocked_until)
-             VALUES (?, ?, ?, 1, ?, NULL)'
-        );
-
-        if ($insertStmt) {
-            $insertStmt->bind_param('ssss', $scope, $identifier, $ipAddress, $now);
-            $insertStmt->execute();
-            $insertStmt->close();
-        }
-
+        $con->rollback();
         return [
             'allowed' => true,
             'retry_after' => 0,
-            'remaining' => max(0, $maxAttempts - 1),
+            'remaining' => $maxAttempts,
             'limit' => $maxAttempts,
         ];
     }
 
-    $recordId = (int)$row['id'];
-    $attempts = max(0, (int)$row['attempts']);
+    $attempts = max(0, (int)($row['attempts'] ?? 0));
     $strikes = max(0, (int)($row['strikes'] ?? 0));
     $windowStartedAt = strtotime((string)($row['window_started_at'] ?? ''));
     $blockedUntil = strtotime((string)($row['blocked_until'] ?? ''));
     $lastBlockedAt = strtotime((string)($row['last_blocked_at'] ?? ''));
 
     if ($blockedUntil !== false && $blockedUntil > $nowTs) {
+        $con->commit();
         return [
             'allowed' => false,
             'retry_after' => $blockedUntil - $nowTs,
@@ -189,10 +229,28 @@ function commerza_rate_limit_check(
              LIMIT 1'
         );
 
-        if ($updateStmt) {
-            $updateStmt->bind_param('isii', $attempts, $now, $strikes, $recordId);
-            $updateStmt->execute();
-            $updateStmt->close();
+        if (!$updateStmt) {
+            $con->rollback();
+            return [
+                'allowed' => true,
+                'retry_after' => 0,
+                'remaining' => max(0, $maxAttempts - 1),
+                'limit' => $maxAttempts,
+            ];
+        }
+
+        $updateStmt->bind_param('isii', $attempts, $now, $strikes, $recordId);
+        $updateOk = $updateStmt->execute();
+        $updateStmt->close();
+
+        if (!$updateOk || !$con->commit()) {
+            $con->rollback();
+            return [
+                'allowed' => true,
+                'retry_after' => 0,
+                'remaining' => max(0, $maxAttempts - 1),
+                'limit' => $maxAttempts,
+            ];
         }
 
         return [
@@ -225,10 +283,28 @@ function commerza_rate_limit_check(
              LIMIT 1'
         );
 
-        if ($blockStmt) {
-            $blockStmt->bind_param('isisi', $attempts, $blockedUntilText, $nextStrike, $lastBlockedAtText, $recordId);
-            $blockStmt->execute();
-            $blockStmt->close();
+        if (!$blockStmt) {
+            $con->rollback();
+            return [
+                'allowed' => false,
+                'retry_after' => $blockSeconds,
+                'remaining' => 0,
+                'limit' => $maxAttempts,
+            ];
+        }
+
+        $blockStmt->bind_param('isisi', $attempts, $blockedUntilText, $nextStrike, $lastBlockedAtText, $recordId);
+        $blockOk = $blockStmt->execute();
+        $blockStmt->close();
+
+        if (!$blockOk || !$con->commit()) {
+            $con->rollback();
+            return [
+                'allowed' => false,
+                'retry_after' => $blockSeconds,
+                'remaining' => 0,
+                'limit' => $maxAttempts,
+            ];
         }
 
         return [
@@ -247,10 +323,28 @@ function commerza_rate_limit_check(
          LIMIT 1'
     );
 
-    if ($updateStmt) {
-        $updateStmt->bind_param('ii', $attempts, $recordId);
-        $updateStmt->execute();
-        $updateStmt->close();
+    if (!$updateStmt) {
+        $con->rollback();
+        return [
+            'allowed' => true,
+            'retry_after' => 0,
+            'remaining' => max(0, $maxAttempts - $attempts),
+            'limit' => $maxAttempts,
+        ];
+    }
+
+    $updateStmt->bind_param('ii', $attempts, $recordId);
+    $updateOk = $updateStmt->execute();
+    $updateStmt->close();
+
+    if (!$updateOk || !$con->commit()) {
+        $con->rollback();
+        return [
+            'allowed' => true,
+            'retry_after' => 0,
+            'remaining' => max(0, $maxAttempts - $attempts),
+            'limit' => $maxAttempts,
+        ];
     }
 
     return [

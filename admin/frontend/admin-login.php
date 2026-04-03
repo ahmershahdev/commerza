@@ -13,12 +13,22 @@ if (!empty($_SESSION['admin_user_id']) && $_SERVER['REQUEST_METHOD'] !== 'POST')
   exit;
 }
 
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && admin_get_two_factor_pending_session()) {
+  header('Location: admin-verify-2fa.php');
+  exit;
+}
+
 $errors = [];
 $emailValue = '';
 $nextTarget = admin_safe_redirect_target(
   (string)($_GET['next'] ?? ($_POST['next'] ?? '')),
   'admin-panel.php'
 );
+
+if (!empty($_SESSION['admin_login_error'])) {
+  $errors[] = (string)$_SESSION['admin_login_error'];
+  unset($_SESSION['admin_login_error']);
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if (!admin_validate_csrf_token($_POST['csrf_token'] ?? null)) {
@@ -37,6 +47,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errors[] = 'Invalid email or password.';
   }
 
+  $captchaCheck = commerza_captcha_verify_submission($con, $_POST, 'admin_login');
+  if (!(bool)$captchaCheck['ok']) {
+    $errors[] = (string)$captchaCheck['message'];
+  }
+
   $clientIp = admin_get_client_ip();
 
   if (empty($errors)) {
@@ -51,6 +66,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     );
 
     if (!$rate['allowed']) {
+      commerza_security_log_rate_limit_block(
+        $con,
+        'admin_login',
+        'admin',
+        $emailValue !== '' ? $emailValue : 'admin',
+        $clientIp,
+        max(1, (int)$rate['retry_after'])
+      );
       $errors[] = 'Too many login attempts. Try again in ' . (int)$rate['retry_after'] . ' seconds.';
     }
   }
@@ -58,20 +81,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if (empty($errors)) {
     $admin = admin_get_by_email($con, $emailValue);
 
-    if ($admin && (int)($admin['is_active'] ?? 0) === 1 && password_verify($password, (string)$admin['password_hash'])) {
-      admin_login_user($con, $admin);
-      commerza_rate_limit_reset($con, 'admin_login', $emailValue, $clientIp);
-      commerza_notify_admin_login(
-        $con,
-        (string)($admin['email'] ?? ''),
-        (string)($admin['full_name'] ?? ''),
-        $clientIp
-      );
-      header('Location: ' . $nextTarget);
-      exit;
-    }
+    if ($admin && (int)($admin['is_active'] ?? 0) === 1 && commerza_password_verify($password, (string)$admin['password_hash'])) {
+      if (commerza_password_needs_rehash((string)$admin['password_hash'])) {
+        $rehash = commerza_password_hash($password);
+        if ($rehash !== '') {
+          $rehashStmt = $con->prepare('UPDATE admin_users SET password_hash = ? WHERE id = ? LIMIT 1');
+          if ($rehashStmt) {
+            $adminId = (int)$admin['id'];
+            $rehashStmt->bind_param('si', $rehash, $adminId);
+            $rehashStmt->execute();
+            $rehashStmt->close();
+          }
+        }
+      }
 
-    $errors[] = 'Invalid email or password.';
+      $issueError = null;
+      if (admin_issue_two_factor_challenge($con, $admin, $nextTarget, $issueError)) {
+        commerza_rate_limit_reset($con, 'admin_login', $emailValue, $clientIp);
+        commerza_security_log_event($con, [
+          'event_type' => 'admin_2fa_challenge_sent',
+          'severity' => 'info',
+          'actor_type' => 'admin',
+          'actor_identifier' => (string)($admin['email'] ?? $emailValue),
+          'admin_id' => (int)$admin['id'],
+          'ip_address' => $clientIp,
+        ]);
+        header('Location: admin-verify-2fa.php');
+        exit;
+      }
+
+      commerza_security_log_event($con, [
+        'event_type' => 'admin_2fa_challenge_failed',
+        'severity' => 'warning',
+        'actor_type' => 'admin',
+        'actor_identifier' => (string)($admin['email'] ?? $emailValue),
+        'admin_id' => (int)$admin['id'],
+        'ip_address' => $clientIp,
+        'details' => [
+          'reason' => $issueError ?? 'challenge_issue',
+        ],
+      ]);
+
+      $errors[] = $issueError ?: 'Unable to send verification code. Please try again.';
+    } else {
+      commerza_security_log_auth_attempt(
+        $con,
+        'admin',
+        $emailValue !== '' ? $emailValue : 'admin',
+        $clientIp,
+        false,
+        'invalid_credentials',
+        0,
+        0
+      );
+      $errors[] = 'Invalid email or password.';
+    }
   }
 }
 
@@ -88,7 +152,7 @@ $csrfToken = admin_generate_csrf_token();
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; connect-src 'self' https://cdn.jsdelivr.net; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://fonts.googleapis.com https://fonts.gstatic.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdn.jsdelivr.net https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; connect-src 'self' https://cdn.jsdelivr.net https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; frame-src 'self' https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'">
   <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken) ?>">
   <title>Admin Login | Commerza</title>
   <link rel="icon" href="assets/images/favicon/commerza-watches-icon.ico" />
@@ -365,6 +429,8 @@ $csrfToken = admin_generate_csrf_token();
         </div>
       </div>
 
+      <?= commerza_captcha_widget_html($con, 'admin_login') ?>
+
       <div class="d-grid">
         <button type="submit" class="btn login-btn" id="adminLoginSubmitBtn">Login</button>
       </div>
@@ -381,6 +447,7 @@ $csrfToken = admin_generate_csrf_token();
   </main>
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <?= commerza_captcha_script_tag($con) ?>
     <script src="assets/js/pages/admin-auth-common.js"></script>
     <script src="assets/js/pages/admin-login.js"></script>
 

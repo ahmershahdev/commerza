@@ -1,5 +1,28 @@
 let commerzaProductsPayloadPromise = null;
 
+function productsEscapeHtml(value) {
+  return (value || "")
+    .toString()
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function productsSanitizeAssetUrl(value) {
+  const raw = (value || "").toString().trim();
+  if (!raw) {
+    return "";
+  }
+
+  if (!/^(https?:\/\/|\/|frontend\/assets\/)/i.test(raw)) {
+    return "";
+  }
+
+  return raw.replace(/[\u0000-\u001F\u007F]/g, "");
+}
+
 function fetchProductsPayload() {
   if (commerzaProductsPayloadPromise) {
     return commerzaProductsPayloadPromise;
@@ -95,6 +118,22 @@ function createProductCard(product) {
   const effectiveSalePrice =
     Number(product.salePrice) > 0 ? product.salePrice : product.price;
   const salePrice = formatProductPrice(effectiveSalePrice);
+  const numericProductId = Number.parseInt(product.id, 10);
+  const safeProductId = Number.isInteger(numericProductId)
+    ? String(numericProductId)
+    : "";
+  const safeName = productsEscapeHtml(product.name || "");
+  const safeNameLower = productsEscapeHtml(
+    (product.name || "").toLowerCase().trim(),
+  );
+  const safeDescription = productsEscapeHtml(product.description || "");
+  const safeImage = productsEscapeHtml(productsSanitizeAssetUrl(product.image));
+  const safePriceValue = Number.isFinite(Number(product.price))
+    ? String(Number(product.price))
+    : "0";
+  const safeSalePriceValue = Number.isFinite(Number(product.salePrice))
+    ? String(Number(product.salePrice))
+    : safePriceValue;
   const movementType =
     product.movement === "auto"
       ? "auto"
@@ -106,31 +145,31 @@ function createProductCard(product) {
       ? '<span class="sale-badge">PREMIUM SALE</span>'
       : "";
   const detailQuery =
-    product.id != null
-      ? `id=${product.id}`
+    safeProductId !== ""
+      ? `id=${safeProductId}`
       : `name=${encodeURIComponent(product.name)}`;
-  const detailUrl = `products.php?${detailQuery}`;
+  const detailUrl = productsEscapeHtml(`products.php?${detailQuery}`);
   const wishlistActive = isInWishlist(product.id, product.name);
   const wishlistIcon = wishlistActive ? "bi-heart-fill" : "bi-heart";
 
   return `
         <div class="col-12 col-sm-6 col-md-6 col-lg-3 mb-4 d-flex">
-            <div class="card product-card" data-price="${product.salePrice}" data-movement="${movementType}" data-product-id="${product.id ?? ""}" data-product-name="${(product.name || "").toLowerCase().trim()}">
+        <div class="card product-card" data-price="${safeSalePriceValue}" data-movement="${movementType}" data-product-id="${safeProductId}" data-product-name="${safeNameLower}">
                 <div style="position: relative;">
-                    <button class="wishlist-btn ${wishlistActive ? "active" : ""}" data-product-id="${product.id ?? ""}" data-product-name="${product.name}" data-product-image="${product.image}" data-product-price="${product.price}" data-product-sale-price="${product.salePrice}" type="button" aria-label="Toggle wishlist">
+            <button class="wishlist-btn ${wishlistActive ? "active" : ""}" data-product-id="${safeProductId}" data-product-name="${safeName}" data-product-image="${safeImage}" data-product-price="${safePriceValue}" data-product-sale-price="${safeSalePriceValue}" type="button" aria-label="Toggle wishlist">
                         <i class="bi ${wishlistIcon}"></i>
                     </button>
                     <a href="${detailUrl}" style="text-decoration: none; color: inherit;">
-                        <img src="${product.image}"
-                            class="card-img-top p-image" loading="lazy" alt="${product.name}">
+              <img src="${safeImage}"
+                class="card-img-top p-image" loading="lazy" alt="${safeName}">
                     </a>
                     ${saleBadge}
                 </div>
                 <div class="card-body">
                     <h3 class="card-title product-name">
-                        <a href="${detailUrl}" style="text-decoration: none; color: inherit;">${product.name}</a>
+              <a href="${detailUrl}" style="text-decoration: none; color: inherit;">${safeName}</a>
                     </h3>
-                    <p class="card-text product-desc">${product.description}</p>
+            <p class="card-text product-desc">${safeDescription}</p>
                     <div class="mb-3">
                         <span class="original-price"
                             style="text-decoration: line-through; color: #b0b0b0;">${originalPrice} PKR</span>
@@ -138,8 +177,8 @@ function createProductCard(product) {
                             style="color: #ff6600; font-weight: bold; margin-left: 5px;">${salePrice} PKR</span>
                     </div>
                     <div class="d-flex gap-2">
-                        <a href="#" class="btn product-btn-buy product-btn-cart flex-fill text-center justify-content-center align-items-center" data-product-id="${product.id ?? ""}" data-product-name="${product.name}" data-product-image="${product.image}" data-product-price="${product.price}" data-product-sale-price="${product.salePrice}">Buy Now</a>
-                        <a href="#" class="btn product-btn-cart flex-fill text-center justify-content-center align-items-center" data-product-id="${product.id ?? ""}" data-product-name="${product.name}" data-product-image="${product.image}" data-product-price="${product.price}" data-product-sale-price="${product.salePrice}">Add to Cart</a>
+              <a href="#" class="btn product-btn-buy product-btn-cart flex-fill text-center justify-content-center align-items-center" data-product-id="${safeProductId}" data-product-name="${safeName}" data-product-image="${safeImage}" data-product-price="${safePriceValue}" data-product-sale-price="${safeSalePriceValue}">Buy Now</a>
+              <a href="#" class="btn product-btn-cart flex-fill text-center justify-content-center align-items-center" data-product-id="${safeProductId}" data-product-name="${safeName}" data-product-image="${safeImage}" data-product-price="${safePriceValue}" data-product-sale-price="${safeSalePriceValue}">Add to Cart</a>
                     </div>
                 </div>
             </div>

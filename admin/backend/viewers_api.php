@@ -15,7 +15,8 @@ if (!($con instanceof mysqli)) {
     exit;
 }
 
-admin_require_login_api($con);
+$admin = admin_require_login_api($con);
+admin_require_permission_api($admin, 'viewers.manage');
 
 function admin_viewers_json(array $payload, int $status = 200): void
 {
@@ -251,7 +252,13 @@ if (!is_array($body)) {
     $body = [];
 }
 
-$action = strtolower(trim((string)($_REQUEST['action'] ?? ($body['action'] ?? 'get'))));
+$method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+$action = 'get';
+if ($method === 'GET') {
+    $action = strtolower(trim((string)($_GET['action'] ?? 'get')));
+} elseif ($method === 'POST') {
+    $action = strtolower(trim((string)($_POST['action'] ?? ($body['action'] ?? 'get'))));
+}
 
 if ($action === 'get') {
     $config = admin_viewers_config($con);
@@ -275,7 +282,7 @@ if ($action !== 'save') {
     ], 400);
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+if ($method !== 'POST') {
     admin_viewers_json([
         'ok' => false,
         'message' => 'Method not allowed.',

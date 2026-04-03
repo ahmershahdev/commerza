@@ -162,7 +162,7 @@ $wishlist_count = count($items);
   <meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
   <title>Wishlist | Commerza</title>
   <link rel="canonical" href="https://commerza.ahmershah.dev/wishlist.php" />
-  <script type="application/ld+json">
+  <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebPage",
@@ -484,7 +484,7 @@ $wishlist_count = count($items);
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>
-  <script>
+  <script <?= commerza_csp_nonce_attr() ?>>
     $(function () {
       $("#serverAlert, #successAlert").each(function () {
         const element = $(this);

@@ -47,6 +47,7 @@ It includes a customer storefront, account/auth flows, payment integrations, ema
 ## Admin Panel
 
 - URL: `http://localhost/commerza/admin/frontend/admin-login.php`
+- Admin login now uses password + email verification code (2FA).
 - Core APIs:
   - `admin/backend/products_sync_api.php`
   - `admin/backend/orders_api.php`
@@ -77,6 +78,13 @@ Use Windows Task Scheduler (or cron on Linux) with your PHP binary.
 - Use HTTPS in production so secure cookies (session + remember-me) are always enforced.
 - Rotate admin reset key and default admin credentials after first deployment.
 
+## Backup/Restore Validation
+
+- Use `backend/backup_restore_test.ps1` to validate database and media backup/restore integrity.
+- Quick run example:
+  - `powershell -ExecutionPolicy Bypass -File backend/backup_restore_test.ps1 -MySqlBinPath "C:\xampp\mysql\bin"`
+- Full instructions are in `backend/BACKUP_RESTORE_TESTS.md`.
+
 ## Integration Keys (Stored in `site_settings`)
 
 - `google_oauth_client_id`
@@ -87,6 +95,22 @@ Use Windows Task Scheduler (or cron on Linux) with your PHP binary.
 - `facebook_oauth_redirect_uri`
 - `stripe_publishable_key`
 - `stripe_secret_key`
+- `captcha_enabled`
+- `captcha_provider`
+- `turnstile_site_key`
+- `turnstile_secret_key`
+- `recaptcha_site_key`
+- `recaptcha_secret_key`
+
+Environment fallback is also supported via:
+
+- `COMMERZA_CAPTCHA_ENABLED`
+- `COMMERZA_CAPTCHA_PROVIDER`
+- `COMMERZA_TURNSTILE_SITE_KEY`
+- `COMMERZA_TURNSTILE_SECRET_KEY`
+- `COMMERZA_RECAPTCHA_SITE_KEY`
+- `COMMERZA_RECAPTCHA_SECRET_KEY`
+- `COMMERZA_CAPTCHA_BYPASS_LOCAL` (set to `1` only for local development)
 
 Detailed provider onboarding instructions are in `instructions.md`.
 

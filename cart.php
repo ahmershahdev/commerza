@@ -35,6 +35,9 @@ if ($is_logged_in) {
 }
 
 $stripe_publishable_key = commerza_get_stripe_publishable_key($con);
+$checkoutCaptchaConfig = commerza_captcha_config($con);
+$checkoutCaptchaEnabled = (bool)($checkoutCaptchaConfig['enabled'] ?? false);
+$checkoutCaptchaField = (string)($checkoutCaptchaConfig['response_field'] ?? '');
 commerza_ensure_coupon_schema($con);
 
 function generate_order_number(mysqli $con): string
@@ -72,6 +75,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
 
     if (!$is_logged_in) {
         $errors[] = 'Please login before placing an order.';
+    }
+
+    $captchaCheck = commerza_captcha_verify_submission($con, $_POST, 'checkout_place_order');
+    if (!(bool)$captchaCheck['ok']) {
+      $errors[] = (string)$captchaCheck['message'];
     }
 
     $customer_name = trim((string)($_POST['customer_name'] ?? ''));
@@ -401,7 +409,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
             );
 
             if (!$couponApplied) {
-              throw new RuntimeException('Unable to apply coupon to this order.');
+              commerza_security_log_event($con, [
+                'event_type' => 'coupon_redemption_failed_checkout',
+                'severity' => 'warning',
+                'actor_type' => 'user',
+                'actor_identifier' => (string)$customer_email,
+                'user_id' => $user_id,
+                'ip_address' => commerza_client_ip(),
+                'details' => [
+                  'coupon_id' => $coupon_id,
+                  'order_id' => $order_id,
+                  'reason' => 'coupon_limit_or_state_changed',
+                ],
+              ]);
+              throw new RuntimeException('COUPON_ERROR: Coupon is no longer available. Please remove it and try again.');
             }
           }
 
@@ -443,8 +464,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
         } catch (Throwable $e) {
           $con->rollback();
           $errorMessage = (string)$e->getMessage();
-          if (str_starts_with($errorMessage, 'STOCK_ERROR:')) {
+          $dbErrorCode = (int)$con->errno;
+
+          if ($dbErrorCode === 1213 || $dbErrorCode === 1205) {
+            commerza_security_log_event($con, [
+              'event_type' => 'checkout_transaction_contention',
+              'severity' => 'warning',
+              'actor_type' => 'user',
+              'actor_identifier' => (string)($customer_email ?? ''),
+              'user_id' => isset($user_id) ? (int)$user_id : 0,
+              'ip_address' => commerza_client_ip(),
+              'details' => [
+                'db_error_code' => $dbErrorCode,
+              ],
+            ]);
+            $errors[] = 'Checkout is temporarily busy due to high concurrent activity. Please try placing your order again.';
+          } elseif (str_starts_with($errorMessage, 'STOCK_ERROR:')) {
             $errors[] = trim(substr($errorMessage, strlen('STOCK_ERROR:')));
+          } elseif (str_starts_with($errorMessage, 'COUPON_ERROR:')) {
+            $errors[] = trim(substr($errorMessage, strlen('COUPON_ERROR:')));
           } else {
             $errors[] = 'Something went wrong while placing the order. Please try again.';
           }
@@ -469,7 +507,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
   <meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
   <title>Cart | Commerza</title>
   <link rel="canonical" href="https://commerza.ahmershah.dev/cart.php" />
-  <script type="application/ld+json">
+  <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebPage",
@@ -857,6 +895,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
                 required
                 placeholder="Enter your email address" value="<?= htmlspecialchars((string)$current_user['email']) ?>">
             </div>
+
+            <?= commerza_captcha_widget_html($con, 'checkout_place_order') ?>
+            <div id="checkoutCaptchaError" class="small text-danger mt-2" aria-live="polite"></div>
           </form>
         </div>
         <div class="modal-footer">
@@ -928,15 +969,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://js.stripe.com/v3/"></script>
   <script src="frontend/assets/js/global-protection.js"></script>
-  <script>
+  <?= commerza_captcha_script_tag($con) ?>
+  <script <?= commerza_csp_nonce_attr() ?>>
     window.CommerzaUseServerCheckout = true;
   </script>
   <script src="frontend/assets/js/script.js"></script>
-  <script>
+  <script <?= commerza_csp_nonce_attr() ?>>
     $(function () {
       const isLoggedIn = <?= $is_logged_in ? 'true' : 'false' ?>;
       const csrfToken = <?= json_encode((string)$_SESSION['csrf_token']) ?>;
       const stripePublishableKey = <?= json_encode($stripe_publishable_key) ?>;
+      const captchaEnabled = <?= $checkoutCaptchaEnabled ? 'true' : 'false' ?>;
+      const captchaFieldName = <?= json_encode($checkoutCaptchaField) ?>;
       const prefillData = {
         name: <?= json_encode((string)$current_user['full_name']) ?>,
         email: <?= json_encode((string)$current_user['email']) ?>,
@@ -1033,6 +1077,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
         alertBox.stop(true, true).fadeIn(220).delay(2200).fadeOut(280);
       }
 
+      function readCaptchaToken() {
+        if (!captchaEnabled || !captchaFieldName) {
+          return 'ok';
+        }
+
+        const field = document.querySelector(`#checkoutForm [name="${captchaFieldName}"]`);
+        if (!field) {
+          return '';
+        }
+
+        return (field.value || '').toString().trim();
+      }
+
+      function setCheckoutCaptchaError(message) {
+        $('#checkoutCaptchaError').text((message || '').toString());
+      }
+
       $('#checkoutModal').on('show.bs.modal', function (event) {
         const totalItems = parseInt($('#total-items-qty').text(), 10) || 0;
 
@@ -1071,9 +1132,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
           return;
         }
 
+        setCheckoutCaptchaError('');
+
         const totalItems = parseInt($('#total-items-qty').text(), 10) || 0;
         const method = $('#paymentMethod').val();
         const submitBtn = $('#completeCheckoutBtn');
+
+        if (captchaEnabled && readCaptchaToken() === '') {
+          event.preventDefault();
+          setCheckoutCaptchaError('Please complete the CAPTCHA challenge before checkout.');
+          return;
+        }
 
         if (totalItems <= 0) {
           showCheckoutEmptyAlert();

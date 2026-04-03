@@ -16,7 +16,8 @@ if (!($con instanceof mysqli)) {
     exit;
 }
 
-admin_require_login_api($con);
+$admin = admin_require_login_api($con);
+admin_require_permission_api($admin, 'website.manage');
 
 function website_api_json(array $payload, int $status = 200): void
 {
@@ -276,8 +277,14 @@ function website_api_payload(mysqli $con): array
 
 website_api_ensure_schema($con);
 
-$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-$action = strtolower(trim((string)($_REQUEST['action'] ?? 'get')));
+$method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+$action = 'get';
+
+if ($method === 'GET') {
+    $action = strtolower(trim((string)($_GET['action'] ?? 'get')));
+} elseif ($method === 'POST') {
+    $action = strtolower(trim((string)($_POST['action'] ?? 'get')));
+}
 
 if ($method === 'GET' && $action === 'get') {
     website_api_json([

@@ -78,6 +78,33 @@ function account_ensure_refund_table(mysqli $con): void
   $initialized = true;
 }
 
+function account_ensure_orders_logistics_columns(mysqli $con): void
+{
+  static $initialized = false;
+
+  if ($initialized) {
+    return;
+  }
+
+  $requiredColumns = [
+    'notes' => 'TEXT DEFAULT NULL',
+    'delivery_estimate' => 'DATETIME DEFAULT NULL',
+    'admin_note' => 'VARCHAR(500) DEFAULT NULL',
+  ];
+
+  foreach ($requiredColumns as $column => $definition) {
+    $escapedColumn = $con->real_escape_string($column);
+    $columnResult = $con->query("SHOW COLUMNS FROM orders LIKE '{$escapedColumn}'");
+    $exists = $columnResult instanceof mysqli_result && $columnResult->num_rows > 0;
+
+    if (!$exists) {
+      $con->query("ALTER TABLE orders ADD COLUMN {$column} {$definition}");
+    }
+  }
+
+  $initialized = true;
+}
+
 function account_refund_upload_relative_path(string $path): bool
 {
   return strpos($path, 'frontend/assets/uploads/refunds/') === 0;
@@ -193,6 +220,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $action = (string)($_POST['action'] ?? '');
 
+    $captchaContexts = [
+      'update_profile' => 'user_account_profile',
+      'update_password' => 'user_account_password',
+    ];
+
+    if (isset($captchaContexts[$action])) {
+      $captchaCheck = commerza_captcha_verify_submission($con, $_POST, (string)$captchaContexts[$action]);
+      if (!(bool)$captchaCheck['ok']) {
+        $errors[] = (string)$captchaCheck['message'];
+      }
+    }
+
     if ($action === 'logout') {
       commerza_forget_current_remember_token($con);
         session_unset();
@@ -293,22 +332,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = "New passwords do not match.";
         }
 
-        if (!preg_match('/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[@$!%*?&]).{6,20}$/', $new_password)) {
-            $errors[] = "Password must be 6-20 chars with uppercase, lowercase, number, and special char.";
+        $passwordPolicyError = null;
+        if (!commerza_password_validate($new_password, $passwordPolicyError)) {
+          $errors[] = $passwordPolicyError !== null ? $passwordPolicyError : commerza_password_policy_description();
         }
 
         $freshUser = fetchUser($con, $user_id);
 
         if (!$freshUser) {
             $errors[] = "User not found.";
-        } elseif (!password_verify($current_password, (string)$freshUser['password_hash'])) {
+        } elseif (!commerza_password_verify($current_password, (string)$freshUser['password_hash'])) {
             $errors[] = "Current password is incorrect.";
-        } elseif (password_verify($new_password, (string)$freshUser['password_hash'])) {
+        } elseif (commerza_password_verify($new_password, (string)$freshUser['password_hash'])) {
             $errors[] = "New password must be different from current password.";
         }
 
         if (empty($errors)) {
-            $new_hash = password_hash($new_password, PASSWORD_DEFAULT);
+          $new_hash = commerza_password_hash($new_password);
             $stmt = $con->prepare("UPDATE users SET password_hash = ? WHERE id = ? LIMIT 1");
 
             if (!$stmt) {
@@ -612,7 +652,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $orders = [];
-$orderStmt = $con->prepare("SELECT o.id, o.order_number, o.grand_total, o.status, o.created_at, o.updated_at, COALESCE(GROUP_CONCAT(CONCAT(oi.product_name, ' x', oi.quantity) SEPARATOR '||'), '') AS order_items FROM orders o LEFT JOIN order_items oi ON oi.order_id = o.id WHERE o.user_id = ? GROUP BY o.id, o.order_number, o.grand_total, o.status, o.created_at, o.updated_at ORDER BY o.created_at DESC");
+account_ensure_orders_logistics_columns($con);
+$orderStmt = $con->prepare("SELECT o.id, o.order_number, o.grand_total, o.status, o.created_at, o.updated_at, o.notes, o.delivery_estimate, o.admin_note, COALESCE(GROUP_CONCAT(CONCAT(oi.product_name, ' x', oi.quantity) SEPARATOR '||'), '') AS order_items FROM orders o LEFT JOIN order_items oi ON oi.order_id = o.id WHERE o.user_id = ? GROUP BY o.id, o.order_number, o.grand_total, o.status, o.created_at, o.updated_at, o.notes, o.delivery_estimate, o.admin_note ORDER BY o.created_at DESC");
 
 if ($orderStmt) {
     $orderStmt->bind_param("i", $user_id);
@@ -684,7 +725,7 @@ $profile_picture = !empty($user['profile_picture']) ? (string)$user['profile_pic
   <meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
   <title>My Account | Commerza</title>
   <link rel="canonical" href="https://commerza.ahmershah.dev/account.php" />
-  <script type="application/ld+json">
+  <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebPage",
@@ -943,6 +984,8 @@ $profile_picture = !empty($user['profile_picture']) ? (string)$user['profile_pic
                 </div>
               </div>
 
+              <?= commerza_captcha_widget_html($con, 'user_account_password') ?>
+
               <button type="submit" class="btn product-btn-buy w-100" data-loading-text="Updating Password...">
                 Update Password
               </button>
@@ -1006,6 +1049,8 @@ $profile_picture = !empty($user['profile_picture']) ? (string)$user['profile_pic
                 </div>
               </div>
 
+              <?= commerza_captcha_widget_html($con, 'user_account_profile') ?>
+
               <button type="submit" class="btn product-btn-buy px-4 mt-2" data-loading-text="Saving Changes...">
                 Save Changes
               </button>
@@ -1029,6 +1074,13 @@ $profile_picture = !empty($user['profile_picture']) ? (string)$user['profile_pic
                   <?php
                     $orderId = (int)($order['id'] ?? 0);
                     $status = (string)$order['status'];
+                    $orderUserNote = trim((string)($order['notes'] ?? ''));
+                    $orderAdminNote = trim((string)($order['admin_note'] ?? ''));
+                    $deliveryEstimateRaw = trim((string)($order['delivery_estimate'] ?? ''));
+                    $deliveryEstimateTs = $deliveryEstimateRaw !== '' ? strtotime($deliveryEstimateRaw) : false;
+                    $deliveryEstimateLabel = $deliveryEstimateTs !== false
+                      ? date('d M Y, h:i A', $deliveryEstimateTs)
+                      : '';
                     $statusClass = 'warning';
 
                     if ($status === 'Delivered') {
@@ -1087,6 +1139,20 @@ $profile_picture = !empty($user['profile_picture']) ? (string)$user['profile_pic
                           <?php foreach ($items as $item): ?>
                             <div class="text-secondary small mb-1"><?= htmlspecialchars($item) ?></div>
                           <?php endforeach; ?>
+                        </div>
+                      <?php endif; ?>
+
+                      <?php if ($deliveryEstimateLabel !== '' || $orderUserNote !== '' || $orderAdminNote !== ''): ?>
+                        <div class="mt-3 p-3 rounded border border-secondary">
+                          <?php if ($deliveryEstimateLabel !== ''): ?>
+                            <p class="text-secondary small mb-1"><strong class="text-light">Delivery estimate:</strong> <?= htmlspecialchars($deliveryEstimateLabel) ?></p>
+                          <?php endif; ?>
+                          <?php if ($orderUserNote !== ''): ?>
+                            <p class="text-secondary small mb-1"><strong class="text-light">Your note:</strong> <?= nl2br(htmlspecialchars($orderUserNote), false) ?></p>
+                          <?php endif; ?>
+                          <?php if ($orderAdminNote !== ''): ?>
+                            <p class="text-secondary small mb-0"><strong class="text-light">Admin logistics note:</strong> <?= nl2br(htmlspecialchars($orderAdminNote), false) ?></p>
+                          <?php endif; ?>
                         </div>
                       <?php endif; ?>
 
@@ -1222,10 +1288,11 @@ $profile_picture = !empty($user['profile_picture']) ? (string)$user['profile_pic
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="frontend/assets/js/global-protection.js"></script>
   <script src="frontend/assets/js/script.js"></script>
+  <?= commerza_captcha_script_tag($con) ?>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>
-  <script>
+  <script <?= commerza_csp_nonce_attr() ?>>
     $(function () {
       $("#serverError, #serverSuccess").each(function () {
         const element = $(this);

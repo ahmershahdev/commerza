@@ -43,8 +43,14 @@ function coupons_api_request_body(): array
 
 function coupons_api_action(): string
 {
-    if (isset($_REQUEST['action'])) {
-        return strtolower(trim((string)$_REQUEST['action']));
+    $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+
+    if ($method === 'GET' && isset($_GET['action'])) {
+        return strtolower(trim((string)$_GET['action']));
+    }
+
+    if ($method === 'POST' && isset($_POST['action'])) {
+        return strtolower(trim((string)$_POST['action']));
     }
 
     $body = coupons_api_request_body();
@@ -252,6 +258,7 @@ function coupons_api_boolean_value($value): int
 }
 
 $admin = admin_require_login_api($con);
+admin_require_permission_api($admin, 'coupons.manage');
 commerza_ensure_coupon_schema($con);
 
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
