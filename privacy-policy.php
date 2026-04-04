@@ -1,5 +1,24 @@
 <?php
 require_once __DIR__ . '/backend/data.php';
+
+$isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+	|| ((int)($_SERVER['SERVER_PORT'] ?? 0) === 443);
+
+$host = trim((string)($_SERVER['HTTP_HOST'] ?? 'localhost'));
+if ($host === '') {
+	$host = 'localhost';
+}
+
+$configuredAppUrl = trim((string)getenv('COMMERZA_APP_URL'));
+if ($configuredAppUrl !== '' && filter_var($configuredAppUrl, FILTER_VALIDATE_URL)) {
+	$siteBaseUrl = rtrim($configuredAppUrl, '/');
+} else {
+	$siteBaseUrl = ($isHttps ? 'https' : 'http') . '://' . $host;
+}
+
+$homeUrl = $siteBaseUrl . '/';
+$privacyUrl = $siteBaseUrl . '/privacy-policy.php';
+$logoUrl = $siteBaseUrl . '/frontend/assets/images/logo/commerza-logo.webp';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -12,11 +31,11 @@ require_once __DIR__ . '/backend/data.php';
 	<meta name="author" content="Syed Ahmer Shah" />
 	<meta property="og:title" content="Privacy Policy | Commerza" />
 	<meta property="og:description" content="How Commerza collects, uses, and protects your personal information." />
-	<meta property="og:url" content="https://commerza.ahmershah.dev/privacy-policy.php" />
+	<meta property="og:url" content="<?= htmlspecialchars($privacyUrl, ENT_QUOTES, 'UTF-8') ?>" />
 	<meta property="og:type" content="website" />
-	<meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp" />
+	<meta property="og:image" content="<?= htmlspecialchars($logoUrl, ENT_QUOTES, 'UTF-8') ?>" />
 	<title>Privacy Policy | Commerza</title>
-	<link rel="canonical" href="https://commerza.ahmershah.dev/privacy-policy.php" />
+	<link rel="canonical" href="<?= htmlspecialchars($privacyUrl, ENT_QUOTES, 'UTF-8') ?>" />
 
 	<link rel="icon" href="frontend/assets/images/favicon/commerza-watches-icon.ico" />
 	<link rel="stylesheet" href="frontend/assets/css/style.css" />
@@ -52,6 +71,23 @@ require_once __DIR__ . '/backend/data.php';
 			background: #0f0f0f;
 			color: #bdbdbd;
 		}
+
+		.privacy-accordion .accordion-header {
+			margin: 0;
+			padding-left: 0;
+			border-left: 0;
+			box-shadow: none;
+			background: none;
+		}
+
+		.privacy-page-title {
+			color: #ff6600 !important;
+			background: none !important;
+			-webkit-text-fill-color: #ff6600 !important;
+			letter-spacing: 1px;
+			text-transform: none;
+			user-select: text;
+		}
 	</style>
 	<script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
 		{
@@ -59,10 +95,10 @@ require_once __DIR__ . '/backend/data.php';
 			"@graph": [
 				{
 					"@type": "Organization",
-					"@id": "https://commerza.ahmershah.dev/#organization",
+					"@id": "<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>#organization",
 					"name": "Commerza",
-					"url": "https://commerza.ahmershah.dev/",
-					"logo": "https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp",
+					"url": "<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>",
+					"logo": "<?= htmlspecialchars($logoUrl, ENT_QUOTES, 'UTF-8') ?>",
 					"contactPoint": {
 						"@type": "ContactPoint",
 						"contactType": "Privacy Support",
@@ -72,53 +108,53 @@ require_once __DIR__ . '/backend/data.php';
 				},
 				{
 					"@type": "WebSite",
-					"@id": "https://commerza.ahmershah.dev/#website",
-					"url": "https://commerza.ahmershah.dev/",
+					"@id": "<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>#website",
+					"url": "<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>",
 					"name": "Commerza",
 					"publisher": {
-						"@id": "https://commerza.ahmershah.dev/#organization"
+						"@id": "<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>#organization"
 					}
 				},
 				{
 					"@type": "BreadcrumbList",
-					"@id": "https://commerza.ahmershah.dev/privacy-policy.php#breadcrumb",
+					"@id": "<?= htmlspecialchars($privacyUrl, ENT_QUOTES, 'UTF-8') ?>#breadcrumb",
 					"itemListElement": [
 						{
 							"@type": "ListItem",
 							"position": 1,
 							"name": "Home",
-							"item": "https://commerza.ahmershah.dev/"
+							"item": "<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>"
 						},
 						{
 							"@type": "ListItem",
 							"position": 2,
 							"name": "Privacy Policy",
-							"item": "https://commerza.ahmershah.dev/privacy-policy.php"
+							"item": "<?= htmlspecialchars($privacyUrl, ENT_QUOTES, 'UTF-8') ?>"
 						}
 					]
 				},
 				{
 					"@type": "WebPage",
-					"@id": "https://commerza.ahmershah.dev/privacy-policy.php#webpage",
-					"url": "https://commerza.ahmershah.dev/privacy-policy.php",
+					"@id": "<?= htmlspecialchars($privacyUrl, ENT_QUOTES, 'UTF-8') ?>#webpage",
+					"url": "<?= htmlspecialchars($privacyUrl, ENT_QUOTES, 'UTF-8') ?>",
 					"name": "Privacy Policy | Commerza",
 					"description": "How Commerza collects, uses, stores, and protects personal data for account, order, and payment services.",
 					"inLanguage": "en",
 					"isPartOf": {
-						"@id": "https://commerza.ahmershah.dev/#website"
+						"@id": "<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>#website"
 					},
 					"breadcrumb": {
-						"@id": "https://commerza.ahmershah.dev/privacy-policy.php#breadcrumb"
+						"@id": "<?= htmlspecialchars($privacyUrl, ENT_QUOTES, 'UTF-8') ?>#breadcrumb"
 					}
 				},
 				{
 					"@type": "PrivacyPolicy",
-					"@id": "https://commerza.ahmershah.dev/privacy-policy.php#policy",
+					"@id": "<?= htmlspecialchars($privacyUrl, ENT_QUOTES, 'UTF-8') ?>#policy",
 					"name": "Commerza Privacy Policy",
-					"url": "https://commerza.ahmershah.dev/privacy-policy.php",
+					"url": "<?= htmlspecialchars($privacyUrl, ENT_QUOTES, 'UTF-8') ?>",
 					"dateModified": "2026-01-01",
 					"publisher": {
-						"@id": "https://commerza.ahmershah.dev/#organization"
+						"@id": "<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>#organization"
 					}
 				}
 			]
@@ -165,7 +201,7 @@ require_once __DIR__ . '/backend/data.php';
 						<li class="nav-item"><a class="nav-link" href="about.php">About</a></li>
 						<li class="nav-item"><a class="nav-link" href="contact.php">Contact</a></li>
 						<li class="nav-item"><a class="nav-link" href="terms-of-service.php">Terms</a></li>
-						<li class="nav-item"><a class="nav-link" href="privacy-policy.php">Privacy</a></li>
+						<li class="nav-item"><a class="nav-link" href="privacy-policy.php" aria-current="page">Privacy</a></li>
 					</ul>
 				</div>
 			</div>
@@ -201,7 +237,7 @@ require_once __DIR__ . '/backend/data.php';
 					<li class="nav-item"><a class="nav-link" href="about.php">About</a></li>
 					<li class="nav-item"><a class="nav-link" href="contact.php">Contact</a></li>
 					<li class="nav-item"><a class="nav-link" href="terms-of-service.php">Terms</a></li>
-					<li class="nav-item"><a class="nav-link" href="privacy-policy.php">Privacy</a></li>
+					<li class="nav-item"><a class="nav-link" href="privacy-policy.php" aria-current="page">Privacy</a></li>
 				</ul>
 			</div>
 		</div>
@@ -211,7 +247,7 @@ require_once __DIR__ . '/backend/data.php';
 		<section class="page-hero mb-5">
 			<div class="hero-content">
 				<span class="hero-badge"><i class="bi bi-shield-lock"></i> Legal</span>
-				<h1 class="mt-3" style="color: #ff6600">Privacy Policy</h1>
+				<h1 class="mt-3 privacy-page-title">Privacy Policy</h1>
 				<p class="product-desc mt-2">Effective date: January 1, 2026. This policy explains what personal data Commerza collects, why we collect it, and how we protect it.</p>
 			</div>
 		</section>

@@ -97,6 +97,29 @@ This document lists exactly what is needed to complete third-party integrations 
 
 - Configure SMTP/sendmail at server level and verify outbound delivery before production launch.
 
+### Gmail SMTP (Structured Checklist)
+
+1. Enable Google 2-Step Verification on the sender account.
+2. Generate an App Password specifically for Mail.
+3. Configure `.env`:
+   - `COMMERZA_SMTP_HOST=smtp.gmail.com`
+   - `COMMERZA_SMTP_PORT=587`
+   - `COMMERZA_SMTP_ENCRYPTION=tls`
+   - `COMMERZA_SMTP_USERNAME=<gmail>`
+   - `COMMERZA_SMTP_PASSWORD=<app-password>`
+   - `COMMERZA_SMTP_FROM_EMAIL=<gmail>`
+4. Confirm OpenSSL extension is enabled in PHP.
+5. Run a send test script and verify `{"ok": true}` output.
+
+Common Gmail failures:
+
+- `535-5.7.8 Username and Password not accepted`:
+  - App password typo, old password, or copied hidden spaces.
+- TLS handshake failure:
+  - OpenSSL extension disabled, or firewall/ISP blocking outbound 587.
+- SPF/DMARC issues:
+  - `from_email` not aligned with SMTP sender for production domains.
+
 ## 5) Required Scheduled Tasks
 
 Set these tasks after email configuration.

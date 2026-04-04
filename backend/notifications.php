@@ -34,18 +34,52 @@ function commerza_notifications_get_site_name(mysqli $con): string
     return commerza_notifications_get_setting($con, 'site_name', 'Commerza');
 }
 
-function commerza_notifications_get_from_email(mysqli $con): string
+function commerza_notifications_first_valid_email(array $candidates): string
 {
-    $siteEmail = commerza_notifications_get_setting($con, 'site_email', '');
-    if (filter_var($siteEmail, FILTER_VALIDATE_EMAIL)) {
-        return $siteEmail;
+    foreach ($candidates as $candidate) {
+        $email = strtolower(trim((string)$candidate));
+        if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $email;
+        }
     }
 
-    return 'no-reply@commerza.ahmershah.dev';
+    return '';
+}
+
+function commerza_notifications_get_from_email(mysqli $con): string
+{
+    $defaultSender = commerza_mail_default_sender();
+    $smtpFromEmail = (string)($defaultSender['email'] ?? '');
+    $smtpUsername = trim((string)getenv('COMMERZA_SMTP_USERNAME'));
+    $siteEmail = commerza_notifications_get_setting($con, 'site_email', '');
+    $fallbackFrom = trim((string)getenv('COMMERZA_FALLBACK_FROM_EMAIL'));
+
+    $resolved = commerza_notifications_first_valid_email([
+        $siteEmail,
+        $smtpFromEmail,
+        $smtpUsername,
+        $fallbackFrom,
+    ]);
+
+    if ($resolved !== '') {
+        return $resolved;
+    }
+
+    return 'no-reply@commerza.local';
 }
 
 function commerza_notifications_get_admin_email(mysqli $con): string
 {
+    $routedEmail = commerza_notifications_first_valid_email([
+        getenv('COMMERZA_ADMIN_EMAIL'),
+        getenv('COMMERZA_ADMIN_NOTIFICATION_EMAIL'),
+        commerza_notifications_get_setting($con, 'admin_notification_email', ''),
+    ]);
+
+    if ($routedEmail !== '') {
+        return $routedEmail;
+    }
+
     $result = $con->query(
         'SELECT email
          FROM admin_users
@@ -62,8 +96,24 @@ function commerza_notifications_get_admin_email(mysqli $con): string
         }
     }
 
-    $fallback = commerza_notifications_get_setting($con, 'site_email', '');
-    return filter_var($fallback, FILTER_VALIDATE_EMAIL) ? $fallback : '';
+    return commerza_notifications_first_valid_email([
+        commerza_notifications_get_setting($con, 'site_email', ''),
+    ]);
+}
+
+function commerza_notifications_get_report_email(mysqli $con): string
+{
+    $reportEmail = commerza_notifications_first_valid_email([
+        getenv('COMMERZA_REPORTS_EMAIL'),
+        getenv('COMMERZA_ADMIN_REPORT_EMAIL'),
+        commerza_notifications_get_setting($con, 'reports_email', ''),
+    ]);
+
+    if ($reportEmail !== '') {
+        return $reportEmail;
+    }
+
+    return commerza_notifications_get_admin_email($con);
 }
 
 function commerza_notifications_public_url(string $path = ''): string
@@ -553,6 +603,75 @@ function commerza_is_item_still_saved(mysqli $con, int $userId, int $productId, 
     return $exists;
 }
 
+function commerza_engagement_lock_name(int $reminderId): string
+{
+    return 'commerza_engagement_reminder_' . max(0, $reminderId);
+}
+
+function commerza_acquire_engagement_lock(mysqli $con, int $reminderId, int $timeoutSeconds = 0): bool
+{
+    $lockName = commerza_engagement_lock_name($reminderId);
+    $timeout = max(0, $timeoutSeconds);
+
+    $stmt = $con->prepare('SELECT GET_LOCK(?, ?) AS acquired');
+    if (!$stmt) {
+        return false;
+    }
+
+    $stmt->bind_param('si', $lockName, $timeout);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    return (int)($row['acquired'] ?? 0) === 1;
+}
+
+function commerza_release_engagement_lock(mysqli $con, int $reminderId): void
+{
+    $lockName = commerza_engagement_lock_name($reminderId);
+    $stmt = $con->prepare('SELECT RELEASE_LOCK(?)');
+    if (!$stmt) {
+        return;
+    }
+
+    $stmt->bind_param('s', $lockName);
+    $stmt->execute();
+    $stmt->close();
+}
+
+function commerza_mark_engagement_reminder_sent(mysqli $con, int $reminderId): void
+{
+    $stmt = $con->prepare('UPDATE engagement_reminders SET sent_at = NOW() WHERE id = ? LIMIT 1');
+    if (!$stmt) {
+        return;
+    }
+
+    $stmt->bind_param('i', $reminderId);
+    $stmt->execute();
+    $stmt->close();
+}
+
+function commerza_engagement_already_sent(mysqli $con, int $reminderId): bool
+{
+    $stmt = $con->prepare('SELECT sent_at FROM engagement_reminders WHERE id = ? LIMIT 1');
+    if (!$stmt) {
+        return true;
+    }
+
+    $stmt->bind_param('i', $reminderId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    if (!is_array($row)) {
+        return true;
+    }
+
+    return trim((string)($row['sent_at'] ?? '')) !== '';
+}
+
 function commerza_send_pending_engagement_reminders(mysqli $con, int $olderThanMinutes = 180): array
 {
     commerza_notifications_ensure_reminder_table($con);
@@ -594,54 +713,57 @@ function commerza_send_pending_engagement_reminders(mysqli $con, int $olderThanM
         $type = (string)$row['reminder_type'];
         $userEmail = trim((string)$row['email']);
 
-        if (!filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
-            $failed++;
+        if (!commerza_acquire_engagement_lock($con, $reminderId, 0)) {
             continue;
         }
 
-        if (!commerza_is_item_still_saved($con, $userId, $productId, $type)) {
-            $markStmt = $con->prepare('UPDATE engagement_reminders SET sent_at = NOW() WHERE id = ? LIMIT 1');
-            if ($markStmt) {
-                $markStmt->bind_param('i', $reminderId);
-                $markStmt->execute();
-                $markStmt->close();
+        try {
+            if (commerza_engagement_already_sent($con, $reminderId)) {
+                continue;
             }
-            continue;
-        }
 
-        $safeName = htmlspecialchars((string)($row['full_name'] ?? 'Customer'), ENT_QUOTES, 'UTF-8');
-        $safeProduct = htmlspecialchars((string)($row['product_name'] ?? 'your item'), ENT_QUOTES, 'UTF-8');
-        $bucket = $type === 'cart' ? 'cart' : 'wishlist';
-        $subject = $type === 'cart'
-            ? 'You left an item in your Commerza cart'
-            : 'Your Commerza wishlist is waiting';
-
-        $body =
-            '<p>Hello ' . $safeName . ',</p>' .
-            '<p>You still have <strong>' . $safeProduct . '</strong> saved in your ' . htmlspecialchars($bucket, ENT_QUOTES, 'UTF-8') . '.</p>' .
-            '<p>Return to Commerza and complete your order when you are ready.</p>';
-
-        $error = null;
-        $ok = commerza_notifications_send(
-            $con,
-            $userEmail,
-            $subject,
-            'Friendly Reminder',
-            'A quick follow-up from your recent activity.',
-            $body,
-            $error
-        );
-
-        if ($ok) {
-            $sent++;
-            $markStmt = $con->prepare('UPDATE engagement_reminders SET sent_at = NOW() WHERE id = ? LIMIT 1');
-            if ($markStmt) {
-                $markStmt->bind_param('i', $reminderId);
-                $markStmt->execute();
-                $markStmt->close();
+            if (!filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
+                $failed++;
+                commerza_mark_engagement_reminder_sent($con, $reminderId);
+                continue;
             }
-        } else {
-            $failed++;
+
+            if (!commerza_is_item_still_saved($con, $userId, $productId, $type)) {
+                commerza_mark_engagement_reminder_sent($con, $reminderId);
+                continue;
+            }
+
+            $safeName = htmlspecialchars((string)($row['full_name'] ?? 'Customer'), ENT_QUOTES, 'UTF-8');
+            $safeProduct = htmlspecialchars((string)($row['product_name'] ?? 'your item'), ENT_QUOTES, 'UTF-8');
+            $bucket = $type === 'cart' ? 'cart' : 'wishlist';
+            $subject = $type === 'cart'
+                ? 'You left an item in your Commerza cart'
+                : 'Your Commerza wishlist is waiting';
+
+            $body =
+                '<p>Hello ' . $safeName . ',</p>' .
+                '<p>You still have <strong>' . $safeProduct . '</strong> saved in your ' . htmlspecialchars($bucket, ENT_QUOTES, 'UTF-8') . '.</p>' .
+                '<p>Return to Commerza and complete your order when you are ready.</p>';
+
+            $error = null;
+            $ok = commerza_notifications_send(
+                $con,
+                $userEmail,
+                $subject,
+                'Friendly Reminder',
+                'A quick follow-up from your recent activity.',
+                $body,
+                $error
+            );
+
+            if ($ok) {
+                $sent++;
+                commerza_mark_engagement_reminder_sent($con, $reminderId);
+            } else {
+                $failed++;
+            }
+        } finally {
+            commerza_release_engagement_lock($con, $reminderId);
         }
     }
 
@@ -654,6 +776,108 @@ function commerza_send_pending_engagement_reminders(mysqli $con, int $olderThanM
     ];
 }
 
+function commerza_notifications_ensure_automation_runs_table(mysqli $con): void
+{
+    static $initialized = false;
+
+    if ($initialized) {
+        return;
+    }
+
+    $con->query(
+        'CREATE TABLE IF NOT EXISTS automation_email_runs (
+            id INT NOT NULL AUTO_INCREMENT,
+            job_key VARCHAR(80) NOT NULL,
+            period_key VARCHAR(80) NOT NULL,
+            sent_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_automation_job_period (job_key, period_key)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci'
+    );
+
+    $initialized = true;
+}
+
+function commerza_notifications_job_lock_name(string $jobKey, string $periodKey): string
+{
+    $seed = strtolower(trim($jobKey)) . '|' . strtolower(trim($periodKey));
+    return 'commerza_auto_' . substr(hash('sha256', $seed), 0, 40);
+}
+
+function commerza_notifications_acquire_job_lock(mysqli $con, string $jobKey, string $periodKey, int $timeoutSeconds = 0): bool
+{
+    $lockName = commerza_notifications_job_lock_name($jobKey, $periodKey);
+    $timeout = max(0, $timeoutSeconds);
+
+    $stmt = $con->prepare('SELECT GET_LOCK(?, ?) AS acquired');
+    if (!$stmt) {
+        return false;
+    }
+
+    $stmt->bind_param('si', $lockName, $timeout);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    return (int)($row['acquired'] ?? 0) === 1;
+}
+
+function commerza_notifications_release_job_lock(mysqli $con, string $jobKey, string $periodKey): void
+{
+    $lockName = commerza_notifications_job_lock_name($jobKey, $periodKey);
+    $stmt = $con->prepare('SELECT RELEASE_LOCK(?)');
+    if (!$stmt) {
+        return;
+    }
+
+    $stmt->bind_param('s', $lockName);
+    $stmt->execute();
+    $stmt->close();
+}
+
+function commerza_notifications_job_already_sent(mysqli $con, string $jobKey, string $periodKey): bool
+{
+    commerza_notifications_ensure_automation_runs_table($con);
+
+    $stmt = $con->prepare(
+        'SELECT id
+         FROM automation_email_runs
+         WHERE job_key = ? AND period_key = ?
+         LIMIT 1'
+    );
+
+    if (!$stmt) {
+        return false;
+    }
+
+    $stmt->bind_param('ss', $jobKey, $periodKey);
+    $stmt->execute();
+    $stmt->store_result();
+    $exists = $stmt->num_rows > 0;
+    $stmt->close();
+
+    return $exists;
+}
+
+function commerza_notifications_mark_job_sent(mysqli $con, string $jobKey, string $periodKey): void
+{
+    commerza_notifications_ensure_automation_runs_table($con);
+
+    $stmt = $con->prepare(
+        'INSERT IGNORE INTO automation_email_runs (job_key, period_key, sent_at)
+         VALUES (?, ?, NOW())'
+    );
+
+    if (!$stmt) {
+        return;
+    }
+
+    $stmt->bind_param('ss', $jobKey, $periodKey);
+    $stmt->execute();
+    $stmt->close();
+}
+
 function commerza_send_monthly_profit_email(mysqli $con, ?DateTimeImmutable $month = null): bool
 {
     if ($month === null) {
@@ -662,65 +886,86 @@ function commerza_send_monthly_profit_email(mysqli $con, ?DateTimeImmutable $mon
         $month = $month->setDate((int)$month->format('Y'), (int)$month->format('m'), 1)->setTime(0, 0, 0);
     }
 
-    $nextMonth = $month->modify('+1 month');
-    $start = $month->format('Y-m-d H:i:s');
-    $end = $nextMonth->format('Y-m-d H:i:s');
+    $jobKey = 'monthly_profit_email';
+    $periodKey = $month->format('Y-m');
 
-    $stmt = $con->prepare(
-        'SELECT
-            COUNT(*) AS total_orders,
-            COALESCE(SUM(grand_total), 0) AS gross_revenue,
-            COALESCE(SUM(CASE WHEN status = "Delivered" THEN grand_total ELSE 0 END), 0) AS delivered_revenue,
-            COALESCE(SUM(CASE WHEN status = "Cancelled" THEN grand_total ELSE 0 END), 0) AS cancelled_value
-         FROM orders
-         WHERE created_at >= ? AND created_at < ?'
-    );
-
-    if (!$stmt) {
-        return false;
+    if (!commerza_notifications_acquire_job_lock($con, $jobKey, $periodKey, 1)) {
+        return true;
     }
 
-    $stmt->bind_param('ss', $start, $end);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $summary = $result ? $result->fetch_assoc() : null;
-    $stmt->close();
+    try {
+        if (commerza_notifications_job_already_sent($con, $jobKey, $periodKey)) {
+            return true;
+        }
 
-    if (!$summary) {
-        return false;
+        $nextMonth = $month->modify('+1 month');
+        $start = $month->format('Y-m-d H:i:s');
+        $end = $nextMonth->format('Y-m-d H:i:s');
+
+        $stmt = $con->prepare(
+            'SELECT
+                COUNT(*) AS total_orders,
+                COALESCE(SUM(grand_total), 0) AS gross_revenue,
+                COALESCE(SUM(CASE WHEN status = "Delivered" THEN grand_total ELSE 0 END), 0) AS delivered_revenue,
+                COALESCE(SUM(CASE WHEN status = "Cancelled" THEN grand_total ELSE 0 END), 0) AS cancelled_value
+             FROM orders
+             WHERE created_at >= ? AND created_at < ?'
+        );
+
+        if (!$stmt) {
+            return false;
+        }
+
+        $stmt->bind_param('ss', $start, $end);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $summary = $result ? $result->fetch_assoc() : null;
+        $stmt->close();
+
+        if (!$summary) {
+            return false;
+        }
+
+        $reportEmail = commerza_notifications_get_report_email($con);
+        if (!filter_var($reportEmail, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+
+        $periodLabel = htmlspecialchars($month->format('F Y'), ENT_QUOTES, 'UTF-8');
+        $totalOrders = (int)($summary['total_orders'] ?? 0);
+        $grossRevenue = (float)($summary['gross_revenue'] ?? 0);
+        $deliveredRevenue = (float)($summary['delivered_revenue'] ?? 0);
+        $cancelledValue = (float)($summary['cancelled_value'] ?? 0);
+
+        $body =
+            '<p>Monthly business report for <strong>' . $periodLabel . '</strong>.</p>' .
+            '<ul style="padding-left:20px;margin:14px 0;">' .
+            '<li><strong>Total orders:</strong> ' . $totalOrders . '</li>' .
+            '<li><strong>Gross revenue:</strong> PKR ' . number_format($grossRevenue, 2) . '</li>' .
+            '<li><strong>Delivered revenue:</strong> PKR ' . number_format($deliveredRevenue, 2) . '</li>' .
+            '<li><strong>Cancelled value:</strong> PKR ' . number_format($cancelledValue, 2) . '</li>' .
+            '</ul>' .
+            '<p>Delivered revenue is used as the month profit baseline in this report.</p>';
+
+        $error = null;
+        $sent = commerza_notifications_send(
+            $con,
+            $reportEmail,
+            'Commerza monthly profit report - ' . $month->format('Y-m'),
+            'Monthly Profit Summary',
+            'Your scheduled monthly report is ready.',
+            $body,
+            $error
+        );
+
+        if ($sent) {
+            commerza_notifications_mark_job_sent($con, $jobKey, $periodKey);
+        }
+
+        return $sent;
+    } finally {
+        commerza_notifications_release_job_lock($con, $jobKey, $periodKey);
     }
-
-    $adminEmail = commerza_notifications_get_admin_email($con);
-    if (!filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) {
-        return false;
-    }
-
-    $periodLabel = htmlspecialchars($month->format('F Y'), ENT_QUOTES, 'UTF-8');
-    $totalOrders = (int)($summary['total_orders'] ?? 0);
-    $grossRevenue = (float)($summary['gross_revenue'] ?? 0);
-    $deliveredRevenue = (float)($summary['delivered_revenue'] ?? 0);
-    $cancelledValue = (float)($summary['cancelled_value'] ?? 0);
-
-    $body =
-        '<p>Monthly business report for <strong>' . $periodLabel . '</strong>.</p>' .
-        '<ul style="padding-left:20px;margin:14px 0;">' .
-        '<li><strong>Total orders:</strong> ' . $totalOrders . '</li>' .
-        '<li><strong>Gross revenue:</strong> PKR ' . number_format($grossRevenue, 2) . '</li>' .
-        '<li><strong>Delivered revenue:</strong> PKR ' . number_format($deliveredRevenue, 2) . '</li>' .
-        '<li><strong>Cancelled value:</strong> PKR ' . number_format($cancelledValue, 2) . '</li>' .
-        '</ul>' .
-        '<p>Delivered revenue is used as the month profit baseline in this report.</p>';
-
-    $error = null;
-    return commerza_notifications_send(
-        $con,
-        $adminEmail,
-        'Commerza monthly profit report - ' . $month->format('Y-m'),
-        'Monthly Profit Summary',
-        'Your scheduled monthly report is ready.',
-        $body,
-        $error
-    );
 }
 
 function commerza_notify_signup_verification_code(mysqli $con, string $userEmail, string $userName, string $code): bool
@@ -839,65 +1084,86 @@ function commerza_send_weekly_analytics_email(mysqli $con, ?DateTimeImmutable $w
     }
 
     $weekStart = $weekEnding->modify('-6 days')->setTime(0, 0, 0);
-    $start = $weekStart->format('Y-m-d H:i:s');
-    $end = $weekEnding->format('Y-m-d H:i:s');
+    $jobKey = 'weekly_analytics_email';
+    $periodKey = $weekStart->format('Y-m-d') . ':' . $weekEnding->format('Y-m-d');
 
-    $stmt = $con->prepare(
-        'SELECT
-            COUNT(*) AS total_orders,
-            COALESCE(SUM(grand_total), 0) AS gross_revenue,
-            COALESCE(SUM(CASE WHEN status = "Delivered" THEN grand_total ELSE 0 END), 0) AS delivered_revenue,
-            COALESCE(SUM(CASE WHEN status = "Cancelled" THEN 1 ELSE 0 END), 0) AS cancelled_orders,
-            COALESCE(SUM(CASE WHEN status = "Refunded" THEN 1 ELSE 0 END), 0) AS refunded_orders
-         FROM orders
-         WHERE created_at >= ? AND created_at <= ?'
-    );
-
-    if (!$stmt) {
-        return false;
+    if (!commerza_notifications_acquire_job_lock($con, $jobKey, $periodKey, 1)) {
+        return true;
     }
 
-    $stmt->bind_param('ss', $start, $end);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $summary = $result ? $result->fetch_assoc() : null;
-    $stmt->close();
+    try {
+        if (commerza_notifications_job_already_sent($con, $jobKey, $periodKey)) {
+            return true;
+        }
 
-    if (!$summary) {
-        return false;
+        $start = $weekStart->format('Y-m-d H:i:s');
+        $end = $weekEnding->format('Y-m-d H:i:s');
+
+        $stmt = $con->prepare(
+            'SELECT
+                COUNT(*) AS total_orders,
+                COALESCE(SUM(grand_total), 0) AS gross_revenue,
+                COALESCE(SUM(CASE WHEN status = "Delivered" THEN grand_total ELSE 0 END), 0) AS delivered_revenue,
+                COALESCE(SUM(CASE WHEN status = "Cancelled" THEN 1 ELSE 0 END), 0) AS cancelled_orders,
+                COALESCE(SUM(CASE WHEN status = "Refunded" THEN 1 ELSE 0 END), 0) AS refunded_orders
+             FROM orders
+             WHERE created_at >= ? AND created_at <= ?'
+        );
+
+        if (!$stmt) {
+            return false;
+        }
+
+        $stmt->bind_param('ss', $start, $end);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $summary = $result ? $result->fetch_assoc() : null;
+        $stmt->close();
+
+        if (!$summary) {
+            return false;
+        }
+
+        $reportEmail = commerza_notifications_get_report_email($con);
+        if (!filter_var($reportEmail, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+
+        $totalOrders = (int)($summary['total_orders'] ?? 0);
+        $grossRevenue = (float)($summary['gross_revenue'] ?? 0);
+        $deliveredRevenue = (float)($summary['delivered_revenue'] ?? 0);
+        $cancelledOrders = (int)($summary['cancelled_orders'] ?? 0);
+        $refundedOrders = (int)($summary['refunded_orders'] ?? 0);
+
+        $range = htmlspecialchars($weekStart->format('d M Y') . ' - ' . $weekEnding->format('d M Y'), ENT_QUOTES, 'UTF-8');
+
+        $body =
+            '<p>Weekly analytics summary for <strong>' . $range . '</strong>.</p>' .
+            '<ul style="padding-left:20px;margin:14px 0;">' .
+            '<li><strong>Total orders:</strong> ' . $totalOrders . '</li>' .
+            '<li><strong>Gross revenue:</strong> PKR ' . number_format($grossRevenue, 2) . '</li>' .
+            '<li><strong>Delivered revenue:</strong> PKR ' . number_format($deliveredRevenue, 2) . '</li>' .
+            '<li><strong>Cancelled orders:</strong> ' . $cancelledOrders . '</li>' .
+            '<li><strong>Refunded orders:</strong> ' . $refundedOrders . '</li>' .
+            '</ul>';
+
+        $error = null;
+        $sent = commerza_notifications_send(
+            $con,
+            $reportEmail,
+            'Commerza weekly analytics report',
+            'Weekly Analytics Summary',
+            'Your 7-day performance snapshot is ready.',
+            $body,
+            $error
+        );
+
+        if ($sent) {
+            commerza_notifications_mark_job_sent($con, $jobKey, $periodKey);
+        }
+
+        return $sent;
+    } finally {
+        commerza_notifications_release_job_lock($con, $jobKey, $periodKey);
     }
-
-    $adminEmail = commerza_notifications_get_admin_email($con);
-    if (!filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) {
-        return false;
-    }
-
-    $totalOrders = (int)($summary['total_orders'] ?? 0);
-    $grossRevenue = (float)($summary['gross_revenue'] ?? 0);
-    $deliveredRevenue = (float)($summary['delivered_revenue'] ?? 0);
-    $cancelledOrders = (int)($summary['cancelled_orders'] ?? 0);
-    $refundedOrders = (int)($summary['refunded_orders'] ?? 0);
-
-    $range = htmlspecialchars($weekStart->format('d M Y') . ' - ' . $weekEnding->format('d M Y'), ENT_QUOTES, 'UTF-8');
-
-    $body =
-        '<p>Weekly analytics summary for <strong>' . $range . '</strong>.</p>' .
-        '<ul style="padding-left:20px;margin:14px 0;">' .
-        '<li><strong>Total orders:</strong> ' . $totalOrders . '</li>' .
-        '<li><strong>Gross revenue:</strong> PKR ' . number_format($grossRevenue, 2) . '</li>' .
-        '<li><strong>Delivered revenue:</strong> PKR ' . number_format($deliveredRevenue, 2) . '</li>' .
-        '<li><strong>Cancelled orders:</strong> ' . $cancelledOrders . '</li>' .
-        '<li><strong>Refunded orders:</strong> ' . $refundedOrders . '</li>' .
-        '</ul>';
-
-    $error = null;
-    return commerza_notifications_send(
-        $con,
-        $adminEmail,
-        'Commerza weekly analytics report',
-        'Weekly Analytics Summary',
-        'Your 7-day performance snapshot is ready.',
-        $body,
-        $error
-    );
 }

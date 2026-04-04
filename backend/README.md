@@ -39,6 +39,8 @@ This folder contains the server-side application logic for customer features, se
 - `send_engagement_reminders.php`: Sends follow-up reminders for inactive carts/wishlists.
 - `monthly_profit_report.php`: Generates/sends monthly profit summaries.
 - `weekly_analytics_report.php`: Generates/sends weekly analytics summaries.
+- `db_audit.php`: Audits live database completeness against `database/commerza.sql`.
+- `db_repair.php`: Repairs missing schema elements and legacy slider/viewer mismatches.
 - `backup_restore_test.ps1`: Validates backup and restore integrity in local/XAMPP setups.
 - `BACKUP_RESTORE_TESTS.md`: How to run and interpret backup/restore checks.
 
@@ -50,3 +52,14 @@ This folder contains the server-side application logic for customer features, se
 
 - Most files assume they are included after `data.php` so `$con` and session state are available.
 - Security-sensitive endpoints use CSRF checks, rate limiting, and structured security event logging.
+
+## Quick Ops Commands
+
+- Lint changed backend files:
+  - `C:\xampp\php\php.exe -l backend/<file>.php`
+- Run schema audit:
+  - `C:\xampp\php\php.exe backend/db_audit.php`
+- Repair schema drift:
+  - `C:\xampp\php\php.exe backend/db_repair.php`
+- Send SMTP test email:
+  - `C:\xampp\php\php.exe backend/smtp_test.php your-email@example.com`

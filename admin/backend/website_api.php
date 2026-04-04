@@ -26,6 +26,51 @@ function website_api_json(array $payload, int $status = 200): void
     exit;
 }
 
+function website_api_column_exists(mysqli $con, string $table, string $column): bool
+{
+    $sql = 'SELECT COUNT(*) AS total
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = ?
+              AND COLUMN_NAME = ?';
+
+    $stmt = $con->prepare($sql);
+    if (!$stmt) {
+        return false;
+    }
+
+    $stmt->bind_param('ss', $table, $column);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    return (int)($row['total'] ?? 0) > 0;
+}
+
+function website_api_ensure_slider_compatibility(mysqli $con): void
+{
+    if (!website_api_column_exists($con, 'slider', 'subtitle')) {
+        $con->query('ALTER TABLE slider ADD COLUMN subtitle VARCHAR(255) DEFAULT NULL AFTER title');
+    }
+
+    if (!website_api_column_exists($con, 'slider', 'cta_text_2')) {
+        $con->query('ALTER TABLE slider ADD COLUMN cta_text_2 VARCHAR(80) DEFAULT NULL AFTER cta_url');
+    }
+
+    if (!website_api_column_exists($con, 'slider', 'cta_url_2')) {
+        $con->query('ALTER TABLE slider ADD COLUMN cta_url_2 VARCHAR(255) DEFAULT NULL AFTER cta_text_2');
+    }
+
+    if (!website_api_column_exists($con, 'slider', 'overlay_opacity')) {
+        $con->query('ALTER TABLE slider ADD COLUMN overlay_opacity DECIMAL(3,2) DEFAULT 0.40 AFTER cta_url_2');
+    }
+
+    if (website_api_column_exists($con, 'slider', 'page')) {
+        $con->query('ALTER TABLE slider MODIFY page VARCHAR(100) NULL');
+    }
+}
+
 function website_api_ensure_schema(mysqli $con): void
 {
     $con->query(
@@ -77,6 +122,8 @@ function website_api_ensure_schema(mysqli $con): void
             PRIMARY KEY (id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci'
     );
+
+    website_api_ensure_slider_compatibility($con);
 }
 
 function website_api_get_setting(mysqli $con, string $key, string $fallback = ''): string

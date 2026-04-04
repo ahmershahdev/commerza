@@ -15,18 +15,73 @@ function commerza_get_expiry_hours(): int
     return 10;
 }
 
+function commerza_expiry_public_url(string $path = ''): string
+{
+    $configuredBase = trim((string)(getenv('COMMERZA_APP_URL') ?: getenv('COMMERZA_PUBLIC_URL') ?: ''));
+    if ($configuredBase !== '' && filter_var($configuredBase, FILTER_VALIDATE_URL)) {
+        $base = rtrim($configuredBase, '/');
+    } else {
+        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || ((int)($_SERVER['SERVER_PORT'] ?? 0) === 443);
+        $scheme = $isHttps ? 'https' : 'http';
+        $host = trim((string)($_SERVER['HTTP_HOST'] ?? 'localhost'));
+        if ($host === '') {
+            $host = 'localhost';
+        }
+
+        $base = $scheme . '://' . $host;
+    }
+
+    if ($path === '') {
+        return $base;
+    }
+
+    return $base . '/' . ltrim($path, '/');
+}
+
 function commerza_should_run_expiry_cleanup(): bool
 {
     $intervalSeconds = 900;
-    $lastRun = isset($_SESSION['commerza_last_expiry_cleanup'])
-        ? (int)$_SESSION['commerza_last_expiry_cleanup']
-        : 0;
+    $lockPath = rtrim((string)sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'commerza_expiry_cleanup_last_run.txt';
+    $now = time();
 
-    if ($lastRun > 0 && (time() - $lastRun) < $intervalSeconds) {
+    $handle = @fopen($lockPath, 'c+');
+    if (!is_resource($handle)) {
+        $lastRun = isset($_SESSION['commerza_last_expiry_cleanup'])
+            ? (int)$_SESSION['commerza_last_expiry_cleanup']
+            : 0;
+
+        if ($lastRun > 0 && ($now - $lastRun) < $intervalSeconds) {
+            return false;
+        }
+
+        $_SESSION['commerza_last_expiry_cleanup'] = $now;
+        return true;
+    }
+
+    if (!flock($handle, LOCK_EX)) {
+        fclose($handle);
         return false;
     }
 
-    $_SESSION['commerza_last_expiry_cleanup'] = time();
+    rewind($handle);
+    $raw = stream_get_contents($handle);
+    $lastRun = is_string($raw) && trim($raw) !== '' ? (int)trim($raw) : 0;
+
+    if ($lastRun > 0 && ($now - $lastRun) < $intervalSeconds) {
+        flock($handle, LOCK_UN);
+        fclose($handle);
+        return false;
+    }
+
+    ftruncate($handle, 0);
+    rewind($handle);
+    fwrite($handle, (string)$now);
+    fflush($handle);
+    flock($handle, LOCK_UN);
+    fclose($handle);
+
+    $_SESSION['commerza_last_expiry_cleanup'] = $now;
     return true;
 }
 
@@ -39,6 +94,16 @@ function commerza_send_expiry_notice(string $email, string $name, string $typeLa
     $safeName = htmlspecialchars($name !== '' ? $name : 'Customer', ENT_QUOTES, 'UTF-8');
     $safeType = htmlspecialchars($typeLabel, ENT_QUOTES, 'UTF-8');
     $subject = 'Commerza ' . $typeLabel . ' Expiry Notice';
+    $continueShoppingUrl = htmlspecialchars(commerza_expiry_public_url('/index.php'), ENT_QUOTES, 'UTF-8');
+
+    $sender = commerza_mail_default_sender();
+    $fromEmail = filter_var((string)($sender['email'] ?? ''), FILTER_VALIDATE_EMAIL)
+        ? (string)$sender['email']
+        : 'no-reply@commerza.ahmershah.dev';
+    $fromName = trim((string)($sender['name'] ?? ''));
+    if ($fromName === '') {
+        $fromName = 'Commerza Notifications';
+    }
 
     $body = '<!DOCTYPE html>
 <html>
@@ -53,7 +118,7 @@ function commerza_send_expiry_notice(string $email, string $name, string $typeLa
                 <p style="margin:0 0 10px 0;line-height:1.6;color:#d7d7d7;">Hello ' . $safeName . ',</p>
                 <p style="margin:0 0 14px 0;line-height:1.6;color:#d7d7d7;">We removed ' . (int)$removedCount . ' item(s) from your ' . strtolower($typeLabel) . ' because they were inactive for more than ' . (int)$hours . ' hours.</p>
                 <p style="margin:0 0 16px 0;line-height:1.6;color:#bfbfbf;">You can add them again anytime from our catalog.</p>
-                <a href="https://commerza.ahmershah.dev/index.php" style="display:inline-block;padding:10px 16px;background:#ff6600;color:#111;text-decoration:none;border-radius:8px;font-weight:700;">Continue Shopping</a>
+                <a href="' . $continueShoppingUrl . '" style="display:inline-block;padding:10px 16px;background:#ff6600;color:#111;text-decoration:none;border-radius:8px;font-weight:700;">Continue Shopping</a>
               </td>
             </tr>
           </table>
@@ -68,8 +133,8 @@ function commerza_send_expiry_notice(string $email, string $name, string $typeLa
         $email,
         $subject,
         $body,
-        'no-reply@commerza.ahmershah.dev',
-        'Commerza Notifications',
+        $fromEmail,
+        $fromName,
         $errorMessage
     );
 }

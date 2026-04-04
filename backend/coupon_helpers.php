@@ -403,25 +403,35 @@ function commerza_coupon_register_redemption(mysqli $con, int $couponId, int $us
         return false;
     }
 
+    $redemptionLockStmt = $con->prepare(
+        'SELECT user_id
+         FROM coupon_redemptions
+         WHERE coupon_id = ?
+         FOR UPDATE'
+    );
+
+    if (!$redemptionLockStmt) {
+        return false;
+    }
+
+    $redemptionLockStmt->bind_param('i', $couponId);
+    $redemptionLockStmt->execute();
+    $redemptionResult = $redemptionLockStmt->get_result();
+
+    $usedCount = 0;
+    $userUsedCount = 0;
+
+    while ($redemptionResult && ($lockRow = $redemptionResult->fetch_assoc())) {
+        $usedCount++;
+        if ($userId > 0 && (int)($lockRow['user_id'] ?? 0) === $userId) {
+            $userUsedCount++;
+        }
+    }
+
+    $redemptionLockStmt->close();
+
     $usageLimit = (int)($couponRow['usage_limit'] ?? 0);
     if ($usageLimit > 0) {
-        $usageStmt = $con->prepare(
-            'SELECT COUNT(*) AS total
-             FROM coupon_redemptions
-             WHERE coupon_id = ?'
-        );
-
-        if (!$usageStmt) {
-            return false;
-        }
-
-        $usageStmt->bind_param('i', $couponId);
-        $usageStmt->execute();
-        $usageResult = $usageStmt->get_result();
-        $usageRow = $usageResult ? $usageResult->fetch_assoc() : null;
-        $usageStmt->close();
-
-        $usedCount = $usageRow ? (int)($usageRow['total'] ?? 0) : 0;
         if ($usedCount >= $usageLimit) {
             return false;
         }
@@ -429,23 +439,6 @@ function commerza_coupon_register_redemption(mysqli $con, int $couponId, int $us
 
     $perUserLimit = (int)($couponRow['per_user_limit'] ?? 0);
     if ($perUserLimit > 0 && $userId > 0) {
-        $userUsageStmt = $con->prepare(
-            'SELECT COUNT(*) AS total
-             FROM coupon_redemptions
-             WHERE coupon_id = ? AND user_id = ?'
-        );
-
-        if (!$userUsageStmt) {
-            return false;
-        }
-
-        $userUsageStmt->bind_param('ii', $couponId, $userId);
-        $userUsageStmt->execute();
-        $userUsageResult = $userUsageStmt->get_result();
-        $userUsageRow = $userUsageResult ? $userUsageResult->fetch_assoc() : null;
-        $userUsageStmt->close();
-
-        $userUsedCount = $userUsageRow ? (int)($userUsageRow['total'] ?? 0) : 0;
         if ($userUsedCount >= $perUserLimit) {
             return false;
         }
