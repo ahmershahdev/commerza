@@ -156,10 +156,10 @@ function commerza_captcha_normalize_provider(string $value): string
     }
 
     if (in_array($provider, ['turnstile', 'cloudflare', 'cf-turnstile'], true)) {
-        return 'turnstile';
+        return 'recaptcha';
     }
 
-    return 'turnstile';
+    return 'recaptcha';
 }
 
 function commerza_captcha_context_key(string $context): string
@@ -340,6 +340,9 @@ function commerza_captcha_config(mysqli $con): array
     );
 
     $provider = commerza_captcha_normalize_provider($providerRaw);
+    if ($enabled && $provider === '') {
+        $provider = 'recaptcha';
+    }
 
     $siteKey = '';
     $secretKey = '';
@@ -361,35 +364,22 @@ function commerza_captcha_config(mysqli $con): array
         $scriptUrl = 'https://www.google.com/recaptcha/api.js';
         $verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
         $responseField = 'g-recaptcha-response';
-    } elseif ($provider === 'turnstile') {
-        $siteKey = commerza_security_setting(
-            $con,
-            'turnstile_site_key',
-            commerza_env_first_non_empty(['COMMERZA_TURNSTILE_SITE_KEY', 'TURNSTILE_SITE_KEY'])
-        );
-        $secretKey = commerza_security_setting(
-            $con,
-            'turnstile_secret_key',
-            commerza_env_first_non_empty(['COMMERZA_TURNSTILE_SECRET_KEY', 'TURNSTILE_SECRET_KEY'])
-        );
-        $scriptUrl = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
-        $verifyUrl = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
-        $responseField = 'cf-turnstile-response';
     }
 
-    if ($enabled && ($provider === '' || $siteKey === '' || $secretKey === '')) {
-        $provider = 'builtin';
+    if ($enabled && ($provider !== 'recaptcha' || $siteKey === '' || $secretKey === '')) {
+        $provider = 'recaptcha';
         $siteKey = '';
         $secretKey = '';
         $scriptUrl = '';
         $verifyUrl = '';
-        $responseField = 'commerza_captcha_answer';
+        $responseField = 'g-recaptcha-response';
     }
 
-    $isUsable = $enabled && $provider !== '' && ($provider === 'builtin' || ($siteKey !== '' && $secretKey !== ''));
+    $isUsable = $enabled && $provider === 'recaptcha' && $siteKey !== '' && $secretKey !== '';
 
     $cache = [
         'enabled' => $isUsable,
+        'required' => $enabled,
         'provider' => $provider,
         'site_key' => $siteKey,
         'secret_key' => $secretKey,
@@ -414,7 +404,7 @@ function commerza_captcha_script_tag(mysqli $con): string
         return '';
     }
 
-    if ((string)($config['provider'] ?? '') === 'builtin') {
+    if ((string)($config['provider'] ?? '') !== 'recaptcha') {
         return '';
     }
 
@@ -433,30 +423,15 @@ function commerza_captcha_widget_html(mysqli $con, string $context = ''): string
 
     $provider = (string)$config['provider'];
     $siteKey = htmlspecialchars((string)$config['site_key'], ENT_QUOTES, 'UTF-8');
-    $safeContext = htmlspecialchars($context, ENT_QUOTES, 'UTF-8');
-
-    if ($provider === 'builtin') {
-        $challenge = commerza_captcha_builtin_issue($context);
-        $question = htmlspecialchars((string)($challenge['question'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $nonce = htmlspecialchars((string)($challenge['nonce'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $field = htmlspecialchars((string)($config['response_field'] ?? 'commerza_captcha_answer'), ENT_QUOTES, 'UTF-8');
-
-        return '<div class="captcha-wrapper mt-3">'
-            . '<label class="form-label" for="captcha-' . $safeContext . '">Security Check: Solve ' . $question . '</label>'
-            . '<input type="text" class="form-control" id="captcha-' . $safeContext . '" name="' . $field . '" placeholder="Enter answer" inputmode="numeric" pattern="-?[0-9]{1,4}" maxlength="4" required>'
-            . '<input type="hidden" name="commerza_captcha_token" value="' . $nonce . '">'
-            . '</div>';
+    if ($provider !== 'recaptcha') {
+        return '';
     }
 
-    if ($provider === 'recaptcha') {
-        $widget = '<div class="g-recaptcha" data-sitekey="' . $siteKey . '"></div>';
-        return '<div class="captcha-wrapper mt-3">' . $widget . '</div>';
-    }
+    $widget = '<div class="g-recaptcha captcha-widget" data-theme="dark" data-sitekey="' . $siteKey . '"></div>';
+    $wrapperStyle = 'display:flex;justify-content:center;width:100%;';
+    $shellStyle = 'display:flex;justify-content:center;width:min(100%,360px);padding:12px;border-radius:16px;border:0;background:linear-gradient(180deg,rgba(18,18,18,.96),rgba(8,8,8,.96));box-shadow:0 16px 32px rgba(0,0,0,.45),inset 0 0 0 1px rgba(255,255,255,.03);';
 
-    $actionAttr = $safeContext !== '' ? (' data-action="' . $safeContext . '"') : '';
-    $widget = '<div class="cf-turnstile" data-sitekey="' . $siteKey . '"' . $actionAttr . '></div>';
-
-    return '<div class="captcha-wrapper mt-3">' . $widget . '</div>';
+    return '<div class="captcha-wrapper mt-3" style="' . $wrapperStyle . '"><div class="captcha-shell" style="' . $shellStyle . '">' . $widget . '</div></div>';
 }
 
 function commerza_captcha_http_post_json(string $url, array $payload): array
@@ -522,6 +497,14 @@ function commerza_captcha_verify_submission(mysqli $con, array $request, string 
     $config = commerza_captcha_config($con);
 
     if (!(bool)($config['enabled'] ?? false)) {
+        if ((bool)($config['required'] ?? false)) {
+            return [
+                'ok' => false,
+                'message' => 'CAPTCHA is required but not configured correctly. Please contact support.',
+                'skipped' => false,
+            ];
+        }
+
         return [
             'ok' => true,
             'message' => '',
@@ -540,8 +523,12 @@ function commerza_captcha_verify_submission(mysqli $con, array $request, string 
         ];
     }
 
-    if ((string)($config['provider'] ?? '') === 'builtin') {
-        return commerza_captcha_builtin_verify($request, $context, (string)($config['response_field'] ?? 'commerza_captcha_answer'));
+    if ((string)($config['provider'] ?? '') !== 'recaptcha') {
+        return [
+            'ok' => false,
+            'message' => 'CAPTCHA configuration is invalid. Please contact support.',
+            'skipped' => false,
+        ];
     }
 
     $field = (string)($config['response_field'] ?? '');
@@ -565,10 +552,6 @@ function commerza_captcha_verify_submission(mysqli $con, array $request, string 
         $payload['remoteip'] = $clientIp;
     }
 
-    if ((string)$config['provider'] === 'turnstile' && $context !== '') {
-        $payload['action'] = $context;
-    }
-
     $verification = commerza_captcha_http_post_json((string)$config['verify_url'], $payload);
     if (!(bool)($verification['ok'] ?? false) || !is_array($verification['data'] ?? null)) {
         return [
@@ -580,13 +563,6 @@ function commerza_captcha_verify_submission(mysqli $con, array $request, string 
 
     $data = $verification['data'];
     $isSuccess = !empty($data['success']);
-
-    if ($isSuccess && (string)$config['provider'] === 'turnstile' && $context !== '') {
-        $returnedAction = trim((string)($data['action'] ?? ''));
-        if ($returnedAction !== '' && !hash_equals($context, $returnedAction)) {
-            $isSuccess = false;
-        }
-    }
 
     if (!$isSuccess) {
         $errorCodes = [];

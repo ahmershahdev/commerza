@@ -33,7 +33,7 @@ function commerza_mail_smtp_config(): array
 
     $username = trim(commerza_mail_env_value(['COMMERZA_SMTP_USERNAME'], ''));
     $password = trim(commerza_mail_env_value(['COMMERZA_SMTP_PASSWORD'], ''));
-    $fromEmail = trim(commerza_mail_env_value(['COMMERZA_SMTP_FROM_EMAIL'], $username));
+    $fromEmail = trim(commerza_mail_env_value(['COMMERZA_SMTP_FROM_EMAIL', 'COMMERZA_SMTP_USERNAME'], ''));
     $fromName = trim(commerza_mail_env_value(['COMMERZA_SMTP_FROM_NAME'], 'Commerza'));
     $timeout = (int)commerza_mail_env_value(['COMMERZA_SMTP_TIMEOUT'], '20');
     if ($timeout < 5) {
@@ -176,6 +176,25 @@ function commerza_mail_smtp_write($socket, string $command): bool
     return is_int($bytes) && $bytes === strlen($command);
 }
 
+function commerza_mail_tls_crypto_method(): int
+{
+    $methods = 0;
+
+    if (defined('STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT')) {
+        $methods |= STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT;
+    }
+
+    if (defined('STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT')) {
+        $methods |= STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT;
+    }
+
+    if ($methods !== 0) {
+        return $methods;
+    }
+
+    return STREAM_CRYPTO_METHOD_TLS_CLIENT;
+}
+
 function commerza_mail_smtp_send(
     array $smtp,
     string $toEmail,
@@ -201,7 +220,17 @@ function commerza_mail_smtp_send(
     $errno = 0;
     $errstr = '';
 
-    $socket = @stream_socket_client($remote, $errno, $errstr, $timeout, STREAM_CLIENT_CONNECT);
+    $context = stream_context_create([
+        'ssl' => [
+            'verify_peer' => true,
+            'verify_peer_name' => true,
+            'allow_self_signed' => false,
+            'SNI_enabled' => true,
+            'peer_name' => $host,
+        ],
+    ]);
+
+    $socket = @stream_socket_client($remote, $errno, $errstr, $timeout, STREAM_CLIENT_CONNECT, $context);
     if (!is_resource($socket)) {
         $errorMessage = 'Unable to connect to SMTP server (' . $host . ':' . $port . ').';
         return false;
@@ -230,7 +259,7 @@ function commerza_mail_smtp_send(
             return false;
         }
 
-        $cryptoEnabled = stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+        $cryptoEnabled = stream_socket_enable_crypto($socket, true, commerza_mail_tls_crypto_method());
         if ($cryptoEnabled !== true) {
             fclose($socket);
             $errorMessage = 'Unable to enable SMTP TLS encryption.';

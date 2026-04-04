@@ -74,12 +74,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
           unset($_SESSION['signup_pending']);
           $errors[] = 'Verification code expired. Please sign up again.';
         } elseif ($flowAction === 'resend_code') {
+          $lastResendAt = (int)($pending['last_resend_at'] ?? 0);
+          if ($lastResendAt > 0 && (time() - $lastResendAt) < 45) {
+            $wait = max(1, 45 - (time() - $lastResendAt));
+            $errors[] = 'Please wait ' . $wait . ' second(s) before requesting a new code.';
+          }
+
+          if (empty($errors)) {
           $newCode = signup_generate_verification_code();
           $pending['code_hash'] = hash('sha256', $newCode);
           $pending['expires_at'] = time() + 600;
+          $pending['last_resend_at'] = time();
           $_SESSION['signup_pending'] = $pending;
                 commerza_notify_signup_verification_code($con, $email, $full_name, $newCode);
           $success[] = 'A new verification code was sent to your email.';
+          }
         } else {
           $verificationCode = trim((string)($_POST['verification_code'] ?? ''));
           if (!preg_match('/^\d{6}$/', $verificationCode)) {
@@ -253,6 +262,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
           'password_hash' => commerza_password_hash($password),
           'code_hash' => hash('sha256', $verificationCode),
           'expires_at' => time() + 600,
+          'last_resend_at' => time(),
           'attempts' => 0,
         ];
 
@@ -268,6 +278,9 @@ if (!empty($_SESSION['oauth_error'])) {
   $errors[] = (string)$_SESSION['oauth_error'];
   unset($_SESSION['oauth_error']);
 }
+
+$signupUrl = commerza_absolute_url('/signup.php');
+$signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.webp');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -278,10 +291,14 @@ if (!empty($_SESSION['oauth_error'])) {
   <meta name="author" content="Syed Ahmer Shah">
   <meta name="description" content="Create your Commerza account securely to shop, track orders, and manage your wishlist.">
   <meta property="og:title" content="Sign Up | Commerza">
-  <meta property="og:description" content="Create a secure Commerza account.">
-  <meta property="og:url" content="https://commerza.ahmershah.dev/signup.php">
+  <meta property="og:description" content="Create your Commerza profile to save favorites, checkout faster, and track every order.">
+  <meta property="og:url" content="<?= htmlspecialchars($signupUrl, ENT_QUOTES, 'UTF-8') ?>">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
+  <meta property="og:image" content="<?= htmlspecialchars($signupImageUrl, ENT_QUOTES, 'UTF-8') ?>">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Sign Up | Commerza">
+  <meta name="twitter:description" content="Create your Commerza profile to save favorites, checkout faster, and track every order.">
+  <meta name="twitter:image" content="<?= htmlspecialchars($signupImageUrl, ENT_QUOTES, 'UTF-8') ?>">
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
@@ -289,13 +306,13 @@ if (!empty($_SESSION['oauth_error'])) {
     content="default-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://fonts.googleapis.com https://fonts.gstatic.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdn.jsdelivr.net https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; connect-src 'self' https://cdn.jsdelivr.net https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; frame-src 'self' https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sign Up | Commerza</title>
-  <link rel="canonical" href="https://commerza.ahmershah.dev/signup.php" />
+  <link rel="canonical" href="<?= htmlspecialchars($signupUrl, ENT_QUOTES, 'UTF-8') ?>" />
   <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebPage",
       "name": "Sign Up | Commerza",
-      "url": "https://commerza.ahmershah.dev/signup.php",
+      "url": "<?= htmlspecialchars($signupUrl, ENT_QUOTES, 'UTF-8') ?>",
       "description": "Create a Commerza user account securely."
     }
   </script>
@@ -386,12 +403,11 @@ if (!empty($_SESSION['oauth_error'])) {
 
     .signup-title {
       font-family: 'Montserrat', sans-serif;
-      font-size: 32px;
+      font-size: clamp(2rem, 3.6vw, 32px);
       font-weight: 900;
       text-align: center;
-      letter-spacing: 4px;
+      letter-spacing: clamp(2px, 0.4vw, 4px);
       text-transform: uppercase;
-      white-space: nowrap;
       background: linear-gradient(-45deg,
           #000000 0%,
           #ff0000 15%,
@@ -434,18 +450,27 @@ if (!empty($_SESSION['oauth_error'])) {
     }
 
     .signup-points li {
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background: rgba(0, 0, 0, 0.28);
+      border: 0;
+      background: linear-gradient(135deg, rgba(255, 69, 0, 0.12), rgba(0, 0, 0, 0.38));
       border-radius: 10px;
       padding: 10px 12px;
       font-size: 13px;
       color: #d7d7d7;
       line-height: 1.45;
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+    }
+
+    .signup-panel-copy {
+      color: #f1f1f1;
+      font-size: 14px;
+      line-height: 1.6;
     }
 
     .signup-points i {
       color: #ffcc00;
-      margin-right: 6px;
+      margin-top: 1px;
     }
 
     .form-label {
@@ -677,6 +702,38 @@ if (!empty($_SESSION['oauth_error'])) {
       .signup-links {
         text-align: center;
       }
+
+      .signup-panel-copy {
+        text-align: center;
+      }
+    }
+
+    @media (max-width: 575px) {
+      body.dark-theme {
+        padding: 14px 10px;
+      }
+
+      .signup-panel {
+        padding: 22px 16px;
+      }
+
+      .signup-form-wrap {
+        padding: 20px 14px;
+      }
+
+      .signup-subtitle {
+        font-size: 11px;
+        margin-bottom: 16px;
+      }
+
+      .signup-points {
+        gap: 8px;
+      }
+
+      .signup-points li {
+        font-size: 12px;
+        padding: 9px 10px;
+      }
     }
   </style>
 </head>
@@ -698,11 +755,11 @@ if (!empty($_SESSION['oauth_error'])) {
       <div class="signup-panel">
         <h1 class="signup-title">COMMERZA</h1>
         <p class="signup-subtitle">Create your account</p>
-        <p class="text-light mb-0 text-center">Create your Commerza profile to save favorites and glide through checkout.</p>
+        <p class="signup-panel-copy mb-0 text-center">Create your Commerza profile to save favorites and glide through checkout.</p>
         <ul class="signup-points">
-          <li><i class="bi bi-stars"></i>Build your personal watch rack in one tap.</li>
-          <li><i class="bi bi-speedometer2"></i>Checkout faster with your saved profile details.</li>
-          <li><i class="bi bi-truck"></i>Track each order from confirmation to doorstep.</li>
+          <li><i class="bi bi-stars"></i><span>Build your personal watch rack in one tap.</span></li>
+          <li><i class="bi bi-speedometer2"></i><span>Checkout faster with your saved profile details.</span></li>
+          <li><i class="bi bi-truck"></i><span>Track each order from confirmation to doorstep.</span></li>
         </ul>
         <div class="signup-links">
           <p class="mt-3 mb-0">Already have an account? <a href="login.php">Login</a></p>
@@ -775,10 +832,10 @@ if (!empty($_SESSION['oauth_error'])) {
                 <label for="signup-password" class="form-label">Create Password</label>
                 <div class="password-wrapper">
                   <input type="password" class="form-control" id="signup-password" name="signup_create_password"
-                    placeholder="Create password" required minlength="6" maxlength="20"
+                    placeholder="Create password" required minlength="10" maxlength="64"
                     autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false"
-                    pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[@$!%*?&]).{6,}"
-                    title="Min 6 chars, 1 uppercase, 1 lowercase, 1 number, 1 special character" />
+                    pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{10,64}"
+                    title="10-64 chars with uppercase, lowercase, number, and special character" />
                   <i class="bi bi-eye toggle-password" data-target="signup-password"></i>
                 </div>
               </div>
@@ -787,7 +844,7 @@ if (!empty($_SESSION['oauth_error'])) {
                 <label for="signup-confirm-password" class="form-label">Confirm Password</label>
                 <div class="password-wrapper">
                   <input type="password" class="form-control" id="signup-confirm-password" name="signup_confirm_password"
-                    placeholder="Confirm password" required minlength="6" maxlength="20"
+                    placeholder="Confirm password" required minlength="10" maxlength="64"
                     autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" />
                   <i class="bi bi-eye toggle-password" data-target="signup-confirm-password"></i>
                 </div>
@@ -911,7 +968,7 @@ if (!empty($_SESSION['oauth_error'])) {
       $("#signup-password").on("input", function () {
         const pw = $(this).val();
         let strength = 0;
-        if (pw.length >= 7) strength++;
+        if (pw.length >= 10) strength++;
         if (/[A-Z]/.test(pw)) strength++;
         if (/[a-z]/.test(pw)) strength++;
         if (/[0-9]/.test(pw)) strength++;

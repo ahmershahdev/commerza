@@ -179,3 +179,41 @@ img {
   border: 1px solid rgba(255, 122, 26, 0.25);
   border-radius: 18px;
 }
+
+.captcha-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.captcha-shell {
+  display: flex;
+  justify-content: center;
+  width: min(100%, 360px);
+  padding: 12px;
+  border-radius: 16px;
+  border: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(18, 18, 22, 0.96),
+    rgba(8, 8, 10, 0.96)
+  );
+  box-shadow:
+    0 16px 32px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.captcha-shell .g-recaptcha {
+  transform-origin: top center;
+}
+
+@media (max-width: 420px) {
+  .captcha-shell {
+    width: 100%;
+    padding: 10px 4px;
+  }
+
+  .captcha-shell .g-recaptcha {
+    transform: scale(0.89);
+  }
+}

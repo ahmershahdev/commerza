@@ -44,6 +44,44 @@ It includes a customer storefront, account/auth flows, payment integrations, ema
 4. Start Apache and MySQL.
 5. Open `http://localhost/commerza/`.
 
+## Database Health Check
+
+Use these helper scripts after import or after pulling schema changes:
+
+- Audit live DB vs SQL baseline:
+  - `C:\xampp\php\php.exe backend/db_audit.php`
+- Auto-repair missing tables/columns without dropping data:
+  - `C:\xampp\php\php.exe backend/db_repair.php`
+
+Expected audit status after repair:
+
+- `missing_tables`: empty
+- `extra_tables`: empty
+
+These scripts are safe for local development and idempotent for repeated runs.
+
+## Gmail SMTP Verification
+
+Set these keys in `.env`:
+
+- `COMMERZA_SMTP_HOST=smtp.gmail.com`
+- `COMMERZA_SMTP_PORT=587`
+- `COMMERZA_SMTP_ENCRYPTION=tls`
+- `COMMERZA_SMTP_USERNAME=<your gmail>`
+- `COMMERZA_SMTP_PASSWORD=<your app password>`
+- `COMMERZA_SMTP_FROM_EMAIL=<same gmail or authorized sender>`
+
+Run a quick send test:
+
+- `C:\xampp\php\php.exe backend/smtp_test.php your-email@example.com`
+
+If Gmail auth fails:
+
+- Confirm 2FA is enabled on Gmail account.
+- Regenerate app password and avoid copy/paste whitespace.
+- Confirm host/port/encryption are exactly `smtp.gmail.com`, `587`, `tls`.
+- Ensure OpenSSL is enabled in PHP (`extension=openssl`).
+
 ## Admin Panel
 
 - URL: `http://localhost/commerza/admin/frontend/admin-login.php`
@@ -97,8 +135,6 @@ Use Windows Task Scheduler (or cron on Linux) with your PHP binary.
 - `stripe_secret_key`
 - `captcha_enabled`
 - `captcha_provider`
-- `turnstile_site_key`
-- `turnstile_secret_key`
 - `recaptcha_site_key`
 - `recaptcha_secret_key`
 
@@ -106,8 +142,6 @@ Environment fallback is also supported via:
 
 - `COMMERZA_CAPTCHA_ENABLED`
 - `COMMERZA_CAPTCHA_PROVIDER`
-- `COMMERZA_TURNSTILE_SITE_KEY`
-- `COMMERZA_TURNSTILE_SECRET_KEY`
 - `COMMERZA_RECAPTCHA_SITE_KEY`
 - `COMMERZA_RECAPTCHA_SECRET_KEY`
 - `COMMERZA_CAPTCHA_BYPASS_LOCAL` (set to `1` only for local development)
