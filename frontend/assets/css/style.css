@@ -10,3 +10,11 @@
 @import url("./modules/search-suggestions.css");
 @import url("./modules/offcanvas.css");
 @import url("./modules/page-hero-wishlist.css");
+
+@media(hover:hover){
+    html{
+        scroll-behavior: smooth;
+        scrollbar-width: thin;
+        scrollbar-color: orangered transparent;
+    }
+}

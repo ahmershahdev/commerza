@@ -48,18 +48,6 @@ require_once __DIR__ . '/backend/data.php';
         </a>
         <div class="d-flex align-items-center order-lg-2">
           <ul class="navbar-nav ms-3 d-none d-lg-flex flex-row align-items-center me-3">
-            <li class="nav-item position-relative me-3">
-              <a class="nav-link nav-icon-link" href="cart.php" aria-label="View cart">
-                <i class="bi bi-cart3" id="cart-icon"></i>
-                <span class="nav-badge" id="cart-count">0</span>
-              </a>
-            </li>
-            <li class="nav-item position-relative me-3">
-              <a class="nav-link nav-icon-link" href="wishlist.php" aria-label="View wishlist">
-                <i class="bi bi-heart"></i>
-                <span class="nav-badge" id="wishlist-count">0</span>
-              </a>
-            </li>
             <li class="nav-item">
               <a class="nav-link nav-icon-link" href="account.php" aria-label="Account"><i class="bi bi-person"></i></a>
             </li>
@@ -97,16 +85,6 @@ require_once __DIR__ . '/backend/data.php';
       </div>
       <div class="offcanvas-body">
         <div class="offcanvas-user-actions">
-          <a href="cart.php" class="offcanvas-action-btn">
-            <i class="bi bi-cart3"></i>
-            <span>Cart</span>
-            <span class="offcanvas-badge" id="cart-count-mobile">0</span>
-          </a>
-          <a href="wishlist.php" class="offcanvas-action-btn">
-            <i class="bi bi-heart"></i>
-            <span>Wishlist</span>
-            <span class="offcanvas-badge" id="wishlist-count-mobile">0</span>
-          </a>
           <a href="account.php" class="offcanvas-action-btn">
             <i class="bi bi-person"></i>
             <span>Account</span>
