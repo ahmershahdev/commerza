@@ -224,7 +224,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       max-width: 450px;
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 69, 0, 0.1);
       position: relative;
-      animation: reveal-up 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      animation: reveal-up 1s ease-out forwards;
     }
 
     @keyframes reveal-up {
@@ -344,7 +344,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       text-transform: uppercase;
       letter-spacing: 1.5px;
       padding: 12px !important;
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.22s ease-out;
       position: relative;
       overflow: hidden;
     }

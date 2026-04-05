@@ -54,6 +54,126 @@
   letter-spacing: 1px;
 }
 
+.tab-playbook {
+  border: 1px solid rgba(255, 122, 26, 0.25);
+  border-radius: 18px;
+  padding: 20px 22px;
+  background: linear-gradient(
+    125deg,
+    rgba(255, 122, 26, 0.12),
+    rgba(10, 10, 14, 0.86)
+  );
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.28);
+}
+
+.tab-playbook-title {
+  margin: 10px 0 8px;
+  color: #fff;
+  font-size: 1.08rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.tab-playbook-intro {
+  color: #d2d2d2;
+  margin-bottom: 12px;
+}
+
+.tab-playbook-list {
+  counter-reset: tab-playbook-step;
+  list-style: none;
+  padding-left: 0;
+  margin: 0 0 14px;
+}
+
+.tab-playbook-list li {
+  counter-increment: tab-playbook-step;
+  position: relative;
+  padding: 8px 12px 8px 44px;
+  color: #ececec;
+  border: 1px solid rgba(255, 122, 26, 0.15);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.tab-playbook-list li + li {
+  margin-top: 8px;
+}
+
+.tab-playbook-list li::before {
+  content: counter(tab-playbook-step);
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff7a1a, #ffcc00);
+  color: #131313;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.tab-playbook-note {
+  color: #ffd8ad;
+  font-size: 0.9rem;
+}
+
+.coupon-overview-card {
+  border: 1px solid rgba(255, 122, 26, 0.24);
+  border-radius: 16px;
+  padding: 16px 18px;
+  background: linear-gradient(
+    150deg,
+    rgba(20, 20, 24, 0.98),
+    rgba(12, 12, 16, 0.98)
+  );
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.26);
+}
+
+.coupon-overview-kicker {
+  color: #b8b8b8;
+  font-size: 0.75rem;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+
+.coupon-overview-value {
+  color: #fff;
+  font-size: 1.75rem;
+  font-weight: 800;
+}
+
+.coupon-overview-active {
+  border-color: rgba(40, 167, 69, 0.35);
+  background: linear-gradient(
+    150deg,
+    rgba(16, 32, 22, 0.95),
+    rgba(9, 19, 13, 0.95)
+  );
+}
+
+.coupon-overview-active .coupon-overview-value {
+  color: #8effb1;
+}
+
+.coupon-overview-used {
+  border-color: rgba(255, 193, 7, 0.38);
+  background: linear-gradient(
+    150deg,
+    rgba(40, 30, 8, 0.96),
+    rgba(23, 17, 6, 0.96)
+  );
+}
+
+.coupon-overview-used .coupon-overview-value {
+  color: #ffdf80;
+}
+
 .field-hint {
   display: block;
   margin-top: 6px;

@@ -260,6 +260,98 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     .tip-card i {
       color: #ff9a50;
     }
+
+    .order-guide-card {
+      border: 1px solid rgba(255, 102, 0, 0.2);
+      border-radius: 14px;
+      background: linear-gradient(150deg, rgba(20, 20, 20, 0.95), rgba(8, 8, 8, 0.95));
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28);
+      padding: 14px;
+      height: 100%;
+    }
+
+    .order-step-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 204, 0, 0.35);
+      background: rgba(255, 204, 0, 0.1);
+      color: #ffda94;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 2px 10px;
+      margin-bottom: 8px;
+    }
+
+    .order-guide-card h3 {
+      color: #fff;
+      font-size: 0.96rem;
+      margin-bottom: 6px;
+    }
+
+    .order-guide-card p {
+      color: #b8b8b8;
+      margin-bottom: 0;
+      font-size: 0.84rem;
+      line-height: 1.5;
+    }
+
+    .order-precaution-panel {
+      border: 1px solid rgba(255, 153, 61, 0.3);
+      border-radius: 16px;
+      background: linear-gradient(145deg, rgba(25, 22, 18, 0.92), rgba(12, 10, 8, 0.95));
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.3);
+      padding: 16px;
+    }
+
+    .order-precaution-panel h3 {
+      color: #ffd7a8;
+      font-size: 1.02rem;
+      margin-bottom: 12px;
+    }
+
+    .order-precaution-list {
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 12px;
+    }
+
+    .order-precaution-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      color: #d0d0d0;
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    .order-precaution-list i {
+      color: #ffb86b;
+      margin-top: 1px;
+    }
+
+    .step-chip {
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px dashed rgba(255, 122, 26, 0.4);
+      color: #ffcc00;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    @media (max-width: 767px) {
+      .order-precaution-list {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 
@@ -443,6 +535,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <section class="mb-4" aria-label="Order tracking guide">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <h2 class="mb-0" style="color: #ff6600; font-size: 1.2rem;">Step-by-Step Tracking Guide</h2>
+        <span class="step-chip">Use this checklist for accurate tracking updates.</span>
+      </div>
+      <div class="row g-3">
+        <div class="col-sm-6 col-xl-3">
+          <article class="order-guide-card">
+            <span class="order-step-pill">Step 1</span>
+            <h3>Confirm Order ID Format</h3>
+            <p>Use the receipt format, for example #ORD-1234, and avoid extra spaces or symbols.</p>
+          </article>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+          <article class="order-guide-card">
+            <span class="order-step-pill">Step 2</span>
+            <h3>Use Checkout Email</h3>
+            <p>Enter the same email used when placing the order so records match securely.</p>
+          </article>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+          <article class="order-guide-card">
+            <span class="order-step-pill">Step 3</span>
+            <h3>Read Status Timeline</h3>
+            <p>Check status, payment note, and item list together for full order context.</p>
+          </article>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+          <article class="order-guide-card">
+            <span class="order-step-pill">Step 4</span>
+            <h3>Escalate if Delayed</h3>
+            <p>If status does not move for long, contact support with order ID and email.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="mb-4" aria-label="Order tracking precautions">
+      <div class="order-precaution-panel">
+        <h3><i class="bi bi-exclamation-triangle me-2"></i>Tracking Precautions</h3>
+        <ul class="order-precaution-list">
+          <li><i class="bi bi-check2-circle"></i><span>Status updates can lag briefly during courier handoff windows.</span></li>
+          <li><i class="bi bi-check2-circle"></i><span>Use exact order email and ID; small typos will return no record.</span></li>
+          <li><i class="bi bi-check2-circle"></i><span>Do not share personal address screenshots publicly when requesting support.</span></li>
+          <li><i class="bi bi-check2-circle"></i><span>If you hit too many lookups, wait and retry after the cooldown window.</span></li>
+        </ul>
       </div>
     </section>
 

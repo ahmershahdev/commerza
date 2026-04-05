@@ -11,6 +11,8 @@ $(document).ready(function () {
     couponNotice: "",
   };
   const cartActionLocks = new Set();
+  const cartQtyCooldownUntil = new Map();
+  const CART_QTY_COOLDOWN_MS = 3000;
 
   applySiteSettings();
   ensureLegalNavLinks();
@@ -486,15 +488,23 @@ $(document).ready(function () {
     const itemId = parseInt(item.id, 10);
     const currentQty = parseInt(item.quantity, 10) || 1;
 
+    if (getCartQtyCooldownMs(itemId) > 0) {
+      return;
+    }
+
     if (cartActionLocks.has(itemId)) {
       return;
     }
+
+    let shouldCooldown = false;
 
     cartActionLocks.add(itemId);
     setCartItemActionState(itemId, true);
 
     try {
       if (action === "plus") {
+        shouldCooldown = true;
+
         if (getTotalCartQty() >= 10) {
           triggerAlert();
           return;
@@ -514,6 +524,8 @@ $(document).ready(function () {
           return;
         }
 
+        shouldCooldown = true;
+
         const result = await postCartAction("set_qty", {
           product_id: itemId,
           quantity: currentQty - 1,
@@ -529,6 +541,11 @@ $(document).ready(function () {
       displayCartItems(itemId);
     } finally {
       cartActionLocks.delete(itemId);
+
+      if (shouldCooldown) {
+        startCartQtyCooldown(itemId);
+      }
+
       setCartItemActionState(itemId, false);
     }
   });
@@ -677,19 +694,70 @@ $(document).ready(function () {
       .text("No coupon applied.");
   }
 
+  function getCartQtyCooldownMs(productId) {
+    const safeProductId = parseInt(productId, 10);
+    if (!Number.isInteger(safeProductId) || safeProductId <= 0) {
+      return 0;
+    }
+
+    const cooldownUntil = Number(cartQtyCooldownUntil.get(safeProductId) || 0);
+    if (!Number.isFinite(cooldownUntil) || cooldownUntil <= 0) {
+      return 0;
+    }
+
+    const remaining = cooldownUntil - Date.now();
+    if (remaining <= 0) {
+      cartQtyCooldownUntil.delete(safeProductId);
+      return 0;
+    }
+
+    return remaining;
+  }
+
+  function startCartQtyCooldown(productId) {
+    const safeProductId = parseInt(productId, 10);
+    if (!Number.isInteger(safeProductId) || safeProductId <= 0) {
+      return;
+    }
+
+    const expiresAt = Date.now() + CART_QTY_COOLDOWN_MS;
+    cartQtyCooldownUntil.set(safeProductId, expiresAt);
+
+    const refreshState = () => {
+      if (getCartQtyCooldownMs(safeProductId) <= 0) {
+        cartQtyCooldownUntil.delete(safeProductId);
+        setCartItemActionState(safeProductId, false);
+        return;
+      }
+
+      setCartItemActionState(safeProductId, false);
+      window.setTimeout(refreshState, 250);
+    };
+
+    refreshState();
+  }
+
   function setCartItemActionState(productId, isBusy) {
     if (!Number.isInteger(parseInt(productId, 10))) {
       return;
     }
 
     const safeProductId = parseInt(productId, 10);
+    const cooldownRemainingMs = getCartQtyCooldownMs(safeProductId);
+    const isCoolingDown = cooldownRemainingMs > 0;
+    const cooldownLabel = isCoolingDown
+      ? `Ready in ${Math.ceil(cooldownRemainingMs / 1000)}s`
+      : "";
     const row = $(`.cart-item-row[data-product-id="${safeProductId}"]`);
     if (!row.length) {
       return;
     }
 
     row.toggleClass("is-busy", !!isBusy);
-    row.find(".change-qty, .remove-item").prop("disabled", !!isBusy);
+    row.toggleClass("is-cooldown", isCoolingDown);
+    row.find(".change-qty").prop("disabled", !!isBusy || isCoolingDown);
+    row.find(".remove-item").prop("disabled", !!isBusy);
+    row.find(".cart-qty-hint").text(cooldownLabel);
   }
 
   function displayCartItems(changedProductId = null) {
@@ -730,20 +798,28 @@ $(document).ready(function () {
           ? effectivePrice * safeQuantity
           : 0;
       const isBusy = cartActionLocks.has(safeItemId);
+      const cooldownRemainingMs = getCartQtyCooldownMs(safeItemId);
+      const isCoolingDown = cooldownRemainingMs > 0;
+      const cooldownLabel = isCoolingDown
+        ? `Ready in ${Math.ceil(cooldownRemainingMs / 1000)}s`
+        : "";
+      const disableMinus = isBusy || isCoolingDown || safeQuantity <= 1;
+      const disablePlus = isBusy || isCoolingDown;
 
       container.append(`
-                <div class="card product-card mb-3 cart-item-row ${isBusy ? "is-busy" : ""}" data-product-id="${safeItemId}">
+                <div class="card product-card mb-3 cart-item-row ${isBusy ? "is-busy" : ""} ${isCoolingDown ? "is-cooldown" : ""}" data-product-id="${safeItemId}">
                   <div class="card-body d-flex align-items-center gap-3">
                     <img src="${safeItemImage}" class="cart-img me-3" alt="${safeItemName}" />
                     <div class="flex-grow-1 text-center">
                       <h3 class="product-name mb-1">${safeItemName}</h3>
                       <p class="product-desc mb-2 cart-item-price">${displayPrice}</p>
-                      <p class="small text-secondary mb-2">Line Total: <strong class="text-white">${formatPkrAmount(lineTotal)}</strong></p>
+                      <p class="small text-secondary mb-2">Price: <strong class="text-white">${formatPkrAmount(lineTotal)}</strong></p>
                       <div class="d-flex align-items-center justify-content-center gap-3 mx-auto cart-qty-control" style="max-width: 170px;">
-                        <button class="btn btn-sm product-btn-cart change-qty" data-index="${index}" data-action="minus" ${isBusy ? "disabled" : ""}>−</button>
+                        <button class="btn btn-sm change-qty" data-index="${index}" data-action="minus" aria-label="Decrease quantity for ${safeItemName}" ${disableMinus ? "disabled" : ""}>−</button>
                         <span class="text-white fw-bold cart-qty-value">${safeQuantity}</span>
-                        <button class="btn btn-sm product-btn-cart change-qty" data-index="${index}" data-action="plus" ${isBusy ? "disabled" : ""}>+</button>
+                        <button class="btn btn-sm change-qty" data-index="${index}" data-action="plus" aria-label="Increase quantity for ${safeItemName}" ${disablePlus ? "disabled" : ""}>+</button>
                       </div>
+                      <div class="cart-qty-hint text-secondary small mt-1">${cooldownLabel}</div>
                     </div>
                     <button class="btn btn-sm btn-danger remove-item ms-3 align-self-start" data-index="${index}" aria-label="Remove ${safeItemName} from cart" ${isBusy ? "disabled" : ""}>
                       <i class="bi bi-trash"></i>
@@ -1428,14 +1504,20 @@ $(document).ready(function () {
     const stockCount = Number.isFinite(Number(product.stock))
       ? Number(product.stock)
       : 0;
-    const dispatchText =
+    const defaultDispatchText =
       stockCount > 0 ? "Dispatch in 24-48 hours" : "Pre-order availability";
-    const productCode = safeProductId
-      ? `CMRZ-${safeProductId.padStart(5, "0")}`
-      : "CMRZ-NA";
+    const dispatchText =
+      (product.dispatchInfo || "").toString().trim() || defaultDispatchText;
+    const productCode =
+      (product.productCode || "").toString().trim() ||
+      (safeProductId ? `CMRZ-${safeProductId.padStart(5, "0")}` : "CMRZ-NA");
+    const warrantyText =
+      (product.warrantyInfo || "").toString().trim() ||
+      "12-month seller warranty";
     const safeMovementValue = escapeHtml((product.movement || "").toString());
     const safeDispatchText = escapeHtml(dispatchText);
     const safeProductCode = escapeHtml(productCode);
+    const safeWarrantyText = escapeHtml(warrantyText);
     const wishlistActive = isInWishlist(product.id, product.name);
     const compareActive = isInCompare(product.id, product.name);
     const compareIcon = compareActive ? "bi-check2-circle" : "bi-sliders";
@@ -1497,7 +1579,7 @@ $(document).ready(function () {
                             <i class="bi bi-shield-check"></i>
                             <div class="detail-highlight-copy">
                               <span class="detail-highlight-title">Warranty</span>
-                              <span class="detail-highlight-value">12-month seller warranty</span>
+                              <span class="detail-highlight-value">${safeWarrantyText}</span>
                             </div>
                           </div>
                           <div class="detail-highlight-item">

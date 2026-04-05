@@ -5,6 +5,7 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/../../backend/products_schema_helpers.php';
 
 $con = $con ?? null;
 if (!($con instanceof mysqli)) {
@@ -18,6 +19,7 @@ if (!($con instanceof mysqli)) {
 
 $admin = admin_require_login_api($con);
 admin_require_permission_api($admin, 'products.manage');
+commerza_products_ensure_schema($con);
 
 function admin_normalize_page_value(string $page): string
 {
@@ -42,7 +44,7 @@ function admin_build_products_payload(mysqli $con): array
     );
 
     $productsResult = $con->query(
-        'SELECT id, sectionId, name, description, image, video_url, price, salePrice, stock, movement, created_at
+        'SELECT id, sectionId, name, description, image, video_url, product_code, warranty_info, dispatch_info, price, salePrice, stock, movement, created_at
          FROM products
          ORDER BY id ASC'
     );
@@ -69,6 +71,9 @@ function admin_build_products_payload(mysqli $con): array
             'description' => (string)($row['description'] ?? ''),
             'image' => (string)($row['image'] ?? ''),
             'video' => (string)($row['video_url'] ?? ''),
+            'productCode' => (string)($row['product_code'] ?? ''),
+            'warrantyInfo' => (string)($row['warranty_info'] ?? ''),
+            'dispatchInfo' => (string)($row['dispatch_info'] ?? ''),
             'price' => (float)$row['price'],
             'salePrice' => $row['salePrice'] !== null ? (float)$row['salePrice'] : null,
             'stock' => (int)($row['stock'] ?? 0),
@@ -216,18 +221,20 @@ try {
     );
 
     $insertProductWithIdStmt = $con->prepare(
-           'INSERT INTO products (id, sectionId, name, description, image, video_url, price, salePrice, stock, movement)
-            VALUES (?, ?, ?, ?, ?, ?, ?, NULLIF(?, ""), ?, NULLIF(?, ""))'
+           'INSERT INTO products (id, sectionId, name, description, image, video_url, product_code, warranty_info, dispatch_info, price, salePrice, stock, movement)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ""), ?, NULLIF(?, ""))'
     );
 
     $insertProductStmt = $con->prepare(
-           'INSERT INTO products (sectionId, name, description, image, video_url, price, salePrice, stock, movement)
-            VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ""), ?, NULLIF(?, ""))'
+           'INSERT INTO products (sectionId, name, description, image, video_url, product_code, warranty_info, dispatch_info, price, salePrice, stock, movement)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ""), ?, NULLIF(?, ""))'
     );
 
     if (!$insertSectionStmt || !$insertProductWithIdStmt || !$insertProductStmt) {
         throw new RuntimeException('Unable to prepare sync statements.');
     }
+
+    $seenProductCodes = [];
 
     foreach ($sections as $section) {
         if (!is_array($section)) {
@@ -274,12 +281,40 @@ try {
             $movement = strtolower(trim((string)($product['movement'] ?? 'quartz')));
             $movement = in_array($movement, $allowedMovements, true) ? $movement : '';
             $productId = (int)($product['id'] ?? 0);
+            $productCodeRaw = trim((string)($product['productCode'] ?? ''));
+            $warrantyInfo = trim((string)($product['warrantyInfo'] ?? ''));
+            $dispatchInfo = trim((string)($product['dispatchInfo'] ?? ''));
+
+            $productCode = commerza_normalize_product_code_value($productCodeRaw, $productId);
+            if ($warrantyInfo === '') {
+                $warrantyInfo = '12-month seller warranty';
+            }
+            if ($dispatchInfo === '') {
+                $dispatchInfo = $stock > 0 ? 'Dispatch in 24-48 hours' : 'Pre-order availability';
+            }
+
+            $dedupeCounter = 2;
+            $baseCode = $productCode;
+            while (isset($seenProductCodes[$productCode])) {
+                $suffix = '-' . ($productId > 0 ? str_pad((string)$productId, 5, '0', STR_PAD_LEFT) : (string)$dedupeCounter);
+                $maxBaseLength = max(1, 40 - strlen($suffix));
+                $productCode = substr($baseCode, 0, $maxBaseLength) . $suffix;
+                $dedupeCounter++;
+            }
+            $seenProductCodes[$productCode] = true;
 
             if ($name === '' || $price <= 0) {
                 continue;
             }
 
-            if (strlen($name) > 255 || strlen($image) > 255 || strlen($video) > 255) {
+            if (
+                strlen($name) > 255 ||
+                strlen($image) > 255 ||
+                strlen($video) > 255 ||
+                strlen($productCode) > 40 ||
+                strlen($warrantyInfo) > 120 ||
+                strlen($dispatchInfo) > 120
+            ) {
                 continue;
             }
 
@@ -287,13 +322,16 @@ try {
 
             if ($productId > 0) {
                 $insertProductWithIdStmt->bind_param(
-                    'isssssssis',
+                    'issssssssssis',
                     $productId,
                     $sectionId,
                     $name,
                     $description,
                     $image,
                     $video,
+                    $productCode,
+                    $warrantyInfo,
+                    $dispatchInfo,
                     $priceString,
                     $salePrice,
                     $stock,
@@ -308,12 +346,15 @@ try {
             }
 
             $insertProductStmt->bind_param(
-                'sssssssis',
+                'ssssssssssis',
                 $sectionId,
                 $name,
                 $description,
                 $image,
                 $video,
+                $productCode,
+                $warrantyInfo,
+                $dispatchInfo,
                 $priceString,
                 $salePrice,
                 $stock,

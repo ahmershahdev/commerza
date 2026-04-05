@@ -412,7 +412,7 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
       overflow: hidden;
       display: grid;
       grid-template-columns: minmax(320px, 0.9fr) minmax(420px, 1.1fr);
-      animation: reveal-up 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      animation: reveal-up 1s ease-out forwards;
     }
 
     .signup-panel {
@@ -587,7 +587,7 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
       text-transform: uppercase;
       letter-spacing: 1.5px;
       padding: 12px !important;
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.22s ease-out;
       position: relative;
       overflow: hidden;
     }

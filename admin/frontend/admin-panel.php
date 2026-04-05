@@ -419,9 +419,9 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                 <div class="helper-banner mb-4">
                                     <div>
                                         <h2 class="h5 mb-2 text-light">Products setup checklist</h2>
-                                        <p class="mb-0 text-secondary">Step 1: Create a section. Step 2: Add products to that section.</p>
+                                        <p class="mb-0 text-secondary">Step 1: Create a section. Step 2: Add products. Step 3: Set Product Code, Warranty, and Dispatch info for each product.</p>
                                     </div>
-                                    <span class="step-chip">Tip: Use clear section names like "Featured Collection".</span>
+                                    <span class="step-chip">Tip: Use unique product codes and clear service details so support teams can resolve issues faster.</span>
                                 </div>
                                 <div class="mb-3 d-flex gap-2 align-items-start">
                                     <div style="flex: 1;">
@@ -650,6 +650,30 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                             <span class="step-chip">Tip: Keep coupon codes short and easy to type.</span>
                         </div>
 
+                        <div class="row g-3 mb-4">
+                            <div class="col-12 col-md-4">
+                                <div class="coupon-overview-card">
+                                    <p class="coupon-overview-kicker mb-1">Total Coupons</p>
+                                    <h3 class="coupon-overview-value mb-0" id="couponStatsTotal">0</h3>
+                                    <small class="field-hint">All created codes</small>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <div class="coupon-overview-card coupon-overview-active">
+                                    <p class="coupon-overview-kicker mb-1">Currently Active</p>
+                                    <h3 class="coupon-overview-value mb-0" id="couponStatsActive">0</h3>
+                                    <small class="field-hint">Live and not expired</small>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <div class="coupon-overview-card coupon-overview-used">
+                                    <p class="coupon-overview-kicker mb-1">Total Redemptions</p>
+                                    <h3 class="coupon-overview-value mb-0" id="couponStatsUsed">0</h3>
+                                    <small class="field-hint">Times customers used offers</small>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="row g-4 mb-4">
                             <div class="col-12 col-xl-6">
                                 <div class="card admin-card border-0 shadow-sm h-100">
@@ -755,9 +779,8 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                     <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                                         <h3 class="h5 mb-0 fw-bold text-orange">All Coupons</h3>
                                         <div class="d-flex align-items-center gap-2 flex-wrap">
-                                            <span class="badge bg-secondary text-light">Total: <span id="couponStatsTotal">0</span></span>
-                                            <span class="badge bg-success">Active: <span id="couponStatsActive">0</span></span>
-                                            <span class="badge bg-info text-dark">Used: <span id="couponStatsUsed">0</span></span>
+                                            <span class="badge bg-secondary text-light">Live dashboard</span>
+                                            <span class="badge bg-warning text-dark">Sort by status + expiry</span>
                                             <button class="btn btn-sm btn-outline-orange" id="refreshCouponsBtn" type="button">
                                                 <i class="bi bi-arrow-clockwise me-1"></i>Refresh
                                             </button>
@@ -1783,6 +1806,21 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                     </ul>
                                 </div>
                                 <input type="hidden" id="productMovement" value="quartz">
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="productCode" class="form-label text-light">Product Code</label>
+                                <input type="text" class="form-control bg-secondary border-0 text-light" id="productCode" maxlength="40" placeholder="CMRZ-00001">
+                                <small class="field-hint">Unique code for support, warranty, and dispatch tracking.</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="productWarrantyInfo" class="form-label text-light">Warranty</label>
+                                <input type="text" class="form-control bg-secondary border-0 text-light" id="productWarrantyInfo" maxlength="120" value="12-month seller warranty" placeholder="12-month seller warranty">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="productDispatchInfo" class="form-label text-light">Dispatch</label>
+                                <input type="text" class="form-control bg-secondary border-0 text-light" id="productDispatchInfo" maxlength="120" value="Dispatch in 24-48 hours" placeholder="Dispatch in 24-48 hours">
                             </div>
                         </div>
                         <div class="mb-3">

@@ -25,6 +25,50 @@ function reviews_api_request_value(string $key, string $fallback = ''): string
     return $fallback;
 }
 
+function reviews_api_rate_limit_guard(
+    mysqli $con,
+    string $scope,
+    string $identifier,
+    string $actorType,
+    int $maxAttempts,
+    int $windowSeconds,
+    int $blockSeconds,
+    int $escalatedBlockSeconds = 300
+): void {
+    $clientIp = commerza_client_ip();
+    $rate = commerza_rate_limit_check(
+        $con,
+        $scope,
+        $identifier,
+        $clientIp,
+        max(1, $maxAttempts),
+        max(60, $windowSeconds),
+        max(60, $blockSeconds),
+        max($blockSeconds, $escalatedBlockSeconds)
+    );
+
+    if ((bool)($rate['allowed'] ?? true)) {
+        return;
+    }
+
+    $retrySeconds = max(1, (int)($rate['retry_after'] ?? $blockSeconds));
+    commerza_security_log_rate_limit_block(
+        $con,
+        $scope,
+        $actorType,
+        $identifier,
+        $clientIp,
+        $retrySeconds
+    );
+
+    reviews_api_json([
+        'ok' => false,
+        'message' => 'Too many review requests. Please wait and retry.',
+        'retry_after' => $retrySeconds,
+        'csrf_token' => $_SESSION['csrf_token'],
+    ], 429);
+}
+
 function reviews_api_upload_limit_bytes(): int
 {
     return 6 * 1024 * 1024;
@@ -637,6 +681,10 @@ if (!reviews_api_product_exists($con, $productId)) {
 }
 
 if ($action === 'list' && $method === 'GET') {
+    $listIdentifier = 'product_' . $productId;
+    $listActorType = $userId > 0 ? 'user' : 'guest';
+    reviews_api_rate_limit_guard($con, 'reviews_list', $listIdentifier, $listActorType, 120, 60, 120, 300);
+
     reviews_api_json([
         'ok' => true,
         'logged_in' => $userId > 0,
@@ -680,6 +728,8 @@ if ($userId <= 0) {
         'csrf_token' => $_SESSION['csrf_token'],
     ], 401);
 }
+
+reviews_api_rate_limit_guard($con, 'reviews_submit', 'user_' . $userId, 'user', 6, 600, 900, 3600);
 
 $rating = (int)($_POST['rating'] ?? 0);
 $reviewText = trim((string)($_POST['review_text'] ?? ''));

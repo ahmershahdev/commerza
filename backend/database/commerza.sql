@@ -22,6 +22,9 @@ CREATE TABLE `products` (
   `stock` int DEFAULT 0,
   `movement` enum('auto','manual','quartz','smart') DEFAULT NULL,
   `video_url` varchar(255) DEFAULT NULL COMMENT 'Optional product video',
+  `product_code` varchar(40) DEFAULT NULL COMMENT 'Unique product support code',
+  `warranty_info` varchar(120) NOT NULL DEFAULT '12-month seller warranty',
+  `dispatch_info` varchar(120) NOT NULL DEFAULT 'Dispatch in 24-48 hours',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -129,6 +132,21 @@ WHERE `sectionId` = 'sports-sales-division'
   AND `name` = 'TAG Heuer Carrera Chronograph Extreme Sport'
   AND `price` = 17800.00;
 
+UPDATE `products`
+SET `warranty_info` = '12-month seller warranty'
+WHERE `warranty_info` IS NULL OR TRIM(`warranty_info`) = '';
+
+UPDATE `products`
+SET `dispatch_info` = CASE
+  WHEN COALESCE(`stock`, 0) > 0 THEN 'Dispatch in 24-48 hours'
+  ELSE 'Pre-order availability'
+END
+WHERE `dispatch_info` IS NULL OR TRIM(`dispatch_info`) = '';
+
+UPDATE `products`
+SET `product_code` = CONCAT('CMRZ-', LPAD(`id`, 5, '0'))
+WHERE `product_code` IS NULL OR TRIM(`product_code`) = '';
+
 CREATE TABLE `sections` (
   `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `sectionId` varchar(64) NOT NULL UNIQUE,
@@ -162,7 +180,13 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 ALTER TABLE `products`
-  ADD KEY `sectionId` (`sectionId`);
+  ADD KEY `sectionId` (`sectionId`),
+  ADD KEY `idx_products_section_updated` (`sectionId`, `updated_at`, `id`),
+  ADD KEY `idx_products_movement` (`movement`),
+  ADD KEY `idx_products_price` (`price`),
+  ADD KEY `idx_products_sale_price` (`salePrice`),
+  ADD KEY `idx_products_stock` (`stock`),
+  ADD UNIQUE KEY `uq_products_product_code` (`product_code`);
 
 ALTER TABLE `products`
   ADD CONSTRAINT `products_ibfk_1` FOREIGN KEY (`sectionId`) REFERENCES `sections` (`sectionId`) ON DELETE CASCADE;
@@ -1167,6 +1191,9 @@ SELECT
   p.stock,
   p.movement,
   p.video_url,
+  p.product_code,
+  p.warranty_info,
+  p.dispatch_info,
   p.created_at,
   p.updated_at
 FROM `products` p
@@ -1267,6 +1294,9 @@ SELECT
   p.salePrice   AS product_sale_price,
   p.stock       AS product_stock,
   p.movement,
+  p.product_code,
+  p.warranty_info,
+  p.dispatch_info,
   wi.added_at
 FROM `wishlist` w
 JOIN `wishlist_items` wi ON wi.wishlist_id = w.id
@@ -1288,6 +1318,9 @@ SELECT
   p.salePrice    AS product_sale_price,
   p.stock        AS product_stock,
   p.movement,
+  p.product_code,
+  p.warranty_info,
+  p.dispatch_info,
   p.description,
   cit.added_at
 FROM `compare_list`  cl
