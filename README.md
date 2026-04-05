@@ -1,159 +1,84 @@
 # Commerza
 
-Commerza is a full-stack ecommerce CMS/store built with PHP, MySQL, jQuery, and Bootstrap.
-It includes a customer storefront, account/auth flows, payment integrations, email automation, and an operations-focused admin panel.
+## Overview
 
-## Stack
+Commerza is a PHP and MySQL ecommerce application with a customer storefront and a separate admin panel.
+The project includes account and auth flows, cart and wishlist APIs, order lifecycle management, notification emails, and operational reporting jobs.
 
-- PHP (session-based auth, CSRF protection, server-rendered pages)
-- MySQL (products, users, orders, cart, wishlist, settings)
-- JavaScript + jQuery (frontend actions and admin panel interactions)
-- Bootstrap 5 (UI components)
+## Wiki
+
+- Project wiki entrypoint: `WIKI.md`
+- Detailed chapters: `docs/wiki/`
+
+## Tech Stack
+
+- PHP (server-rendered pages and API endpoints)
+- MySQL (commerce, auth, settings, and analytics tables)
+- Bootstrap and jQuery (frontend and admin UI behavior)
+- XAMPP runtime (Apache, MySQL, PHP)
+
+## Directory Map
+
+- `backend/`: Core runtime logic, APIs, helpers, jobs, schema
+- `frontend/`: Storefront assets (CSS, JS, images, videos)
+- `admin/backend/`: Admin auth and API controllers
+- `admin/frontend/`: Admin pages and assets
 
 ## Core Features
 
-- Storefront: homepage, categories, products, compare, wishlist, cart, checkout, order tracking.
-- Account: profile update, password change, profile picture upload, order history.
-- Auth: signup with email verification code, login, remember-me, forgot/reset password, OAuth (Google/Facebook).
-- Refund lifecycle:
-  - user can request refund from account within 7 days for delivered orders
-  - admin can mark refund as pending/accepted/rejected
-  - status emails sent to user + admin alerts
-- Admin panel:
-  - product and section management
-  - product video support
-  - order/customer management with bulk delete actions
-  - dynamic analytics (weekly performance, top products, AOV, returning customer rate)
-  - website controls (branding, social links, ticker, slider)
-  - secure media uploads for logo/favicon/social/slider/product image + video
-- Payments: COD and Stripe sandbox intent.
-- Security hardening: prepared statements, CSRF checks, rate limits, session controls, OAuth state validation.
-- Email automation:
-  - signup verification + signup success
-  - user/admin login alerts
-  - order placement and order status updates
-  - refund request and refund decision updates
-  - cart/wishlist reminder queue + scheduled sender
-  - monthly profit summary and weekly analytics report
+- Storefront: product browsing, category pages, compare, wishlist, cart, checkout, order tracking
+- Account: profile updates, password change, profile image upload, order history, refund requests
+- Auth: signup verification, password reset, OAuth integration, admin 2FA verification
+- Notifications: transactional emails, engagement reminders, monthly and weekly reports
+- Security: CSRF protection, CAPTCHA verification, rate limiting, security event logging
 
 ## Local Setup
 
-1. Place the project in your web root (example: `C:\xampp\htdocs\commerza`).
-2. Import database schema from `backend/database/commerza.sql`.
-3. Update DB credentials in `backend/data.php`.
-4. Start Apache and MySQL.
+1. Place the project in XAMPP web root, for example `C:\xampp\htdocs\commerza`.
+2. Import schema from `backend/database/commerza.sql` into the `commerza` database.
+3. Configure environment values in `.env`.
+4. Start Apache and MySQL from XAMPP.
 5. Open `http://localhost/commerza/`.
 
-## Database Health Check
+## Environment Configuration
 
-Use these helper scripts after import or after pulling schema changes:
+Minimum keys for production-ready behavior:
 
-- Audit live DB vs SQL baseline:
-  - `C:\xampp\php\php.exe backend/db_audit.php`
-- Auto-repair missing tables/columns without dropping data:
-  - `C:\xampp\php\php.exe backend/db_repair.php`
+- DB: `COMMERZA_DB_HOST`, `COMMERZA_DB_USER`, `COMMERZA_DB_PASSWORD`, `COMMERZA_DB_NAME`
+- App URL: `COMMERZA_APP_URL`
+- SMTP: `COMMERZA_SMTP_HOST`, `COMMERZA_SMTP_PORT`, `COMMERZA_SMTP_ENCRYPTION`, `COMMERZA_SMTP_USERNAME`, `COMMERZA_SMTP_PASSWORD`, `COMMERZA_SMTP_FROM_EMAIL`, `COMMERZA_SMTP_FROM_NAME`
+- CAPTCHA: `COMMERZA_CAPTCHA_ENABLED`, `COMMERZA_CAPTCHA_PROVIDER`, `COMMERZA_RECAPTCHA_SITE_KEY`, `COMMERZA_RECAPTCHA_SECRET_KEY`
 
-Expected audit status after repair:
+## Database Health Checks
 
-- `missing_tables`: empty
-- `extra_tables`: empty
+Run these SQL checks against live DB:
 
-These scripts are safe for local development and idempotent for repeated runs.
-
-## Gmail SMTP Verification
-
-Set these keys in `.env`:
-
-- `COMMERZA_SMTP_HOST=smtp.gmail.com`
-- `COMMERZA_SMTP_PORT=587`
-- `COMMERZA_SMTP_ENCRYPTION=tls`
-- `COMMERZA_SMTP_USERNAME=<your gmail>`
-- `COMMERZA_SMTP_PASSWORD=<your app password>`
-- `COMMERZA_SMTP_FROM_EMAIL=<same gmail or authorized sender>`
-
-Run a quick send test:
-
-- `C:\xampp\php\php.exe backend/smtp_test.php your-email@example.com`
-
-If Gmail auth fails:
-
-- Confirm 2FA is enabled on Gmail account.
-- Regenerate app password and avoid copy/paste whitespace.
-- Confirm host/port/encryption are exactly `smtp.gmail.com`, `587`, `tls`.
-- Ensure OpenSSL is enabled in PHP (`extension=openssl`).
-
-## Admin Panel
-
-- URL: `http://localhost/commerza/admin/frontend/admin-login.php`
-- Admin login now uses password + email verification code (2FA).
-- Core APIs:
-  - `admin/backend/products_sync_api.php`
-  - `admin/backend/orders_api.php`
-  - `admin/backend/website_api.php`
-  - `admin/backend/media_api.php`
-  - `admin/backend/security_api.php`
-  - `admin/backend/viewers_api.php`
-- The panel is DB-backed (orders, customers, refunds, analytics, website settings).
+- Table count parity with schema baseline:
+  - `SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = 'commerza';`
+- Missing table parity checks should show none after import.
+- Foreign key inventory:
+  - `SELECT COUNT(*) FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = 'commerza';`
+- Orphan user reference spot-check:
+  - `SELECT COUNT(*) FROM orders o LEFT JOIN users u ON u.id = o.user_id WHERE o.user_id IS NOT NULL AND u.id IS NULL;`
 
 ## Scheduled Jobs
 
-Use Windows Task Scheduler (or cron on Linux) with your PHP binary.
-
-- Engagement reminders (cart/wishlist add-and-forget):
+- Engagement reminders:
   - `C:\xampp\php\php.exe C:\xampp\htdocs\commerza\backend\send_engagement_reminders.php 180`
-  - `180` means remind after 180 minutes of inactivity.
-- Monthly admin profit email:
+- Monthly report:
   - `C:\xampp\php\php.exe C:\xampp\htdocs\commerza\backend\monthly_profit_report.php`
-  - Optional month override: `YYYY-MM`.
-- Weekly analytics email:
+- Weekly report:
   - `C:\xampp\php\php.exe C:\xampp\htdocs\commerza\backend\weekly_analytics_report.php`
-  - Optional week end override: `YYYY-MM-DD`.
 
-## Security Notes
+## Release Readiness Checklist
 
-- Keep `backend/data.php` credentials private and environment-specific.
-- Replace OAuth/payment keys in `site_settings` for production.
-- Use HTTPS in production so secure cookies (session + remember-me) are always enforced.
-- Rotate admin reset key and default admin credentials after first deployment.
+- SMTP delivery verified from real flows (signup and admin 2FA)
+- CAPTCHA verification active on sensitive actions
+- CSP and security headers applied without runtime breakage
+- Database schema parity and FK presence validated
+- PHP lint and runtime checks passing
 
-## Backup/Restore Validation
+## Notes
 
-- Use `backend/backup_restore_test.ps1` to validate database and media backup/restore integrity.
-- Quick run example:
-  - `powershell -ExecutionPolicy Bypass -File backend/backup_restore_test.ps1 -MySqlBinPath "C:\xampp\mysql\bin"`
-- Full instructions are in `backend/BACKUP_RESTORE_TESTS.md`.
-
-## Integration Keys (Stored in `site_settings`)
-
-- `google_oauth_client_id`
-- `google_oauth_client_secret`
-- `google_oauth_redirect_uri`
-- `facebook_oauth_client_id`
-- `facebook_oauth_client_secret`
-- `facebook_oauth_redirect_uri`
-- `stripe_publishable_key`
-- `stripe_secret_key`
-- `captcha_enabled`
-- `captcha_provider`
-- `recaptcha_site_key`
-- `recaptcha_secret_key`
-
-Environment fallback is also supported via:
-
-- `COMMERZA_CAPTCHA_ENABLED`
-- `COMMERZA_CAPTCHA_PROVIDER`
-- `COMMERZA_RECAPTCHA_SITE_KEY`
-- `COMMERZA_RECAPTCHA_SECRET_KEY`
-- `COMMERZA_CAPTCHA_BYPASS_LOCAL` (set to `1` only for local development)
-
-Detailed provider onboarding instructions are in `instructions.md`.
-
-## License
-
-This project is proprietary. See `license.txt`.
-
-## Contact
-
-- LinkedIn: https://www.linkedin.com/in/syedahmershah
-- GitHub: https://github.com/ahmershahdev
-- Email: syedahmershahofficial@gmail.com
+- Use `C:\xampp\php\php.exe` for CLI linting and job execution in this environment.
+- Keep credentials and secrets out of source control.

@@ -264,6 +264,16 @@ commerza_ensure_coupon_schema($con);
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $action = coupons_api_action();
 
+admin_api_rate_limit_guard(
+    $con,
+    $admin,
+    admin_api_scope('admin_coupons_api', $action),
+    120,
+    60,
+    120,
+    300
+);
+
 if ($method === 'GET') {
     if ($action !== 'list') {
         coupons_api_json([
@@ -456,6 +466,13 @@ if ($action === 'save-coupon') {
             ], 409);
         }
 
+        admin_api_log_security_event($con, $admin, 'coupon.updated', 'info', [
+            'coupon_id' => $couponId,
+            'code' => $code,
+            'discount_type' => $discountType,
+            'is_active' => $isActive,
+        ]);
+
         coupons_api_json([
             'ok' => true,
             'message' => 'Coupon updated successfully.',
@@ -517,6 +534,14 @@ if ($action === 'save-coupon') {
         ], 409);
     }
 
+    $createdCouponId = (int)$con->insert_id;
+    admin_api_log_security_event($con, $admin, 'coupon.created', 'info', [
+        'coupon_id' => $createdCouponId,
+        'code' => $code,
+        'discount_type' => $discountType,
+        'is_active' => $isActive,
+    ]);
+
     coupons_api_json([
         'ok' => true,
         'message' => 'Coupon created successfully.',
@@ -567,6 +592,10 @@ if ($action === 'delete-coupon') {
             'message' => $error->getMessage() ?: 'Unable to delete coupon.',
         ], 500);
     }
+
+    admin_api_log_security_event($con, $admin, 'coupon.deleted', 'warning', [
+        'coupon_id' => $couponId,
+    ]);
 
     coupons_api_json([
         'ok' => true,
@@ -657,6 +686,19 @@ if ($action === 'send-coupon-email') {
             $lastError = $errorMessage ? (string)$errorMessage : 'Failed to send one or more emails.';
         }
     }
+
+    admin_api_log_security_event(
+        $con,
+        $admin,
+        'coupon.email_campaign',
+        ($sent > 0 && $failed === 0) ? 'info' : 'warning',
+        [
+            'coupon_id' => $couponId,
+            'sent' => $sent,
+            'failed' => $failed,
+            'requested_recipients' => count($recipients),
+        ]
+    );
 
     coupons_api_json([
         'ok' => $sent > 0,

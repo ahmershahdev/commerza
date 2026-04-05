@@ -1,12 +1,31 @@
-# Frontend Slider Videos Folder Guide
+# slider Directory Guide
 
-This folder stores hero/slider video assets used in primary banners.
+## Purpose
+Stores video assets used by this feature area.
 
-## Current Files
+## Scope
+- Directory: frontend/assets/videos/slider
+- Primary audience: developers and maintainers
+- Update frequency: when assets, APIs, or structure in this folder change
 
-- `steel_watch_1.mp4`: Default homepage hero video fallback.
+## File Standards
+- Use compressed, web-ready formats and practical durations.
+- Keep filenames lowercase with hyphens.
+- Match naming with slider/product context for easy mapping.
+- Verify browser playback before publishing.
+
+## Change Workflow
+1. Add or update files only for this directory responsibility.
+2. Verify references from pages/APIs before committing.
+3. Validate production-safe paths and naming consistency.
+4. Remove stale files that are no longer referenced.
+
+## Quality Checklist
+- Paths resolve correctly from consuming pages or scripts.
+- No debug-only or temporary files are left behind.
+- Naming remains consistent with existing conventions.
+- Documentation is updated when behavior/usage changes.
 
 ## Notes
-
-- Ensure fallback images are available for browsers/devices that cannot autoplay video.
-- Keep file sizes optimized for first meaningful paint performance.
+- Keep this guide concise but current.
+- Prefer incremental updates over large, undocumented restructures.

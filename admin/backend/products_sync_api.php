@@ -120,6 +120,16 @@ if ($method === 'GET') {
     $action = strtolower(trim((string)($_POST['action'] ?? ($body['action'] ?? 'get-products'))));
 }
 
+admin_api_rate_limit_guard(
+    $con,
+    $admin,
+    admin_api_scope('admin_products_sync_api', $action),
+    90,
+    60,
+    120,
+    300
+);
+
 if ($action === 'get-products') {
     try {
         echo json_encode([
@@ -322,10 +332,19 @@ try {
 
     $con->commit();
 
+    $totalSections = is_array($sections) ? count($sections) : 0;
+    $syncedPayload = admin_build_products_payload($con);
+    $syncedTotalProducts = (int)($syncedPayload['meta']['total'] ?? 0);
+
+    admin_api_log_security_event($con, $admin, 'products.synced', 'info', [
+        'sections' => $totalSections,
+        'products' => $syncedTotalProducts,
+    ]);
+
     echo json_encode([
         'ok' => true,
         'message' => 'Products synced successfully.',
-        'payload' => admin_build_products_payload($con),
+        'payload' => $syncedPayload,
     ]);
 } catch (Throwable $exception) {
     $con->rollback();

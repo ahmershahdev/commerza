@@ -56,28 +56,41 @@ $logoUrl = $siteBaseUrl . '/frontend/assets/images/logo/commerza-logo.webp';
 			text-decoration: underline;
 		}
 
-		.privacy-accordion .accordion-button {
-			background: #111;
-			color: #f2f2f2;
-			border: 1px solid rgba(255, 90, 0, 0.2);
+		.policy-faq-accordion .accordion-button {
+			color: #ff6600 !important;
+			background-color: #1a1a1a;
+			border: 1px solid #ff6600;
+			border-radius: 6px;
+			margin-bottom: 8px;
+			transition: all 0.3s ease;
+			font-weight: 700;
 		}
 
-		.privacy-accordion .accordion-button:not(.collapsed) {
-			background: #1a1a1a;
-			color: #ffcc00;
+		.policy-faq-accordion .accordion-button:hover {
+			background-color: #252525;
+			border-color: #ff8533;
 		}
 
-		.privacy-accordion .accordion-body {
-			background: #0f0f0f;
-			color: #bdbdbd;
+		.policy-faq-accordion .accordion-button::after {
+			background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23ff6600'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
 		}
 
-		.privacy-accordion .accordion-header {
-			margin: 0;
-			padding-left: 0;
-			border-left: 0;
-			box-shadow: none;
-			background: none;
+		.policy-faq-accordion .accordion-item {
+			border: none;
+			background-color: transparent;
+		}
+
+		.policy-faq-accordion .accordion-collapse,
+		.policy-faq-accordion .accordion-collapse.active {
+			border: 1px solid #ff6600;
+			border-top: none;
+			border-radius: 0 0 6px 6px;
+		}
+
+		.policy-faq-accordion .accordion-body {
+			background-color: #0d0d0d;
+			border-radius: 0 0 6px 6px;
+			color: #d1d1d1;
 		}
 
 		.privacy-page-title {
@@ -253,25 +266,31 @@ $logoUrl = $siteBaseUrl . '/frontend/assets/images/logo/commerza-logo.webp';
 		</section>
 
 		<section class="mb-4">
-			<div class="accordion privacy-accordion" id="privacyQuickActions">
-				<div class="accordion-item border-0 mb-2">
-					<h2 class="accordion-header" id="quickActionOne">
-						<button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#quickActionPanelOne" aria-expanded="true" aria-controls="quickActionPanelOne">
+			<div class="accordion policy-faq-accordion" id="faqAccordion">
+				<div class="accordion-item">
+					<h2 class="accordion-header" id="privacyFaqOne">
+						<button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#privacyFaqPanelOne" aria-expanded="true" aria-controls="privacyFaqPanelOne">
 							How can I request a data update?
 						</button>
 					</h2>
-					<div id="quickActionPanelOne" class="accordion-collapse collapse show" aria-labelledby="quickActionOne" data-bs-parent="#privacyQuickActions">
-						<div class="accordion-body">Email your registered account address and requested correction to <a class="policy-mail" href="mailto:commerza.ahmer@gmail.com?subject=Commerza%20Data%20Correction%20Request">commerza.ahmer@gmail.com</a>.</div>
+					<div id="privacyFaqPanelOne" class="accordion-collapse collapse show" aria-labelledby="privacyFaqOne" data-bs-parent="#faqAccordion">
+						<div class="accordion-body">
+							Email your registered account address and requested correction to
+							<a class="policy-mail" href="mailto:commerza.ahmer@gmail.com?subject=Commerza%20Data%20Correction%20Request">commerza.ahmer@gmail.com</a>.
+						</div>
 					</div>
 				</div>
-				<div class="accordion-item border-0 mb-2">
-					<h2 class="accordion-header" id="quickActionTwo">
-						<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#quickActionPanelTwo" aria-expanded="false" aria-controls="quickActionPanelTwo">
+				<div class="accordion-item">
+					<h2 class="accordion-header" id="privacyFaqTwo">
+						<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#privacyFaqPanelTwo" aria-expanded="false" aria-controls="privacyFaqPanelTwo">
 							How do I report a privacy or security concern?
 						</button>
 					</h2>
-					<div id="quickActionPanelTwo" class="accordion-collapse collapse" aria-labelledby="quickActionTwo" data-bs-parent="#privacyQuickActions">
-						<div class="accordion-body">Send full details, screenshots, and your account email (if applicable) to <a class="policy-mail" href="mailto:commerza.ahmer@gmail.com?subject=Commerza%20Privacy%20Security%20Concern">commerza.ahmer@gmail.com</a>.</div>
+					<div id="privacyFaqPanelTwo" class="accordion-collapse collapse" aria-labelledby="privacyFaqTwo" data-bs-parent="#faqAccordion">
+						<div class="accordion-body">
+							Send full details, screenshots, and your account email (if applicable) to
+							<a class="policy-mail" href="mailto:commerza.ahmer@gmail.com?subject=Commerza%20Privacy%20Security%20Concern">commerza.ahmer@gmail.com</a>.
+						</div>
 					</div>
 				</div>
 			</div>

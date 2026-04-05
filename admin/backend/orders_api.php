@@ -464,6 +464,8 @@ function orders_api_fetch_metrics(mysqli $con): array
 {
     $metrics = [
         'totalRevenue' => 0.0,
+        'refundLoss' => 0.0,
+        'netRevenue' => 0.0,
         'totalOrders' => 0,
         'totalCustomers' => 0,
         'totalProducts' => 0,
@@ -487,6 +489,20 @@ function orders_api_fetch_metrics(mysqli $con): array
         $row = $revenueResult->fetch_assoc();
         $metrics['totalRevenue'] = (float)($row['total'] ?? 0);
     }
+
+    $lossResult = $con->query(
+        'SELECT COALESCE(SUM(o.grand_total), 0) AS total
+         FROM refund_requests r
+         INNER JOIN orders o ON o.id = r.order_id
+         WHERE r.status = "accepted"
+           AND r.updated_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)'
+    );
+    if ($lossResult) {
+        $row = $lossResult->fetch_assoc();
+        $metrics['refundLoss'] = (float)($row['total'] ?? 0);
+    }
+
+    $metrics['netRevenue'] = round($metrics['totalRevenue'] - $metrics['refundLoss'], 2);
 
     $ordersResult = $con->query(
         'SELECT COUNT(*) AS total
@@ -564,6 +580,8 @@ function orders_api_fetch_metrics(mysqli $con): array
             'date' => $day,
             'label' => date('D', strtotime($day)),
             'revenue' => 0.0,
+            'loss' => 0.0,
+            'net' => 0.0,
             'orders' => 0,
         ];
     }
@@ -589,6 +607,33 @@ function orders_api_fetch_metrics(mysqli $con): array
             $labels[$day]['revenue'] = (float)($row['revenue'] ?? 0);
             $labels[$day]['orders'] = (int)($row['order_count'] ?? 0);
         }
+    }
+
+    $weeklyLossResult = $con->query(
+        'SELECT
+            DATE(r.updated_at) AS day,
+            COALESCE(SUM(o.grand_total), 0) AS loss_total
+         FROM refund_requests r
+         INNER JOIN orders o ON o.id = r.order_id
+         WHERE r.status = "accepted"
+           AND r.updated_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+         GROUP BY DATE(r.updated_at)
+         ORDER BY DATE(r.updated_at) ASC'
+    );
+
+    if ($weeklyLossResult) {
+        while ($row = $weeklyLossResult->fetch_assoc()) {
+            $day = (string)($row['day'] ?? '');
+            if (!isset($labels[$day])) {
+                continue;
+            }
+
+            $labels[$day]['loss'] = (float)($row['loss_total'] ?? 0);
+        }
+    }
+
+    foreach ($labels as $day => $item) {
+        $labels[$day]['net'] = (float)$labels[$day]['revenue'] - (float)$labels[$day]['loss'];
     }
 
     foreach ($labels as $day => $item) {
@@ -682,6 +727,16 @@ if ($method === 'GET') {
     $action = strtolower(trim((string)($requestBody['action'] ?? ($_POST['action'] ?? 'summary'))));
 }
 
+admin_api_rate_limit_guard(
+    $con,
+    $admin,
+    admin_api_scope('admin_orders_api', $action),
+    180,
+    60,
+    120,
+    300
+);
+
 if ($action === 'summary') {
     orders_api_json([
         'ok' => true,
@@ -704,12 +759,17 @@ if ($action === 'update-status') {
     }
 
     $csrfToken = (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($_POST['csrf_token'] ?? ''));
+    if ($csrfToken === '') {
+        $csrfToken = (string)($requestBody['csrf_token'] ?? '');
+    }
     if (!admin_validate_csrf_token($csrfToken)) {
         orders_api_json(['ok' => false, 'message' => 'Forbidden.'], 403);
     }
 
-    $orderNumber = trim((string)($_POST['order_number'] ?? ''));
-    $nextStatus = trim((string)($_POST['status'] ?? ''));
+    $orderNumber = trim((string)($requestBody['order_number'] ?? ($_POST['order_number'] ?? '')));
+    $nextStatus = trim((string)($requestBody['status'] ?? ($_POST['status'] ?? '')));
+    $refreshMode = strtolower(trim((string)($requestBody['refresh_mode'] ?? ($_POST['refresh_mode'] ?? 'minimal'))));
+    $returnFullPayload = $refreshMode === 'full';
 
     $allowedStatuses = ['Pending', 'Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded'];
 
@@ -717,11 +777,52 @@ if ($action === 'update-status') {
         orders_api_json(['ok' => false, 'message' => 'Invalid status update payload.'], 422);
     }
 
-    $order = orders_api_find_order($con, $orderNumber);
+    if (!$con->begin_transaction()) {
+        orders_api_json(['ok' => false, 'message' => 'Unable to lock order for update.'], 500);
+    }
+
+    $order = null;
+    $orderId = 0;
+    $oldStatus = 'Pending';
+
+    $lockStmt = $con->prepare(
+        'SELECT
+            id,
+            order_number,
+            customer_name,
+            customer_email,
+            customer_phone,
+            address,
+            subtotal,
+            shipping_cost,
+            grand_total,
+            status,
+            payment_status,
+            payment_method,
+            created_at
+         FROM orders
+         WHERE order_number = ?
+         LIMIT 1
+         FOR UPDATE'
+    );
+
+    if (!$lockStmt) {
+        $con->rollback();
+        orders_api_json(['ok' => false, 'message' => 'Unable to lock order for update.'], 500);
+    }
+
+    $lockStmt->bind_param('s', $orderNumber);
+    $lockStmt->execute();
+    $result = $lockStmt->get_result();
+    $order = $result ? $result->fetch_assoc() : null;
+    $lockStmt->close();
+
     if (!$order) {
+        $con->rollback();
         orders_api_json(['ok' => false, 'message' => 'Order not found.'], 404);
     }
 
+    $orderId = (int)($order['id'] ?? 0);
     $oldStatus = (string)($order['status'] ?? 'Pending');
 
     if ($oldStatus !== $nextStatus) {
@@ -733,26 +834,55 @@ if ($action === 'update-status') {
         );
 
         if (!$updateStmt) {
+            $con->rollback();
             orders_api_json(['ok' => false, 'message' => 'Unable to update order status.'], 500);
         }
 
-        $orderId = (int)$order['id'];
         $updateStmt->bind_param('si', $nextStatus, $orderId);
         $ok = $updateStmt->execute();
         $updateStmt->close();
 
         if (!$ok) {
+            $con->rollback();
             orders_api_json(['ok' => false, 'message' => 'Unable to update order status.'], 500);
         }
 
         $order['status'] = $nextStatus;
-        commerza_notify_order_status_change($con, $order, $oldStatus, $nextStatus);
     }
+
+    if (!$con->commit()) {
+        $con->rollback();
+        orders_api_json(['ok' => false, 'message' => 'Unable to finalize order status update.'], 500);
+    }
+
+    if ($oldStatus !== $nextStatus) {
+        commerza_notify_order_status_change($con, $order, $oldStatus, $nextStatus);
+        admin_api_log_security_event($con, $admin, 'order.status_change', 'info', [
+            'order_id' => $orderId,
+            'order_number' => $orderNumber,
+            'old_status' => $oldStatus,
+            'new_status' => $nextStatus,
+        ]);
+    }
+
+    $payload = $returnFullPayload
+        ? orders_api_summary_payload($con)
+        : [
+            'order' => [
+                'db_id' => $orderId,
+                'orderId' => (string)($order['order_number'] ?? $orderNumber),
+                'status' => (string)($order['status'] ?? $nextStatus),
+                'paymentStatus' => (string)($order['payment_status'] ?? 'unpaid'),
+            ],
+            'metrics' => orders_api_fetch_metrics($con),
+        ];
 
     orders_api_json([
         'ok' => true,
-        'message' => 'Order status updated.',
-        'payload' => orders_api_summary_payload($con),
+        'message' => $oldStatus !== $nextStatus
+            ? 'Order status updated.'
+            : 'Order is already in the selected status.',
+        'payload' => $payload,
     ]);
 }
 
@@ -830,6 +960,14 @@ if ($action === 'delete-orders') {
     $lookupOrderStmt->close();
     $deleteRefundStmt->close();
     $deleteStmt->close();
+
+    if ($deleted > 0) {
+        admin_api_log_security_event($con, $admin, 'order.bulk_delete', 'warning', [
+            'deleted_count' => $deleted,
+            'requested_count' => count($orderNumbers),
+            'order_numbers' => array_slice($orderNumbers, 0, 50),
+        ]);
+    }
 
     orders_api_json([
         'ok' => true,
@@ -1089,6 +1227,15 @@ if ($action === 'delete-customers') {
         $message = 'Unable to delete selected customers completely.';
     }
 
+    if ($deleted > 0 || $failed > 0) {
+        admin_api_log_security_event($con, $admin, 'customer.bulk_delete', $failed > 0 ? 'warning' : 'info', [
+            'deleted_count' => $deleted,
+            'failed_count' => $failed,
+            'requested_count' => count($ids),
+            'customer_ids' => array_slice($ids, 0, 50),
+        ]);
+    }
+
     orders_api_json([
         'ok' => true,
         'message' => $message,
@@ -1120,15 +1267,21 @@ if ($action === 'update-refund-status') {
         orders_api_json(['ok' => false, 'message' => 'Invalid refund update payload.'], 422);
     }
 
+    if (!$con->begin_transaction()) {
+        orders_api_json(['ok' => false, 'message' => 'Unable to lock refund request.'], 500);
+    }
+
     $stmt = $con->prepare(
         'SELECT r.id, r.order_id, o.order_number, o.customer_name, o.customer_email
          FROM refund_requests r
          INNER JOIN orders o ON o.id = r.order_id
          WHERE r.id = ?
-         LIMIT 1'
+         LIMIT 1
+         FOR UPDATE'
     );
 
     if (!$stmt) {
+        $con->rollback();
         orders_api_json(['ok' => false, 'message' => 'Unable to load refund request.'], 500);
     }
 
@@ -1139,6 +1292,7 @@ if ($action === 'update-refund-status') {
     $stmt->close();
 
     if (!$refundRow) {
+        $con->rollback();
         orders_api_json(['ok' => false, 'message' => 'Refund request not found.'], 404);
     }
 
@@ -1150,6 +1304,7 @@ if ($action === 'update-refund-status') {
     );
 
     if (!$updateStmt) {
+        $con->rollback();
         orders_api_json(['ok' => false, 'message' => 'Unable to update refund request.'], 500);
     }
 
@@ -1158,6 +1313,7 @@ if ($action === 'update-refund-status') {
     $updateStmt->close();
 
     if (!$ok) {
+        $con->rollback();
         orders_api_json(['ok' => false, 'message' => 'Unable to update refund request.'], 500);
     }
 
@@ -1191,6 +1347,7 @@ if ($action === 'update-refund-status') {
         }
 
         if (!$orderUpdateStmt) {
+            $con->rollback();
             orders_api_json(['ok' => false, 'message' => 'Unable to sync refund status with order.'], 500);
         }
 
@@ -1199,8 +1356,14 @@ if ($action === 'update-refund-status') {
         $orderUpdateStmt->close();
 
         if (!$orderUpdated) {
+            $con->rollback();
             orders_api_json(['ok' => false, 'message' => 'Unable to sync refund status with order.'], 500);
         }
+    }
+
+    if (!$con->commit()) {
+        $con->rollback();
+        orders_api_json(['ok' => false, 'message' => 'Unable to finalize refund update.'], 500);
     }
 
     commerza_notify_refund_status_update(
@@ -1213,6 +1376,14 @@ if ($action === 'update-refund-status') {
         ucfirst($status),
         $adminNote
     );
+
+    admin_api_log_security_event($con, $admin, 'refund.status_change', 'info', [
+        'refund_id' => $refundId,
+        'order_id' => (int)($refundRow['order_id'] ?? 0),
+        'order_number' => (string)($refundRow['order_number'] ?? ''),
+        'status' => $status,
+        'admin_note_length' => strlen($adminNote),
+    ]);
 
     orders_api_json([
         'ok' => true,

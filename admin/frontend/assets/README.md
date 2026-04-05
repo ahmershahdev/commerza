@@ -1,16 +1,31 @@
-# Admin Assets Folder Guide
+# assets Directory Guide
 
-This folder contains static assets used by admin pages.
+## Purpose
+Documents admin panel structure and responsibilities for this folder.
 
-## Subfolders
+## Scope
+- Directory: admin/frontend/assets
+- Primary audience: developers and maintainers
+- Update frequency: when assets, APIs, or structure in this folder change
 
-- `css/`: Admin stylesheets.
-- `js/`: Admin runtime logic and page-specific controllers.
-- `images/`: Admin images/icons/logos used in panel UI.
-- `videos/`: Admin-side video media directories (`products/`, `slider/`).
+## File Standards
+- Keep files focused on this folder scope.
+- Use consistent naming and avoid ambiguous filenames.
+- Keep documentation and assets synchronized with code.
+- Remove obsolete files during maintenance.
 
-## Asset Strategy
+## Change Workflow
+1. Add or update files only for this directory responsibility.
+2. Verify references from pages/APIs before committing.
+3. Validate production-safe paths and naming consistency.
+4. Remove stale files that are no longer referenced.
 
-- Keep executable logic in `js/` and avoid embedding credentials/secrets in client code.
-- Keep reusable visual styles in CSS modules.
-- Store uploaded media paths in settings/tables and reference via sanitized relative paths.
+## Quality Checklist
+- Paths resolve correctly from consuming pages or scripts.
+- No debug-only or temporary files are left behind.
+- Naming remains consistent with existing conventions.
+- Documentation is updated when behavior/usage changes.
+
+## Notes
+- Keep this guide concise but current.
+- Prefer incremental updates over large, undocumented restructures.

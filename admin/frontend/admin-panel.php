@@ -11,6 +11,8 @@ $adminUser = admin_require_login($con);
 $adminCsrfToken = admin_generate_csrf_token();
 $adminCssVersion = @filemtime(__DIR__ . '/assets/css/style.css') ?: time();
 $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
+$adminPanelCanonicalUrl = admin_public_url('/admin/frontend/admin-panel.php');
+$adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.webp');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -20,6 +22,12 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <meta name="admin-csrf-token" content="<?= htmlspecialchars($adminCsrfToken) ?>">
+    <link rel="canonical" href="<?= htmlspecialchars($adminPanelCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>">
+    <meta property="og:title" content="Admin Panel | Commerza">
+    <meta property="og:description" content="Commerza admin dashboard for operations, analytics, and security monitoring.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="<?= htmlspecialchars($adminPanelCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>">
+    <meta property="og:image" content="<?= htmlspecialchars($adminOgImageUrl, ENT_QUOTES, 'UTF-8') ?>">
     <title>Admin Panel | Commerza</title>
     <link rel="icon" href="assets/images/favicon/commerza-watches-icon.ico">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
@@ -933,6 +941,23 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                         </div>
 
                         <div class="row g-4 mb-4">
+                            <div class="col-12">
+                                <div class="card admin-card border-0 shadow-sm">
+                                    <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center">
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Profit vs Loss Trend (7 Days)</h3>
+                                        <span class="text-secondary small">Revenue, refunds, and net progress</span>
+                                    </div>
+                                    <div class="card-body p-4">
+                                        <div class="analytics-chart-shell">
+                                            <canvas id="analyticsProfitLossChart" height="120" aria-label="Profit and loss chart"></canvas>
+                                        </div>
+                                        <small class="field-hint mt-3">Loss is estimated from accepted refunds distributed across the week.</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-4 mb-4">
                             <div class="col-12 col-lg-7">
                                 <div class="card admin-card border-0 shadow-sm h-100">
                                     <div class="card-header bg-dark border-bottom border-secondary py-3">
@@ -1447,7 +1472,7 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                             </div>
                         </div>
                     </div>
-                    <div class="tab-pane fade" id="securityEventsSection">
+                    <div class="tab-pane fade security-events-shell" id="securityEventsSection">
                         <div class="helper-banner mb-4">
                             <div>
                                 <h2 class="h5 mb-2 text-light">Security Event Monitoring</h2>
@@ -1456,7 +1481,7 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                             <span class="step-chip">Tip: Filter by severity and date range for faster incident triage.</span>
                         </div>
 
-                        <div class="card admin-card border-0 shadow-sm mb-4">
+                        <div class="card admin-card border-0 shadow-sm mb-4 security-events-panel security-events-filters">
                             <div class="card-header bg-dark border-bottom border-secondary py-3">
                                 <h3 class="h5 mb-0 fw-bold text-orange">Filters</h3>
                             </div>
@@ -1503,7 +1528,7 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                             </div>
                         </div>
 
-                        <div class="card admin-card border-0 shadow-sm mb-4">
+                        <div class="card admin-card border-0 shadow-sm mb-4 security-events-panel security-events-log">
                             <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center">
                                 <h3 class="h5 mb-0 fw-bold text-orange">Security Events Log</h3>
                                 <button class="btn btn-sm btn-outline-orange" id="securityEventsRefreshBtn" type="button">
@@ -1511,8 +1536,8 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                                 </button>
                             </div>
                             <div class="card-body p-0">
-                                <div class="table-responsive">
-                                    <table class="table table-dark table-hover align-middle mb-0" id="securityEventsTable">
+                                <div class="table-responsive security-events-table-wrap">
+                                    <table class="table table-dark table-hover align-middle mb-0 security-events-table" id="securityEventsTable">
                                         <thead class="border-bottom border-secondary">
                                             <tr>
                                                 <th class="ps-4 py-3 text-orange fw-semibold">Time</th>
@@ -1531,7 +1556,7 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                                     </table>
                                 </div>
                             </div>
-                            <div class="card-footer bg-dark border-top border-secondary d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <div class="card-footer bg-dark border-top border-secondary d-flex flex-wrap justify-content-between align-items-center gap-2 security-events-footer">
                                 <small class="text-secondary" id="securityEventsMeta">Page 1</small>
                                 <div class="btn-group">
                                     <button class="btn btn-sm btn-outline-secondary" id="securityEventsPrevBtn" type="button">Previous</button>
@@ -1816,6 +1841,7 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
         integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
         crossorigin="anonymous"></script>
     <script <?= commerza_csp_nonce_attr() ?> src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script <?= commerza_csp_nonce_attr() ?>>
         window.CommerzaAdminRuntime = {
             csrfToken: <?= json_encode($adminCsrfToken, JSON_UNESCAPED_SLASHES) ?>,

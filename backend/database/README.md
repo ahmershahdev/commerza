@@ -1,20 +1,31 @@
-# Database Folder Guide
+# database Directory Guide
 
-This folder stores SQL artifacts for Commerza.
+## Purpose
+Stores database definitions, schema references, and data setup notes.
 
-## Files
+## Scope
+- Directory: backend/database
+- Primary audience: developers and maintainers
+- Update frequency: when assets, APIs, or structure in this folder change
 
-- `commerza.sql`: Canonical database schema + seed data.
+## File Standards
+- Keep schema updates additive and migration-safe.
+- Document table purpose, indexes, and key constraints.
+- Avoid destructive changes without rollback planning.
+- Validate schema against live DB before deployment.
 
-## What `commerza.sql` Includes
+## Change Workflow
+1. Add or update files only for this directory responsibility.
+2. Verify references from pages/APIs before committing.
+3. Validate production-safe paths and naming consistency.
+4. Remove stale files that are no longer referenced.
 
-- Core business tables (users, products, carts, orders, reviews, coupons, etc.).
-- Admin and security support tables.
-- Default `site_settings` rows for branding, integrations, analytics, and security.
-- Initial content for ticker/slider and other runtime data.
+## Quality Checklist
+- Paths resolve correctly from consuming pages or scripts.
+- No debug-only or temporary files are left behind.
+- Naming remains consistent with existing conventions.
+- Documentation is updated when behavior/usage changes.
 
-## Usage
-
-- Use this file for first-time local setup and reproducible environment provisioning.
-- Keep schema changes additive and backward-compatible when possible.
-- When adding new settings keys, also document them in project docs and relevant APIs.
+## Notes
+- Keep this guide concise but current.
+- Prefer incremental updates over large, undocumented restructures.

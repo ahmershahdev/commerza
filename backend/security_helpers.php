@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 function commerza_password_algo()
 {
@@ -592,5 +593,132 @@ function commerza_captcha_verify_submission(mysqli $con, array $request, string 
         'ok' => true,
         'message' => '',
         'skipped' => false,
+    ];
+}
+
+function commerza_request_id_from_server(array $request = []): string
+{
+    $headerValue = trim((string)($_SERVER['HTTP_X_REQUEST_ID'] ?? ''));
+    if ($headerValue !== '') {
+        return $headerValue;
+    }
+
+    return trim((string)($request['request_id'] ?? ''));
+}
+
+function commerza_is_valid_request_id(string $requestId): bool
+{
+    $requestId = trim($requestId);
+    if ($requestId === '') {
+        return false;
+    }
+
+    return preg_match('/^[A-Za-z0-9._:-]{12,128}$/', $requestId) === 1;
+}
+
+function commerza_ensure_idempotency_table(mysqli $con): bool
+{
+    static $ready = false;
+
+    if ($ready) {
+        return true;
+    }
+
+    $sql =
+        'CREATE TABLE IF NOT EXISTS request_idempotency (
+            id BIGINT NOT NULL AUTO_INCREMENT,
+            scope_key VARCHAR(120) NOT NULL,
+            request_hash CHAR(64) NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_scope_request (scope_key, request_hash),
+            KEY idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci';
+
+    $ok = $con->query($sql) === true;
+    if ($ok) {
+        $ready = true;
+    }
+
+    return $ok;
+}
+
+function commerza_idempotency_consume(mysqli $con, string $scope, string $requestId, int $ttlSeconds = 86400): array
+{
+    $normalizedScope = strtolower(trim($scope));
+    if ($normalizedScope === '') {
+        $normalizedScope = 'default';
+    }
+
+    if (!commerza_is_valid_request_id($requestId)) {
+        return [
+            'ok' => false,
+            'duplicate' => false,
+            'status' => 422,
+            'message' => 'Invalid or missing X-Request-ID.',
+        ];
+    }
+
+    if (!commerza_ensure_idempotency_table($con)) {
+        return [
+            'ok' => false,
+            'duplicate' => false,
+            'status' => 500,
+            'message' => 'Unable to initialize idempotency protection.',
+        ];
+    }
+
+    static $cleanupDone = false;
+    if (!$cleanupDone) {
+        $ttl = max(300, $ttlSeconds);
+        $hours = (int)max(1, ceil($ttl / 3600));
+        $con->query('DELETE FROM request_idempotency WHERE created_at < (NOW() - INTERVAL ' . $hours . ' HOUR)');
+        $cleanupDone = true;
+    }
+
+    $requestHash = hash('sha256', trim($requestId));
+
+    $stmt = $con->prepare(
+        'INSERT INTO request_idempotency (scope_key, request_hash)
+         VALUES (?, ?)'
+    );
+
+    if (!$stmt) {
+        return [
+            'ok' => false,
+            'duplicate' => false,
+            'status' => 500,
+            'message' => 'Unable to apply idempotency protection.',
+        ];
+    }
+
+    $stmt->bind_param('ss', $normalizedScope, $requestHash);
+    $executed = $stmt->execute();
+    $errorNumber = (int)$stmt->errno;
+    $stmt->close();
+
+    if ($executed) {
+        return [
+            'ok' => true,
+            'duplicate' => false,
+            'status' => 200,
+            'message' => '',
+        ];
+    }
+
+    if ($errorNumber === 1062) {
+        return [
+            'ok' => false,
+            'duplicate' => true,
+            'status' => 409,
+            'message' => 'Duplicate request detected and ignored.',
+        ];
+    }
+
+    return [
+        'ok' => false,
+        'duplicate' => false,
+        'status' => 500,
+        'message' => 'Unable to apply idempotency protection.',
     ];
 }

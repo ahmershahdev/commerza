@@ -12,20 +12,13 @@ $email_value = '';
 
 function send_reset_code_email(string $recipientEmail, string $recipientName, string $code, ?string &$errorMessage = null): bool
 {
-  $appBase = trim((string)getenv('COMMERZA_APP_URL'));
-  if ($appBase === '') {
-    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    $host = (string)($_SERVER['HTTP_HOST'] ?? 'localhost');
-    $scriptName = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? ''));
-    $basePath = preg_replace('#/forgot-password\.php$#i', '', $scriptName) ?? '';
-    $appBase = $scheme . '://' . $host . rtrim($basePath, '/');
-  }
-
-  $appBase = rtrim($appBase, '/');
-
     $subject = "Commerza Password Reset Code";
-  $logoUrl = $appBase . "/frontend/assets/images/logo/commerza-logo.webp";
-  $resetUrl = $appBase . "/reset-password.php?email=" . urlencode($recipientEmail);
+  $logoUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.webp');
+  $resetUrl = commerza_absolute_url('/reset-password.php') . '?email=' . urlencode($recipientEmail);
+  $supportEmail = trim((string)(getenv('COMMERZA_SUPPORT_EMAIL') ?: 'support@ahmershah.dev'));
+  if (!filter_var($supportEmail, FILTER_VALIDATE_EMAIL)) {
+    $supportEmail = 'support@ahmershah.dev';
+  }
 
     $safeName = htmlspecialchars($recipientName !== '' ? $recipientName : 'Customer', ENT_QUOTES, 'UTF-8');
     $safeCode = htmlspecialchars($code, ENT_QUOTES, 'UTF-8');
@@ -53,6 +46,8 @@ function send_reset_code_email(string $recipientEmail, string $recipientName, st
                 <p style=\"margin:0 0 18px 0;line-height:1.6;color:#bfbfbf;\">Then open this page to complete reset:</p>
                 <p style=\"margin:0 0 10px 0;word-break:break-all;\"><a href=\"{$resetUrl}\" style=\"color:#ff6600;text-decoration:none;\">{$resetUrl}</a></p>
                 <p style=\"margin:18px 0 0 0;line-height:1.6;color:#8f8f8f;font-size:13px;\">If you did not request this, you can ignore this email.</p>
+                <p style=\"margin:16px 0 0 0;line-height:1.6;color:#9f9f9f;font-size:12px;\">Support: <a href=\"mailto:{$supportEmail}\" style=\"color:#ffb066;text-decoration:none;\">{$supportEmail}</a></p>
+                <p style=\"margin:8px 0 0 0;line-height:1.6;color:#9f9f9f;font-size:12px;\">Connect: <a href=\"https://instagram.com/commerza\" style=\"color:#ffb066;text-decoration:none;\">Instagram</a> <span style=\"color:#666;\">|</span> <a href=\"https://facebook.com/commerza\" style=\"color:#ffb066;text-decoration:none;\">Facebook</a> <span style=\"color:#666;\">|</span> <a href=\"https://www.linkedin.com/in/syedahmershah\" style=\"color:#ffb066;text-decoration:none;\">LinkedIn</a> <span style=\"color:#666;\">|</span> <a href=\"https://github.com/ahmershahdev\" style=\"color:#ffb066;text-decoration:none;\">GitHub</a></p>
               </td>
             </tr>
           </table>
@@ -66,7 +61,7 @@ function send_reset_code_email(string $recipientEmail, string $recipientName, st
       $recipientEmail,
       $subject,
       $message,
-      'no-reply@commerza.ahmershah.dev',
+      $supportEmail,
       'Commerza Security',
       $errorMessage
     );
@@ -107,7 +102,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         14400,
         86400
       );
-
       if (!$rate['allowed']) {
         $retrySeconds = max(1, (int)$rate['retry_after']);
         $retryMinutes = (int)ceil($retrySeconds / 60);
@@ -240,8 +234,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://fonts.googleapis.com https://fonts.gstatic.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdn.jsdelivr.net https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; connect-src 'self' https://cdn.jsdelivr.net https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; frame-src 'self' https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'">
   <title>Forgot Password | Commerza</title>
   <link rel="canonical" href="https://commerza.ahmershah.dev/forgot-password.php" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />

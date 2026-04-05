@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 require_once __DIR__ . '/../../backend/data.php';
 require_once __DIR__ . '/../../backend/mailer.php';
@@ -374,6 +375,161 @@ function admin_require_permission_api(array $admin, string $permission): void
     exit;
 }
 
+function admin_api_scope(string $prefix, string $action = 'default'): string
+{
+    $prefix = strtolower(trim($prefix));
+    $action = strtolower(trim($action));
+
+    if ($prefix === '') {
+        $prefix = 'admin_api';
+    }
+
+    if ($action === '') {
+        $action = 'default';
+    }
+
+    $normalizedPrefix = preg_replace('/[^a-z0-9_\-.]+/', '_', $prefix) ?? 'admin_api';
+    $normalizedAction = preg_replace('/[^a-z0-9_\-.]+/', '_', $action) ?? 'default';
+
+    return trim($normalizedPrefix . '.' . $normalizedAction, '.');
+}
+
+function admin_api_rate_limit_guard(
+    mysqli $con,
+    array $admin,
+    string $scope,
+    int $maxAttempts = 120,
+    int $windowSeconds = 60,
+    int $blockSeconds = 120,
+    int $escalatedBlockSeconds = 300
+): void {
+    $identifier = strtolower(trim((string)($admin['email'] ?? '')));
+    if ($identifier === '') {
+        $identifier = 'admin_' . (int)($admin['id'] ?? 0);
+    }
+
+    $ipAddress = admin_get_client_ip();
+    $rate = commerza_rate_limit_check(
+        $con,
+        $scope,
+        $identifier,
+        $ipAddress,
+        max(1, $maxAttempts),
+        max(60, $windowSeconds),
+        max(60, $blockSeconds),
+        max($blockSeconds, $escalatedBlockSeconds)
+    );
+
+    if ((bool)($rate['allowed'] ?? true)) {
+        return;
+    }
+
+    $retryAfter = max(1, (int)($rate['retry_after'] ?? $blockSeconds));
+
+    commerza_security_log_rate_limit_block(
+        $con,
+        $scope,
+        'admin',
+        $identifier,
+        $ipAddress,
+        $retryAfter
+    );
+
+    http_response_code(429);
+    echo json_encode([
+        'ok' => false,
+        'message' => 'Too many requests. Please retry shortly.',
+        'retry_after' => $retryAfter,
+    ], JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+function admin_api_log_security_event(
+    mysqli $con,
+    array $admin,
+    string $eventType,
+    string $severity = 'info',
+    array $details = []
+): void {
+    $actorIdentifier = strtolower(trim((string)($admin['email'] ?? '')));
+    if ($actorIdentifier === '') {
+        $actorIdentifier = 'admin_' . (int)($admin['id'] ?? 0);
+    }
+
+    commerza_security_log_event($con, [
+        'event_type' => trim($eventType) !== '' ? $eventType : 'admin.action',
+        'severity' => $severity,
+        'actor_type' => 'admin',
+        'actor_identifier' => $actorIdentifier,
+        'admin_id' => (int)($admin['id'] ?? 0),
+        'ip_address' => admin_get_client_ip(),
+        'details' => $details,
+    ]);
+}
+
+function admin_request_id_value(array $request = []): string
+{
+    $headerValue = trim((string)($_SERVER['HTTP_X_REQUEST_ID'] ?? ''));
+    if ($headerValue !== '') {
+        return $headerValue;
+    }
+
+    return trim((string)($request['request_id'] ?? ''));
+}
+
+function admin_enforce_post_idempotency_guard(mysqli $con): void
+{
+    if (PHP_SAPI === 'cli') {
+        return;
+    }
+
+    $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    if ($method !== 'POST') {
+        return;
+    }
+
+    $scriptName = strtolower(str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? '')));
+    if (!str_contains($scriptName, '/admin/backend/')) {
+        return;
+    }
+
+    if (str_ends_with($scriptName, '/auth.php')) {
+        return;
+    }
+
+    $scriptBase = strtolower((string)basename($scriptName, '.php'));
+    if ($scriptBase === '') {
+        $scriptBase = 'admin_api';
+    }
+
+    $action = strtolower(trim((string)($_POST['action'] ?? 'post')));
+    if ($action === '') {
+        $action = 'post';
+    }
+
+    $scope = 'admin_' . preg_replace('/[^a-z0-9_\-.]+/', '_', $scriptBase) . '.' . preg_replace('/[^a-z0-9_\-.]+/', '_', $action);
+    $requestId = admin_request_id_value($_POST);
+    $idempotency = commerza_idempotency_consume($con, $scope, $requestId, 21600);
+
+    if ((bool)($idempotency['ok'] ?? false)) {
+        return;
+    }
+
+    $status = (int)($idempotency['status'] ?? 409);
+    if ($status <= 0) {
+        $status = 409;
+    }
+
+    http_response_code($status);
+    echo json_encode([
+        'ok' => false,
+        'message' => (string)($idempotency['message'] ?? 'Duplicate request detected and ignored.'),
+    ], JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+admin_enforce_post_idempotency_guard($con);
+
 function admin_store_reset_code(mysqli $con, int $adminId, string $code): bool
 {
     if (!preg_match('/^\d{6}$/', $code)) {
@@ -439,6 +595,91 @@ function admin_clear_reset_code(mysqli $con, int $adminId): void
     $stmt->close();
 }
 
+function admin_public_url(string $path = ''): string
+{
+    if (function_exists('commerza_public_base_url')) {
+        $base = rtrim((string)commerza_public_base_url(), '/');
+    } else {
+        $configured = trim((string)(getenv('COMMERZA_APP_URL') ?: getenv('COMMERZA_PUBLIC_URL') ?: getenv('APP_URL') ?: ''));
+        if ($configured !== '' && filter_var($configured, FILTER_VALIDATE_URL)) {
+            $base = rtrim($configured, '/');
+        } else {
+            $https = strtolower(trim((string)($_SERVER['HTTPS'] ?? '')));
+            $forwardedProto = strtolower(trim((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')));
+            $cfVisitor = strtolower((string)($_SERVER['HTTP_CF_VISITOR'] ?? ''));
+            $isHttps = ($https !== '' && $https !== 'off')
+                || ($forwardedProto !== '' && str_contains($forwardedProto, 'https'))
+                || ($cfVisitor !== '' && str_contains($cfVisitor, '"https"'))
+                || ((int)($_SERVER['SERVER_PORT'] ?? 0) === 443);
+            $scheme = $isHttps ? 'https' : 'http';
+            $host = trim((string)($_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? 'localhost')));
+            if ($host === '') {
+                $host = 'localhost';
+            }
+
+            $base = $scheme . '://' . $host;
+        }
+    }
+
+        if ($path === '') {
+                return $base;
+        }
+
+        return $base . '/' . ltrim($path, '/');
+}
+
+function admin_email_layout(string $title, string $intro, string $bodyHtml): string
+{
+    $safeTitle = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
+    $safeIntro = htmlspecialchars($intro, ENT_QUOTES, 'UTF-8');
+    $safeLogo = htmlspecialchars(admin_public_url('/frontend/assets/images/logo/commerza-logo.webp'), ENT_QUOTES, 'UTF-8');
+    $safeHome = htmlspecialchars(admin_public_url('/'), ENT_QUOTES, 'UTF-8');
+    $safeSupportEmail = htmlspecialchars('support@ahmershah.dev', ENT_QUOTES, 'UTF-8');
+    $socialLinks = '<a href="https://instagram.com/commerza" style="color:#ffb066;text-decoration:none;">Instagram</a> <span style="color:#666;">|</span> <a href="https://facebook.com/commerza" style="color:#ffb066;text-decoration:none;">Facebook</a> <span style="color:#666;">|</span> <a href="https://www.linkedin.com/in/syedahmershah" style="color:#ffb066;text-decoration:none;">LinkedIn</a> <span style="color:#666;">|</span> <a href="https://github.com/ahmershahdev" style="color:#ffb066;text-decoration:none;">GitHub</a>';
+
+        return '<!DOCTYPE html>
+<html>
+    <body style="margin:0;padding:0;background:#080808;font-family:Segoe UI,Arial,sans-serif;color:#f5f5f5;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#080808;padding:24px 0;">
+            <tr>
+                <td align="center">
+                    <table role="presentation" width="620" cellspacing="0" cellpadding="0" style="max-width:620px;background:#121212;border:1px solid #2d2d2d;border-radius:12px;overflow:hidden;">
+                        <tr>
+                            <td style="padding:18px 24px;background:linear-gradient(90deg,#161616,#101010);border-bottom:1px solid #2b2b2b;">
+                                <a href="' . $safeHome . '" style="text-decoration:none;display:inline-flex;align-items:center;gap:10px;">
+                                    <img src="' . $safeLogo . '" alt="Commerza" width="44" height="44" style="display:block;border-radius:8px;object-fit:cover;">
+                                    <span style="color:#ff8a2b;font-size:18px;font-weight:800;letter-spacing:.6px;">COMMERZA Admin Security</span>
+                                </a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:22px 28px 8px 28px;">
+                                <h1 style="margin:0;color:#ff9d45;font-size:22px;">' . $safeTitle . '</h1>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0 28px 0 28px;">
+                                <p style="margin:0;color:#d7d7d7;line-height:1.65;">' . $safeIntro . '</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:16px 28px 26px 28px;line-height:1.65;color:#ececec;">' . $bodyHtml . '</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:12px 28px;background:#0f0f0f;border-top:1px solid #2b2b2b;">
+                                <p style="margin:0;color:#999;font-size:12px;">If you did not initiate this request, secure your admin account immediately.</p>
+                                <p style="margin:8px 0 0 0;color:#999;font-size:12px;">Support: <a href="mailto:' . $safeSupportEmail . '" style="color:#ffb066;text-decoration:none;">' . $safeSupportEmail . '</a></p>
+                                <p style="margin:8px 0 0 0;color:#999;font-size:12px;">Connect: ' . $socialLinks . '</p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+</html>';
+}
+
 function admin_send_password_reset_code_email(
     string $recipientEmail,
     string $recipientName,
@@ -450,34 +691,21 @@ function admin_send_password_reset_code_email(
 
     $subject = 'Commerza Admin Password Reset Code';
 
-    $body = '<!DOCTYPE html>
-<html>
-  <body style="margin:0;padding:0;background:#080808;font-family:Arial,sans-serif;color:#f5f5f5;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#080808;padding:24px 0;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;background:#121212;border:1px solid #2d2d2d;border-radius:12px;overflow:hidden;">
-            <tr>
-              <td style="padding:24px 28px;">
-                <h1 style="margin:0 0 14px 0;color:#ff6600;font-size:22px;">Admin Password Reset</h1>
-                <p style="margin:0 0 10px 0;line-height:1.6;color:#d7d7d7;">Hello ' . $safeName . ',</p>
-                <p style="margin:0 0 14px 0;line-height:1.6;color:#d7d7d7;">Use the following 6-digit code to reset your admin password. This code expires in 30 minutes.</p>
-                <div style="display:inline-block;padding:12px 18px;background:#1b1b1b;border:1px solid #ff6600;border-radius:8px;font-size:24px;letter-spacing:3px;font-weight:700;color:#ffcc00;">' . $safeCode . '</div>
-                <p style="margin:18px 0 0 0;line-height:1.6;color:#8f8f8f;font-size:13px;">If you did not request this, ignore this email.</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>';
+        $body =
+                '<p style="margin:0 0 10px 0;">Hello ' . $safeName . ',</p>' .
+                '<p style="margin:0 0 14px 0;">Use this 6-digit code to reset your admin password. The code expires in <strong>30 minutes</strong>.</p>' .
+                '<div style="display:inline-block;padding:12px 18px;background:#1b1b1b;border:1px solid #ff6600;border-radius:8px;font-size:24px;letter-spacing:4px;font-weight:700;color:#ffcc00;">' . $safeCode . '</div>' .
+                '<p style="margin:16px 0 0 0;color:#cfcfcf;">For your security, do not share this code with anyone.</p>';
+
+        $html = admin_email_layout('Admin Password Reset', 'A secure verification step is required to continue.', $body);
+
+        $fromEmail = trim((string)(getenv('COMMERZA_SUPPORT_EMAIL') ?: 'support@ahmershah.dev'));
 
     return commerza_send_html_mail(
         $recipientEmail,
         $subject,
-        $body,
-        'no-reply@commerza.ahmershah.dev',
+                $html,
+                $fromEmail,
         'Commerza Admin',
         $errorMessage
     );
@@ -559,34 +787,21 @@ function admin_send_two_factor_code_email(
 
     $subject = 'Commerza Admin Login Verification Code';
 
-    $body = '<!DOCTYPE html>
-<html>
-  <body style="margin:0;padding:0;background:#080808;font-family:Arial,sans-serif;color:#f5f5f5;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#080808;padding:24px 0;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;background:#121212;border:1px solid #2d2d2d;border-radius:12px;overflow:hidden;">
-            <tr>
-              <td style="padding:24px 28px;">
-                <h1 style="margin:0 0 14px 0;color:#ff6600;font-size:22px;">Two-Factor Login Verification</h1>
-                <p style="margin:0 0 10px 0;line-height:1.6;color:#d7d7d7;">Hello ' . $safeName . ',</p>
-                <p style="margin:0 0 14px 0;line-height:1.6;color:#d7d7d7;">Use this 6-digit code to complete your admin login. It expires in 10 minutes.</p>
-                <div style="display:inline-block;padding:12px 18px;background:#1b1b1b;border:1px solid #ff6600;border-radius:8px;font-size:24px;letter-spacing:3px;font-weight:700;color:#ffcc00;">' . $safeCode . '</div>
-                <p style="margin:18px 0 0 0;line-height:1.6;color:#8f8f8f;font-size:13px;">If you did not attempt to login, change your password immediately.</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>';
+        $body =
+                '<p style="margin:0 0 10px 0;">Hello ' . $safeName . ',</p>' .
+                '<p style="margin:0 0 14px 0;">Use this 6-digit code to complete your admin login. The code expires in <strong>10 minutes</strong>.</p>' .
+                '<div style="display:inline-block;padding:12px 18px;background:#1b1b1b;border:1px solid #ff6600;border-radius:8px;font-size:24px;letter-spacing:4px;font-weight:700;color:#ffcc00;">' . $safeCode . '</div>' .
+                '<p style="margin:16px 0 0 0;color:#cfcfcf;">If this was not you, reset your admin password immediately.</p>';
+
+        $html = admin_email_layout('Two-Factor Login Verification', 'Enter this code to finish secure admin authentication.', $body);
+
+        $fromEmail = trim((string)(getenv('COMMERZA_SUPPORT_EMAIL') ?: 'support@ahmershah.dev'));
 
     return commerza_send_html_mail(
         $recipientEmail,
         $subject,
-        $body,
-        'no-reply@commerza.ahmershah.dev',
+                $html,
+                $fromEmail,
         'Commerza Admin Security',
         $errorMessage
     );

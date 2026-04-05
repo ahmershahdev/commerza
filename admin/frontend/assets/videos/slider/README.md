@@ -1,12 +1,31 @@
-# Admin Slider Videos Folder Guide
-
-This folder stores slider/hero video assets intended for storefront banners.
+# slider Directory Guide
 
 ## Purpose
+Stores video assets used by this feature area.
 
-- Admin-managed source location for slider video uploads and replacements.
+## Scope
+- Directory: admin/frontend/assets/videos/slider
+- Primary audience: developers and maintainers
+- Update frequency: when assets, APIs, or structure in this folder change
+
+## File Standards
+- Use compressed, web-ready formats and practical durations.
+- Keep filenames lowercase with hyphens.
+- Match naming with slider/product context for easy mapping.
+- Verify browser playback before publishing.
+
+## Change Workflow
+1. Add or update files only for this directory responsibility.
+2. Verify references from pages/APIs before committing.
+3. Validate production-safe paths and naming consistency.
+4. Remove stale files that are no longer referenced.
+
+## Quality Checklist
+- Paths resolve correctly from consuming pages or scripts.
+- No debug-only or temporary files are left behind.
+- Naming remains consistent with existing conventions.
+- Documentation is updated when behavior/usage changes.
 
 ## Notes
-
-- Prefer stable names when possible to reduce stale references in cached settings.
-- Remove unused large videos periodically to keep repository/media footprint manageable.
+- Keep this guide concise but current.
+- Prefer incremental updates over large, undocumented restructures.

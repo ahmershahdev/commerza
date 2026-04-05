@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 include "backend/data.php";
 require_once "backend/cart_helpers.php";
 require_once "backend/payment_helpers.php";
@@ -7,6 +9,12 @@ require_once "backend/coupon_helpers.php";
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+try {
+  $checkout_request_id = 'checkout-' . bin2hex(random_bytes(12));
+} catch (Throwable $exception) {
+  $checkout_request_id = 'checkout-' . substr(hash('sha256', microtime(true) . '|' . mt_rand()), 0, 24);
 }
 
 $errors = [];
@@ -77,6 +85,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
         $errors[] = 'Please login before placing an order.';
     }
 
+    $requestId = commerza_request_id_from_server($_POST);
+    $idempotency = commerza_idempotency_consume($con, 'checkout_place_order', $requestId, 86400);
+    if (!(bool)($idempotency['ok'] ?? false)) {
+      $errors[] = (bool)($idempotency['duplicate'] ?? false)
+        ? 'Duplicate checkout request was ignored. Please wait or refresh before trying again.'
+        : (string)($idempotency['message'] ?? 'Unable to verify checkout request integrity.');
+    }
+
     $captchaCheck = commerza_captcha_verify_submission($con, $_POST, 'checkout_place_order');
     if (!(bool)$captchaCheck['ok']) {
       $errors[] = (string)$captchaCheck['message'];
@@ -91,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
 
     $payment_methods = [
       'cod' => 'Cash on Delivery (COD)',
-      'stripe' => 'Stripe Card (Sandbox)',
+      'stripe' => 'Stripe Card',
     ];
 
     $payment_method_label = $payment_methods[$payment_method] ?? '';
@@ -499,7 +515,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow">
   <meta name="author" content="Syed Ahmer Shah">
-  <meta name="description" content="Review your Commerza cart and complete checkout with COD or Stripe sandbox card payments.">
+  <meta name="description" content="Review your Commerza cart and complete checkout with COD or secure Stripe card payments.">
   <meta property="og:title" content="Cart | Commerza">
   <meta property="og:description" content="Review items in your Commerza cart and complete secure checkout.">
   <meta property="og:url" content="https://commerza.ahmershah.dev/cart.php">
@@ -526,6 +542,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
   <style>
     .cart-img {
       height: 90px;
+      width: 90px;
+      object-fit: cover;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 102, 0, 0.22);
     }
 
     span,
@@ -632,6 +652,111 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       box-shadow: 0 10px 24px rgba(255, 140, 0, 0.25);
       font-size: 18px;
       flex: 0 0 40px;
+    }
+
+    .cart-layout-shell {
+      align-items: flex-start;
+    }
+
+    .cart-list-panel .product-card {
+      border: 1px solid rgba(255, 102, 0, 0.2);
+      background: linear-gradient(165deg, rgba(23, 23, 23, 0.96), rgba(10, 10, 10, 0.95));
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+      transition: transform 0.24s ease, border-color 0.24s ease, box-shadow 0.24s ease;
+    }
+
+    .cart-item-row:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 204, 0, 0.3);
+      box-shadow: 0 16px 30px rgba(0, 0, 0, 0.32);
+    }
+
+    .cart-item-row.is-busy {
+      opacity: 0.72;
+      transform: scale(0.995);
+      pointer-events: none;
+    }
+
+    .cart-item-row.is-updated {
+      animation: cartItemPulse 0.52s ease;
+    }
+
+    .cart-qty-control {
+      border: 1px solid rgba(255, 102, 0, 0.18);
+      border-radius: 999px;
+      padding: 5px 7px;
+      background: rgba(255, 102, 0, 0.07);
+    }
+
+    .cart-qty-control .change-qty {
+      min-width: 34px;
+      min-height: 34px;
+      border-radius: 999px;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cart-qty-value {
+      min-width: 26px;
+      display: inline-block;
+      text-align: center;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .summary-sticky {
+      position: sticky;
+      top: 96px;
+    }
+
+    .cart-summary-card {
+      border: 1px solid rgba(255, 102, 0, 0.24);
+      box-shadow: 0 18px 30px rgba(0, 0, 0, 0.35);
+      background: linear-gradient(160deg, rgba(21, 21, 21, 0.98), rgba(8, 8, 8, 0.96));
+    }
+
+    #checkoutModal .checkout-form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 12px;
+    }
+
+    #checkoutModal .checkout-span-full {
+      grid-column: 1 / -1;
+    }
+
+    #checkoutModal .modal-title {
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    @keyframes cartItemPulse {
+      0% {
+        box-shadow: 0 0 0 rgba(255, 122, 26, 0.55);
+      }
+      50% {
+        box-shadow: 0 0 0 2px rgba(255, 122, 26, 0.24);
+      }
+      100% {
+        box-shadow: 0 0 0 rgba(255, 122, 26, 0);
+      }
+    }
+
+    @media (max-width: 991px) {
+      .summary-sticky {
+        position: static;
+      }
+    }
+
+    @media (max-width: 767px) {
+      #checkoutModal .checkout-form-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -786,13 +911,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       Your cart is empty. Please add products before checkout.
     </div>
 
-    <h1 class="mb-4" style="color: #ff6600">Shopping Cart</h1>
+    <h2 class="mb-4" style="color: #ff6600">Cart Items</h2>
 
-    <div class="row">
-      <div class="col-lg-8 mb-4" id="cart-items-container"></div>
+    <div class="row cart-layout-shell">
+      <div class="col-lg-8 mb-4 cart-list-panel" id="cart-items-container"></div>
 
-      <div class="col-lg-4">
-        <div class="card product-card">
+      <div class="col-lg-4 summary-sticky">
+        <div class="card product-card cart-summary-card">
           <div class="card-body">
             <h4 class="mb-3" style="color: #ff6600">Order Summary</h4>
             <p class="text-white mb-3">Total Items: <span id="total-items-qty">0</span></p>
@@ -845,59 +970,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
           <form id="checkoutForm" method="POST" action="cart.php">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
             <input type="hidden" name="action" value="place_order">
+            <input type="hidden" name="request_id" id="checkoutRequestId" value="<?= htmlspecialchars($checkout_request_id) ?>">
             <input type="hidden" name="stripe_payment_intent_id" id="stripePaymentIntentId" value="">
             <input type="hidden" name="stripe_payment_status" id="stripePaymentStatus" value="">
             <input type="hidden" name="coupon_code" id="checkoutCouponCode" value="">
 
-            <div class="mb-3">
-              <label for="customerName" class="form-label" style="color: #fff;">Full Name *</label>
-              <input type="text" class="form-control checkout-field" id="customerName" name="customer_name" maxlength="100"
-                required
-                placeholder="Enter your full name" value="<?= htmlspecialchars((string)$current_user['full_name']) ?>">
-            </div>
-            <div class="mb-3">
-              <label for="paymentMethod" class="form-label" style="color: #fff;">Payment Method *</label>
-              <select class="form-select checkout-field" id="paymentMethod" name="payment_method" required>
-                <option value="cod">COD - Cash on Delivery</option>
-                <option value="stripe">Stripe Card (Sandbox)</option>
-              </select>
-              <p class="payment-hint">Choose COD for doorstep payment or Stripe for prepaid checkout.</p>
-              <div id="paymentMethodCard" class="payment-method-card" aria-live="polite">
-                <div class="payment-method-icon"><i id="paymentMethodIcon" class="bi bi-cash-coin"></i></div>
-                <div>
-                  <p id="paymentMethodTitle" class="mb-1 text-white fw-bold">Cash on Delivery</p>
-                  <p id="paymentMethodDesc" class="payment-hint mb-0">Pay when your order reaches your doorstep.</p>
+            <div class="checkout-form-grid">
+              <div class="mb-3">
+                <label for="customerName" class="form-label" style="color: #fff;">Full Name *</label>
+                <input type="text" class="form-control checkout-field" id="customerName" name="customer_name" maxlength="100"
+                  required
+                  placeholder="Enter your full name" value="<?= htmlspecialchars((string)$current_user['full_name']) ?>">
+              </div>
+
+              <div class="mb-3">
+                <label for="customerEmail" class="form-label" style="color: #fff;">Email *</label>
+                <input type="email" class="form-control checkout-field" id="customerEmail" name="customer_email" maxlength="150"
+                  required
+                  placeholder="Enter your email address" value="<?= htmlspecialchars((string)$current_user['email']) ?>">
+              </div>
+
+              <div class="mb-3">
+                <label for="customerPhone" class="form-label" style="color: #fff;">Phone Number *</label>
+                <input type="tel" class="form-control checkout-field" id="customerPhone" name="customer_phone"
+                  required minlength="11"
+                  maxlength="15" placeholder="Enter your phone number" value="<?= htmlspecialchars((string)$current_user['phone']) ?>">
+              </div>
+
+              <div class="mb-3 checkout-span-full">
+                <label for="customerAddress" class="form-label" style="color: #fff;">Address *</label>
+                <textarea class="form-control checkout-field" id="customerAddress" name="customer_address" rows="3"
+                  required
+                  placeholder="Enter your address"><?= htmlspecialchars((string)$current_user['address']) ?></textarea>
+              </div>
+
+              <div class="mb-3 checkout-span-full">
+                <label for="paymentMethod" class="form-label" style="color: #fff;">Payment Method *</label>
+                <select class="form-select checkout-field" id="paymentMethod" name="payment_method" required>
+                  <option value="cod">COD - Cash on Delivery</option>
+                  <option value="stripe">Stripe Card</option>
+                </select>
+                <p class="payment-hint">Choose COD for doorstep payment or Stripe for prepaid checkout.</p>
+                <div id="paymentMethodCard" class="payment-method-card" aria-live="polite">
+                  <div class="payment-method-icon"><i id="paymentMethodIcon" class="bi bi-cash-coin"></i></div>
+                  <div>
+                    <p id="paymentMethodTitle" class="mb-1 text-white fw-bold">Cash on Delivery</p>
+                    <p id="paymentMethodDesc" class="payment-hint mb-0">Pay when your order reaches your doorstep.</p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div id="stripeFields" class="d-none mb-3">
-              <label class="form-label" style="color: #fff;">Card Details *</label>
-              <div id="stripeCardElement" class="checkout-field" style="padding: 12px;"></div>
-              <div id="stripeCardError" class="small text-danger mt-2" aria-live="polite"></div>
-              <p class="small text-secondary mb-0 mt-2">Sandbox mode: use Stripe test cards only.</p>
-            </div>
-            <div class="mb-3">
-              <label for="customerAddress" class="form-label" style="color: #fff;">Address *</label>
-              <textarea class="form-control checkout-field" id="customerAddress" name="customer_address" rows="3"
-                required
-                placeholder="Enter your address"><?= htmlspecialchars((string)$current_user['address']) ?></textarea>
-            </div>
-            <div class="mb-3">
-              <label for="customerPhone" class="form-label" style="color: #fff;">Phone Number *</label>
-              <input type="tel" class="form-control checkout-field" id="customerPhone" name="customer_phone"
-                required minlength="11"
-                maxlength="15" placeholder="Enter your phone number" value="<?= htmlspecialchars((string)$current_user['phone']) ?>">
-            </div>
-            <div class="mb-3">
-              <label for="customerEmail" class="form-label" style="color: #fff;">Email *</label>
-              <input type="email" class="form-control checkout-field" id="customerEmail" name="customer_email" maxlength="150"
-                required
-                placeholder="Enter your email address" value="<?= htmlspecialchars((string)$current_user['email']) ?>">
-            </div>
+              <div id="stripeFields" class="d-none mb-3 checkout-span-full">
+                <label class="form-label" style="color: #fff;">Card Details *</label>
+                <div id="stripeCardElement" class="checkout-field" style="padding: 12px;"></div>
+                <div id="stripeCardError" class="small text-danger mt-2" aria-live="polite"></div>
+                <p class="small text-secondary mb-0 mt-2">Use a valid Stripe card to complete secure prepaid checkout.</p>
+              </div>
 
-            <?= commerza_captcha_widget_html($con, 'checkout_place_order') ?>
-            <div id="checkoutCaptchaError" class="small text-danger mt-2" aria-live="polite"></div>
+              <div class="checkout-span-full">
+                <?= commerza_captcha_widget_html($con, 'checkout_place_order') ?>
+                <div id="checkoutCaptchaError" class="small text-danger mt-2" aria-live="polite"></div>
+              </div>
+            </div>
           </form>
         </div>
         <div class="modal-footer">
@@ -994,6 +1128,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       let stripeMounted = false;
       let stripeSubmitReady = false;
 
+      function buildRequestId(scope) {
+        const prefix = (scope || 'checkout').toString().replace(/[^a-z0-9_-]/gi, '').toLowerCase();
+        const timePart = Date.now().toString(36);
+
+        let randomPart = '';
+        if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+          const bytes = new Uint8Array(8);
+          window.crypto.getRandomValues(bytes);
+          randomPart = Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
+        } else {
+          randomPart = Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2);
+        }
+
+        return `${prefix}-${timePart}-${randomPart}`;
+      }
+
       function updatePaymentMethodPreview(method) {
         const previews = {
           cod: {
@@ -1003,8 +1153,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
           },
           stripe: {
             icon: 'bi-credit-card-2-front',
-            title: 'Stripe Card (Sandbox)',
-            desc: 'Use a Stripe test card for secure sandbox checkout.'
+            title: 'Stripe Card',
+            desc: 'Pay securely with your Stripe card.'
           }
         };
 
@@ -1132,6 +1282,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
           return;
         }
 
+        if (!$('#checkoutRequestId').val()) {
+          $('#checkoutRequestId').val(buildRequestId('checkout_place_order'));
+        }
+
         setCheckoutCaptchaError('');
 
         const totalItems = parseInt($('#total-items-qty').text(), 10) || 0;
@@ -1190,11 +1344,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
           payload.set('amount_pkr', String(amountPkr));
           payload.set('currency', 'pkr');
 
+          const stripeRequestId = buildRequestId('checkout_stripe_intent');
+          payload.set('request_id', stripeRequestId);
+
           const intentResponse = await fetch('backend/stripe_intent.php', {
             method: 'POST',
             credentials: 'same-origin',
             headers: {
-              'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+              'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+              'X-Request-ID': stripeRequestId
             },
             body: payload.toString()
           });

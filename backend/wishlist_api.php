@@ -280,4 +280,58 @@ if ($action === 'toggle') {
     ]);
 }
 
+if ($action === 'clear') {
+    if ($method !== 'POST') {
+        wishlist_json(['ok' => false, 'message' => 'Method not allowed.'], 405);
+    }
+
+    if (!$loggedIn) {
+        wishlist_json([
+            'ok' => false,
+            'logged_in' => false,
+            'message' => 'Please login to use wishlist.',
+            'csrf_token' => $_SESSION['csrf_token'],
+        ], 401);
+    }
+
+    if (
+        empty($_POST['csrf_token']) ||
+        empty($_SESSION['csrf_token']) ||
+        !hash_equals((string)$_SESSION['csrf_token'], (string)$_POST['csrf_token'])
+    ) {
+        wishlist_json([
+            'ok' => false,
+            'message' => 'Forbidden.',
+            'csrf_token' => $_SESSION['csrf_token'],
+        ], 403);
+    }
+
+    $userId = (int)$_SESSION['user_id'];
+    $wishlistId = get_or_create_wishlist_id($con, $userId);
+    if (!$wishlistId) {
+        wishlist_json(['ok' => false, 'message' => 'Unable to load wishlist.'], 500);
+    }
+
+    $clearStmt = $con->prepare('DELETE FROM wishlist_items WHERE wishlist_id = ?');
+    if (!$clearStmt) {
+        wishlist_json(['ok' => false, 'message' => 'Unable to clear wishlist.'], 500);
+    }
+
+    $clearStmt->bind_param('i', $wishlistId);
+    $clearOk = $clearStmt->execute();
+    $clearStmt->close();
+
+    if (!$clearOk) {
+        wishlist_json(['ok' => false, 'message' => 'Unable to clear wishlist.'], 500);
+    }
+
+    wishlist_json([
+        'ok' => true,
+        'logged_in' => true,
+        'count' => 0,
+        'ids' => [],
+        'csrf_token' => $_SESSION['csrf_token'],
+    ]);
+}
+
 wishlist_json(['ok' => false, 'message' => 'Invalid action.'], 400);

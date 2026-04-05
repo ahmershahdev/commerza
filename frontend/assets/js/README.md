@@ -1,18 +1,31 @@
-# Frontend JS Folder Guide
+# js Directory Guide
 
-This folder contains storefront JavaScript entry scripts and modules.
+## Purpose
+Stores JavaScript files for behavior, API calls, and page interactions.
 
-## Files
+## Scope
+- Directory: frontend/assets/js
+- Primary audience: developers and maintainers
+- Update frequency: when assets, APIs, or structure in this folder change
 
-- `script.js`: Main storefront runtime controller for UI interactions and feature bootstrapping.
-- `global-protection.js`: Global client-side hardening helpers (defensive browser-side protections).
-- `auth.js`: Client auth facade that defers sensitive operations to secure server forms.
+## File Standards
+- Keep side effects minimal and gate DOM usage after ready state.
+- Use API helpers for requests and centralize repeated logic.
+- Preserve CSRF/session-aware request patterns.
+- Prefer readable function names over inline anonymous blocks.
 
-## Subfolders
+## Change Workflow
+1. Add or update files only for this directory responsibility.
+2. Verify references from pages/APIs before committing.
+3. Validate production-safe paths and naming consistency.
+4. Remove stale files that are no longer referenced.
 
-- `modules/`: Ordered feature modules consumed by the main runtime.
+## Quality Checklist
+- Paths resolve correctly from consuming pages or scripts.
+- No debug-only or temporary files are left behind.
+- Naming remains consistent with existing conventions.
+- Documentation is updated when behavior/usage changes.
 
 ## Notes
-
-- Security-sensitive operations must remain server-side.
-- Keep module logic focused; use `script.js` for composition/initialization.
+- Keep this guide concise but current.
+- Prefer incremental updates over large, undocumented restructures.
