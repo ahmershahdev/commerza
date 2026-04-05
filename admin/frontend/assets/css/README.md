@@ -1,21 +1,31 @@
-# Admin CSS Folder Guide
+# css Directory Guide
 
-This folder contains admin stylesheet entry points and module files.
+## Purpose
+Stores stylesheet assets and style modules for this area.
 
-## Files
+## Scope
+- Directory: admin/frontend/assets/css
+- Primary audience: developers and maintainers
+- Update frequency: when assets, APIs, or structure in this folder change
 
-- `style.css`: Main admin CSS entry file.
+## File Standards
+- Keep shared styles in modules and avoid page-only duplication.
+- Group tokens, layout, and component rules in clear sections.
+- Avoid overriding unrelated selectors from other modules.
+- Validate mobile breakpoints before release.
 
-## Subfolders
+## Change Workflow
+1. Add or update files only for this directory responsibility.
+2. Verify references from pages/APIs before committing.
+3. Validate production-safe paths and naming consistency.
+4. Remove stale files that are no longer referenced.
 
-- `modules/`: Layered CSS modules split by concern:
-  - `01-base.css`: Base tokens and element defaults.
-  - `02-layout.css`: Structural layout rules.
-  - `03-components.css`: Shared UI component styles.
-  - `04-utilities.css`: Utility/helper classes.
-  - `05-responsive.css`: Breakpoint and responsive behavior rules.
+## Quality Checklist
+- Paths resolve correctly from consuming pages or scripts.
+- No debug-only or temporary files are left behind.
+- Naming remains consistent with existing conventions.
+- Documentation is updated when behavior/usage changes.
 
 ## Notes
-
-- Module numbering encodes intended load order.
-- Keep component visual rules in modules; keep page-specific overrides minimal.
+- Keep this guide concise but current.
+- Prefer incremental updates over large, undocumented restructures.

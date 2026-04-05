@@ -217,3 +217,97 @@ img {
     transform: scale(0.89);
   }
 }
+
+.security-events-shell .helper-banner {
+  border-color: rgba(255, 122, 26, 0.35);
+  background: linear-gradient(
+    120deg,
+    rgba(255, 122, 26, 0.14),
+    rgba(9, 9, 15, 0.74)
+  );
+}
+
+.security-events-panel {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.security-events-filters .form-control,
+.security-events-filters .form-select {
+  background: rgba(18, 18, 24, 0.95);
+  border: 1px solid rgba(255, 122, 26, 0.2);
+}
+
+.security-events-table-wrap {
+  border-radius: 0;
+}
+
+.security-events-table thead th {
+  letter-spacing: 0.4px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.security-event-row {
+  border-left: 3px solid transparent;
+}
+
+.security-event-row.security-event-critical {
+  border-left-color: rgba(220, 53, 69, 0.95);
+}
+
+.security-event-row.security-event-warning {
+  border-left-color: rgba(255, 193, 7, 0.95);
+}
+
+.security-event-row.security-event-info {
+  border-left-color: rgba(13, 202, 240, 0.9);
+}
+
+.security-severity-pill {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  font-weight: 700;
+}
+
+.security-severity-pill.security-severity-critical {
+  background: rgba(220, 53, 69, 0.18);
+  border: 1px solid rgba(220, 53, 69, 0.5);
+  color: #ff96a2;
+}
+
+.security-severity-pill.security-severity-warning {
+  background: rgba(255, 193, 7, 0.18);
+  border: 1px solid rgba(255, 193, 7, 0.45);
+  color: #ffd768;
+}
+
+.security-severity-pill.security-severity-info {
+  background: rgba(13, 202, 240, 0.18);
+  border: 1px solid rgba(13, 202, 240, 0.42);
+  color: #8fefff;
+}
+
+.security-event-identifier,
+.security-event-ip {
+  font-family: "JetBrains Mono", monospace;
+  word-break: break-word;
+}
+
+.security-event-details {
+  max-width: 320px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.security-events-footer {
+  background: linear-gradient(
+    180deg,
+    rgba(12, 12, 16, 0.97),
+    rgba(9, 9, 13, 0.95)
+  );
+}

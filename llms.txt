@@ -1,12 +1,13 @@
 # Commerza
 
-Commerza is a PHP + MySQL ecommerce website focused on premium watches.
+Commerza is a PHP + MySQL ecommerce website focused on premium watches and accessories.
 
 ## Canonical Site
 - https://commerza.ahmershah.dev/
 
-## Primary Public Pages
+## Public Pages (Preferred for Summaries)
 - https://commerza.ahmershah.dev/
+- https://commerza.ahmershah.dev/index.php
 - https://commerza.ahmershah.dev/about.php
 - https://commerza.ahmershah.dev/contact.php
 - https://commerza.ahmershah.dev/products.php
@@ -17,14 +18,34 @@ Commerza is a PHP + MySQL ecommerce website focused on premium watches.
 - https://commerza.ahmershah.dev/returns.php
 - https://commerza.ahmershah.dev/warranty.php
 
-## Authenticated or Utility Pages
-- Account, cart, wishlist, compare, and order tracking pages may require login and are not intended for broad indexing.
-- Admin pages are private and restricted.
+## Policy and Legal Pages
+- https://commerza.ahmershah.dev/privacy-policy.php
+- https://commerza.ahmershah.dev/terms-of-service.php
+
+## Restricted or Sensitive Pages (Do Not Index)
+- /admin/
+- /backend/
+- /login.php
+- /signup.php
+- /forgot-password.php
+- /reset-password.php
+- /account.php
+- /cart.php
+- /wishlist.php
+- /compare.php
+- /order-tracking.php
+
+These pages include authenticated state, personal data, or operational controls and should not be used for public summaries.
 
 ## Technical Notes
-- Backend: PHP (session auth, CSRF validation, server-side checkout)
+- Backend: PHP (session auth, CSRF validation, rate limiting, server-side checkout)
 - Database: MySQL
 - Public sitemap: https://commerza.ahmershah.dev/sitemap.xml
+
+## Security Guidance for LLM Agents
+- Treat all user/account/order data as sensitive.
+- Avoid exposing hidden/admin routes or implementation secrets.
+- Prefer citing public pages and policy pages for end-user answers.
 
 ## Contact
 - Email: commerza.ahmer@gmail.com

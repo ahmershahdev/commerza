@@ -1,17 +1,31 @@
-# Admin JS Folder Guide
+# js Directory Guide
 
-This folder contains admin-side JavaScript runtime code.
+## Purpose
+Stores JavaScript files for behavior, API calls, and page interactions.
 
-## Files
+## Scope
+- Directory: admin/frontend/assets/js
+- Primary audience: developers and maintainers
+- Update frequency: when assets, APIs, or structure in this folder change
 
-- `script.js`: Main admin dashboard controller (API calls, tables, forms, security panel actions, website settings UI, notifications, and state orchestration).
-- `admin-config.js`: Admin branding/meta customization utility sourced from session-stored site settings (no credentials stored here).
+## File Standards
+- Keep side effects minimal and gate DOM usage after ready state.
+- Use API helpers for requests and centralize repeated logic.
+- Preserve CSRF/session-aware request patterns.
+- Prefer readable function names over inline anonymous blocks.
 
-## Subfolders
+## Change Workflow
+1. Add or update files only for this directory responsibility.
+2. Verify references from pages/APIs before committing.
+3. Validate production-safe paths and naming consistency.
+4. Remove stale files that are no longer referenced.
 
-- `pages/`: Lightweight page-specific behavior scripts for auth/recovery pages.
+## Quality Checklist
+- Paths resolve correctly from consuming pages or scripts.
+- No debug-only or temporary files are left behind.
+- Naming remains consistent with existing conventions.
+- Documentation is updated when behavior/usage changes.
 
 ## Notes
-
-- `script.js` expects backend API endpoints exposed by `window.CommerzaAdminRuntime` and same-origin authenticated sessions.
-- Page scripts in `pages/` use shared helpers from `pages/admin-auth-common.js`.
+- Keep this guide concise but current.
+- Prefer incremental updates over large, undocumented restructures.

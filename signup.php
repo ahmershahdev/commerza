@@ -68,6 +68,42 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $full_name = (string)($pending['full_name'] ?? '');
         $email = strtolower(trim((string)($pending['email'] ?? '')));
         $phone = (string)($pending['phone'] ?? '');
+        $clientIp = commerza_client_ip();
+
+        $verifyScope = $flowAction === 'resend_code' ? 'user_signup_resend' : 'user_signup_verify';
+        $verifyIdentifier = $email !== '' ? $email : 'anonymous';
+        $verifyMax = $flowAction === 'resend_code' ? 4 : 10;
+        $verifyWindow = $flowAction === 'resend_code' ? 3600 : 1800;
+        $verifyRate = commerza_rate_limit_check(
+          $con,
+          $verifyScope,
+          $verifyIdentifier,
+          $clientIp,
+          $verifyMax,
+          $verifyWindow,
+          $verifyWindow,
+          7200,
+          86400
+        );
+
+        if (!$verifyRate['allowed']) {
+          $retrySeconds = max(1, (int)$verifyRate['retry_after']);
+          $retryMinutes = (int)ceil($retrySeconds / 60);
+          commerza_security_log_rate_limit_block(
+            $con,
+            $verifyScope,
+            'user',
+            $verifyIdentifier,
+            $clientIp,
+            $retrySeconds
+          );
+          $errors[] = 'Too many verification attempts. Try again in ' . $retryMinutes . ' minute(s) (' . $retrySeconds . ' seconds).';
+        }
+
+        if (!empty($errors)) {
+          $pendingSignup = $_SESSION['signup_pending'] ?? null;
+          goto signup_end;
+        }
 
         $expiresAt = (int)($pending['expires_at'] ?? 0);
         if ($expiresAt <= time()) {
@@ -122,6 +158,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                   if ($stmt->execute()) {
                     $stmt->close();
                     unset($_SESSION['signup_pending']);
+                    $rateIdentifier = $email !== '' ? $email : 'anonymous';
+                    $signupClientIp = commerza_client_ip();
+                    commerza_rate_limit_reset($con, 'user_signup', $rateIdentifier, $signupClientIp);
+                    commerza_rate_limit_reset($con, 'user_signup_verify', $rateIdentifier, $signupClientIp);
+                    commerza_rate_limit_reset($con, 'user_signup_resend', $rateIdentifier, $signupClientIp);
                     commerza_notify_signup_success($con, $email, $full_name);
                     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                     $_SESSION['flash_success'] = 'Email verified. Account created successfully. Please login.';
@@ -274,6 +315,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $pendingSignup = $_SESSION['signup_pending'] ?? null;
 }
 
+  signup_end:
+
 if (!empty($_SESSION['oauth_error'])) {
   $errors[] = (string)$_SESSION['oauth_error'];
   unset($_SESSION['oauth_error']);
@@ -302,8 +345,6 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://fonts.googleapis.com https://fonts.gstatic.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdn.jsdelivr.net https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; connect-src 'self' https://cdn.jsdelivr.net https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; frame-src 'self' https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sign Up | Commerza</title>
   <link rel="canonical" href="<?= htmlspecialchars($signupUrl, ENT_QUOTES, 'UTF-8') ?>" />

@@ -17,19 +17,28 @@ function commerza_get_expiry_hours(): int
 
 function commerza_expiry_public_url(string $path = ''): string
 {
-    $configuredBase = trim((string)(getenv('COMMERZA_APP_URL') ?: getenv('COMMERZA_PUBLIC_URL') ?: ''));
-    if ($configuredBase !== '' && filter_var($configuredBase, FILTER_VALIDATE_URL)) {
-        $base = rtrim($configuredBase, '/');
+    if (function_exists('commerza_public_base_url')) {
+        $base = rtrim((string)commerza_public_base_url(), '/');
     } else {
-        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || ((int)($_SERVER['SERVER_PORT'] ?? 0) === 443);
-        $scheme = $isHttps ? 'https' : 'http';
-        $host = trim((string)($_SERVER['HTTP_HOST'] ?? 'localhost'));
-        if ($host === '') {
-            $host = 'localhost';
-        }
+        $configuredBase = trim((string)(getenv('COMMERZA_APP_URL') ?: getenv('COMMERZA_PUBLIC_URL') ?: getenv('APP_URL') ?: ''));
+        if ($configuredBase !== '' && filter_var($configuredBase, FILTER_VALIDATE_URL)) {
+            $base = rtrim($configuredBase, '/');
+        } else {
+            $https = strtolower(trim((string)($_SERVER['HTTPS'] ?? '')));
+            $forwardedProto = strtolower(trim((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')));
+            $cfVisitor = strtolower((string)($_SERVER['HTTP_CF_VISITOR'] ?? ''));
+            $isHttps = ($https !== '' && $https !== 'off')
+                || ($forwardedProto !== '' && str_contains($forwardedProto, 'https'))
+                || ($cfVisitor !== '' && str_contains($cfVisitor, '"https"'))
+                || ((int)($_SERVER['SERVER_PORT'] ?? 0) === 443);
+            $scheme = $isHttps ? 'https' : 'http';
+            $host = trim((string)($_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? 'localhost')));
+            if ($host === '') {
+                $host = 'localhost';
+            }
 
-        $base = $scheme . '://' . $host;
+            $base = $scheme . '://' . $host;
+        }
     }
 
     if ($path === '') {
@@ -95,11 +104,12 @@ function commerza_send_expiry_notice(string $email, string $name, string $typeLa
     $safeType = htmlspecialchars($typeLabel, ENT_QUOTES, 'UTF-8');
     $subject = 'Commerza ' . $typeLabel . ' Expiry Notice';
     $continueShoppingUrl = htmlspecialchars(commerza_expiry_public_url('/index.php'), ENT_QUOTES, 'UTF-8');
+    $logoUrl = htmlspecialchars(commerza_expiry_public_url('/frontend/assets/images/logo/commerza-logo.webp'), ENT_QUOTES, 'UTF-8');
 
     $sender = commerza_mail_default_sender();
     $fromEmail = filter_var((string)($sender['email'] ?? ''), FILTER_VALIDATE_EMAIL)
         ? (string)$sender['email']
-        : 'no-reply@commerza.ahmershah.dev';
+        : 'support@ahmershah.dev';
     $fromName = trim((string)($sender['name'] ?? ''));
     if ($fromName === '') {
         $fromName = 'Commerza Notifications';
@@ -113,12 +123,19 @@ function commerza_send_expiry_notice(string $email, string $name, string $typeLa
         <td align="center">
           <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;background:#121212;border:1px solid #2d2d2d;border-radius:12px;overflow:hidden;">
             <tr>
-              <td style="padding:24px 28px;">
-                <h1 style="margin:0 0 14px 0;color:#ff6600;font-size:22px;">Commerza ' . $safeType . ' Update</h1>
+                            <td align="center" style="padding:24px 28px 8px 28px;">
+                                <img src="' . $logoUrl . '" alt="Commerza Logo" style="height:66px;width:auto;display:block;margin:0 auto 12px auto;" />
+                                <h1 style="margin:0;color:#ff6600;font-size:22px;">Commerza ' . $safeType . ' Update</h1>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:10px 28px 24px 28px;">
                 <p style="margin:0 0 10px 0;line-height:1.6;color:#d7d7d7;">Hello ' . $safeName . ',</p>
                 <p style="margin:0 0 14px 0;line-height:1.6;color:#d7d7d7;">We removed ' . (int)$removedCount . ' item(s) from your ' . strtolower($typeLabel) . ' because they were inactive for more than ' . (int)$hours . ' hours.</p>
                 <p style="margin:0 0 16px 0;line-height:1.6;color:#bfbfbf;">You can add them again anytime from our catalog.</p>
                 <a href="' . $continueShoppingUrl . '" style="display:inline-block;padding:10px 16px;background:#ff6600;color:#111;text-decoration:none;border-radius:8px;font-weight:700;">Continue Shopping</a>
+                                <p style="margin:16px 0 0 0;line-height:1.6;color:#9f9f9f;font-size:12px;">Support: <a href="mailto:' . htmlspecialchars($fromEmail, ENT_QUOTES, 'UTF-8') . '" style="color:#ffb066;text-decoration:none;">' . htmlspecialchars($fromEmail, ENT_QUOTES, 'UTF-8') . '</a></p>
+                                <p style="margin:8px 0 0 0;line-height:1.6;color:#9f9f9f;font-size:12px;">Connect: <a href="https://instagram.com/commerza" style="color:#ffb066;text-decoration:none;">Instagram</a> <span style="color:#666;">|</span> <a href="https://facebook.com/commerza" style="color:#ffb066;text-decoration:none;">Facebook</a> <span style="color:#666;">|</span> <a href="https://www.linkedin.com/in/syedahmershah" style="color:#ffb066;text-decoration:none;">LinkedIn</a> <span style="color:#666;">|</span> <a href="https://github.com/ahmershahdev" style="color:#ffb066;text-decoration:none;">GitHub</a></p>
               </td>
             </tr>
           </table>
@@ -128,7 +145,7 @@ function commerza_send_expiry_notice(string $email, string $name, string $typeLa
   </body>
 </html>';
 
-    $errorMessage = null;
+        $errorMessage = null;
     commerza_send_html_mail(
         $email,
         $subject,

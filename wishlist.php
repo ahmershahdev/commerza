@@ -214,6 +214,54 @@ $wishlist_count = count($items);
       border-radius: 10px;
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
+
+    .wishlist-shell {
+      border: 1px solid rgba(255, 102, 0, 0.2);
+      border-radius: 16px;
+      padding: 16px;
+      background: linear-gradient(150deg, rgba(20, 20, 20, 0.95), rgba(7, 7, 7, 0.96));
+      box-shadow: 0 16px 32px rgba(0, 0, 0, 0.34);
+    }
+
+    .wishlist-item-card {
+      border: 1px solid rgba(255, 102, 0, 0.18);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.24);
+      transition: transform 0.2s ease, border-color 0.2s ease, opacity 0.22s ease;
+    }
+
+    .wishlist-item-card:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 204, 0, 0.32);
+    }
+
+    .wishlist-item-card.is-removing {
+      opacity: 0;
+      transform: scale(0.985);
+    }
+
+    .wishlist-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .wishlist-actions .btn {
+      min-width: 112px;
+    }
+
+    .wishlist-meta {
+      color: #9f9f9f;
+      font-size: 0.78rem;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    @media (max-width: 575px) {
+      .wishlist-actions .btn {
+        width: 100%;
+      }
+    }
   </style>
 </head>
 
@@ -375,10 +423,10 @@ $wishlist_count = count($items);
                   <p class="product-desc mb-0">Track price drops and offers.</p>
                 </div>
                 <?php if ($wishlist_count > 0): ?>
-                  <form action="wishlist.php" method="POST">
+                  <form action="wishlist.php" method="POST" id="wishlistClearForm">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
                     <input type="hidden" name="action" value="clear">
-                    <button class="btn product-btn-cart" type="submit">Clear</button>
+                    <button class="btn product-btn-cart" id="wishlistClearBtn" type="submit">Clear</button>
                   </form>
                 <?php endif; ?>
               </div>
@@ -388,9 +436,9 @@ $wishlist_count = count($items);
       </div>
     </section>
 
-    <section id="wishlist-container" class="wishlist-list">
+    <section id="wishlist-container" class="wishlist-list" data-csrf-token="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
       <?php if ($wishlist_count === 0): ?>
-        <div class="text-center py-5">
+        <div class="text-center py-5 wishlist-empty-state">
           <i class="bi bi-heart" style="font-size: 3rem; color: #ff6600;"></i>
           <h3 class="text-white mt-3">Your wishlist is empty</h3>
           <p class="text-secondary">Start saving your favorite watches.</p>
@@ -398,22 +446,24 @@ $wishlist_count = count($items);
         </div>
       <?php else: ?>
         <?php foreach ($items as $item): ?>
-          <div class="card product-card mb-3">
+          <div class="card product-card mb-3 wishlist-item-card" data-product-id="<?= (int)$item['id'] ?>">
             <div class="card-body d-flex align-items-center gap-3">
               <img src="<?= htmlspecialchars((string)$item['image']) ?>" class="wishlist-img me-2" alt="<?= htmlspecialchars((string)$item['name']) ?>" />
               <div class="flex-grow-1">
                 <h3 class="product-name mb-1"><?= htmlspecialchars((string)$item['name']) ?></h3>
+                <p class="wishlist-meta">Saved: <?= htmlspecialchars((string)date('M d, Y', strtotime((string)$item['added_at']))) ?></p>
                 <div class="mb-2">
                   <span class="original-price" style="text-decoration: line-through; color: #b0b0b0;"><?= number_format((float)$item['price'], 2) ?> PKR</span>
                   <span class="sale-price" style="color: #ff6600; font-weight: bold; margin-left: 6px;"><?= number_format((float)($item['salePrice'] ?? $item['price']), 2) ?> PKR</span>
                 </div>
-                <div class="d-flex gap-2">
+                <div class="wishlist-actions">
                   <a href="products.php?id=<?= (int)$item['id'] ?>" class="btn product-btn-buy">View</a>
-                  <form action="wishlist.php" method="POST" class="d-inline">
+                  <button type="button" class="btn product-btn-buy wishlist-move-cart-btn" data-product-id="<?= (int)$item['id'] ?>">Move to Cart</button>
+                  <form action="wishlist.php" method="POST" class="d-inline wishlist-remove-form">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
                     <input type="hidden" name="action" value="remove">
                     <input type="hidden" name="product_id" value="<?= (int)$item['id'] ?>">
-                    <button class="btn product-btn-cart" type="submit">Remove</button>
+                    <button class="btn product-btn-cart wishlist-remove-btn" type="submit" data-product-id="<?= (int)$item['id'] ?>">Remove</button>
                   </form>
                 </div>
               </div>
@@ -486,12 +536,241 @@ $wishlist_count = count($items);
     crossorigin="anonymous"></script>
   <script <?= commerza_csp_nonce_attr() ?>>
     $(function () {
-      $("#serverAlert, #successAlert").each(function () {
-        const element = $(this);
-        setTimeout(function () {
-          element.fadeOut(400);
-        }, 3500);
+      let csrfToken = ($('#wishlist-container').data('csrfToken') || '').toString();
+
+      function refreshAlertFade() {
+        $("#serverAlert, #successAlert").each(function () {
+          const element = $(this);
+          setTimeout(function () {
+            element.fadeOut(400);
+          }, 3500);
+        });
+      }
+
+      function ensureAlert(id, cssClass) {
+        let alertElement = $('#' + id);
+        if (alertElement.length) {
+          return alertElement;
+        }
+
+        alertElement = $('<div/>', {
+          id,
+          class: cssClass,
+          role: 'alert'
+        }).hide();
+
+        $('body').append(alertElement);
+        return alertElement;
+      }
+
+      function flashAlert(type, message) {
+        if (!message) {
+          return;
+        }
+
+        const isError = type === 'error';
+        const id = isError ? 'serverAlert' : 'successAlert';
+        const cssClass = isError ? 'alert alert-danger text-center' : 'alert alert-success text-center';
+
+        const element = ensureAlert(id, cssClass);
+        element.stop(true, true).text(message).fadeIn(160).delay(2600).fadeOut(320);
+      }
+
+      function syncCsrf(nextToken) {
+        const token = (nextToken || '').toString().trim();
+        if (!token) {
+          return;
+        }
+
+        csrfToken = token;
+        $('input[name="csrf_token"]').val(token);
+        $('#wishlist-container').attr('data-csrf-token', token);
+      }
+
+      function updateWishlistCount(count) {
+        const safeCount = Number.isFinite(Number(count)) ? Number(count) : 0;
+        $('#wishlist-count').text(safeCount);
+        $('#wishlist-count-mobile').text(safeCount);
+      }
+
+      function updateCartCount(count) {
+        const safeCount = Number.isFinite(Number(count)) ? Number(count) : 0;
+        $('#cart-count').text(safeCount);
+        $('#cart-count-mobile').text(safeCount);
+      }
+
+      function renderEmptyStateIfNeeded() {
+        const cards = $('#wishlist-container .wishlist-item-card');
+        if (cards.length > 0) {
+          return;
+        }
+
+        $('#wishlist-container').html(`
+          <div class="text-center py-5 wishlist-empty-state">
+            <i class="bi bi-heart" style="font-size: 3rem; color: #ff6600;"></i>
+            <h3 class="text-white mt-3">Your wishlist is empty</h3>
+            <p class="text-secondary">Start saving your favorite watches.</p>
+            <a href="index.php" class="btn product-btn-buy mt-3">Browse Products</a>
+          </div>
+        `);
+
+        updateWishlistCount(0);
+        $('#wishlistClearForm').addClass('d-none');
+      }
+
+      async function postWishlistAction(action, payload) {
+        const body = new URLSearchParams();
+        body.set('action', action);
+        body.set('csrf_token', csrfToken || '');
+
+        Object.entries(payload || {}).forEach(([key, value]) => {
+          body.set(key, String(value));
+        });
+
+        const response = await fetch('backend/wishlist_api.php', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+          },
+          body: body.toString()
+        });
+
+        const data = await response.json();
+        syncCsrf(data?.csrf_token || '');
+
+        if (!response.ok || !data?.ok) {
+          throw new Error((data?.message || 'Unable to update wishlist.').toString());
+        }
+
+        if (typeof data?.count !== 'undefined') {
+          updateWishlistCount(data.count);
+        }
+
+        return data;
+      }
+
+      async function addToCart(productId, retry = 0) {
+        const body = new URLSearchParams();
+        body.set('action', 'add');
+        body.set('product_id', String(productId));
+        body.set('quantity', '1');
+        body.set('csrf_token', csrfToken || '');
+
+        const response = await fetch('backend/cart_api.php', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+          },
+          body: body.toString()
+        });
+
+        const data = await response.json();
+        syncCsrf(data?.csrf_token || '');
+
+        if ((response.status === 403 || response.status === 409) && data?.csrf_token && retry < 1) {
+          return addToCart(productId, retry + 1);
+        }
+
+        if (!response.ok || !data?.ok) {
+          throw new Error((data?.message || 'Unable to add item to cart.').toString());
+        }
+
+        if (typeof data?.count !== 'undefined') {
+          updateCartCount(data.count);
+        }
+
+        return data;
+      }
+
+      $(document).on('submit', '.wishlist-remove-form', async function (event) {
+        event.preventDefault();
+        const form = $(this);
+        const button = form.find('.wishlist-remove-btn');
+        const card = form.closest('.wishlist-item-card');
+        const productId = parseInt(button.data('productId') || form.find('input[name="product_id"]').val(), 10);
+
+        if (!Number.isInteger(productId) || productId <= 0) {
+          flashAlert('error', 'Invalid wishlist item.');
+          return;
+        }
+
+        button.prop('disabled', true);
+
+        try {
+          const result = await postWishlistAction('toggle', { product_id: productId });
+          if (result.added) {
+            await postWishlistAction('toggle', { product_id: productId });
+          }
+
+          card.addClass('is-removing');
+          window.setTimeout(() => {
+            card.remove();
+            renderEmptyStateIfNeeded();
+          }, 210);
+
+          flashAlert('success', 'Product removed from wishlist.');
+        } catch (error) {
+          flashAlert('error', error?.message || 'Unable to remove product right now.');
+          button.prop('disabled', false);
+        }
       });
+
+      $(document).on('click', '.wishlist-move-cart-btn', async function () {
+        const button = $(this);
+        const productId = parseInt(button.data('productId'), 10);
+        const card = button.closest('.wishlist-item-card');
+
+        if (!Number.isInteger(productId) || productId <= 0) {
+          flashAlert('error', 'Invalid wishlist item.');
+          return;
+        }
+
+        button.prop('disabled', true).text('Moving...');
+
+        try {
+          await addToCart(productId);
+          const result = await postWishlistAction('toggle', { product_id: productId });
+          if (result.added) {
+            await postWishlistAction('toggle', { product_id: productId });
+          }
+
+          card.addClass('is-removing');
+          window.setTimeout(() => {
+            card.remove();
+            renderEmptyStateIfNeeded();
+          }, 210);
+
+          flashAlert('success', 'Moved to cart successfully.');
+        } catch (error) {
+          flashAlert('error', error?.message || 'Unable to move item to cart.');
+          button.prop('disabled', false).text('Move to Cart');
+        }
+      });
+
+      $(document).on('submit', '#wishlistClearForm', async function (event) {
+        event.preventDefault();
+        const form = $(this);
+        const button = $('#wishlistClearBtn');
+
+        button.prop('disabled', true).text('Clearing...');
+
+        try {
+          await postWishlistAction('clear', {});
+          $('#wishlist-container .wishlist-item-card').remove();
+          renderEmptyStateIfNeeded();
+          flashAlert('success', 'Wishlist cleared successfully.');
+        } catch (error) {
+          flashAlert('error', error?.message || 'Unable to clear wishlist right now.');
+          button.prop('disabled', false).text('Clear');
+          return;
+        }
+
+        form.addClass('d-none');
+      });
+
+      refreshAlertFade();
     });
   </script>
 </body>

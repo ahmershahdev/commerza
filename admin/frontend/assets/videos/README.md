@@ -1,13 +1,31 @@
-# Admin Videos Folder Guide
+# videos Directory Guide
 
-This folder stores video assets managed or previewed from admin interfaces.
+## Purpose
+Stores video assets used by this feature area.
 
-## Subfolders
+## Scope
+- Directory: admin/frontend/assets/videos
+- Primary audience: developers and maintainers
+- Update frequency: when assets, APIs, or structure in this folder change
 
-- `products/`: Product-related marketing/demo clips.
-- `slider/`: Hero/slider background video assets.
+## File Standards
+- Use compressed, web-ready formats and practical durations.
+- Keep filenames lowercase with hyphens.
+- Match naming with slider/product context for easy mapping.
+- Verify browser playback before publishing.
+
+## Change Workflow
+1. Add or update files only for this directory responsibility.
+2. Verify references from pages/APIs before committing.
+3. Validate production-safe paths and naming consistency.
+4. Remove stale files that are no longer referenced.
+
+## Quality Checklist
+- Paths resolve correctly from consuming pages or scripts.
+- No debug-only or temporary files are left behind.
+- Naming remains consistent with existing conventions.
+- Documentation is updated when behavior/usage changes.
 
 ## Notes
-
-- Keep large media files compressed for panel performance.
-- Validate and sanitize file paths before persisting references in settings.
+- Keep this guide concise but current.
+- Prefer incremental updates over large, undocumented restructures.

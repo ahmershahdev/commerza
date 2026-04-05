@@ -1,28 +1,31 @@
-# Frontend CSS Folder Guide
+# css Directory Guide
 
-This folder contains storefront CSS entry points and theme modules.
+## Purpose
+Stores stylesheet assets and style modules for this area.
 
-## Files
+## Scope
+- Directory: frontend/assets/css
+- Primary audience: developers and maintainers
+- Update frequency: when assets, APIs, or structure in this folder change
 
-- `style.css`: Main storefront stylesheet entry.
+## File Standards
+- Keep shared styles in modules and avoid page-only duplication.
+- Group tokens, layout, and component rules in clear sections.
+- Avoid overriding unrelated selectors from other modules.
+- Validate mobile breakpoints before release.
 
-## Subfolders
+## Change Workflow
+1. Add or update files only for this directory responsibility.
+2. Verify references from pages/APIs before committing.
+3. Validate production-safe paths and naming consistency.
+4. Remove stale files that are no longer referenced.
 
-- `modules/`: Split CSS modules loaded by the entry file:
-  - `base.css`: Base variables/typography/default element styles.
-  - `navigation.css`: Header/navigation styling.
-  - `search.css`: Search bar interactions and presentation.
-  - `search-suggestions.css`: Suggestion dropdown styling.
-  - `carousel.css`: Hero/product carousel styling.
-  - `products.css`: Product card/grid styles.
-  - `layout-sections.css`: Shared section layout blocks.
-  - `footer.css`: Footer visual styles.
-  - `newsletter.css`: Newsletter section and form styles.
-  - `offcanvas.css`: Offcanvas/nav drawer styling.
-  - `wishlist-tracking.css`: Wishlist/tracking page styles.
-  - `page-hero-wishlist.css`: Wishlist hero/banner styling.
+## Quality Checklist
+- Paths resolve correctly from consuming pages or scripts.
+- No debug-only or temporary files are left behind.
+- Naming remains consistent with existing conventions.
+- Documentation is updated when behavior/usage changes.
 
 ## Notes
-
-- Keep module names semantic and reusable.
-- Prefer updating modules instead of adding page-inline CSS where possible.
+- Keep this guide concise but current.
+- Prefer incremental updates over large, undocumented restructures.

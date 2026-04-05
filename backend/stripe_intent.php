@@ -30,6 +30,16 @@ if (!isset($_SESSION['user_id']) || !is_numeric($_SESSION['user_id'])) {
     stripe_intent_json(['ok' => false, 'message' => 'Please login before checkout.'], 401);
 }
 
+$requestId = commerza_request_id_from_server($_POST);
+$idempotency = commerza_idempotency_consume($con, 'checkout_stripe_intent', $requestId, 21600);
+if (!(bool)($idempotency['ok'] ?? false)) {
+    $status = (int)($idempotency['status'] ?? 409);
+    stripe_intent_json([
+        'ok' => false,
+        'message' => (string)($idempotency['message'] ?? 'Duplicate request detected.'),
+    ], $status > 0 ? $status : 409);
+}
+
 $amountPkr = (int)($_POST['amount_pkr'] ?? 0);
 $currency = strtolower(trim((string)($_POST['currency'] ?? 'pkr')));
 

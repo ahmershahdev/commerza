@@ -56,10 +56,124 @@ if (empty($_SESSION['csrf_token'])) {
       text-transform: uppercase;
     }
 
-    .share-buttons .btn {
-      border: 1px solid #ff6600;
+    .product-info-strip {
+      margin-top: 22px;
+      border: 1px solid rgba(255, 102, 0, 0.24);
+      border-radius: 16px;
+      background: linear-gradient(140deg, rgba(18, 18, 18, 0.96), rgba(6, 6, 6, 0.94));
+      box-shadow: 0 16px 34px rgba(0, 0, 0, 0.35);
+      padding: 12px;
+    }
+
+    .product-info-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .product-info-item {
+      background: rgba(10, 10, 10, 0.65);
+      border: 1px solid rgba(255, 102, 0, 0.18);
+      border-radius: 12px;
+      padding: 12px;
+      min-height: 98px;
+    }
+
+    .product-info-item i {
+      color: #ff9b4a;
+      font-size: 1rem;
+      display: inline-block;
+      margin-bottom: 8px;
+    }
+
+    .product-info-item h3 {
       color: #fff;
-      background: transparent;
+      margin: 0 0 4px;
+      font-size: 0.82rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .product-info-item p {
+      margin: 0;
+      color: #b7b7b7;
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+
+    .share-panel {
+      border: 1px solid rgba(255, 102, 0, 0.24);
+      border-radius: 16px;
+      background: linear-gradient(145deg, rgba(19, 19, 19, 0.95), rgba(8, 8, 8, 0.96));
+      box-shadow: 0 16px 34px rgba(0, 0, 0, 0.38);
+      padding: 16px;
+    }
+
+    .share-description {
+      color: #c9c9c9;
+      font-size: 0.9rem;
+      margin-top: 6px;
+    }
+
+    .share-buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+    }
+
+    .share-buttons .share-btn {
+      border: 1px solid rgba(255, 102, 0, 0.28);
+      color: #ffe4ce;
+      background: rgba(255, 102, 0, 0.08);
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 12px;
+      font-size: 0.83rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .share-buttons .share-btn i {
+      font-size: 0.96rem;
+    }
+
+    .share-buttons .share-btn:hover,
+    .share-buttons .share-btn:focus-visible {
+      border-color: rgba(255, 204, 0, 0.6);
+      color: #fff6cc;
+      background: rgba(255, 204, 0, 0.14);
+      transform: translateY(-1px);
+      outline: none;
+    }
+
+    .share-buttons .share-btn.share-btn-facebook:hover {
+      border-color: rgba(113, 154, 255, 0.75);
+      background: rgba(113, 154, 255, 0.22);
+      color: #e9f0ff;
+    }
+
+    .share-buttons .share-btn.share-btn-x:hover {
+      border-color: rgba(255, 255, 255, 0.42);
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+    }
+
+    .share-buttons .share-btn.share-btn-whatsapp:hover {
+      border-color: rgba(37, 211, 102, 0.75);
+      background: rgba(37, 211, 102, 0.2);
+      color: #ddffe9;
+    }
+
+    .share-buttons .share-btn.share-btn-copy.is-copied {
+      border-color: rgba(255, 204, 0, 0.75);
+      background: rgba(255, 204, 0, 0.2);
+      color: #fff6ce;
     }
 
     .reviews-track {
@@ -75,17 +189,31 @@ if (empty($_SESSION['csrf_token'])) {
 
     .review-card {
       min-width: 280px;
-      background: #121212;
-      border: 1px solid rgba(255, 102, 0, 0.3);
-      border-radius: 10px;
+      background: linear-gradient(150deg, rgba(24, 24, 24, 0.98), rgba(10, 10, 10, 0.95));
+      border: 1px solid rgba(255, 153, 61, 0.34);
+      border-radius: 14px;
       padding: 16px;
       color: #fff;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
     }
 
     .review-form-card {
-      background: #121212;
-      border: 1px solid rgba(255, 102, 0, 0.3);
-      border-radius: 10px;
+      background: linear-gradient(150deg, rgba(20, 20, 20, 0.98), rgba(8, 8, 8, 0.95));
+      border: 1px solid rgba(255, 153, 61, 0.34);
+      border-radius: 14px;
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.33);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .review-form-card::before {
+      content: "";
+      position: absolute;
+      inset: -30% auto auto -20%;
+      width: 240px;
+      height: 240px;
+      background: radial-gradient(circle, rgba(255, 153, 61, 0.16), transparent 66%);
+      pointer-events: none;
     }
 
     .review-form-card .form-control,
@@ -99,6 +227,189 @@ if (empty($_SESSION['csrf_token'])) {
     .review-form-card .form-select:focus {
       border-color: #ffcc00;
       box-shadow: 0 0 0 0.15rem rgba(255, 204, 0, 0.2);
+    }
+
+    .review-stars-input {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 6px;
+      padding: 2px 0 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+    }
+
+    .review-star-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      color: rgba(255, 255, 255, 0.25);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.55rem;
+      line-height: 1;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      position: relative;
+      z-index: 2;
+    }
+
+    .review-star-btn i {
+      pointer-events: none;
+      transition: transform 0.2s ease;
+    }
+
+    .review-star-btn:hover,
+    .review-star-btn:focus-visible {
+      color: #ffd662;
+      outline: none;
+      transform: translateY(-1px) scale(1.05);
+      filter: drop-shadow(0 0 8px rgba(255, 204, 0, 0.28));
+    }
+
+    .review-star-btn.active {
+      color: #ffcc00;
+      transform: translateY(-1px) scale(1.07);
+      filter: drop-shadow(0 0 10px rgba(255, 204, 0, 0.36));
+    }
+
+    .review-star-btn.active i {
+      transform: scale(1.06);
+    }
+
+    .review-star-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      filter: none;
+    }
+
+    .review-stars-input.is-readonly {
+      opacity: 0.84;
+    }
+
+    .review-stars-input.is-readonly .review-star-btn {
+      transform: none;
+      filter: none;
+    }
+
+    .review-rating-label {
+      color: #d1d1d1;
+      font-size: 0.86rem;
+      margin-top: 8px;
+      display: block;
+    }
+
+    .review-stars-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .review-stars {
+      color: #ffcc00;
+      letter-spacing: 1px;
+      font-size: 1rem;
+    }
+
+    .review-score {
+      color: #ffb066;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+
+    .detail-highlights {
+      margin: 12px 0 14px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .detail-highlight-item {
+      background: rgba(0, 0, 0, 0.38);
+      border: 1px solid rgba(255, 102, 0, 0.16);
+      border-radius: 10px;
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .detail-highlight-item i {
+      color: #ff9a44;
+      font-size: 0.95rem;
+    }
+
+    .detail-highlight-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .detail-highlight-title {
+      color: #c1c1c1;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      font-size: 0.67rem;
+      line-height: 1.3;
+    }
+
+    .detail-highlight-value {
+      color: #fff;
+      font-size: 0.85rem;
+      line-height: 1.35;
+      font-weight: 600;
+    }
+
+    .product-assurance-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .assurance-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 11px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 102, 0, 0.26);
+      background: rgba(255, 102, 0, 0.11);
+      color: #ffd7b5;
+      font-size: 0.76rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .assurance-chip i {
+      color: #ffcc00;
+    }
+
+    @media (max-width: 991px) {
+      .product-info-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 575px) {
+      .product-info-grid,
+      .detail-highlights {
+        grid-template-columns: 1fr;
+      }
+
+      .share-buttons {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
 
     @keyframes review-marquee {
@@ -210,9 +521,37 @@ if (empty($_SESSION['csrf_token'])) {
   <main class="container product-hero">
     <div id="product-detail-container"></div>
 
+    <section class="product-info-strip" aria-label="Product buying advantages">
+      <div class="product-info-grid">
+        <article class="product-info-item">
+          <i class="bi bi-patch-check"></i>
+          <h3>Authentic Quality</h3>
+          <p>Every product is quality-checked before dispatch for reliability and finish.</p>
+        </article>
+        <article class="product-info-item">
+          <i class="bi bi-truck"></i>
+          <h3>Fast Dispatch</h3>
+          <p>Orders are processed quickly with regular status updates and tracking support.</p>
+        </article>
+        <article class="product-info-item">
+          <i class="bi bi-shield-check"></i>
+          <h3>Secure Checkout</h3>
+          <p>Protected checkout and safe order handling for your personal information.</p>
+        </article>
+        <article class="product-info-item">
+          <i class="bi bi-headset"></i>
+          <h3>Dedicated Support</h3>
+          <p>Need help with this model? Contact our team for quick product guidance.</p>
+        </article>
+      </div>
+    </section>
+
     <section class="mt-5">
-      <h2 class="product-section-title mb-3">Share this product</h2>
-      <div class="share-buttons d-flex flex-wrap gap-2" id="product-share-buttons"></div>
+      <div class="share-panel">
+        <h2 class="product-section-title mb-2">Share this product</h2>
+        <p class="share-description">Show this item to friends and family, or copy a direct product link instantly.</p>
+        <div class="share-buttons" id="product-share-buttons"></div>
+      </div>
     </section>
 
     <section class="mt-5">
@@ -231,17 +570,19 @@ if (empty($_SESSION['csrf_token'])) {
         <p id="reviewEligibilityMessage" class="small text-secondary mb-3">Login and place an eligible order to review this product.</p>
         <form id="productReviewForm" class="row g-3">
           <input type="hidden" id="reviewProductId" value="">
-          <div class="col-12 col-md-3">
+          <div class="col-12 col-md-4">
             <label for="reviewRating" class="form-label text-light">Rating</label>
-            <select id="reviewRating" class="form-select" required>
-              <option value="5">5 - Excellent</option>
-              <option value="4">4 - Very good</option>
-              <option value="3">3 - Good</option>
-              <option value="2">2 - Fair</option>
-              <option value="1">1 - Poor</option>
-            </select>
+            <input type="hidden" id="reviewRating" value="" required>
+            <div class="review-stars-input" id="reviewStarsInput" role="radiogroup" aria-label="Select review rating from 1 to 5 stars">
+              <button type="button" class="review-star-btn" data-rating="1" aria-label="1 star" aria-pressed="false"><i class="bi bi-star-fill"></i></button>
+              <button type="button" class="review-star-btn" data-rating="2" aria-label="2 stars" aria-pressed="false"><i class="bi bi-star-fill"></i></button>
+              <button type="button" class="review-star-btn" data-rating="3" aria-label="3 stars" aria-pressed="false"><i class="bi bi-star-fill"></i></button>
+              <button type="button" class="review-star-btn" data-rating="4" aria-label="4 stars" aria-pressed="false"><i class="bi bi-star-fill"></i></button>
+              <button type="button" class="review-star-btn" data-rating="5" aria-label="5 stars" aria-pressed="false"><i class="bi bi-star-fill"></i></button>
+            </div>
+            <small class="review-rating-label" id="reviewRatingLabel">Select a rating to continue</small>
           </div>
-          <div class="col-12 col-md-9">
+          <div class="col-12 col-md-8">
             <label for="reviewText" class="form-label text-light">Your Feedback</label>
             <textarea id="reviewText" class="form-control" rows="3" maxlength="500" minlength="10" placeholder="Share your honest experience with this product." required></textarea>
           </div>

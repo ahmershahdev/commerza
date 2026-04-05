@@ -193,6 +193,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $csrfToken = admin_generate_csrf_token();
+$forgotPasswordCanonicalUrl = admin_public_url('/admin/frontend/admin-forgot-password.php');
+$adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.webp');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -206,6 +208,12 @@ $csrfToken = admin_generate_csrf_token();
   <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://fonts.googleapis.com https://fonts.gstatic.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdn.jsdelivr.net https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; connect-src 'self' https://cdn.jsdelivr.net https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; frame-src 'self' https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'">
   <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken) ?>">
+  <link rel="canonical" href="<?= htmlspecialchars($forgotPasswordCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>">
+  <meta property="og:title" content="Admin Forgot Password | Commerza">
+  <meta property="og:description" content="Reset the Commerza admin password using secure verification.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="<?= htmlspecialchars($forgotPasswordCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>">
+  <meta property="og:image" content="<?= htmlspecialchars($adminOgImageUrl, ENT_QUOTES, 'UTF-8') ?>">
   <title>Admin Forgot Password | Commerza</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="assets/images/favicon/commerza-watches-icon.ico" />

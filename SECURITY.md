@@ -1,61 +1,49 @@
 # Security Policy
 
-## Supported Versions
+## Supported Scope
 
-Security fixes are applied to the active development branch/release of Commerza.
+This project applies security controls across:
 
-## Security Controls in This Project
-
-- Session-based authentication for user/admin flows.
-- CSRF tokens for sensitive forms and AJAX endpoints.
-- OAuth state validation and expiry checks.
-- Input validation and prepared statements for DB queries.
-- Output escaping with `htmlspecialchars` in server-rendered templates.
-- Transaction-safe stock checks and decrement during checkout to prevent race-condition overselling.
-- Rate limiting for high-risk endpoints:
-  - user login
-  - user signup
-  - contact form
-  - user forgot password
-  - admin login
-  - admin forgot password (send + reset)
-  - admin forgot email change
-- Order/customer data in admin panel served from backend APIs (not browser-only storage).
-
-## Threat Coverage Notes
-
-- XSS: mitigated by escaping untrusted output and validating input.
-- CSRF: mitigated via per-session CSRF tokens verified on state-changing requests.
-- SSRF: no user-controlled arbitrary server-side URL fetch endpoints are exposed in public flows.
-- Race conditions: checkout now locks product rows before stock decrement and order commit.
-
-## Operational Recommendations
-
-- Keep PHP, Apache, and MySQL patched.
-- Use HTTPS in production.
-- Restrict DB user permissions to only required operations.
-- Configure SMTP/sendmail securely for notification delivery.
-- Rotate OAuth and Stripe keys if leaked.
-- Protect admin routes behind strong credentials and IP/network controls where possible.
+- Customer auth, account, and checkout flows
+- Admin authentication and admin APIs
+- Database-backed APIs in `backend/` and `admin/backend/`
 
 ## Reporting a Vulnerability
 
-Please report privately with reproducible details.
+If you identify a vulnerability:
 
-Contact:
+1. Do not disclose publicly.
+2. Share reproduction steps, affected path, and impact level privately.
+3. Include request examples and any logs needed to validate the issue.
 
-- Email: syedahmershahofficial@gmail.com
-- LinkedIn: https://www.linkedin.com/in/syedahmershah
-- GitHub: https://github.com/ahmershahdev
+## Security Controls in Place
 
-Please include:
+- CSRF tokens on sensitive form actions
+- CAPTCHA validation on high-risk auth actions
+- Rate limiting via `backend/rate_limit.php`
+- Security event logging via `backend/security_events.php`
+- Session cookie hardening and CSP/security headers via `backend/data.php`
+- Password hashing and policy enforcement via `backend/security_helpers.php`
 
-- Clear summary of the vulnerability
-- Exact reproduction steps
-- Affected routes/files
-- Impact and severity estimate
-- Logs, screenshots, or proof-of-concept (if available)
+## Operational Hardening Checklist
 
-## Responsible Disclosure
+- Enforce HTTPS in production
+- Set secure, unique admin credentials
+- Rotate OAuth, SMTP, and payment provider secrets
+- Keep XAMPP/PHP/MySQL patched and updated
+- Restrict write permissions to required upload paths only
+- Review security event logs regularly
 
-Please do not publish vulnerabilities publicly until a fix has been confirmed and released.
+## Data Protection Notes
+
+- Do not commit secrets to repository
+- Store credentials in environment variables or protected settings table
+- Avoid exposing stack traces or raw SQL errors in production
+
+## Incident Response Baseline
+
+1. Revoke compromised credentials.
+2. Block abusive IPs and rotate tokens.
+3. Review `security_events` and auth logs for timeline.
+4. Patch root cause and verify affected endpoints.
+5. Notify impacted operators or users as required.

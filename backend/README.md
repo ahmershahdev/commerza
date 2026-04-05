@@ -1,65 +1,57 @@
-# Backend Folder Guide
+# Backend Guide
 
-This folder contains the server-side application logic for customer features, security, integrations, and automation jobs.
+## Purpose
 
-## Core Runtime Files
+This folder contains backend runtime logic, API endpoints, security helpers, and scheduled jobs.
 
-- `data.php`: App bootstrap. Loads environment values, starts session, configures security headers/CSP, creates DB connection, and remembers logged-in users via secure cookies.
-- `rate_limit.php`: Shared IP/identifier-based rate limiting with escalation support.
-- `security_helpers.php`: Password utilities and shared CAPTCHA configuration/verification helpers.
-- `security_events.php`: Structured security event logging helpers.
-- `expiry_cleanup.php`: Background cleanup logic for expired records.
-- `nav_state.php`: Navigation badge/count helpers used by storefront pages.
+## Core Runtime
 
-## Commerce and User APIs
+- `data.php`: bootstrap, headers, DB connection, session initialization
+- `rate_limit.php`: generic request throttling and escalation
+- `security_helpers.php`: password policy, CAPTCHA config, common security helpers
+- `security_events.php`: structured event logging for auth and abuse telemetry
 
-- `products_api.php`: Product data API for storefront listing/filtering.
-- `cart_api.php`: Cart API endpoints for add/update/remove behavior.
-- `wishlist_api.php`: Wishlist API endpoints.
-- `reviews_api.php`: Public review API endpoints.
-- `newsletter_api.php`: Newsletter subscription endpoint.
-- `viewers_api.php`: Live viewers simulation/real-mode endpoint.
-- `check_exists.php`: Signup helper endpoint for email/phone availability checks.
+## Customer APIs
 
-## Checkout and Payments
+- `products_api.php`
+- `cart_api.php`
+- `wishlist_api.php`
+- `reviews_api.php`
+- `newsletter_api.php`
+- `viewers_api.php`
 
-- `coupon_helpers.php`: Coupon validation, normalization, and redemption logic.
-- `payment_helpers.php`: Stripe key resolution and Stripe API client helpers.
-- `stripe_intent.php`: Creates Stripe PaymentIntents with CSRF/session validation.
-- `cart_helpers.php`: Cart snapshot and cart identity helper functions.
+## Commerce and Payment
 
-## Authentication and Notifications
+- `cart_helpers.php`
+- `coupon_helpers.php`
+- `payment_helpers.php`
+- `stripe_intent.php`
 
-- `oauth.php`: OAuth provider callback and account linking/login logic.
-- `mailer.php`: Mail transport wrapper.
-- `notifications.php`: Email templates and event-triggered notification senders.
+## Email and Notification Layer
 
-## Scheduled and Maintenance Jobs
+- `mailer.php`: SMTP transport and fallback mail sending
+- `notifications.php`: branded notification templates and event senders
 
-- `send_engagement_reminders.php`: Sends follow-up reminders for inactive carts/wishlists.
-- `monthly_profit_report.php`: Generates/sends monthly profit summaries.
-- `weekly_analytics_report.php`: Generates/sends weekly analytics summaries.
-- `db_audit.php`: Audits live database completeness against `database/commerza.sql`.
-- `db_repair.php`: Repairs missing schema elements and legacy slider/viewer mismatches.
-- `backup_restore_test.ps1`: Validates backup and restore integrity in local/XAMPP setups.
-- `BACKUP_RESTORE_TESTS.md`: How to run and interpret backup/restore checks.
+## Scheduled Jobs
 
-## Data Definition
+- `send_engagement_reminders.php`
+- `monthly_profit_report.php`
+- `weekly_analytics_report.php`
 
-- `database/commerza.sql`: Full schema and seed data for tables/settings.
+## Database
+
+- `database/commerza.sql`: canonical schema and seed baseline
+
+## Validation Commands
+
+- PHP lint:
+  - `C:\xampp\php\php.exe -l backend/<file>.php`
+- Table count:
+  - `SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = 'commerza';`
+- FK count:
+  - `SELECT COUNT(*) FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = 'commerza';`
 
 ## Notes
 
-- Most files assume they are included after `data.php` so `$con` and session state are available.
-- Security-sensitive endpoints use CSRF checks, rate limiting, and structured security event logging.
-
-## Quick Ops Commands
-
-- Lint changed backend files:
-  - `C:\xampp\php\php.exe -l backend/<file>.php`
-- Run schema audit:
-  - `C:\xampp\php\php.exe backend/db_audit.php`
-- Repair schema drift:
-  - `C:\xampp\php\php.exe backend/db_repair.php`
-- Send SMTP test email:
-  - `C:\xampp\php\php.exe backend/smtp_test.php your-email@example.com`
+- Most files assume initialization through `data.php`.
+- Keep endpoint changes backward-compatible with existing frontend JS payloads.

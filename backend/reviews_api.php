@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/data.php';
@@ -412,36 +414,7 @@ function reviews_api_check_eligibility(mysqli $con, int $userId, int $productId)
     }
 
     $existingReview = reviews_api_existing_user_review($con, $userId, $productId);
-
-    if (reviews_api_refund_table_exists($con)) {
-        $refundStmt = $con->prepare(
-            'SELECT rr.id
-             FROM refund_requests rr
-             INNER JOIN orders o ON o.id = rr.order_id
-             INNER JOIN order_items oi ON oi.order_id = o.id
-             WHERE o.user_id = ?
-               AND oi.product_id = ?
-               AND rr.status IN ("pending", "accepted")
-             LIMIT 1'
-        );
-
-        if ($refundStmt) {
-            $refundStmt->bind_param('ii', $userId, $productId);
-            $refundStmt->execute();
-            $refundStmt->store_result();
-            $hasBlockingRefund = $refundStmt->num_rows > 0;
-            $refundStmt->close();
-
-            if ($hasBlockingRefund) {
-                return [
-                    'can_review' => false,
-                    'message' => 'Review access is disabled while a refund request is pending or accepted for this product order.',
-                    'eligible_order_id' => 0,
-                    'existing_review' => $existingReview,
-                ];
-            }
-        }
-    }
+    $hasRefundTable = reviews_api_refund_table_exists($con);
 
     $sqlBase =
         'SELECT o.id
@@ -449,15 +422,15 @@ function reviews_api_check_eligibility(mysqli $con, int $userId, int $productId)
          INNER JOIN order_items oi ON oi.order_id = o.id
          WHERE o.user_id = ?
            AND oi.product_id = ?
-                     AND o.status = "Delivered"';
+           AND LOWER(TRIM(o.status)) = "delivered"';
 
-    if (reviews_api_refund_table_exists($con)) {
+    if ($hasRefundTable) {
         $sqlBase .=
             ' AND NOT EXISTS (
                 SELECT 1
                 FROM refund_requests rr
                 WHERE rr.order_id = o.id
-                  AND rr.status IN ("pending", "accepted")
+                  AND LOWER(TRIM(rr.status)) IN ("pending", "accepted")
             )';
     }
 
@@ -495,6 +468,36 @@ function reviews_api_check_eligibility(mysqli $con, int $userId, int $productId)
             'eligible_order_id' => 0,
             'existing_review' => $existingReview,
         ];
+    }
+
+    if ($hasRefundTable) {
+        $refundStmt = $con->prepare(
+            'SELECT rr.id
+             FROM refund_requests rr
+             INNER JOIN orders o ON o.id = rr.order_id
+             INNER JOIN order_items oi ON oi.order_id = o.id
+             WHERE o.user_id = ?
+               AND oi.product_id = ?
+               AND LOWER(TRIM(rr.status)) IN ("pending", "accepted")
+             LIMIT 1'
+        );
+
+        if ($refundStmt) {
+            $refundStmt->bind_param('ii', $userId, $productId);
+            $refundStmt->execute();
+            $refundStmt->store_result();
+            $hasBlockingRefund = $refundStmt->num_rows > 0;
+            $refundStmt->close();
+
+            if ($hasBlockingRefund) {
+                return [
+                    'can_review' => false,
+                    'message' => 'Review access is disabled while a refund request is pending or accepted for this product order.',
+                    'eligible_order_id' => 0,
+                    'existing_review' => null,
+                ];
+            }
+        }
     }
 
     return [
@@ -830,7 +833,12 @@ if (!$con->begin_transaction()) {
 
 $stmt = $con->prepare(
     'INSERT INTO product_reviews (user_id, product_id, order_id, rating, review_text, is_verified_purchase, is_visible)
-     VALUES (?, ?, ?, ?, ?, 1, 1)'
+    VALUES (?, ?, ?, ?, ?, 1, 1)
+    ON DUPLICATE KEY UPDATE
+       id = LAST_INSERT_ID(id),
+       rating = VALUES(rating),
+       review_text = VALUES(review_text),
+       updated_at = NOW()'
 );
 
 if (!$stmt) {
@@ -844,33 +852,12 @@ if (!$stmt) {
 
 $stmt->bind_param('iiiis', $userId, $productId, $orderId, $rating, $reviewText);
 $ok = $stmt->execute();
-$insertErrno = (int)$stmt->errno;
+$affectedRows = (int)$stmt->affected_rows;
 $reviewId = (int)$stmt->insert_id;
 $stmt->close();
 
 if (!$ok || $reviewId <= 0) {
     $con->rollback();
-
-    if ($insertErrno === 1062) {
-        commerza_security_log_event($con, [
-            'event_type' => 'review_submit_conflict',
-            'severity' => 'warning',
-            'actor_type' => 'user',
-            'actor_identifier' => (string)$userId,
-            'user_id' => $userId,
-            'ip_address' => commerza_client_ip(),
-            'details' => [
-                'product_id' => $productId,
-                'reason' => 'concurrent_duplicate_review',
-            ],
-        ]);
-
-        reviews_api_json([
-            'ok' => false,
-            'message' => 'A review for this product already exists on your account. Please refresh and edit your existing review.',
-            'csrf_token' => $_SESSION['csrf_token'],
-        ], 409);
-    }
 
     reviews_api_json([
         'ok' => false,
@@ -879,7 +866,14 @@ if (!$ok || $reviewId <= 0) {
     ], 500);
 }
 
+$didConcurrentUpsert = $affectedRows > 1;
+$oldImagePaths = [];
+
 $storedImages = [];
+if ($didConcurrentUpsert && !empty($validatedImages)) {
+    $oldImagePaths = reviews_api_delete_image_rows($con, $reviewId);
+}
+
 if (!empty($validatedImages)) {
     [$storeOk, $storedImages, $storeError] = reviews_api_store_images($validatedImages, $reviewId, $userId);
     if (!$storeOk) {
@@ -921,11 +915,19 @@ if (!$con->commit()) {
     ], 500);
 }
 
+if (!empty($oldImagePaths)) {
+    reviews_api_delete_files($oldImagePaths);
+}
+
 reviews_api_json([
     'ok' => true,
-    'message' => !empty($storedImages)
-        ? 'Thanks! Your review with images was submitted successfully.'
-        : 'Thanks! Your review was submitted successfully.',
+    'message' => $didConcurrentUpsert
+        ? (!empty($storedImages)
+            ? 'Your existing review was updated and images were replaced.'
+            : 'Your existing review was updated successfully.')
+        : (!empty($storedImages)
+            ? 'Thanks! Your review with images was submitted successfully.'
+            : 'Thanks! Your review was submitted successfully.'),
     'logged_in' => true,
     'payload' => reviews_api_payload($con, $productId, $userId),
     'csrf_token' => $_SESSION['csrf_token'],

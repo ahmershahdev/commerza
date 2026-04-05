@@ -202,8 +202,7 @@ if ($action === 'add') {
         'INSERT INTO cart_items (cart_id, product_id, quantity, added_at)
          VALUES (?, ?, ?, CURRENT_TIMESTAMP)
          ON DUPLICATE KEY UPDATE
-           quantity = quantity + VALUES(quantity),
-           added_at = CURRENT_TIMESTAMP'
+            quantity = quantity + VALUES(quantity)'
     );
 
     if (!$upsertStmt) {
@@ -327,7 +326,7 @@ if ($action === 'set_qty') {
         cart_api_json(['ok' => false, 'message' => 'Cart limit is 10 items.'], 422);
     }
 
-    $updateStmt = $con->prepare('UPDATE cart_items SET quantity = ?, added_at = CURRENT_TIMESTAMP WHERE cart_id = ? AND product_id = ? LIMIT 1');
+    $updateStmt = $con->prepare('UPDATE cart_items SET quantity = ? WHERE cart_id = ? AND product_id = ? LIMIT 1');
     if (!$updateStmt) {
         cart_api_json(['ok' => false, 'message' => 'Unable to update cart.'], 500);
     }

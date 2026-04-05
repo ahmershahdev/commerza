@@ -5,6 +5,7 @@ Allow: /llms.txt
 Disallow: /admin/
 Disallow: /backend/
 Disallow: /private/
+Disallow: /oauth.php
 Disallow: /login.php
 Disallow: /signup.php
 Disallow: /forgot-password.php
@@ -14,6 +15,7 @@ Disallow: /account.php
 Disallow: /order-tracking.php
 Disallow: /wishlist.php
 Disallow: /compare.php
+Disallow: /admin-panel.php
 
 Sitemap: https://commerza.ahmershah.dev/sitemap.xml
 Host: commerza.ahmershah.dev
@@ -21,12 +23,18 @@ Crawl-delay: 1
 
 User-agent: GPTBot
 Allow: /llms.txt
+Allow: /
 Allow: /about.php
 Allow: /contact.php
+Allow: /products.php
+Allow: /shop-category-a.php
+Allow: /shop-category-b.php
 Allow: /faq.php
 Allow: /shipping.php
 Allow: /returns.php
 Allow: /warranty.php
+Allow: /privacy-policy.php
+Allow: /terms-of-service.php
 Disallow: /admin/
 Disallow: /backend/
 Disallow: /private/
@@ -42,12 +50,18 @@ Disallow: /compare.php
 
 User-agent: ClaudeBot
 Allow: /llms.txt
+Allow: /
 Allow: /about.php
 Allow: /contact.php
+Allow: /products.php
+Allow: /shop-category-a.php
+Allow: /shop-category-b.php
 Allow: /faq.php
 Allow: /shipping.php
 Allow: /returns.php
 Allow: /warranty.php
+Allow: /privacy-policy.php
+Allow: /terms-of-service.php
 Disallow: /admin/
 Disallow: /backend/
 Disallow: /private/
@@ -92,4 +106,16 @@ Disallow: /wishlist.php
 Disallow: /compare.php
 
 User-agent: MJ12bot
+Disallow: /
+
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+User-agent: DataForSeoBot
 Disallow: /

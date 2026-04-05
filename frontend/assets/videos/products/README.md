@@ -1,18 +1,31 @@
-# Frontend Product Videos Folder Guide
+# products Directory Guide
 
-This folder stores product/category video clips used by storefront category sections.
+## Purpose
+Stores video assets used by this feature area.
 
-## Subfolders
+## Scope
+- Directory: frontend/assets/videos/products
+- Primary audience: developers and maintainers
+- Update frequency: when assets, APIs, or structure in this folder change
 
-- `smart/`: Smart/automatic watch category videos.
-- `sports/`: Sports watch category videos.
+## File Standards
+- Use compressed, web-ready formats and practical durations.
+- Keep filenames lowercase with hyphens.
+- Match naming with slider/product context for easy mapping.
+- Verify browser playback before publishing.
 
-## Current Files
+## Change Workflow
+1. Add or update files only for this directory responsibility.
+2. Verify references from pages/APIs before committing.
+3. Validate production-safe paths and naming consistency.
+4. Remove stale files that are no longer referenced.
 
-- `smart/automatic_watches_carousel.mp4`
-- `sports/sports_watches_carousel.mp4`
+## Quality Checklist
+- Paths resolve correctly from consuming pages or scripts.
+- No debug-only or temporary files are left behind.
+- Naming remains consistent with existing conventions.
+- Documentation is updated when behavior/usage changes.
 
 ## Notes
-
-- Keep consistent codec/resolution to avoid playback mismatches.
-- Update related `site_settings` keys when changing canonical video files.
+- Keep this guide concise but current.
+- Prefer incremental updates over large, undocumented restructures.

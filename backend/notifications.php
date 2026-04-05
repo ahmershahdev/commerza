@@ -51,12 +51,17 @@ function commerza_notifications_get_from_email(mysqli $con): string
     $defaultSender = commerza_mail_default_sender();
     $smtpFromEmail = (string)($defaultSender['email'] ?? '');
     $smtpUsername = trim((string)getenv('COMMERZA_SMTP_USERNAME'));
+    $smtpPrimaryUsername = trim((string)getenv('COMMERZA_SMTP_PRIMARY_USERNAME'));
+    $smtpSecondaryUsername = trim((string)getenv('COMMERZA_SMTP_SECONDARY_USERNAME'));
     $siteEmail = commerza_notifications_get_setting($con, 'site_email', '');
     $fallbackFrom = trim((string)getenv('COMMERZA_FALLBACK_FROM_EMAIL'));
 
     $resolved = commerza_notifications_first_valid_email([
+        'support@ahmershah.dev',
         $siteEmail,
         $smtpFromEmail,
+        $smtpPrimaryUsername,
+        $smtpSecondaryUsername,
         $smtpUsername,
         $fallbackFrom,
     ]);
@@ -65,7 +70,7 @@ function commerza_notifications_get_from_email(mysqli $con): string
         return $resolved;
     }
 
-    return 'no-reply@commerza.local';
+    return 'support@ahmershah.dev';
 }
 
 function commerza_notifications_get_admin_email(mysqli $con): string
@@ -118,19 +123,28 @@ function commerza_notifications_get_report_email(mysqli $con): string
 
 function commerza_notifications_public_url(string $path = ''): string
 {
-    $configuredBase = trim((string)(getenv('COMMERZA_PUBLIC_URL') ?: getenv('APP_URL') ?: ''));
-    if ($configuredBase !== '' && filter_var($configuredBase, FILTER_VALIDATE_URL)) {
-        $base = rtrim($configuredBase, '/');
+    if (function_exists('commerza_public_base_url')) {
+        $base = rtrim((string)commerza_public_base_url(), '/');
     } else {
-        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || ((int)($_SERVER['SERVER_PORT'] ?? 0) === 443);
-        $scheme = $isHttps ? 'https' : 'http';
-        $host = trim((string)($_SERVER['HTTP_HOST'] ?? 'localhost'));
-        if ($host === '') {
-            $host = 'localhost';
-        }
+        $configuredBase = trim((string)(getenv('COMMERZA_APP_URL') ?: getenv('COMMERZA_PUBLIC_URL') ?: getenv('APP_URL') ?: ''));
+        if ($configuredBase !== '' && filter_var($configuredBase, FILTER_VALIDATE_URL)) {
+            $base = rtrim($configuredBase, '/');
+        } else {
+            $https = strtolower(trim((string)($_SERVER['HTTPS'] ?? '')));
+            $forwardedProto = strtolower(trim((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')));
+            $cfVisitor = strtolower((string)($_SERVER['HTTP_CF_VISITOR'] ?? ''));
+            $isHttps = ($https !== '' && $https !== 'off')
+                || ($forwardedProto !== '' && str_contains($forwardedProto, 'https'))
+                || ($cfVisitor !== '' && str_contains($cfVisitor, '"https"'))
+                || ((int)($_SERVER['SERVER_PORT'] ?? 0) === 443);
+            $scheme = $isHttps ? 'https' : 'http';
+            $host = trim((string)($_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? 'localhost')));
+            if ($host === '') {
+                $host = 'localhost';
+            }
 
-        $base = $scheme . '://' . $host;
+            $base = $scheme . '://' . $host;
+        }
     }
 
     if ($path === '') {
@@ -144,35 +158,94 @@ function commerza_notifications_public_url(string $path = ''): string
     return $base . $path;
 }
 
-function commerza_notifications_layout(string $title, string $intro, string $bodyHtml, string $siteName): string
+function commerza_notifications_logo_url(): string
+{
+        return commerza_notifications_public_url('/frontend/assets/images/logo/commerza-logo.webp');
+}
+
+function commerza_notifications_social_links_html(): string
+{
+    $links = [
+        ['label' => 'Instagram', 'url' => 'https://instagram.com/commerza'],
+        ['label' => 'Facebook', 'url' => 'https://facebook.com/commerza'],
+        ['label' => 'LinkedIn', 'url' => 'https://www.linkedin.com/in/syedahmershah'],
+        ['label' => 'GitHub', 'url' => 'https://github.com/ahmershahdev'],
+    ];
+
+    $parts = [];
+    foreach ($links as $link) {
+        $label = htmlspecialchars((string)$link['label'], ENT_QUOTES, 'UTF-8');
+        $url = htmlspecialchars((string)$link['url'], ENT_QUOTES, 'UTF-8');
+        $parts[] = '<a href="' . $url . '" style="color:#ffb066;text-decoration:none;">' . $label . '</a>';
+    }
+
+    return implode(' <span style="color:#666;">|</span> ', $parts);
+}
+
+function commerza_notifications_present_ip_label(string $ipAddress): string
+{
+        $ip = trim($ipAddress);
+        if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+                return 'Not available';
+        }
+
+        if (in_array($ip, ['0.0.0.0', '127.0.0.1', '::1', '::'], true)) {
+                return 'Not available';
+        }
+
+        return $ip;
+}
+
+function commerza_notifications_layout(string $title, string $intro, string $bodyHtml, string $siteName, string $supportEmail): string
 {
     $safeTitle = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
     $safeIntro = htmlspecialchars($intro, ENT_QUOTES, 'UTF-8');
     $safeSiteName = htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8');
+        $safeSupportEmail = htmlspecialchars($supportEmail, ENT_QUOTES, 'UTF-8');
+        $safeLogoUrl = htmlspecialchars(commerza_notifications_logo_url(), ENT_QUOTES, 'UTF-8');
+        $safeHomeUrl = htmlspecialchars(commerza_notifications_public_url('/'), ENT_QUOTES, 'UTF-8');
+        $socialLinks = commerza_notifications_social_links_html();
 
     return '<!DOCTYPE html>
 <html>
-  <body style="margin:0;padding:0;background:#0a0a0a;font-family:Arial,sans-serif;color:#ececec;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;padding:24px 0;">
+    <body style="margin:0;padding:0;background:#070707;font-family:Segoe UI,Arial,sans-serif;color:#ececec;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#070707;padding:24px 0;">
       <tr>
         <td align="center">
-          <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#151515;border:1px solid #2a2a2a;border-radius:12px;overflow:hidden;">
+                    <table role="presentation" width="620" cellpadding="0" cellspacing="0" style="max-width:620px;background:#121212;border:1px solid #2a2a2a;border-radius:14px;overflow:hidden;">
             <tr>
-              <td style="padding:24px 28px 10px 28px;">
-                <h1 style="margin:0;color:#ff6a00;font-size:24px;letter-spacing:0.5px;">' . $safeTitle . '</h1>
+                            <td style="padding:20px 28px;background:linear-gradient(90deg,#171717,#101010);border-bottom:1px solid #2a2a2a;">
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                                    <tr>
+                                        <td style="vertical-align:middle;">
+                                            <a href="' . $safeHomeUrl . '" style="text-decoration:none;display:inline-flex;align-items:center;gap:10px;">
+                                                <img src="' . $safeLogoUrl . '" alt="Commerza" width="44" height="44" style="display:block;border-radius:8px;object-fit:cover;">
+                                                <span style="color:#ff8a2b;font-size:18px;font-weight:800;letter-spacing:.6px;">' . $safeSiteName . '</span>
+                                            </a>
+                                        </td>
+                                        <td align="right" style="color:#9d9d9d;font-size:12px;">Email Notification</td>
+                                    </tr>
+                                </table>
               </td>
             </tr>
             <tr>
-              <td style="padding:8px 28px 0 28px;">
+                            <td style="padding:22px 28px 4px 28px;">
+                                <h1 style="margin:0;color:#ff9d45;font-size:23px;line-height:1.35;">' . $safeTitle . '</h1>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0 28px 2px 28px;">
                 <p style="margin:0;color:#d0d0d0;line-height:1.6;">' . $safeIntro . '</p>
               </td>
             </tr>
             <tr>
-              <td style="padding:20px 28px 28px 28px;color:#f2f2f2;line-height:1.6;">' . $bodyHtml . '</td>
+                            <td style="padding:16px 28px 26px 28px;color:#f2f2f2;line-height:1.65;font-size:14px;">' . $bodyHtml . '</td>
             </tr>
             <tr>
-              <td style="padding:14px 28px;background:#101010;border-top:1px solid #2a2a2a;">
-                <p style="margin:0;color:#9f9f9f;font-size:12px;">Sent by ' . $safeSiteName . ' notifications</p>
+                            <td style="padding:14px 28px;background:#0f0f0f;border-top:1px solid #2a2a2a;">
+                                <p style="margin:0 0 6px 0;color:#9f9f9f;font-size:12px;">Sent by ' . $safeSiteName . ' automated notifications.</p>
+                                <p style="margin:0;color:#9f9f9f;font-size:12px;">Support: <a href="mailto:' . $safeSupportEmail . '" style="color:#ffb066;text-decoration:none;">' . $safeSupportEmail . '</a></p>
+                                                                <p style="margin:8px 0 0 0;font-size:12px;color:#9f9f9f;">Connect: ' . $socialLinks . '</p>
               </td>
             </tr>
           </table>
@@ -202,7 +275,7 @@ function commerza_notifications_send(
     $fromEmail = commerza_notifications_get_from_email($con);
     $fromName = $siteName . ' Notifications';
 
-    $html = commerza_notifications_layout($title, $intro, $bodyHtml, $siteName);
+    $html = commerza_notifications_layout($title, $intro, $bodyHtml, $siteName, $fromEmail);
 
     return commerza_send_html_mail(
         $toEmail,
@@ -217,7 +290,7 @@ function commerza_notifications_send(
 function commerza_notify_user_login(mysqli $con, int $userId, string $userEmail, string $userName, string $ipAddress): bool
 {
     $safeName = htmlspecialchars(trim($userName) !== '' ? $userName : 'Customer', ENT_QUOTES, 'UTF-8');
-    $safeIp = htmlspecialchars($ipAddress !== '' ? $ipAddress : 'Unknown', ENT_QUOTES, 'UTF-8');
+    $safeIp = htmlspecialchars(commerza_notifications_present_ip_label($ipAddress), ENT_QUOTES, 'UTF-8');
     $safeUserId = htmlspecialchars((string)$userId, ENT_QUOTES, 'UTF-8');
     $safeTime = htmlspecialchars(date('Y-m-d H:i:s T'), ENT_QUOTES, 'UTF-8');
 
@@ -246,7 +319,7 @@ function commerza_notify_user_login(mysqli $con, int $userId, string $userEmail,
 function commerza_notify_admin_login(mysqli $con, string $adminEmail, string $adminName, string $ipAddress): bool
 {
     $safeName = htmlspecialchars(trim($adminName) !== '' ? $adminName : 'Admin', ENT_QUOTES, 'UTF-8');
-    $safeIp = htmlspecialchars($ipAddress !== '' ? $ipAddress : 'Unknown', ENT_QUOTES, 'UTF-8');
+    $safeIp = htmlspecialchars(commerza_notifications_present_ip_label($ipAddress), ENT_QUOTES, 'UTF-8');
     $safeTime = htmlspecialchars(date('Y-m-d H:i:s T'), ENT_QUOTES, 'UTF-8');
 
     $body =
@@ -1013,6 +1086,34 @@ function commerza_notify_signup_success(mysqli $con, string $userEmail, string $
         'Your profile is now active.',
         $body,
         $error
+    );
+}
+
+function commerza_notify_account_deletion_code(mysqli $con, string $userEmail, string $userName, string $code, ?string &$errorMessage = null): bool
+{
+    $safeName = htmlspecialchars(trim($userName) !== '' ? $userName : 'Customer', ENT_QUOTES, 'UTF-8');
+    $safeCode = htmlspecialchars($code, ENT_QUOTES, 'UTF-8');
+    $safeTime = htmlspecialchars(date('Y-m-d H:i:s T'), ENT_QUOTES, 'UTF-8');
+
+    $body =
+        '<p>Hello ' . $safeName . ',</p>' .
+        '<p>We received a request to permanently delete your Commerza account.</p>' .
+        '<p>Use the verification code below to confirm account deletion:</p>' .
+        '<div style="margin:16px 0;padding:14px 16px;background:#101010;border:1px dashed #ff6a00;border-radius:8px;text-align:center;">' .
+        '<span style="font-size:28px;letter-spacing:5px;font-weight:700;color:#ffcc00;">' . $safeCode . '</span>' .
+        '</div>' .
+        '<p><strong>Code expiry:</strong> 10 minutes</p>' .
+        '<p><strong>Request time:</strong> ' . $safeTime . '</p>' .
+        '<p style="margin-top:14px;">If this was not you, reset your password immediately and contact support.</p>';
+
+    return commerza_notifications_send(
+        $con,
+        $userEmail,
+        'Commerza account deletion verification code',
+        'Confirm Account Deletion',
+        'This code is required to permanently remove your account.',
+        $body,
+        $errorMessage
     );
 }
 
