@@ -5,12 +5,12 @@ require_once __DIR__ . '/backend/products_schema_helpers.php';
 commerza_products_ensure_schema($con);
 
 if (!isset($_SESSION['user_id']) || !is_numeric($_SESSION['user_id'])) {
-    header('Location: login.php?redirect=wishlist.php');
-    exit;
+  header('Location: login.php?redirect=wishlist.php');
+  exit;
 }
 
 if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+  $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
 $user_id = (int)$_SESSION['user_id'];
@@ -19,113 +19,113 @@ $success = '';
 
 function get_or_create_wishlist_id(mysqli $con, int $userId): ?int
 {
-    $selectStmt = $con->prepare('SELECT id FROM wishlist WHERE user_id = ? LIMIT 1');
-    if (!$selectStmt) {
-        return null;
-    }
+  $selectStmt = $con->prepare('SELECT id FROM wishlist WHERE user_id = ? LIMIT 1');
+  if (!$selectStmt) {
+    return null;
+  }
 
-    $selectStmt->bind_param('i', $userId);
-    $selectStmt->execute();
-    $result = $selectStmt->get_result();
-    if ($result && $result->num_rows === 1) {
-        $row = $result->fetch_assoc();
-        $selectStmt->close();
-        return (int)$row['id'];
-    }
+  $selectStmt->bind_param('i', $userId);
+  $selectStmt->execute();
+  $result = $selectStmt->get_result();
+  if ($result && $result->num_rows === 1) {
+    $row = $result->fetch_assoc();
     $selectStmt->close();
+    return (int)$row['id'];
+  }
+  $selectStmt->close();
 
-    $insertStmt = $con->prepare('INSERT INTO wishlist (user_id) VALUES (?)');
-    if (!$insertStmt) {
-        return null;
-    }
+  $insertStmt = $con->prepare('INSERT INTO wishlist (user_id) VALUES (?)');
+  if (!$insertStmt) {
+    return null;
+  }
 
-    $insertStmt->bind_param('i', $userId);
-    $ok = $insertStmt->execute();
-    $newId = $ok ? (int)$con->insert_id : null;
-    $insertStmt->close();
+  $insertStmt->bind_param('i', $userId);
+  $ok = $insertStmt->execute();
+  $newId = $ok ? (int)$con->insert_id : null;
+  $insertStmt->close();
 
-    return $newId;
+  return $newId;
 }
 
 $wishlist_id = get_or_create_wishlist_id($con, $user_id);
 
 if (!$wishlist_id) {
-    http_response_code(500);
-    exit('Unable to load wishlist.');
+  http_response_code(500);
+  exit('Unable to load wishlist.');
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (
-        empty($_POST['csrf_token']) ||
-        empty($_SESSION['csrf_token']) ||
-        !hash_equals($_SESSION['csrf_token'], (string)$_POST['csrf_token'])
-    ) {
-        http_response_code(403);
-        exit('Forbidden.');
-    }
+  if (
+    empty($_POST['csrf_token']) ||
+    empty($_SESSION['csrf_token']) ||
+    !hash_equals($_SESSION['csrf_token'], (string)$_POST['csrf_token'])
+  ) {
+    http_response_code(403);
+    exit('Forbidden.');
+  }
 
-    $action = (string)($_POST['action'] ?? '');
+  $action = (string)($_POST['action'] ?? '');
 
-    if ($action === 'add') {
-        $product_id = (int)($_POST['product_id'] ?? 0);
-        if ($product_id > 0) {
-            $checkProductStmt = $con->prepare('SELECT id FROM products WHERE id = ? LIMIT 1');
-            if ($checkProductStmt) {
-                $checkProductStmt->bind_param('i', $product_id);
-                $checkProductStmt->execute();
-                $checkProductStmt->store_result();
-                $exists = $checkProductStmt->num_rows > 0;
-                $checkProductStmt->close();
+  if ($action === 'add') {
+    $product_id = (int)($_POST['product_id'] ?? 0);
+    if ($product_id > 0) {
+      $checkProductStmt = $con->prepare('SELECT id FROM products WHERE id = ? LIMIT 1');
+      if ($checkProductStmt) {
+        $checkProductStmt->bind_param('i', $product_id);
+        $checkProductStmt->execute();
+        $checkProductStmt->store_result();
+        $exists = $checkProductStmt->num_rows > 0;
+        $checkProductStmt->close();
 
-                if ($exists) {
-                    $addStmt = $con->prepare('INSERT INTO wishlist_items (wishlist_id, product_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE added_at = CURRENT_TIMESTAMP');
-                    if ($addStmt) {
-                        $addStmt->bind_param('ii', $wishlist_id, $product_id);
-                        $addStmt->execute();
-                        $addStmt->close();
-                        $success = 'Product added to wishlist.';
-                    } else {
-                        $errors[] = 'Unable to add product right now.';
-                    }
-                } else {
-                    $errors[] = 'Selected product does not exist.';
-                }
-            } else {
-                $errors[] = 'Unable to verify product.';
-            }
+        if ($exists) {
+          $addStmt = $con->prepare('INSERT INTO wishlist_items (wishlist_id, product_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE added_at = CURRENT_TIMESTAMP');
+          if ($addStmt) {
+            $addStmt->bind_param('ii', $wishlist_id, $product_id);
+            $addStmt->execute();
+            $addStmt->close();
+            $success = 'Product added to wishlist.';
+          } else {
+            $errors[] = 'Unable to add product right now.';
+          }
         } else {
-            $errors[] = 'Invalid product selection.';
+          $errors[] = 'Selected product does not exist.';
         }
+      } else {
+        $errors[] = 'Unable to verify product.';
+      }
+    } else {
+      $errors[] = 'Invalid product selection.';
     }
+  }
 
-    if ($action === 'remove') {
-        $product_id = (int)($_POST['product_id'] ?? 0);
-        if ($product_id > 0) {
-            $removeStmt = $con->prepare('DELETE FROM wishlist_items WHERE wishlist_id = ? AND product_id = ? LIMIT 1');
-            if ($removeStmt) {
-                $removeStmt->bind_param('ii', $wishlist_id, $product_id);
-                $removeStmt->execute();
-                $removeStmt->close();
-                $success = 'Product removed from wishlist.';
-            } else {
-                $errors[] = 'Unable to remove product right now.';
-            }
-        }
+  if ($action === 'remove') {
+    $product_id = (int)($_POST['product_id'] ?? 0);
+    if ($product_id > 0) {
+      $removeStmt = $con->prepare('DELETE FROM wishlist_items WHERE wishlist_id = ? AND product_id = ? LIMIT 1');
+      if ($removeStmt) {
+        $removeStmt->bind_param('ii', $wishlist_id, $product_id);
+        $removeStmt->execute();
+        $removeStmt->close();
+        $success = 'Product removed from wishlist.';
+      } else {
+        $errors[] = 'Unable to remove product right now.';
+      }
     }
+  }
 
-    if ($action === 'clear') {
-        $clearStmt = $con->prepare('DELETE FROM wishlist_items WHERE wishlist_id = ?');
-        if ($clearStmt) {
-            $clearStmt->bind_param('i', $wishlist_id);
-            $clearStmt->execute();
-            $clearStmt->close();
-            $success = 'Wishlist cleared successfully.';
-        } else {
-            $errors[] = 'Unable to clear wishlist right now.';
-        }
+  if ($action === 'clear') {
+    $clearStmt = $con->prepare('DELETE FROM wishlist_items WHERE wishlist_id = ?');
+    if ($clearStmt) {
+      $clearStmt->bind_param('i', $wishlist_id);
+      $clearStmt->execute();
+      $clearStmt->close();
+      $success = 'Wishlist cleared successfully.';
+    } else {
+      $errors[] = 'Unable to clear wishlist right now.';
     }
+  }
 
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+  $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
 $items = [];
@@ -138,13 +138,13 @@ $listStmt = $con->prepare(
 );
 
 if ($listStmt) {
-    $listStmt->bind_param('i', $wishlist_id);
-    $listStmt->execute();
-    $result = $listStmt->get_result();
-    while ($row = $result->fetch_assoc()) {
-        $items[] = $row;
-    }
-    $listStmt->close();
+  $listStmt->bind_param('i', $wishlist_id);
+  $listStmt->execute();
+  $result = $listStmt->get_result();
+  while ($row = $result->fetch_assoc()) {
+    $items[] = $row;
+  }
+  $listStmt->close();
 }
 
 $wishlist_count = count($items);
@@ -472,12 +472,6 @@ $wishlist_count = count($items);
         <div class="d-flex align-items-center order-lg-2">
           <ul class="navbar-nav ms-3 d-none d-lg-flex flex-row align-items-center me-3">
             <li class="nav-item position-relative me-3">
-              <a class="nav-link nav-icon-link" href="cart.php" aria-label="View cart">
-                <i class="bi bi-cart3" id="cart-icon"></i>
-                <span class="nav-badge" id="cart-count">0</span>
-              </a>
-            </li>
-            <li class="nav-item position-relative me-3">
               <a class="nav-link nav-icon-link" aria-current="page" href="wishlist.php" aria-label="View wishlist">
                 <i class="bi bi-heart"></i>
                 <span class="nav-badge" id="wishlist-count"><?= $wishlist_count ?></span>
@@ -522,11 +516,6 @@ $wishlist_count = count($items);
       </div>
       <div class="offcanvas-body">
         <div class="offcanvas-user-actions">
-          <a href="cart.php" class="offcanvas-action-btn">
-            <i class="bi bi-cart3"></i>
-            <span>Cart</span>
-            <span class="offcanvas-badge" id="cart-count-mobile">0</span>
-          </a>
           <a href="wishlist.php" class="offcanvas-action-btn" aria-current="page">
             <i class="bi bi-heart"></i>
             <span>Wishlist</span>
@@ -616,7 +605,9 @@ $wishlist_count = count($items);
           <div class="info-card d-flex justify-content-between align-items-center mt-3">
             <div>
               <div class="icon-badge"><i class="bi bi-bell"></i></div>
-              <h3 class="product-name">Watch Deals</h3>
+              <h3 class="product-name">Monitored Deals</h3>
+              <p class="product-desc mb-2">Think of this as your personal holding area. We’ll flag any price changes or active promo codes while your items wait.</p>
+              <hr class="my-2" style="border-top: 1px dashed #ccc;">
               <p class="product-desc mb-0">Track price drops and offers before moving products to cart.</p>
             </div>
             <?php if ($wishlist_count > 0): ?>
@@ -784,13 +775,13 @@ $wishlist_count = count($items);
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>
   <script <?= commerza_csp_nonce_attr() ?>>
-    $(function () {
+    $(function() {
       let csrfToken = ($('#wishlist-container').data('csrfToken') || '').toString();
 
       function refreshAlertFade() {
-        $("#serverAlert, #successAlert").each(function () {
+        $("#serverAlert, #successAlert").each(function() {
           const element = $(this);
-          setTimeout(function () {
+          setTimeout(function() {
             element.fadeOut(400);
           }, 3500);
         });
@@ -933,7 +924,7 @@ $wishlist_count = count($items);
         return data;
       }
 
-      $(document).on('submit', '.wishlist-remove-form', async function (event) {
+      $(document).on('submit', '.wishlist-remove-form', async function(event) {
         event.preventDefault();
         const form = $(this);
         const button = form.find('.wishlist-remove-btn');
@@ -948,9 +939,13 @@ $wishlist_count = count($items);
         button.prop('disabled', true);
 
         try {
-          const result = await postWishlistAction('toggle', { product_id: productId });
+          const result = await postWishlistAction('toggle', {
+            product_id: productId
+          });
           if (result.added) {
-            await postWishlistAction('toggle', { product_id: productId });
+            await postWishlistAction('toggle', {
+              product_id: productId
+            });
           }
 
           card.addClass('is-removing');
@@ -966,7 +961,7 @@ $wishlist_count = count($items);
         }
       });
 
-      $(document).on('click', '.wishlist-move-cart-btn', async function () {
+      $(document).on('click', '.wishlist-move-cart-btn', async function() {
         const button = $(this);
         const productId = parseInt(button.data('productId'), 10);
         const card = button.closest('.wishlist-item-card');
@@ -980,9 +975,13 @@ $wishlist_count = count($items);
 
         try {
           await addToCart(productId);
-          const result = await postWishlistAction('toggle', { product_id: productId });
+          const result = await postWishlistAction('toggle', {
+            product_id: productId
+          });
           if (result.added) {
-            await postWishlistAction('toggle', { product_id: productId });
+            await postWishlistAction('toggle', {
+              product_id: productId
+            });
           }
 
           card.addClass('is-removing');
@@ -998,7 +997,7 @@ $wishlist_count = count($items);
         }
       });
 
-      $(document).on('submit', '#wishlistClearForm', async function (event) {
+      $(document).on('submit', '#wishlistClearForm', async function(event) {
         event.preventDefault();
         const form = $(this);
         const button = $('#wishlistClearBtn');

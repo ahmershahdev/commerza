@@ -56,57 +56,47 @@ $logoUrl = $siteBaseUrl . '/frontend/assets/images/logo/commerza-logo.webp';
 			text-decoration: underline;
 		}
 
-		.policy-faq-accordion .accordion-button {
+		.accordion-button {
 			color: #ff6600 !important;
 			background-color: #1a1a1a;
+			color: #ff6600;
 			border: 1px solid #ff6600;
 			border-radius: 6px;
 			margin-bottom: 8px;
 			transition: all 0.3s ease;
-			font-weight: 700;
 		}
 
-		.policy-faq-accordion .accordion-button:hover {
+		.accordion-button:hover {
 			background-color: #252525;
 			border-color: #ff8533;
 		}
 
-		.policy-faq-accordion .accordion-button::after {
+		.accordion-button::after {
 			background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23ff6600'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
 		}
 
-		.policy-faq-accordion .accordion-item {
+		.accordion-item {
 			border: none;
 			background-color: transparent;
+			user-select: none;
 		}
 
-		.policy-faq-accordion .accordion-collapse,
-		.policy-faq-accordion .accordion-collapse.active {
+		.accordion-collapse,
+		.accordion-collapse.active {
 			border: 1px solid #ff6600;
 			border-top: none;
 			border-radius: 0 0 6px 6px;
 		}
 
-		.policy-faq-accordion .accordion-body {
+		.accordion-body {
 			background-color: #0d0d0d;
 			border-radius: 0 0 6px 6px;
-			color: #d1d1d1;
-		}
-
-		.privacy-page-title {
-			color: #ff6600 !important;
-			background: none !important;
-			-webkit-text-fill-color: #ff6600 !important;
-			letter-spacing: 1px;
-			text-transform: none;
-			user-select: text;
 		}
 	</style>
 	<script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
 		{
 			"@context": "https://schema.org",
-			"@graph": [
-				{
+			"@graph": [{
 					"@type": "Organization",
 					"@id": "<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>#organization",
 					"name": "Commerza",
@@ -131,8 +121,7 @@ $logoUrl = $siteBaseUrl . '/frontend/assets/images/logo/commerza-logo.webp';
 				{
 					"@type": "BreadcrumbList",
 					"@id": "<?= htmlspecialchars($privacyUrl, ENT_QUOTES, 'UTF-8') ?>#breadcrumb",
-					"itemListElement": [
-						{
+					"itemListElement": [{
 							"@type": "ListItem",
 							"position": 1,
 							"name": "Home",
@@ -260,34 +249,42 @@ $logoUrl = $siteBaseUrl . '/frontend/assets/images/logo/commerza-logo.webp';
 		<section class="page-hero mb-5">
 			<div class="hero-content">
 				<span class="hero-badge"><i class="bi bi-shield-lock"></i> Legal</span>
-				<h1 class="mt-3 privacy-page-title">Privacy Policy</h1>
+				<h1 class="mt-3">Privacy Policy</h1>
 				<p class="product-desc mt-2">Effective date: January 1, 2026. This policy explains what personal data Commerza collects, why we collect it, and how we protect it.</p>
 			</div>
 		</section>
 
 		<section class="mb-4">
+
 			<div class="accordion policy-faq-accordion" id="faqAccordion">
 				<div class="accordion-item">
-					<h2 class="accordion-header" id="privacyFaqOne">
-						<button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#privacyFaqPanelOne" aria-expanded="true" aria-controls="privacyFaqPanelOne">
+					<h3 class="accordion-header" id="privacyFaqOne">
+						<button class="accordion-button collapsed" type="button"
+							data-bs-toggle="collapse" data-bs-target="#privacyFaqPanelOne"
+							aria-expanded="false" aria-controls="privacyFaqPanelOne"
+							style="color: #ff6600 !important; background-color: #1a1a1a !important; border: 1px solid #ff6600;">
 							How can I request a data update?
 						</button>
-					</h2>
-					<div id="privacyFaqPanelOne" class="accordion-collapse collapse show" aria-labelledby="privacyFaqOne" data-bs-parent="#faqAccordion">
-						<div class="accordion-body">
+					</h3>
+					<div id="privacyFaqPanelOne" class="accordion-collapse collapse" aria-labelledby="privacyFaqOne" data-bs-parent="#faqAccordion">
+						<div class="accordion-body product-desc">
 							Email your registered account address and requested correction to
 							<a class="policy-mail" href="mailto:commerza.ahmer@gmail.com?subject=Commerza%20Data%20Correction%20Request">commerza.ahmer@gmail.com</a>.
 						</div>
 					</div>
 				</div>
+
 				<div class="accordion-item">
-					<h2 class="accordion-header" id="privacyFaqTwo">
-						<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#privacyFaqPanelTwo" aria-expanded="false" aria-controls="privacyFaqPanelTwo">
+					<h3 class="accordion-header" id="privacyFaqTwo">
+						<button class="accordion-button collapsed" type="button"
+							data-bs-toggle="collapse" data-bs-target="#privacyFaqPanelTwo"
+							aria-expanded="false" aria-controls="privacyFaqPanelTwo"
+							style="color: #ff6600 !important; background-color: #1a1a1a !important; border: 1px solid #ff6600;">
 							How do I report a privacy or security concern?
 						</button>
-					</h2>
+					</h3>
 					<div id="privacyFaqPanelTwo" class="accordion-collapse collapse" aria-labelledby="privacyFaqTwo" data-bs-parent="#faqAccordion">
-						<div class="accordion-body">
+						<div class="accordion-body product-desc">
 							Send full details, screenshots, and your account email (if applicable) to
 							<a class="policy-mail" href="mailto:commerza.ahmer@gmail.com?subject=Commerza%20Privacy%20Security%20Concern">commerza.ahmer@gmail.com</a>.
 						</div>
