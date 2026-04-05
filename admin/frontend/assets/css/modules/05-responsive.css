@@ -220,6 +220,18 @@ body.sidebar-open .admin-backdrop {
     width: 100%;
   }
 
+  .tab-playbook {
+    padding: 16px;
+  }
+
+  .tab-playbook-list li {
+    padding-left: 40px;
+  }
+
+  .coupon-overview-card {
+    min-height: auto;
+  }
+
   .analytics-chart-shell {
     height: 220px;
     min-height: 180px;

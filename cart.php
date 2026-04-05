@@ -681,11 +681,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       animation: cartItemPulse 0.52s ease;
     }
 
+    .cart-item-row.is-cooldown {
+      border-color: rgba(255, 153, 61, 0.28);
+    }
+
     .cart-qty-control {
       border: 1px solid rgba(255, 102, 0, 0.18);
       border-radius: 999px;
       padding: 5px 7px;
       background: rgba(255, 102, 0, 0.07);
+      transition: border-color 0.24s ease, background-color 0.24s ease;
+    }
+
+    .cart-item-row.is-cooldown .cart-qty-control {
+      border-color: rgba(255, 204, 0, 0.36);
+      background: rgba(255, 204, 0, 0.1);
     }
 
     .cart-qty-control .change-qty {
@@ -698,6 +708,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      border: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      color: #ffd7b5 !important;
+      transition: color 0.2s ease, transform 0.2s ease;
+    }
+
+    .cart-qty-control .change-qty:hover,
+    .cart-qty-control .change-qty:focus-visible {
+      color: #ffcc00 !important;
+      background: transparent !important;
+      border: 0 !important;
+      transform: translateY(-1px);
+      outline: none;
+    }
+
+    .cart-qty-control .change-qty:disabled {
+      color: #7f7f7f !important;
+      opacity: 0.65;
+      transform: none;
     }
 
     .cart-qty-value {
@@ -705,6 +735,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       display: inline-block;
       text-align: center;
       font-family: 'JetBrains Mono', monospace;
+      transition: transform 0.2s ease, color 0.2s ease;
+    }
+
+    .cart-item-row.is-updated .cart-qty-value {
+      animation: qtyValuePop 0.34s ease;
+    }
+
+    .cart-qty-hint {
+      min-height: 1.2em;
+      letter-spacing: 0.01em;
+    }
+
+    .cart-item-row.is-cooldown .cart-qty-hint {
+      color: #ffcfa1 !important;
     }
 
     .summary-sticky {
@@ -716,6 +760,81 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       border: 1px solid rgba(255, 102, 0, 0.24);
       box-shadow: 0 18px 30px rgba(0, 0, 0, 0.35);
       background: linear-gradient(160deg, rgba(21, 21, 21, 0.98), rgba(8, 8, 8, 0.96));
+    }
+
+    .checkout-guide-card {
+      border: 1px solid rgba(255, 102, 0, 0.2);
+      border-radius: 14px;
+      background: linear-gradient(150deg, rgba(20, 20, 20, 0.95), rgba(8, 8, 8, 0.95));
+      padding: 14px;
+      height: 100%;
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28);
+    }
+
+    .checkout-guide-step {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 204, 0, 0.35);
+      background: rgba(255, 204, 0, 0.1);
+      color: #ffd27a;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .checkout-guide-card h3 {
+      color: #fff;
+      font-size: 0.98rem;
+      margin-bottom: 6px;
+    }
+
+    .checkout-guide-card p {
+      color: #b6b6b6;
+      margin-bottom: 0;
+      font-size: 0.84rem;
+      line-height: 1.5;
+    }
+
+    .checkout-precaution-panel {
+      border: 1px solid rgba(255, 153, 61, 0.3);
+      border-radius: 16px;
+      background: linear-gradient(145deg, rgba(25, 22, 18, 0.92), rgba(12, 10, 8, 0.95));
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.3);
+      padding: 16px;
+    }
+
+    .checkout-precaution-panel h3 {
+      color: #ffd7a8;
+      font-size: 1.02rem;
+      margin-bottom: 12px;
+    }
+
+    .checkout-precaution-list {
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 12px;
+    }
+
+    .checkout-precaution-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      color: #d0d0d0;
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    .checkout-precaution-list i {
+      color: #ffb86b;
+      margin-top: 1px;
     }
 
     #checkoutModal .checkout-form-grid {
@@ -747,6 +866,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       }
     }
 
+    @keyframes qtyValuePop {
+      0% {
+        transform: scale(0.9);
+      }
+      55% {
+        transform: scale(1.08);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+
     @media (max-width: 991px) {
       .summary-sticky {
         position: static;
@@ -755,6 +886,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
 
     @media (max-width: 767px) {
       #checkoutModal .checkout-form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .checkout-precaution-list {
         grid-template-columns: 1fr;
       }
     }
@@ -902,6 +1037,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       </div>
     </section>
 
+    <section class="mb-4" aria-label="Checkout guide">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <h2 class="mb-0" style="color: #ff6600; font-size: 1.2rem;">Step-by-Step Checkout Guide</h2>
+        <span class="step-chip">Follow these steps for a smooth order flow.</span>
+      </div>
+      <div class="row g-3">
+        <div class="col-sm-6 col-xl-3">
+          <article class="checkout-guide-card">
+            <span class="checkout-guide-step">Step 1</span>
+            <h3>Review Cart Items</h3>
+            <p>Check product names, quantity, and line totals before moving ahead.</p>
+          </article>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+          <article class="checkout-guide-card">
+            <span class="checkout-guide-step">Step 2</span>
+            <h3>Apply Coupon</h3>
+            <p>Add your valid coupon code and confirm the discount appears in summary.</p>
+          </article>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+          <article class="checkout-guide-card">
+            <span class="checkout-guide-step">Step 3</span>
+            <h3>Verify Address & Contact</h3>
+            <p>Use an active phone number and complete address to avoid dispatch delays.</p>
+          </article>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+          <article class="checkout-guide-card">
+            <span class="checkout-guide-step">Step 4</span>
+            <h3>Select Payment Method</h3>
+            <p>Choose COD or Stripe, complete CAPTCHA, then submit your final order.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="mb-4" aria-label="Checkout precautions">
+      <div class="checkout-precaution-panel">
+        <h3><i class="bi bi-exclamation-triangle me-2"></i>Precautions Before Placing Order</h3>
+        <ul class="checkout-precaution-list">
+          <li><i class="bi bi-check2-circle"></i><span>Keep quantity realistic to avoid stock conflicts during high demand.</span></li>
+          <li><i class="bi bi-check2-circle"></i><span>Double-check phone and address because dispatch labels use this exact data.</span></li>
+          <li><i class="bi bi-check2-circle"></i><span>For card payments, do not close the tab until Stripe confirms success.</span></li>
+          <li><i class="bi bi-check2-circle"></i><span>Review final total after coupon application before clicking Complete Order.</span></li>
+        </ul>
+      </div>
+    </section>
+
     <div id="customAlert" class="alert alert-danger text-center"
       style="display:none; position:fixed; top:20px; right:0; left:0; margin:auto; width:300px; z-index:9998;">
       Cart Full: Your 10-item limit has been reached.
@@ -911,7 +1095,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       Your cart is empty. Please add products before checkout.
     </div>
 
-    <h2 class="mb-4" style="color: #ff6600">Cart Items</h2>
+    <h2 class="mb-4" style="color: #ff6600">Step 5: Confirm Cart Items</h2>
 
     <div class="row cart-layout-shell">
       <div class="col-lg-8 mb-4 cart-list-panel" id="cart-items-container"></div>

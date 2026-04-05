@@ -125,6 +125,65 @@ function wishlist_release_item_lock(mysqli $con, string $lockName): void
     }
 }
 
+function wishlist_rate_limit_identifier(): string
+{
+    $userId = (int)($_SESSION['user_id'] ?? 0);
+    if ($userId > 0) {
+        return 'user_' . $userId;
+    }
+
+    $sessionId = trim((string)session_id());
+    if ($sessionId !== '') {
+        return 'session_' . substr($sessionId, 0, 64);
+    }
+
+    return 'guest';
+}
+
+function wishlist_rate_limit_guard(
+    mysqli $con,
+    string $scope,
+    int $maxAttempts,
+    int $windowSeconds,
+    int $blockSeconds,
+    int $escalatedBlockSeconds = 300
+): void {
+    $identifier = wishlist_rate_limit_identifier();
+    $clientIp = commerza_client_ip();
+
+    $rate = commerza_rate_limit_check(
+        $con,
+        $scope,
+        $identifier,
+        $clientIp,
+        max(1, $maxAttempts),
+        max(60, $windowSeconds),
+        max(60, $blockSeconds),
+        max($blockSeconds, $escalatedBlockSeconds)
+    );
+
+    if ((bool)($rate['allowed'] ?? true)) {
+        return;
+    }
+
+    $retrySeconds = max(1, (int)($rate['retry_after'] ?? $blockSeconds));
+    commerza_security_log_rate_limit_block(
+        $con,
+        $scope,
+        'user',
+        $identifier,
+        $clientIp,
+        $retrySeconds
+    );
+
+    wishlist_json([
+        'ok' => false,
+        'message' => 'Too many wishlist requests. Please wait and retry.',
+        'retry_after' => $retrySeconds,
+        'csrf_token' => $_SESSION['csrf_token'],
+    ], 429);
+}
+
 $method = $_SERVER['REQUEST_METHOD'];
 $action = strtolower(trim((string)($_REQUEST['action'] ?? 'status')));
 
@@ -183,6 +242,8 @@ if ($action === 'toggle') {
             'csrf_token' => $_SESSION['csrf_token'],
         ], 403);
     }
+
+    wishlist_rate_limit_guard($con, 'wishlist_toggle', 24, 60, 120, 360);
 
     $productId = (int)($_POST['product_id'] ?? 0);
     if ($productId <= 0) {
@@ -305,6 +366,8 @@ if ($action === 'clear') {
             'csrf_token' => $_SESSION['csrf_token'],
         ], 403);
     }
+
+    wishlist_rate_limit_guard($con, 'wishlist_clear', 6, 300, 300, 900);
 
     $userId = (int)$_SESSION['user_id'];
     $wishlistId = get_or_create_wishlist_id($con, $userId);

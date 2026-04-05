@@ -29,7 +29,7 @@
 
 .dropdown-item {
   color: #d1d1d1 !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.22s ease-out;
   font-weight: 600 !important;
   font-family: "Montserrat", sans-serif;
   text-transform: uppercase;
@@ -138,7 +138,7 @@ footer {
 .dropdown-item,
 .form-control,
 .badge {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.22s ease-out;
   user-select: none;
 }
 
@@ -310,4 +310,52 @@ img {
     rgba(12, 12, 16, 0.97),
     rgba(9, 9, 13, 0.95)
   );
+}
+
+.modal-backdrop.show {
+  opacity: 0.78;
+}
+
+.modal-content {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 122, 26, 0.35) !important;
+  background: linear-gradient(
+    165deg,
+    rgba(19, 19, 24, 0.98),
+    rgba(9, 9, 12, 0.98)
+  ) !important;
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.62),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+}
+
+.modal-header,
+.modal-footer {
+  border-color: rgba(255, 122, 26, 0.25) !important;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.modal-title {
+  letter-spacing: 0.4px;
+}
+
+.modal-body {
+  background: linear-gradient(
+    180deg,
+    rgba(16, 16, 22, 0.95),
+    rgba(11, 11, 16, 0.95)
+  );
+}
+
+.modal .btn-close {
+  filter: invert(0.92);
+  opacity: 0.85;
+  transition:
+    transform 0.2s ease-out,
+    opacity 0.2s ease-out;
+}
+
+.modal .btn-close:hover {
+  opacity: 1;
+  transform: rotate(90deg) scale(1.04);
 }
