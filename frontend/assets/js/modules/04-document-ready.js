@@ -10,6 +10,9 @@ $(document).ready(function () {
     coupon: null,
     couponNotice: "",
   };
+  const cartActionLocks = new Set();
+  const cartQtyCooldownUntil = new Map();
+  const CART_QTY_COOLDOWN_MS = 3000;
 
   applySiteSettings();
   ensureLegalNavLinks();
@@ -485,39 +488,66 @@ $(document).ready(function () {
     const itemId = parseInt(item.id, 10);
     const currentQty = parseInt(item.quantity, 10) || 1;
 
-    if (action === "plus") {
-      if (getTotalCartQty() >= 10) {
-        triggerAlert();
-        return;
-      }
-
-      const result = await postCartAction("set_qty", {
-        product_id: itemId,
-        quantity: currentQty + 1,
-      });
-
-      if (!result.ok) {
-        showNotif(result.message, "warning");
-        return;
-      }
-    } else if (action === "minus") {
-      if (currentQty <= 1) {
-        return;
-      }
-
-      const result = await postCartAction("set_qty", {
-        product_id: itemId,
-        quantity: currentQty - 1,
-      });
-
-      if (!result.ok) {
-        showNotif(result.message, "warning");
-        return;
-      }
+    if (getCartQtyCooldownMs(itemId) > 0) {
+      return;
     }
 
-    updateCartBadge();
-    displayCartItems();
+    if (cartActionLocks.has(itemId)) {
+      return;
+    }
+
+    let shouldCooldown = false;
+
+    cartActionLocks.add(itemId);
+    setCartItemActionState(itemId, true);
+
+    try {
+      if (action === "plus") {
+        shouldCooldown = true;
+
+        if (getTotalCartQty() >= 10) {
+          triggerAlert();
+          return;
+        }
+
+        const result = await postCartAction("set_qty", {
+          product_id: itemId,
+          quantity: currentQty + 1,
+        });
+
+        if (!result.ok) {
+          showNotif(result.message, "warning");
+          return;
+        }
+      } else if (action === "minus") {
+        if (currentQty <= 1) {
+          return;
+        }
+
+        shouldCooldown = true;
+
+        const result = await postCartAction("set_qty", {
+          product_id: itemId,
+          quantity: currentQty - 1,
+        });
+
+        if (!result.ok) {
+          showNotif(result.message, "warning");
+          return;
+        }
+      }
+
+      updateCartBadge();
+      displayCartItems(itemId);
+    } finally {
+      cartActionLocks.delete(itemId);
+
+      if (shouldCooldown) {
+        startCartQtyCooldown(itemId);
+      }
+
+      setCartItemActionState(itemId, false);
+    }
   });
 
   $(document).on("click", ".remove-item", async function () {
@@ -529,17 +559,30 @@ $(document).ready(function () {
       return;
     }
 
-    const result = await postCartAction("remove", {
-      product_id: parseInt(item.id, 10),
-    });
-
-    if (!result.ok) {
-      showNotif(result.message, "warning");
+    const itemId = parseInt(item.id, 10);
+    if (cartActionLocks.has(itemId)) {
       return;
     }
 
-    updateCartBadge();
-    displayCartItems();
+    cartActionLocks.add(itemId);
+    setCartItemActionState(itemId, true);
+
+    try {
+      const result = await postCartAction("remove", {
+        product_id: itemId,
+      });
+
+      if (!result.ok) {
+        showNotif(result.message, "warning");
+        return;
+      }
+
+      updateCartBadge();
+      displayCartItems();
+    } finally {
+      cartActionLocks.delete(itemId);
+      setCartItemActionState(itemId, false);
+    }
   });
 
   $(document).on("click", "#applyCouponBtn", async function () {
@@ -651,7 +694,73 @@ $(document).ready(function () {
       .text("No coupon applied.");
   }
 
-  function displayCartItems() {
+  function getCartQtyCooldownMs(productId) {
+    const safeProductId = parseInt(productId, 10);
+    if (!Number.isInteger(safeProductId) || safeProductId <= 0) {
+      return 0;
+    }
+
+    const cooldownUntil = Number(cartQtyCooldownUntil.get(safeProductId) || 0);
+    if (!Number.isFinite(cooldownUntil) || cooldownUntil <= 0) {
+      return 0;
+    }
+
+    const remaining = cooldownUntil - Date.now();
+    if (remaining <= 0) {
+      cartQtyCooldownUntil.delete(safeProductId);
+      return 0;
+    }
+
+    return remaining;
+  }
+
+  function startCartQtyCooldown(productId) {
+    const safeProductId = parseInt(productId, 10);
+    if (!Number.isInteger(safeProductId) || safeProductId <= 0) {
+      return;
+    }
+
+    const expiresAt = Date.now() + CART_QTY_COOLDOWN_MS;
+    cartQtyCooldownUntil.set(safeProductId, expiresAt);
+
+    const refreshState = () => {
+      if (getCartQtyCooldownMs(safeProductId) <= 0) {
+        cartQtyCooldownUntil.delete(safeProductId);
+        setCartItemActionState(safeProductId, false);
+        return;
+      }
+
+      setCartItemActionState(safeProductId, false);
+      window.setTimeout(refreshState, 250);
+    };
+
+    refreshState();
+  }
+
+  function setCartItemActionState(productId, isBusy) {
+    if (!Number.isInteger(parseInt(productId, 10))) {
+      return;
+    }
+
+    const safeProductId = parseInt(productId, 10);
+    const cooldownRemainingMs = getCartQtyCooldownMs(safeProductId);
+    const isCoolingDown = cooldownRemainingMs > 0;
+    const cooldownLabel = isCoolingDown
+      ? `Ready in ${Math.ceil(cooldownRemainingMs / 1000)}s`
+      : "";
+    const row = $(`.cart-item-row[data-product-id="${safeProductId}"]`);
+    if (!row.length) {
+      return;
+    }
+
+    row.toggleClass("is-busy", !!isBusy);
+    row.toggleClass("is-cooldown", isCoolingDown);
+    row.find(".change-qty").prop("disabled", !!isBusy || isCoolingDown);
+    row.find(".remove-item").prop("disabled", !!isBusy);
+    row.find(".cart-qty-hint").text(cooldownLabel);
+  }
+
+  function displayCartItems(changedProductId = null) {
     let container = $("#cart-items-container");
     container.empty();
 
@@ -669,6 +778,7 @@ $(document).ready(function () {
     }
 
     cart.forEach((item, index) => {
+      const safeItemId = parseInt(item.id, 10) || 0;
       const effectivePrice =
         Number(item.salePrice) > 0
           ? Number(item.salePrice)
@@ -683,27 +793,55 @@ $(document).ready(function () {
           "https://via.placeholder.com/80?text=Image",
       );
       const safeQuantity = Math.max(0, parseInt(item.quantity, 10) || 0);
+      const lineTotal =
+        Number.isFinite(effectivePrice) && effectivePrice > 0
+          ? effectivePrice * safeQuantity
+          : 0;
+      const isBusy = cartActionLocks.has(safeItemId);
+      const cooldownRemainingMs = getCartQtyCooldownMs(safeItemId);
+      const isCoolingDown = cooldownRemainingMs > 0;
+      const cooldownLabel = isCoolingDown
+        ? `Ready in ${Math.ceil(cooldownRemainingMs / 1000)}s`
+        : "";
+      const disableMinus = isBusy || isCoolingDown || safeQuantity <= 1;
+      const disablePlus = isBusy || isCoolingDown;
 
       container.append(`
-                <div class="card product-card mb-3">
+                <div class="card product-card mb-3 cart-item-row ${isBusy ? "is-busy" : ""} ${isCoolingDown ? "is-cooldown" : ""}" data-product-id="${safeItemId}">
                   <div class="card-body d-flex align-items-center gap-3">
                     <img src="${safeItemImage}" class="cart-img me-3" alt="${safeItemName}" />
                     <div class="flex-grow-1 text-center">
                       <h3 class="product-name mb-1">${safeItemName}</h3>
                       <p class="product-desc mb-2 cart-item-price">${displayPrice}</p>
-                      <div class="d-flex align-items-center justify-content-center gap-3 mx-auto" style="max-width: 150px;">
-                        <button class="btn btn-sm product-btn-cart change-qty" data-index="${index}" data-action="minus">−</button>
-                        <span class="text-white fw-bold">${safeQuantity}</span>
-                        <button class="btn btn-sm product-btn-cart change-qty" data-index="${index}" data-action="plus">+</button>
+                      <p class="small text-secondary mb-2">Price: <strong class="text-white">${formatPkrAmount(lineTotal)}</strong></p>
+                      <div class="d-flex align-items-center justify-content-center gap-3 mx-auto cart-qty-control" style="max-width: 170px;">
+                        <button class="btn btn-sm change-qty" data-index="${index}" data-action="minus" aria-label="Decrease quantity for ${safeItemName}" ${disableMinus ? "disabled" : ""}>−</button>
+                        <span class="text-white fw-bold cart-qty-value">${safeQuantity}</span>
+                        <button class="btn btn-sm change-qty" data-index="${index}" data-action="plus" aria-label="Increase quantity for ${safeItemName}" ${disablePlus ? "disabled" : ""}>+</button>
                       </div>
+                      <div class="cart-qty-hint text-secondary small mt-1">${cooldownLabel}</div>
                     </div>
-                    <button class="btn btn-sm btn-danger remove-item ms-3 align-self-start" data-index="${index}" aria-label="Remove ${safeItemName} from cart">
+                    <button class="btn btn-sm btn-danger remove-item ms-3 align-self-start" data-index="${index}" aria-label="Remove ${safeItemName} from cart" ${isBusy ? "disabled" : ""}>
                       <i class="bi bi-trash"></i>
                     </button>
                   </div>
                 </div>
             `);
     });
+
+    if (Number.isInteger(parseInt(changedProductId, 10))) {
+      const safeChangedId = parseInt(changedProductId, 10);
+      const changedRow = container.find(
+        `.cart-item-row[data-product-id="${safeChangedId}"]`,
+      );
+      if (changedRow.length) {
+        changedRow.addClass("is-updated");
+        window.setTimeout(() => {
+          changedRow.removeClass("is-updated");
+        }, 520);
+      }
+    }
+
     calculateTotal();
   }
 
@@ -1363,9 +1501,24 @@ $(document).ready(function () {
     const safeStockValue = Number.isFinite(Number(product.stock))
       ? String(Number(product.stock))
       : "";
+    const stockCount = Number.isFinite(Number(product.stock))
+      ? Number(product.stock)
+      : 0;
+    const defaultDispatchText =
+      stockCount > 0 ? "Dispatch in 24-48 hours" : "Pre-order availability";
+    const dispatchText =
+      (product.dispatchInfo || "").toString().trim() || defaultDispatchText;
+    const productCode =
+      (product.productCode || "").toString().trim() ||
+      (safeProductId ? `CMRZ-${safeProductId.padStart(5, "0")}` : "CMRZ-NA");
+    const warrantyText =
+      (product.warrantyInfo || "").toString().trim() ||
+      "12-month seller warranty";
     const safeMovementValue = escapeHtml((product.movement || "").toString());
+    const safeDispatchText = escapeHtml(dispatchText);
+    const safeProductCode = escapeHtml(productCode);
+    const safeWarrantyText = escapeHtml(warrantyText);
     const wishlistActive = isInWishlist(product.id, product.name);
-    const wishlistIcon = wishlistActive ? "bi-heart-fill" : "bi-heart";
     const compareActive = isInCompare(product.id, product.name);
     const compareIcon = compareActive ? "bi-check2-circle" : "bi-sliders";
 
@@ -1407,6 +1560,41 @@ $(document).ready(function () {
                         <span class="spec-value">${safeStockText}</span>
                             </div>
                         </div>
+                        <div class="detail-highlights">
+                          <div class="detail-highlight-item">
+                            <i class="bi bi-upc-scan"></i>
+                            <div class="detail-highlight-copy">
+                              <span class="detail-highlight-title">Product Code</span>
+                              <span class="detail-highlight-value">${safeProductCode}</span>
+                            </div>
+                          </div>
+                          <div class="detail-highlight-item">
+                            <i class="bi bi-lightning-charge"></i>
+                            <div class="detail-highlight-copy">
+                              <span class="detail-highlight-title">Dispatch</span>
+                              <span class="detail-highlight-value">${safeDispatchText}</span>
+                            </div>
+                          </div>
+                          <div class="detail-highlight-item">
+                            <i class="bi bi-shield-check"></i>
+                            <div class="detail-highlight-copy">
+                              <span class="detail-highlight-title">Warranty</span>
+                              <span class="detail-highlight-value">${safeWarrantyText}</span>
+                            </div>
+                          </div>
+                          <div class="detail-highlight-item">
+                            <i class="bi bi-stars"></i>
+                            <div class="detail-highlight-copy">
+                              <span class="detail-highlight-title">Craft Focus</span>
+                              <span class="detail-highlight-value">Precision finish and comfort fit</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="product-assurance-list" aria-label="shopping assurances">
+                          <span class="assurance-chip"><i class="bi bi-lock"></i> Secure checkout</span>
+                          <span class="assurance-chip"><i class="bi bi-arrow-repeat"></i> Easy support flow</span>
+                          <span class="assurance-chip"><i class="bi bi-truck"></i> Reliable delivery updates</span>
+                        </div>
                         <div class="product-actions">
                       <a href="#" class="btn product-btn-buy product-btn-cart" data-product-id="${safeProductId}" data-product-name="${safeName}" data-product-image="${safeImage}" data-product-price="${safePriceValue}" data-product-sale-price="${safeSalePriceValue}">Buy Now</a>
                       <a href="#" class="btn product-btn-cart" data-product-id="${safeProductId}" data-product-name="${safeName}" data-product-image="${safeImage}" data-product-price="${safePriceValue}" data-product-sale-price="${safeSalePriceValue}">Add to Cart</a>
@@ -1434,28 +1622,88 @@ $(document).ready(function () {
     if (!container.length || !product) return;
 
     const numericProductId = Number.parseInt(product.id, 10);
-    const shareName = (product.name || "this product").toString().slice(0, 120);
+    const shareName = (product.name || "this product")
+      .toString()
+      .slice(0, 120)
+      .replace(/\s+/g, " ")
+      .trim();
     const url = `${window.location.origin}/products.php?${Number.isInteger(numericProductId) ? `id=${numericProductId}` : `name=${encodeURIComponent(shareName)}`}`;
-    const text = encodeURIComponent(`Check out ${shareName} on Commerza.`);
+    const shareText = `Check out ${shareName} on Commerza.`;
+    const text = encodeURIComponent(shareText);
+    const encodedUrl = encodeURIComponent(url);
+    const canUseNativeShare =
+      typeof navigator !== "undefined" && typeof navigator.share === "function";
+
     container.html(`
-            <a class="btn" href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}" target="_blank" rel="noopener">Facebook</a>
-            <a class="btn" href="https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${text}" target="_blank" rel="noopener">X</a>
-            <a class="btn" href="https://wa.me/?text=${text}%20${encodeURIComponent(url)}" target="_blank" rel="noopener">WhatsApp</a>
-            <button type="button" class="btn" id="copyProductLink">Copy Link</button>
+            <a class="btn share-btn share-btn-facebook" href="https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}" target="_blank" rel="noopener" aria-label="Share on Facebook">
+              <i class="bi bi-facebook"></i>
+              <span>Facebook</span>
+            </a>
+            <a class="btn share-btn share-btn-x" href="https://twitter.com/intent/tweet?url=${encodedUrl}&text=${text}" target="_blank" rel="noopener" aria-label="Share on X">
+              <i class="bi bi-twitter-x"></i>
+              <span>X</span>
+            </a>
+            <a class="btn share-btn share-btn-whatsapp" href="https://wa.me/?text=${text}%20${encodedUrl}" target="_blank" rel="noopener" aria-label="Share on WhatsApp">
+              <i class="bi bi-whatsapp"></i>
+              <span>WhatsApp</span>
+            </a>
+            <button type="button" class="btn share-btn share-btn-copy" id="copyProductLink" aria-label="Copy product link">
+              <i class="bi bi-link-45deg"></i>
+              <span>Copy Link</span>
+            </button>
+            ${
+              canUseNativeShare
+                ? `<button type="button" class="btn share-btn share-btn-native" id="nativeShareProduct" aria-label="Open native share sheet">
+                   <i class="bi bi-share"></i>
+                   <span>More</span>
+                 </button>`
+                : ""
+            }
         `);
 
-    $("#copyProductLink")
-      .off("click")
-      .on("click", function () {
-        navigator.clipboard
-          ?.writeText(url)
-          .then(() => {
-            showNotif("Product link copied.", "success");
-          })
-          .catch(() => {
-            showNotif("Unable to copy link.", "warning");
-          });
-      });
+    const copyBtn = $("#copyProductLink");
+    copyBtn.off("click").on("click", function () {
+      const clipboardWrite =
+        navigator.clipboard &&
+        typeof navigator.clipboard.writeText === "function"
+          ? navigator.clipboard.writeText(url)
+          : Promise.reject(new Error("Clipboard API unavailable"));
+
+      clipboardWrite
+        .then(() => {
+          const button = $(this);
+          button.addClass("is-copied");
+          button.find("span").text("Copied");
+          showNotif("Product link copied.", "success");
+          window.setTimeout(() => {
+            button.removeClass("is-copied");
+            button.find("span").text("Copy Link");
+          }, 1400);
+        })
+        .catch(() => {
+          showNotif("Unable to copy link.", "warning");
+        });
+    });
+
+    if (canUseNativeShare) {
+      $("#nativeShareProduct")
+        .off("click")
+        .on("click", async function () {
+          try {
+            await navigator.share({
+              title: `${shareName} | Commerza`,
+              text: shareText,
+              url,
+            });
+          } catch (error) {
+            if (error?.name === "AbortError") {
+              return;
+            }
+
+            showNotif("Unable to open share panel.", "warning");
+          }
+        });
+    }
   }
 
   function escapeHtml(value) {
@@ -1515,6 +1763,149 @@ $(document).ready(function () {
     return html ? `<div class="mt-2">${html}</div>` : "";
   }
 
+  const REVIEW_RATING_LABELS = {
+    1: "1 star - Poor",
+    2: "2 stars - Fair",
+    3: "3 stars - Good",
+    4: "4 stars - Very good",
+    5: "5 stars - Excellent",
+  };
+
+  function normalizeReviewRatingSelection(value) {
+    const parsed = parseInt(value, 10);
+    if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 5) {
+      return parsed;
+    }
+
+    return 0;
+  }
+
+  function reviewRatingLabel(value) {
+    const rating = normalizeReviewRatingSelection(value);
+    if (rating === 0) {
+      return "Select a rating to continue";
+    }
+
+    return REVIEW_RATING_LABELS[rating] || REVIEW_RATING_LABELS[5];
+  }
+
+  function setReviewRatingSelection(value) {
+    const rating = normalizeReviewRatingSelection(value);
+    const ratingInput = $("#reviewRating");
+    const starsContainer = $("#reviewStarsInput");
+
+    ratingInput.val(rating > 0 ? String(rating) : "");
+
+    if (starsContainer.length) {
+      starsContainer.find(".review-star-btn").each(function () {
+        const star = $(this);
+        const starRating = parseInt(star.data("rating"), 10) || 0;
+        const isActive = rating > 0 && starRating <= rating;
+        star.toggleClass("active", isActive);
+        star.attr("aria-pressed", isActive ? "true" : "false");
+      });
+
+      starsContainer.attr("data-rating", rating > 0 ? String(rating) : "0");
+    }
+
+    const label = $("#reviewRatingLabel");
+    if (label.length) {
+      label.text(reviewRatingLabel(rating));
+    }
+
+    return rating;
+  }
+
+  function getReviewRatingSelection() {
+    const inputRating = normalizeReviewRatingSelection(
+      $("#reviewRating").val(),
+    );
+    if (inputRating > 0) {
+      return inputRating;
+    }
+
+    const lastActive = $("#reviewStarsInput .review-star-btn.active").last();
+    const fallbackRating = normalizeReviewRatingSelection(
+      lastActive.data("rating"),
+    );
+    if (fallbackRating > 0) {
+      return fallbackRating;
+    }
+
+    return 0;
+  }
+
+  function setupReviewStarInput(isReadOnly = false) {
+    const starsContainer = $("#reviewStarsInput");
+    if (!starsContainer.length) {
+      return;
+    }
+
+    starsContainer
+      .find(".review-star-btn")
+      .prop("disabled", !!isReadOnly)
+      .off("click")
+      .off("keydown")
+      .on("click", function (event) {
+        event.preventDefault();
+        if (isReadOnly) {
+          return;
+        }
+
+        const rating = normalizeReviewRatingSelection($(this).data("rating"));
+        setReviewRatingSelection(rating);
+      })
+      .on("keydown", function (event) {
+        if (isReadOnly) {
+          return;
+        }
+
+        const current = normalizeReviewRatingSelection($(this).data("rating"));
+        if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+          event.preventDefault();
+          const next = Math.min(5, current + 1);
+          setReviewRatingSelection(next);
+          starsContainer
+            .find(`.review-star-btn[data-rating="${next}"]`)
+            .trigger("focus");
+          return;
+        }
+
+        if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+          event.preventDefault();
+          const prev = Math.max(1, current - 1);
+          setReviewRatingSelection(prev);
+          starsContainer
+            .find(`.review-star-btn[data-rating="${prev}"]`)
+            .trigger("focus");
+          return;
+        }
+
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          setReviewRatingSelection(current);
+        }
+      });
+
+    setReviewRatingSelection($("#reviewRating").val());
+  }
+
+  // Fallback delegated binding so stars remain selectable even if a late render
+  // occurs before direct bindings are applied.
+  $(document)
+    .off("click.reviewStarsFallback")
+    .on(
+      "click.reviewStarsFallback",
+      "#reviewStarsInput .review-star-btn",
+      function (event) {
+        event.preventDefault();
+        const rating = normalizeReviewRatingSelection($(this).data("rating"));
+        if (rating > 0) {
+          setReviewRatingSelection(rating);
+        }
+      },
+    );
+
   function renderReviewFormState(eligibility, productId) {
     const form = $("#productReviewForm");
     const message = $("#reviewEligibilityMessage");
@@ -1530,23 +1921,25 @@ $(document).ready(function () {
 
     hiddenProductInput.val(String(productId || ""));
 
-    const canReview = !!eligibility?.can_review;
     const existingReview = eligibility?.existing_review || null;
+    const canReview = !!eligibility?.can_review || !!existingReview;
     const statusMessage = (eligibility?.message || "").toString().trim();
 
     if (existingReview) {
-      if (ratingInput.length) {
-        ratingInput.val(String(existingReview.rating || "5"));
-      }
+      setReviewRatingSelection(existingReview.rating || 5);
       if (textInput.length && !textInput.val()) {
         textInput.val((existingReview.text || "").toString());
       }
+    } else if (!(ratingInput.val() || "").toString().trim()) {
+      setReviewRatingSelection(0);
     }
 
-    ratingInput.prop("disabled", !canReview);
+    ratingInput.prop("disabled", false);
     textInput.prop("disabled", !canReview);
     imageInput.prop("disabled", !canReview);
     submitBtn.prop("disabled", !canReview);
+    $("#reviewStarsInput").toggleClass("is-readonly", false);
+    setupReviewStarInput(false);
 
     submitBtn.text(existingReview ? "Update Review" : "Submit Review");
 
@@ -1578,7 +1971,7 @@ $(document).ready(function () {
         return;
       }
 
-      const rating = parseInt($("#reviewRating").val(), 10) || 0;
+      const rating = getReviewRatingSelection();
       const text = ($("#reviewText").val() || "").toString().trim();
       const imageInput = document.getElementById("reviewImages");
       const selectedFiles = imageInput?.files
@@ -1652,6 +2045,12 @@ $(document).ready(function () {
           result?.message || "Review submitted successfully.",
           "success",
         );
+
+        const existing = result?.payload?.eligibility?.existing_review;
+        if (existing && Number.isInteger(Number(existing.rating))) {
+          setReviewRatingSelection(existing.rating);
+        }
+
         $("#reviewText").val("");
         if (imageInput) {
           imageInput.value = "";
@@ -1756,7 +2155,10 @@ $(document).ready(function () {
 
               return `
                 <div class="review-card">
-                  <div class="text-warning mb-2">${stars}</div>
+                  <div class="review-stars-line mb-2">
+                    <span class="review-stars">${stars}</span>
+                    <span class="review-score">${rating}/5</span>
+                  </div>
                   <p class="mb-2">${safeText}</p>
                   ${imagesMarkup}
                   <div class="text-secondary small">${safeName}${dateLabel ? ` · ${dateLabel}` : ""}</div>

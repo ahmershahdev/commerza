@@ -305,6 +305,16 @@ admin_reviews_ensure_images_table($con);
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $action = admin_reviews_action();
 
+admin_api_rate_limit_guard(
+    $con,
+    $admin,
+    admin_api_scope('admin_reviews_api', $action),
+    120,
+    60,
+    120,
+    300
+);
+
 if ($method === 'GET') {
     if ($action !== 'list') {
         admin_reviews_json([
@@ -392,6 +402,11 @@ if ($action === 'set-visibility') {
             ],
         ]);
     }
+
+    admin_api_log_security_event($con, $admin, 'review.visibility_changed', 'info', [
+        'review_id' => $reviewId,
+        'is_visible' => $isVisible,
+    ]);
 
     admin_reviews_json([
         'ok' => true,
@@ -481,6 +496,12 @@ if ($action === 'update-review') {
         ]);
     }
 
+    admin_api_log_security_event($con, $admin, 'review.updated', 'info', [
+        'review_id' => $reviewId,
+        'rating' => $rating,
+        'admin_note_length' => strlen($adminNote),
+    ]);
+
     admin_reviews_json([
         'ok' => true,
         'message' => 'Review updated successfully.',
@@ -533,6 +554,11 @@ if ($action === 'delete-review') {
     }
 
     admin_reviews_delete_files($imagePaths);
+
+    admin_api_log_security_event($con, $admin, 'review.deleted', 'warning', [
+        'review_id' => $reviewId,
+        'deleted_images' => count($imagePaths),
+    ]);
 
     admin_reviews_json([
         'ok' => true,
@@ -680,6 +706,14 @@ if ($action === 'add-review') {
             'message' => 'Unable to add review.',
         ], 500);
     }
+
+    admin_api_log_security_event($con, $admin, 'review.upserted', 'info', [
+        'user_id' => $userId,
+        'product_id' => $productId,
+        'order_id' => $orderIdValue,
+        'rating' => $rating,
+        'is_visible' => $isVisible,
+    ]);
 
     admin_reviews_json([
         'ok' => true,

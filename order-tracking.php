@@ -51,35 +51,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errors[] = 'Please enter a valid Order ID (example: #ORD-1234).';
   }
 
-  if ($email_value !== '' && (!filter_var($email_value, FILTER_VALIDATE_EMAIL) || strlen($email_value) > 150)) {
+  if ($email_value === '') {
+    $errors[] = 'Please enter the email used during checkout.';
+  } elseif (!filter_var($email_value, FILTER_VALIDATE_EMAIL) || strlen($email_value) > 150) {
     $errors[] = 'Please enter a valid email address.';
   }
 
   if (empty($errors)) {
-    $stmt = null;
+    $stmt = $con->prepare(
+      "SELECT id, order_number, customer_name, customer_email, customer_phone, address, grand_total, status, payment_status, payment_method, created_at
+       FROM orders
+       WHERE order_number = ? AND customer_email = ?
+       LIMIT 1"
+    );
 
-    if ($email_value !== '') {
-      $stmt = $con->prepare(
-        "SELECT id, order_number, customer_name, customer_email, customer_phone, address, grand_total, status, payment_status, payment_method, created_at
-         FROM orders
-         WHERE order_number = ? AND customer_email = ?
-         LIMIT 1"
-      );
-
-      if ($stmt) {
-        $stmt->bind_param('ss', $order_id_value, $email_value);
-      }
-    } else {
-      $stmt = $con->prepare(
-        "SELECT id, order_number, customer_name, customer_email, customer_phone, address, grand_total, status, payment_status, payment_method, created_at
-         FROM orders
-         WHERE order_number = ?
-         LIMIT 1"
-      );
-
-      if ($stmt) {
-        $stmt->bind_param('s', $order_id_value);
-      }
+    if ($stmt) {
+      $stmt->bind_param('ss', $order_id_value, $email_value);
     }
 
     if (!$stmt) {
@@ -153,6 +140,219 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .tracking-shell {
+      background: linear-gradient(160deg, rgba(19, 19, 19, 0.98), rgba(7, 7, 7, 0.95));
+      border: 1px solid rgba(255, 102, 0, 0.2);
+      border-radius: 16px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.32);
+      padding: 20px;
+    }
+
+    .tracking-form-card,
+    .tracking-panel {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 102, 0, 0.24);
+      border-radius: 14px;
+      padding: 18px;
+      height: 100%;
+    }
+
+    .tracking-kicker {
+      display: inline-flex;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 102, 0, 0.35);
+      color: #ffbe8f;
+      padding: 3px 10px;
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+
+    .tracking-title {
+      color: #fff;
+      margin-top: 10px;
+      margin-bottom: 5px;
+      font-size: 1.25rem;
+    }
+
+    .tracking-subtitle {
+      color: #b9b9b9;
+      font-size: 0.92rem;
+      margin-bottom: 14px;
+    }
+
+    .tracking-input {
+      background: #111;
+      border: 1px solid rgba(255, 102, 0, 0.3);
+      color: #f0f0f0;
+      border-radius: 10px;
+    }
+
+    .tracking-input:focus {
+      background: #111;
+      color: #fff;
+      border-color: #ffcc00;
+      box-shadow: 0 0 0 0.15rem rgba(255, 204, 0, 0.16);
+    }
+
+    .tracking-steps {
+      display: grid;
+      gap: 10px;
+    }
+
+    .tracking-step {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 10px;
+      align-items: start;
+      padding: 10px;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .step-index {
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 102, 0, 0.2);
+      border: 1px solid rgba(255, 102, 0, 0.45);
+      color: #ffcfab;
+      font-weight: 700;
+      font-size: 0.76rem;
+    }
+
+    .tracking-step h5 {
+      color: #fff;
+      margin-bottom: 2px;
+      font-size: 0.92rem;
+    }
+
+    .tracking-step p {
+      color: #b8b8b8;
+      margin-bottom: 0;
+      font-size: 0.84rem;
+    }
+
+    .tracking-tips {
+      margin-top: 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .tip-card {
+      border: 1px solid rgba(255, 102, 0, 0.2);
+      border-radius: 10px;
+      padding: 10px;
+      color: #ddd;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(13, 13, 13, 0.8);
+      font-size: 0.86rem;
+    }
+
+    .tip-card i {
+      color: #ff9a50;
+    }
+
+    .order-guide-card {
+      border: 1px solid rgba(255, 102, 0, 0.2);
+      border-radius: 14px;
+      background: linear-gradient(150deg, rgba(20, 20, 20, 0.95), rgba(8, 8, 8, 0.95));
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28);
+      padding: 14px;
+      height: 100%;
+    }
+
+    .order-step-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 204, 0, 0.35);
+      background: rgba(255, 204, 0, 0.1);
+      color: #ffda94;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 2px 10px;
+      margin-bottom: 8px;
+    }
+
+    .order-guide-card h3 {
+      color: #fff;
+      font-size: 0.96rem;
+      margin-bottom: 6px;
+    }
+
+    .order-guide-card p {
+      color: #b8b8b8;
+      margin-bottom: 0;
+      font-size: 0.84rem;
+      line-height: 1.5;
+    }
+
+    .order-precaution-panel {
+      border: 1px solid rgba(255, 153, 61, 0.3);
+      border-radius: 16px;
+      background: linear-gradient(145deg, rgba(25, 22, 18, 0.92), rgba(12, 10, 8, 0.95));
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.3);
+      padding: 16px;
+    }
+
+    .order-precaution-panel h3 {
+      color: #ffd7a8;
+      font-size: 1.02rem;
+      margin-bottom: 12px;
+    }
+
+    .order-precaution-list {
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 12px;
+    }
+
+    .order-precaution-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      color: #d0d0d0;
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    .order-precaution-list i {
+      color: #ffb86b;
+      margin-top: 1px;
+    }
+
+    .step-chip {
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px dashed rgba(255, 122, 26, 0.4);
+      color: #ffcc00;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    @media (max-width: 767px) {
+      .order-precaution-list {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 
 <body class="dark-theme">
@@ -269,9 +469,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="tracking-header">
               <span class="tracking-kicker">Order Lookup</span>
               <h2 class="tracking-title">Track your shipment</h2>
-              <p class="tracking-subtitle">Use the Order ID from your receipt. Add email for faster matching.</p>
+              <p class="tracking-subtitle">Use the Order ID and checkout email from your receipt.</p>
             </div>
-            <form id="orderTrackingForm" class="row g-3" action="order-tracking.php" method="POST">
+            <form id="orderTrackingForm" class="row g-3" action="order-tracking.php" method="POST" novalidate>
               <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
               <div class="col-12">
                 <label for="orderIdInput" class="form-label text-white">Order ID</label>
@@ -279,13 +479,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   name="order_id" required value="<?= htmlspecialchars($order_id_value) ?>">
               </div>
               <div class="col-12">
-                <label for="orderEmailInput" class="form-label text-white">Email (optional)</label>
+                <label for="orderEmailInput" class="form-label text-white">Email</label>
                 <input type="email" id="orderEmailInput" class="form-control tracking-input"
-                  placeholder="you@example.com" name="order_email" value="<?= htmlspecialchars($email_value) ?>">
+                  placeholder="you@example.com" name="order_email" required value="<?= htmlspecialchars($email_value) ?>">
               </div>
               <div class="col-12 d-flex flex-wrap gap-2">
-                <button type="submit" class="btn product-btn-buy">Track Order</button>
+                <button type="submit" class="btn product-btn-buy" id="orderTrackingSubmitBtn">Track Order</button>
                 <a href="account.php" class="btn product-btn-cart">View Orders</a>
+              </div>
+              <div class="col-12">
+                <small class="text-secondary">Live lookup runs securely via AJAX, so this page will not reload.</small>
               </div>
             </form>
           </div>
@@ -332,6 +535,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <section class="mb-4" aria-label="Order tracking guide">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <h2 class="mb-0" style="color: #ff6600; font-size: 1.2rem;">Step-by-Step Tracking Guide</h2>
+        <span class="step-chip">Use this checklist for accurate tracking updates.</span>
+      </div>
+      <div class="row g-3">
+        <div class="col-sm-6 col-xl-3">
+          <article class="order-guide-card">
+            <span class="order-step-pill">Step 1</span>
+            <h3>Confirm Order ID Format</h3>
+            <p>Use the receipt format, for example #ORD-1234, and avoid extra spaces or symbols.</p>
+          </article>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+          <article class="order-guide-card">
+            <span class="order-step-pill">Step 2</span>
+            <h3>Use Checkout Email</h3>
+            <p>Enter the same email used when placing the order so records match securely.</p>
+          </article>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+          <article class="order-guide-card">
+            <span class="order-step-pill">Step 3</span>
+            <h3>Read Status Timeline</h3>
+            <p>Check status, payment note, and item list together for full order context.</p>
+          </article>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+          <article class="order-guide-card">
+            <span class="order-step-pill">Step 4</span>
+            <h3>Escalate if Delayed</h3>
+            <p>If status does not move for long, contact support with order ID and email.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="mb-4" aria-label="Order tracking precautions">
+      <div class="order-precaution-panel">
+        <h3><i class="bi bi-exclamation-triangle me-2"></i>Tracking Precautions</h3>
+        <ul class="order-precaution-list">
+          <li><i class="bi bi-check2-circle"></i><span>Status updates can lag briefly during courier handoff windows.</span></li>
+          <li><i class="bi bi-check2-circle"></i><span>Use exact order email and ID; small typos will return no record.</span></li>
+          <li><i class="bi bi-check2-circle"></i><span>Do not share personal address screenshots publicly when requesting support.</span></li>
+          <li><i class="bi bi-check2-circle"></i><span>If you hit too many lookups, wait and retry after the cooldown window.</span></li>
+        </ul>
       </div>
     </section>
 
@@ -464,6 +716,160 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>
+  <script <?= commerza_csp_nonce_attr() ?>>
+    (function () {
+      const form = document.getElementById("orderTrackingForm");
+      const resultContainer = document.getElementById("orderTrackingResult");
+      const submitBtn = document.getElementById("orderTrackingSubmitBtn");
+
+      if (!form || !resultContainer || !submitBtn || typeof window.fetch !== "function") {
+        return;
+      }
+
+      const statusBadgeClass = {
+        delivered: "success",
+        cancelled: "danger",
+        refunded: "danger",
+        shipped: "primary",
+        processing: "info",
+        confirmed: "info",
+      };
+
+      const escapeHtml = (value) =>
+        String(value || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/\"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+
+      const statusClass = (value) => {
+        const key = String(value || "").trim().toLowerCase();
+        return statusBadgeClass[key] || "warning";
+      };
+
+      const toPkr = (value) => {
+        const amount = Number(value || 0);
+        return Number.isFinite(amount) ? amount.toLocaleString() + " PKR" : "0 PKR";
+      };
+
+      const renderAlert = (message, tone) => {
+        const klass = tone === "danger" ? "danger" : "warning";
+        resultContainer.innerHTML = `<div class="alert alert-${klass}" role="alert">${escapeHtml(message)}</div>`;
+      };
+
+      const renderResult = (payload) => {
+        const order = payload?.order || {};
+        const items = Array.isArray(payload?.items) ? payload.items : [];
+
+        const itemsMarkup = items.length
+          ? items
+              .map((item) => {
+                const hasImage = String(item.product_img || "").trim() !== "";
+                return `
+                  <div class="d-flex align-items-center gap-3 mb-2 p-2 rounded" style="background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.06);">
+                    ${hasImage ? `<img src="${escapeHtml(item.product_img)}" alt="${escapeHtml(item.product_name)}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;">` : ""}
+                    <div class="flex-grow-1">
+                      <p class="mb-0 text-white fw-semibold">${escapeHtml(item.product_name)}</p>
+                      <small class="text-secondary">Qty: ${Number(item.quantity || 0)} · Unit: ${toPkr(item.unit_price)}</small>
+                    </div>
+                    <p class="mb-0 text-white fw-semibold">${toPkr(item.line_total)}</p>
+                  </div>
+                `;
+              })
+              .join("")
+          : '<p class="text-secondary mb-0">No line items found for this order.</p>';
+
+        resultContainer.innerHTML = `
+          <div class="card product-card mb-4">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                <div>
+                  <h3 class="product-name mb-1">${escapeHtml(order.order_number)}</h3>
+                  <p class="product-desc mb-0">Placed on ${escapeHtml(order.created_label)}</p>
+                </div>
+                <span class="badge rounded-pill bg-${statusClass(order.status)}">${escapeHtml(order.status)}</span>
+              </div>
+
+              <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                  <div class="p-3 rounded" style="background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 102, 0, 0.2);">
+                    <p class="mb-1 text-secondary">Customer</p>
+                    <p class="mb-1 text-white fw-semibold">${escapeHtml(order.customer_name)}</p>
+                    <p class="mb-1 text-secondary">${escapeHtml(order.customer_email)}</p>
+                    <p class="mb-0 text-secondary">${escapeHtml(order.customer_phone)}</p>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="p-3 rounded" style="background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 102, 0, 0.2);">
+                    <p class="mb-1 text-secondary">Shipping Address</p>
+                    <p class="mb-0 text-white">${escapeHtml(order.address).replace(/\n/g, "<br>")}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <p class="text-secondary mb-2">Items</p>
+                ${itemsMarkup}
+              </div>
+
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 pt-2 border-top border-secondary-subtle">
+                <p class="mb-0 text-secondary">Payment: ${escapeHtml(order.payment_method)} (${escapeHtml(order.payment_status)})</p>
+                <p class="mb-0 text-white fw-bold">Total: ${toPkr(order.grand_total)}</p>
+              </div>
+            </div>
+          </div>
+        `;
+      };
+
+      form.addEventListener("submit", async function (event) {
+        event.preventDefault();
+
+        const formData = new FormData(form);
+        const defaultText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Tracking...";
+
+        try {
+          const response = await fetch("backend/order_tracking_api.php", {
+            method: "POST",
+            credentials: "same-origin",
+            body: formData,
+            cache: "no-store",
+            headers: {
+              "X-Requested-With": "XMLHttpRequest",
+            },
+          });
+
+          let data = {};
+          try {
+            data = await response.json();
+          } catch (jsonError) {
+            data = {};
+          }
+
+          if (data && typeof data.csrf_token === "string") {
+            const csrfInput = form.querySelector('input[name="csrf_token"]');
+            if (csrfInput) {
+              csrfInput.value = data.csrf_token;
+            }
+          }
+
+          if (!response.ok || !data.ok) {
+            renderAlert(data.message || "Unable to track your order right now.", response.status === 429 ? "warning" : "danger");
+            return;
+          }
+
+          renderResult(data.payload || {});
+        } catch (error) {
+          renderAlert("Unable to track your order right now. Please try again.", "danger");
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = defaultText;
+        }
+      });
+    })();
+  </script>
 </body>
 
 </html>

@@ -1,142 +1,118 @@
 # Commerza Integration Instructions
 
-This document lists exactly what is needed to complete third-party integrations in this project.
+## Purpose
+
+This document lists the exact integration requirements for OAuth, SMTP, CAPTCHA, payments, and scheduled automation.
 
 ## 1) Google OAuth
 
-### What You Must Share
+### Required Inputs
 
-- Google Cloud project access (or the generated credentials)
-- OAuth Client ID
-- OAuth Client Secret
-- Authorized redirect URI
-- Production app base URL
+- Google OAuth Client ID
+- Google OAuth Client Secret
+- Redirect URI registered in Google console
 
-### Redirect URI to Register
+### Redirect URI
 
-- `https://commerza.ahmershah.dev/backend/oauth.php?provider=google`
-- `http://localhost:80/backend/oauth.php?provider=google`
-- `http://localhost/backend/oauth.php?provider=google`
+- `https://<your-domain>/backend/oauth.php?provider=google`
 - `http://localhost/commerza/backend/oauth.php?provider=google`
-- `http://localhost/commerza`
-- `http://localhost/commerza/oauth.php?provider=google`
 
-### Localhost/XAMPP Checklist
+### Config Keys
 
-- If your app runs from `C:\xampp\htdocs\commerza`, set app URL as `http://localhost/commerza`.
-- Keep Google Console redirect URI exactly the same as callback (including path and query string).
-- Recommended env fallback key: `COMMERZA_APP_URL=http://localhost/commerza`.
-
-### Where It Is Used
-
-- Backend flow: `backend/oauth.php`
-- Settings keys:
-  - `google_oauth_client_id`
-  - `google_oauth_client_secret`
-  - `google_oauth_redirect_uri`
+- `google_oauth_client_id`
+- `google_oauth_client_secret`
+- `google_oauth_redirect_uri`
 
 ## 2) Facebook OAuth
 
-### What You Must Share
+### Required Inputs
 
-- Meta app access (or the generated credentials)
-- App ID
-- App Secret
-- Valid OAuth redirect URI
-- Production app base URL
+- Facebook App ID
+- Facebook App Secret
+- Redirect URI registered in Meta app
 
-### Redirect URI to Register
+### Redirect URI
 
-- `https://commerza.ahmershah.dev/backend/oauth.php?provider=facebook`
-- `http://localhost/backend/oauth.php?provider=facebook`
+- `https://<your-domain>/backend/oauth.php?provider=facebook`
 - `http://localhost/commerza/backend/oauth.php?provider=facebook`
 
-### Where It Is Used
+### Config Keys
 
-- Backend flow: `backend/oauth.php`
-- Settings keys:
-  - `facebook_oauth_client_id`
-  - `facebook_oauth_client_secret`
-  - `facebook_oauth_redirect_uri`
+- `facebook_oauth_client_id`
+- `facebook_oauth_client_secret`
+- `facebook_oauth_redirect_uri`
 
 ## 3) Stripe
 
-### What You Must Share
+### Required Inputs
 
-- Stripe publishable key (test/live as needed)
-- Stripe secret key (test/live as needed)
-- Account mode required now (sandbox vs live)
-- (Optional) webhook signing secret for future webhook automation
+- Stripe publishable key
+- Stripe secret key
 
-### Where It Is Used
+### Config Keys
 
-- Checkout flow: `cart.php`
-- Intent creation: `backend/stripe_intent.php`
-- Stripe helpers: `backend/payment_helpers.php`
-- Settings keys:
-  - `stripe_publishable_key`
-  - `stripe_secret_key`
+- `stripe_publishable_key`
+- `stripe_secret_key`
 
-## 4) Email Delivery
+### Runtime Paths
 
-### What You Must Share
+- Checkout page: `cart.php`
+- Intent endpoint: `backend/stripe_intent.php`
+- Helper functions: `backend/payment_helpers.php`
 
-- SMTP host
-- SMTP port
-- SMTP username
-- SMTP password or app password
-- Encryption type (TLS/SSL)
-- Sender email and sender name
+## 4) SMTP (Gmail Recommended)
 
-### Current Behavior
+### Required Inputs
 
-- Uses PHP mail transport (`backend/mailer.php`).
-- Notification templates are generated in `backend/notifications.php`.
+- SMTP host, port, encryption mode
+- Sender mailbox credentials or app password
 
-### Recommendation
+### `.env` Keys
 
-- Configure SMTP/sendmail at server level and verify outbound delivery before production launch.
+- `COMMERZA_SMTP_HOST=smtp.gmail.com`
+- `COMMERZA_SMTP_PORT=587`
+- `COMMERZA_SMTP_ENCRYPTION=tls`
+- `COMMERZA_SMTP_USERNAME=<gmail>`
+- `COMMERZA_SMTP_PASSWORD=<gmail-app-password>`
+- `COMMERZA_SMTP_FROM_EMAIL=<gmail>`
+- `COMMERZA_SMTP_FROM_NAME=Commerza`
 
-## 5) Required Scheduled Tasks
+### Verification
 
-Set these tasks after email configuration.
+Trigger real flow emails and confirm delivery:
 
-### Engagement Reminder Sender
+- Signup verification email
+- Admin 2FA code email
 
-- Command:
+## 5) CAPTCHA
+
+### Required Inputs
+
+- reCAPTCHA v2 site key
+- reCAPTCHA v2 secret key
+
+### `.env` Keys
+
+- `COMMERZA_CAPTCHA_ENABLED=1`
+- `COMMERZA_CAPTCHA_PROVIDER=recaptcha`
+- `COMMERZA_RECAPTCHA_SITE_KEY=<site-key>`
+- `COMMERZA_RECAPTCHA_SECRET_KEY=<secret-key>`
+
+## 6) Scheduled Tasks
+
+### Commands
+
+- Engagement reminders:
   - `C:\xampp\php\php.exe C:\xampp\htdocs\commerza\backend\send_engagement_reminders.php 180`
-- Suggested schedule:
-  - Every 30 minutes
-
-### Monthly Profit Report Sender
-
-- Command:
+- Monthly report:
   - `C:\xampp\php\php.exe C:\xampp\htdocs\commerza\backend\monthly_profit_report.php`
-- Suggested schedule:
-  - 1st day of every month
+- Weekly report:
+  - `C:\xampp\php\php.exe C:\xampp\htdocs\commerza\backend\weekly_analytics_report.php`
 
-## 6) Quick SQL Update Template
+## 7) Go-Live Validation
 
-Use this template to write keys in `site_settings`:
-
-```sql
-INSERT INTO site_settings (setting_key, setting_val)
-VALUES ('google_oauth_client_id', 'YOUR_VALUE')
-ON DUPLICATE KEY UPDATE setting_val = VALUES(setting_val);
-```
-
-Repeat for each key listed above.
-
-## 7) Do We Need New SQL Tables For OAuth/Payments?
-
-- No extra table is required for credentials.
-- Use the existing `site_settings` key-value store for OAuth and payment provider config.
-- Existing/expected keys include:
-  - `google_oauth_client_id`
-  - `google_oauth_client_secret`
-  - `google_oauth_redirect_uri`
-  - `facebook_oauth_client_id`
-  - `facebook_oauth_client_secret`
-  - `facebook_oauth_redirect_uri`
-  - `stripe_publishable_key`
-  - `stripe_secret_key`
+- OAuth login tested for Google and Facebook
+- SMTP delivery tested from real app flows
+- CAPTCHA passes for signup, password reset, and admin verification
+- Stripe checkout intent and confirmation validated
+- Rate limit and CSRF protections active

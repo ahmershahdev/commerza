@@ -28,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $reset_code = trim((string)($_POST['reset_code'] ?? ''));
     $new_password = (string)($_POST['new_password'] ?? '');
     $confirm_password = (string)($_POST['confirm_password'] ?? '');
+    $clientIp = commerza_client_ip();
 
     if (!filter_var($email_value, FILTER_VALIDATE_EMAIL) || strlen($email_value) > 150) {
         $errors[] = "Please enter a valid email address.";
@@ -47,6 +48,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($errors)) {
+      $rate = commerza_rate_limit_check(
+        $con,
+        'user_reset_password',
+        $email_value !== '' ? $email_value : 'anonymous',
+        $clientIp,
+        6,
+        1800,
+        1800,
+        7200,
+        86400
+      );
+
+      if (!$rate['allowed']) {
+        $retrySeconds = max(1, (int)$rate['retry_after']);
+        $retryMinutes = (int)ceil($retrySeconds / 60);
+        commerza_security_log_rate_limit_block(
+          $con,
+          'user_reset_password',
+          'user',
+          $email_value !== '' ? $email_value : 'anonymous',
+          $clientIp,
+          $retrySeconds
+        );
+        $errors[] = "Too many reset attempts. Try again in " . $retryMinutes . " minute(s) (" . $retrySeconds . " seconds).";
+      }
+    }
+
+    if (empty($errors)) {
         $stmt = $con->prepare("SELECT id, reset_token, reset_token_expiry FROM users WHERE email = ? LIMIT 1");
 
         if (!$stmt) {
@@ -59,10 +88,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->close();
 
             $isValid = false;
+            $storedResetToken = '';
             if ($user && !empty($user['reset_token']) && !empty($user['reset_token_expiry'])) {
                 $expiryTs = strtotime((string)$user['reset_token_expiry']);
                 if ($expiryTs !== false && $expiryTs >= time()) {
-                $isValid = commerza_password_verify($reset_code, (string)$user['reset_token']);
+                $storedResetToken = (string)$user['reset_token'];
+                $isValid = commerza_password_verify($reset_code, $storedResetToken);
                 }
             }
 
@@ -72,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'severity' => 'warning',
                 'actor_type' => 'user',
                 'actor_identifier' => $email_value,
-                'ip_address' => commerza_client_ip(),
+                'ip_address' => $clientIp,
                 'details' => [
                   'reason' => 'invalid_or_expired_reset_code',
                 ],
@@ -80,30 +111,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = "Invalid or expired reset code.";
             } else {
               $password_hash = commerza_password_hash($new_password);
-                $updateStmt = $con->prepare("UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ? LIMIT 1");
+                $updateStmt = $con->prepare("UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ? AND reset_token = ? AND reset_token_expiry IS NOT NULL AND reset_token_expiry >= NOW() LIMIT 1");
 
                 if (!$updateStmt) {
                     $errors[] = "Something went wrong. Please try again.";
                 } else {
                     $userId = (int)$user['id'];
-                    $updateStmt->bind_param("si", $password_hash, $userId);
-                    if ($updateStmt->execute()) {
+                    $updateStmt->bind_param("sis", $password_hash, $userId, $storedResetToken);
+                    $updated = $updateStmt->execute();
+                    $affectedRows = $updated ? (int)$updateStmt->affected_rows : 0;
+                    $updateStmt->close();
+
+                    if (!$updated) {
+                        $errors[] = "Unable to reset password right now.";
+                    } elseif ($affectedRows !== 1) {
+                        $errors[] = "Reset code was already used or expired. Request a new code.";
+                    } else {
                       commerza_security_log_event($con, [
                         'event_type' => 'password_reset_success',
                         'severity' => 'info',
                         'actor_type' => 'user',
                         'actor_identifier' => $email_value,
                         'user_id' => (int)$user['id'],
-                        'ip_address' => commerza_client_ip(),
+                        'ip_address' => $clientIp,
                       ]);
-                        $updateStmt->close();
+                        commerza_rate_limit_reset(
+                            $con,
+                            'user_reset_password',
+                            $email_value !== '' ? $email_value : 'anonymous',
+                            $clientIp
+                        );
                         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                         $_SESSION['flash_success'] = "Password reset successful. Please login.";
                         header("Location: login.php");
                         exit;
                     }
-                    $updateStmt->close();
-                    $errors[] = "Unable to reset password right now.";
                 }
             }
         }
@@ -126,8 +168,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://fonts.googleapis.com https://fonts.gstatic.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdn.jsdelivr.net https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; connect-src 'self' https://cdn.jsdelivr.net https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; frame-src 'self' https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Reset Password | Commerza</title>
   <link rel="canonical" href="https://commerza.ahmershah.dev/reset-password.php" />
@@ -184,7 +224,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       max-width: 450px;
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 69, 0, 0.1);
       position: relative;
-      animation: reveal-up 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      animation: reveal-up 1s ease-out forwards;
     }
 
     @keyframes reveal-up {
@@ -304,7 +344,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       text-transform: uppercase;
       letter-spacing: 1.5px;
       padding: 12px !important;
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.22s ease-out;
       position: relative;
       overflow: hidden;
     }

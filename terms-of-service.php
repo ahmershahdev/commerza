@@ -153,7 +153,7 @@ require_once __DIR__ . '/backend/data.php';
 						<li class="nav-item"><a class="nav-link" href="index.php">Home</a></li>
 						<li class="nav-item"><a class="nav-link" href="about.php">About</a></li>
 						<li class="nav-item"><a class="nav-link" href="contact.php">Contact</a></li>
-						<li class="nav-item"><a class="nav-link" href="terms-of-service.php">Terms</a></li>
+						<li class="nav-item"><a class="nav-link" href="terms-of-service.php" aria-current="page">Terms</a></li>
 						<li class="nav-item"><a class="nav-link" href="privacy-policy.php">Privacy</a></li>
 					</ul>
 				</div>
@@ -189,7 +189,7 @@ require_once __DIR__ . '/backend/data.php';
 					<li class="nav-item"><a class="nav-link" href="index.php">Home</a></li>
 					<li class="nav-item"><a class="nav-link" href="about.php">About</a></li>
 					<li class="nav-item"><a class="nav-link" href="contact.php">Contact</a></li>
-					<li class="nav-item"><a class="nav-link" href="terms-of-service.php">Terms</a></li>
+					<li class="nav-item"><a class="nav-link" href="terms-of-service.php" aria-current="page">Terms</a></li>
 					<li class="nav-item"><a class="nav-link" href="privacy-policy.php">Privacy</a></li>
 				</ul>
 			</div>
@@ -236,7 +236,7 @@ require_once __DIR__ . '/backend/data.php';
 		<section class="card product-card mb-4">
 			<div class="card-body">
 				<h2 class="product-name mb-3">5. Payment Terms</h2>
-				<p class="product-desc mb-0">Supported methods may include Cash on Delivery, wallet transfer, and Stripe sandbox card flow. You must provide valid payment details and references. Incorrect or unverifiable payment information may delay fulfillment or result in cancellation.</p>
+				<p class="product-desc mb-0">Supported methods may include Cash on Delivery, wallet transfer, and Stripe card payments. You must provide valid payment details and references. Incorrect or unverifiable payment information may delay fulfillment or result in cancellation.</p>
 			</div>
 		</section>
 

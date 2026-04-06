@@ -33,6 +33,9 @@ let adminMetrics = null;
 let adminRefunds = [];
 let adminCoupons = [];
 let adminReviews = [];
+let notificationsPausedUntil = 0;
+const ORDER_STATUS_LOCKS = new Set();
+let analyticsProfitLossChart = null;
 let securityEventsState = {
   events: [],
   page: 1,
@@ -204,6 +207,118 @@ const NOTIFICATION_RULES = {
   newProductDays: 7,
   lowStockThreshold: 5,
 };
+const ADMIN_TAB_PLAYBOOKS = {
+  dashboardSection: {
+    title: "Daily Admin Routine",
+    intro: "Run this checklist to stay ahead of orders and stock issues.",
+    steps: [
+      "Check the notification bell and open any urgent item first.",
+      "Review pending and processing orders, then update their statuses.",
+      "Verify low-stock products and restock or pause listings if needed.",
+    ],
+    tip: "Repeat this flow at opening time and before closing the day.",
+  },
+  productsSection: {
+    title: "Products Workflow",
+    intro: "Use this order every time to avoid broken listings.",
+    steps: [
+      "Create or confirm the section where the product belongs.",
+      "Add product details: name, image, pricing, stock, and product code.",
+      "Save and quickly verify the product card on the website.",
+    ],
+    tip: "If pricing changes, update sale price and stock together.",
+  },
+  ordersSection: {
+    title: "Order Handling Steps",
+    intro: "Keep order updates consistent so customers are never confused.",
+    steps: [
+      "Start with oldest pending orders and verify payment status.",
+      "Mark processing only after packing is confirmed.",
+      "Mark delivered only when shipment confirmation is received.",
+    ],
+    tip: "Always add notes before deleting or changing critical order records.",
+  },
+  customersSection: {
+    title: "Customer Records Checklist",
+    intro: "Use this tab for quick contact and profile verification.",
+    steps: [
+      "Search for the customer and confirm email and phone details.",
+      "Use recent order activity to validate profile accuracy.",
+      "Flag suspicious or duplicate records for review before deletion.",
+    ],
+    tip: "Delete customer records only when you are sure they are duplicates.",
+  },
+  couponsSection: {
+    title: "Coupon Campaign Steps",
+    intro: "Build safe offers that customers can redeem without confusion.",
+    steps: [
+      "Create a simple code with clear discount type and value.",
+      "Set expiry date, usage limit, and per-user limit before saving.",
+      "Send test email copy first, then launch to customer lists.",
+    ],
+    tip: "Short codes like SAVE10 are easier for users and support teams.",
+  },
+  reviewsSection: {
+    title: "Review Moderation Steps",
+    intro: "Keep feedback useful while removing harmful content.",
+    steps: [
+      "Check newest reviews and filter by visibility.",
+      "Hide abusive or unrelated text instead of deleting immediately.",
+      "Track rating trends so product teams can spot quality issues.",
+    ],
+    tip: "Use Refresh after moderation so the table reflects final state.",
+  },
+  analyticsSection: {
+    title: "Analytics Reading Guide",
+    intro: "Focus on decisions, not just numbers.",
+    steps: [
+      "Review sales and order totals for the active period.",
+      "Compare top-performing categories with low-performing ones.",
+      "Choose one action for today: restock, promote, or adjust pricing.",
+    ],
+    tip: "Small daily improvements are better than delayed big changes.",
+  },
+  emailSection: {
+    title: "Email Campaign Steps",
+    intro: "Use this sequence to avoid mistakes in customer emails.",
+    steps: [
+      "Choose recipients carefully and remove invalid addresses.",
+      "Preview subject and message with the selected template.",
+      "Send to a small test group before full dispatch.",
+    ],
+    tip: "Keep message text short and include one clear call to action.",
+  },
+  websiteSection: {
+    title: "Website Content Steps",
+    intro: "Update visuals and links in a safe order.",
+    steps: [
+      "Upload media assets first and confirm file paths.",
+      "Update text blocks, social links, and sliders in small batches.",
+      "Save changes and review the corresponding public page immediately.",
+    ],
+    tip: "One section at a time prevents accidental cross-page edits.",
+  },
+  securityEventsSection: {
+    title: "Security Event Review",
+    intro: "Treat this tab like a triage board.",
+    steps: [
+      "Filter by severity and inspect critical events first.",
+      "Check actor, IP, and timestamp to confirm suspicious behavior.",
+      "Escalate repeated abuse patterns to blocking or policy updates.",
+    ],
+    tip: "Export serious incidents for weekly audits and team review.",
+  },
+  homepageSection: {
+    title: "Homepage Publishing Steps",
+    intro: "Keep homepage updates clear and consistent for visitors.",
+    steps: [
+      "Update headline and highlighted message with current campaigns.",
+      "Verify hero media, sliders, and featured products are aligned.",
+      "Preview on desktop and mobile before final save.",
+    ],
+    tip: "Avoid changing too many homepage elements at once.",
+  },
+};
 
 function normalizeEmailValue(email) {
   return (email || "").toString().trim().toLowerCase();
@@ -272,6 +387,31 @@ function setAdminOrdersPayload(payload) {
   sessionStorage.setItem(ORDERS_KEY, JSON.stringify(adminOrders));
 }
 
+function applyOrderStatusPatch(payload) {
+  const patchedOrder = payload?.order;
+  if (patchedOrder && patchedOrder.orderId) {
+    const orderId = (patchedOrder.orderId || "").toString();
+    const index = adminOrders.findIndex(
+      (item) => (item?.orderId || "").toString() === orderId,
+    );
+
+    if (index >= 0) {
+      adminOrders[index] = {
+        ...adminOrders[index],
+        status: patchedOrder.status || adminOrders[index].status,
+        paymentStatus:
+          patchedOrder.paymentStatus || adminOrders[index].paymentStatus,
+      };
+    }
+  }
+
+  if (payload?.metrics && typeof payload.metrics === "object") {
+    adminMetrics = payload.metrics;
+  }
+
+  sessionStorage.setItem(ORDERS_KEY, JSON.stringify(adminOrders));
+}
+
 async function loadAdminOrdersData(silent = false) {
   try {
     const response = await fetch(`${ADMIN_ORDERS_API}?action=summary`, {
@@ -313,12 +453,16 @@ async function loadAdminOrdersData(silent = false) {
 }
 
 async function adminPostJson(url, payload) {
+  const action = (payload?.action || "post").toString().trim().toLowerCase();
+  const requestId = `admin-${action}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 14)}`;
+
   const response = await fetch(url, {
     method: "POST",
     credentials: "same-origin",
     headers: {
       "Content-Type": "application/json",
       "X-CSRF-Token": ADMIN_CSRF_TOKEN,
+      "X-Request-ID": requestId,
     },
     body: JSON.stringify(payload),
   });
@@ -347,11 +491,15 @@ async function uploadAdminMedia(target, file) {
   formData.append("target", target);
   formData.append("file", file);
 
+  const scope = (target || "upload").toString().trim().toLowerCase();
+  const requestId = `admin-${scope}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 14)}`;
+
   const response = await fetch(ADMIN_MEDIA_API, {
     method: "POST",
     credentials: "same-origin",
     headers: {
       "X-CSRF-Token": ADMIN_CSRF_TOKEN,
+      "X-Request-ID": requestId,
     },
     body: formData,
   });
@@ -1891,9 +2039,20 @@ function initReviewsSection() {
 
 function securitySeverityBadgeClass(severity) {
   const normalized = (severity || "").toString().toLowerCase();
-  if (normalized === "critical") return "bg-danger";
-  if (normalized === "warning") return "bg-warning text-dark";
-  return "bg-info text-dark";
+  if (normalized === "critical") {
+    return "security-severity-pill security-severity-critical";
+  }
+  if (normalized === "warning") {
+    return "security-severity-pill security-severity-warning";
+  }
+  return "security-severity-pill security-severity-info";
+}
+
+function securityEventRowClass(severity) {
+  const normalized = (severity || "").toString().toLowerCase();
+  if (normalized === "critical") return "security-event-critical";
+  if (normalized === "warning") return "security-event-warning";
+  return "security-event-info";
 }
 
 function renderSecurityEventsTable() {
@@ -1930,13 +2089,13 @@ function renderSecurityEventsTable() {
         : "";
 
     tbody.append(`
-      <tr class="border-bottom border-secondary">
+      <tr class="border-bottom border-secondary security-event-row ${securityEventRowClass(severity)}">
         <td class="ps-4 py-3 text-secondary small">${escapeHtml(createdAt)}</td>
         <td class="py-3 text-light fw-semibold">${escapeHtml(eventType)}</td>
         <td class="py-3"><span class="badge ${securitySeverityBadgeClass(severity)} rounded-pill">${escapeHtml(severity)}</span></td>
         <td class="py-3 text-secondary small">${escapeHtml(actorType)}</td>
-        <td class="py-3 text-secondary small"><div>${escapeHtml(actorIdentifier)}</div><div class="text-warning">${escapeHtml(ipAddress)}</div></td>
-        <td class="pe-4 py-3 text-secondary small" title="${detailsTitle}">${escapeHtml(detailsPreview)}</td>
+        <td class="py-3 text-secondary small"><div class="security-event-identifier">${escapeHtml(actorIdentifier)}</div><div class="security-event-ip text-warning">${escapeHtml(ipAddress)}</div></td>
+        <td class="pe-4 py-3 text-secondary small security-event-details" title="${detailsTitle}">${escapeHtml(detailsPreview)}</td>
       </tr>
     `);
   });
@@ -2283,6 +2442,36 @@ function saveProductsToJSON() {
     });
 }
 
+function buildDefaultProductCode(productId) {
+  const numericId = Math.max(0, parseInt(productId, 10) || 0);
+  if (numericId > 0) {
+    return `CMRZ-${String(numericId).padStart(5, "0")}`;
+  }
+  return "CMRZ-NEW";
+}
+
+function normalizeProductCodeInput(rawValue, fallbackId) {
+  const normalized = (rawValue || "")
+    .toString()
+    .toUpperCase()
+    .trim()
+    .replace(/[^A-Z0-9-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  if (normalized) {
+    return normalized.slice(0, 40);
+  }
+
+  return buildDefaultProductCode(fallbackId).slice(0, 40);
+}
+
+function normalizeProductMetaInput(rawValue, fallbackValue, maxLength = 120) {
+  const cleaned = (rawValue || "").toString().trim();
+  const value = cleaned || fallbackValue;
+  return value.slice(0, maxLength);
+}
+
 function renderProductsTable() {
   const filterSection = window.currentSectionFilter || "";
   const tbody = $("#productsTable tbody");
@@ -2305,16 +2494,50 @@ function renderProductsTable() {
   }
 
   filteredProducts.forEach((product) => {
+    const numericPrice = Number(product.price) || 0;
+    const numericSalePrice = Number(product.salePrice) || 0;
+    const effectiveSale =
+      numericSalePrice > 0 ? numericSalePrice : numericPrice;
+    const productCode = escapeHtml(
+      (product.productCode || buildDefaultProductCode(product.id)).toString(),
+    );
+    const warrantyInfo = escapeHtml(
+      (product.warrantyInfo || "12-month seller warranty").toString(),
+    );
+    const dispatchInfo = escapeHtml(
+      (
+        product.dispatchInfo ||
+        (Number(product.stock) > 0
+          ? "Dispatch in 24-48 hours"
+          : "Pre-order availability")
+      ).toString(),
+    );
+    const safeName = escapeHtml(
+      (product.name || "Untitled Product").toString(),
+    );
+    const safeSectionName = escapeHtml(
+      (product.sectionName || "Section").toString(),
+    );
+    const safeCategory = escapeHtml(
+      (product.category || "Uncategorized").toString(),
+    );
+    const safeImage = escapeHtml((product.image || "").toString());
+
     const stock =
       product.stock > 10
         ? `<span class="badge bg-success rounded-pill">In Stock (${product.stock})</span>`
         : `<span class="badge bg-warning text-dark rounded-pill">Low (${product.stock})</span>`;
     tbody.append(`
             <tr class="border-bottom border-secondary">
-                <td class="ps-4 py-3"><img src="../../${product.image}" alt="${product.name}" class="rounded" width="50" height="50" style="object-fit: cover; cursor: pointer;" onerror="this.src='assets/images/products/placeholder.webp'"></td>
-                <td class="py-3 text-light fw-semibold" style="max-width: 200px;">${product.name}</td>
-                <td class="py-3 text-secondary small"><span class="d-block text-warning">${product.sectionName}</span><span class="text-secondary">${product.category}</span></td>
-                <td class="py-3 text-light fw-semibold"><span class="text-secondary" style="text-decoration: line-through; font-size: 0.9rem;">${product.price}</span><span class="ms-2 text-orange">${product.salePrice}</span></td>
+                <td class="ps-4 py-3"><img src="../../${safeImage}" alt="${safeName}" class="rounded" width="50" height="50" style="object-fit: cover; cursor: pointer;" onerror="this.src='assets/images/products/placeholder.webp'"></td>
+                <td class="py-3 text-light fw-semibold" style="max-width: 260px;">
+                  <div>${safeName}</div>
+                  <div class="text-secondary small mt-1">Code: <span class="text-orange">${productCode}</span></div>
+                  <div class="text-secondary small">Warranty: ${warrantyInfo}</div>
+                  <div class="text-secondary small">Dispatch: ${dispatchInfo}</div>
+                </td>
+                <td class="py-3 text-secondary small"><span class="d-block text-warning">${safeSectionName}</span><span class="text-secondary">${safeCategory}</span></td>
+                <td class="py-3 text-light fw-semibold"><span class="text-secondary" style="text-decoration: line-through; font-size: 0.9rem;">${formatPkr(numericPrice)}</span><span class="ms-2 text-orange">${formatPkr(effectiveSale)}</span></td>
                 <td class="py-3">${stock}</td>
                 <td class="pe-4 py-3"><button class="btn btn-sm btn-outline-orange me-1" onclick="editProduct(${product.id})" title="Edit"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-outline-danger" onclick="deleteProduct(${product.id})" title="Delete"><i class="bi bi-trash"></i></button></td>
             </tr>
@@ -2349,6 +2572,18 @@ function editProduct(id) {
 
     $("#productImage").val(product.image);
     $("#productVideo").val(product.video || "");
+    $("#productCode").val(
+      product.productCode || buildDefaultProductCode(product.id),
+    );
+    $("#productWarrantyInfo").val(
+      product.warrantyInfo || "12-month seller warranty",
+    );
+    $("#productDispatchInfo").val(
+      product.dispatchInfo ||
+        (Number(product.stock) > 0
+          ? "Dispatch in 24-48 hours"
+          : "Pre-order availability"),
+    );
     $("#productDescription").val(product.description);
     $("#productModalLabel").text("Edit Product");
     new bootstrap.Modal(document.getElementById("productModal")).show();
@@ -2560,23 +2795,29 @@ function exportProductsAsCSV() {
   const headers = [
     "ID",
     "Name",
+    "Product Code",
     "Section",
     "Category",
     "Price",
     "Sale Price",
     "Stock",
     "Movement",
+    "Warranty",
+    "Dispatch",
     "Description",
   ];
   const rows = productsData.map((p) => [
     p.id,
     `"${p.name}"`,
+    `"${p.productCode || ""}"`,
     p.sectionName,
     p.category,
     p.price,
     p.salePrice,
     p.stock,
     p.movement,
+    `"${p.warrantyInfo || ""}"`,
+    `"${p.dispatchInfo || ""}"`,
     `"${p.description}"`,
   ]);
   const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join(
@@ -2753,6 +2994,31 @@ function showStatusNotification(orderId, oldStatus, newStatus) {
   setTimeout(() => notif.remove(), 4000);
 }
 
+function openNotificationTarget(tabId) {
+  const id = (tabId || "").toString().trim();
+  if (!id) return;
+
+  const tab = document.getElementById(id);
+  if (tab && typeof tab.click === "function") {
+    tab.click();
+  }
+}
+
+function clearAdminNotifications(minutes = 45) {
+  notificationsPausedUntil =
+    Date.now() + Math.max(1, Number(minutes || 45)) * 60 * 1000;
+  updateNotifications();
+}
+
+function resumeAdminNotifications() {
+  notificationsPausedUntil = 0;
+  updateNotifications();
+}
+
+window.openNotificationTarget = openNotificationTarget;
+window.clearAdminNotifications = clearAdminNotifications;
+window.resumeAdminNotifications = resumeAdminNotifications;
+
 function updateNotifications() {
   const list = $("#notificationList");
   const count = $("#notificationCount");
@@ -2773,6 +3039,7 @@ function updateNotifications() {
         text: `New order ${latestOrder.orderId} (last ${NOTIFICATION_RULES.recentOrderDays} days)`,
         icon: "bi-receipt",
         type: "info",
+        targetTab: "orders-tab",
       });
     }
   }
@@ -2789,6 +3056,7 @@ function updateNotifications() {
       text: `${pendingOrders.length} order(s) waiting for action (last ${NOTIFICATION_RULES.pendingOrderDays} days)`,
       icon: "bi-clock-history",
       type: "warning",
+      targetTab: "orders-tab",
     });
   }
 
@@ -2800,6 +3068,7 @@ function updateNotifications() {
       text: `New customers: ${newCustomers.length} (last ${NOTIFICATION_RULES.newCustomerDays} days)`,
       icon: "bi-person-check",
       type: "success",
+      targetTab: "customers-tab",
     });
   }
 
@@ -2811,6 +3080,7 @@ function updateNotifications() {
       text: `New products added: ${newProducts.length} (last ${NOTIFICATION_RULES.newProductDays} days)`,
       icon: "bi-bag-plus",
       type: "info",
+      targetTab: "products-tab",
     });
   }
 
@@ -2822,6 +3092,7 @@ function updateNotifications() {
       text: `${lowStock.length} product(s) low stock (check today)`,
       icon: "bi-exclamation-triangle",
       type: "danger",
+      targetTab: "products-tab",
     });
   }
 
@@ -2835,16 +3106,32 @@ function updateNotifications() {
       text: `${pendingRefunds.length} refund request(s) waiting review`,
       icon: "bi-cash-coin",
       type: "info",
+      targetTab: "orders-tab",
     });
   }
 
   const latestNotifications = notifications.slice(0, 3);
 
   list.empty();
-  list.append(
-    '<li><h6 class="dropdown-header text-secondary">Latest 3 Notifications</h6></li>',
-  );
+  list.append(`
+    <li class="dropdown-header d-flex align-items-center justify-content-between gap-2">
+      <h6 class="text-secondary mb-0">Latest 3 Notifications</h6>
+      <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="clearAdminNotifications(); return false;">Clear</button>
+    </li>
+  `);
   list.append('<li><hr class="dropdown-divider border-secondary"></li>');
+
+  if (notificationsPausedUntil > Date.now()) {
+    count.text("0");
+    count.addClass("d-none");
+    list.append(
+      '<li><span class="dropdown-item text-secondary">Notifications cleared for now.</span></li>',
+    );
+    list.append(
+      '<li><a class="dropdown-item text-light" href="#" onclick="resumeAdminNotifications(); return false;"><i class="bi bi-arrow-repeat me-2"></i>Show notifications again</a></li>',
+    );
+    return;
+  }
 
   if (latestNotifications.length === 0) {
     count.text("0");
@@ -2859,15 +3146,71 @@ function updateNotifications() {
   count.removeClass("d-none");
 
   latestNotifications.forEach((notif, index) => {
+    const targetTab = (notif?.targetTab || "").toString();
+    const clickHandler = targetTab
+      ? `openNotificationTarget('${targetTab}'); return false;`
+      : "return false;";
+    const safeText = escapeHtml(notif?.text || "");
+
     list.append(`
-            <li><a class="dropdown-item text-light d-flex align-items-center gap-2" href="#" onclick="return false;">
+            <li><a class="dropdown-item text-light d-flex align-items-center gap-2" href="#" onclick="${clickHandler}">
                 <i class="bi ${notif.icon} text-${notif.type}"></i>
-                <span>${notif.text}</span>
+                <span>${safeText}</span>
             </a></li>
         `);
     if (index < latestNotifications.length - 1) {
       list.append('<li><hr class="dropdown-divider border-secondary"></li>');
     }
+  });
+}
+
+function injectAdminTabPlaybooks() {
+  Object.entries(ADMIN_TAB_PLAYBOOKS).forEach(([sectionId, config]) => {
+    const pane = document.getElementById(sectionId);
+    if (!pane) {
+      return;
+    }
+
+    const existing = pane.querySelector(
+      `.tab-playbook[data-for-tab="${sectionId}"]`,
+    );
+    if (existing) {
+      return;
+    }
+
+    const rawSteps = Array.isArray(config?.steps) ? config.steps : [];
+    const stepItems = rawSteps
+      .map((step) => escapeHtml((step || "").toString().trim()))
+      .filter((step) => step !== "")
+      .map((step) => `<li>${step}</li>`)
+      .join("");
+
+    if (stepItems === "") {
+      return;
+    }
+
+    const title = escapeHtml((config?.title || "Quick Steps").toString());
+    const intro = escapeHtml((config?.intro || "").toString());
+    const tip = escapeHtml((config?.tip || "").toString());
+
+    const block = document.createElement("section");
+    block.className = "tab-playbook mb-4";
+    block.dataset.forTab = sectionId;
+    block.innerHTML = `
+      <span class="step-chip">Simple Guide</span>
+      <h2 class="tab-playbook-title">${title}</h2>
+      <p class="tab-playbook-intro">${intro}</p>
+      <ol class="tab-playbook-list">${stepItems}</ol>
+      <p class="tab-playbook-note mb-0"><i class="bi bi-lightbulb me-2"></i>${tip}</p>
+    `;
+
+    const helperBanner = pane.querySelector(".helper-banner");
+    if (helperBanner) {
+      helperBanner.insertAdjacentElement("afterend", block);
+      return;
+    }
+
+    pane.insertAdjacentElement("afterbegin", block);
   });
 }
 
@@ -2886,6 +3229,69 @@ $(document).ready(function () {
       document.body.classList.remove("sidebar-open");
     });
   }
+
+  injectAdminTabPlaybooks();
+
+  function refreshTabPaneByTabId(tabId) {
+    switch ((tabId || "").toString()) {
+      case "orders-tab":
+        displayAllOrders();
+        renderRefundRequests();
+        break;
+      case "customers-tab":
+        displayAllCustomers();
+        break;
+      case "analytics-tab":
+        renderAnalyticsSection();
+        break;
+      case "coupons-tab":
+        renderCouponsTable();
+        break;
+      case "reviews-tab":
+        renderReviewsTable();
+        break;
+      case "security-events-tab":
+        renderSecurityEventsTable();
+        break;
+      case "website-tab":
+        renderSocialLinksTable();
+        renderSliderTable();
+        break;
+      default:
+        break;
+    }
+  }
+
+  function syncActiveTabUi(tabEl) {
+    const pageTitle = document.getElementById("pageTitle");
+    const tabText =
+      tabEl?.querySelector("span:last-child")?.textContent?.trim() ||
+      tabEl?.textContent?.trim() ||
+      "Dashboard";
+
+    if (pageTitle) {
+      pageTitle.textContent = tabText.replace(/\s+/g, " ");
+    }
+
+    if (window.innerWidth < 768 && sidebar) {
+      const collapse = bootstrap.Collapse.getOrCreateInstance(sidebar, {
+        toggle: false,
+      });
+      collapse.hide();
+    }
+  }
+
+  $(document)
+    .off("shown.bs.tab", '#sidebarNav [data-bs-toggle="pill"]')
+    .on("shown.bs.tab", '#sidebarNav [data-bs-toggle="pill"]', function () {
+      const activeTabId = (this.id || "").toString();
+      syncActiveTabUi(this);
+      refreshTabPaneByTabId(activeTabId);
+    });
+
+  syncActiveTabUi(
+    document.querySelector('#sidebarNav [data-bs-toggle="pill"].active'),
+  );
 
   function applyButtonCooldown(selector, duration = 1200) {
     $(document).on("click", selector, function () {
@@ -3089,14 +3495,48 @@ $(document).ready(function () {
         return;
       }
 
+      const resolvedProductId = productId ? parseInt(productId, 10) : nextId++;
+      const stockValue = parseInt($("#productStock").val(), 10) || 0;
+      const dispatchFallback =
+        stockValue > 0 ? "Dispatch in 24-48 hours" : "Pre-order availability";
+      const productCode = normalizeProductCodeInput(
+        $("#productCode").val(),
+        resolvedProductId,
+      );
+
+      const duplicateCode = productsData.find(
+        (item) =>
+          (item?.productCode || "").toString().toUpperCase() === productCode &&
+          parseInt(item?.id, 10) !== resolvedProductId,
+      );
+
+      if (duplicateCode) {
+        showNotification(
+          "Product code already exists. Use a unique code.",
+          "danger",
+        );
+        return;
+      }
+
       const productData = {
-        id: productId ? parseInt(productId) : nextId++,
+        id: resolvedProductId,
         name: $("#productName").val(),
-        price: parseInt($("#productPrice").val()),
-        salePrice: parseInt($("#productSalePrice").val()),
-        stock: parseInt($("#productStock").val()),
-        image: $("#productImage").val(),
+        price: parseFloat($("#productPrice").val()) || 0,
+        salePrice: parseFloat($("#productSalePrice").val()) || 0,
+        stock: stockValue,
+        image: $("#productImage").val().trim(),
         video: $("#productVideo").val().trim(),
+        productCode,
+        warrantyInfo: normalizeProductMetaInput(
+          $("#productWarrantyInfo").val(),
+          "12-month seller warranty",
+          120,
+        ),
+        dispatchInfo: normalizeProductMetaInput(
+          $("#productDispatchInfo").val(),
+          dispatchFallback,
+          120,
+        ),
         description: $("#productDescription").val(),
         movement: $("#productMovement").val(),
         category: section ? section.category : "Uncategorized",
@@ -3106,6 +3546,15 @@ $(document).ready(function () {
         page: section ? section.page : "index.php",
         createdAt: existingProduct?.createdAt || new Date().toISOString(),
       };
+
+      if (productData.price <= 0) {
+        showNotification("Price must be greater than 0.", "danger");
+        return;
+      }
+
+      if (productData.salePrice <= 0) {
+        productData.salePrice = productData.price;
+      }
 
       if (productId) {
         const index = productsData.findIndex(
@@ -3126,6 +3575,13 @@ $(document).ready(function () {
       updateNotifications();
       $("#productForm")[0].reset();
       $("#productId").val("");
+      $("#productSectionBtn").text("Select Section");
+      $("#productSection").val("");
+      $("#productMovementBtn").text("Quartz");
+      $("#productMovement").val("quartz");
+      $("#productCode").val("");
+      $("#productWarrantyInfo").val("12-month seller warranty");
+      $("#productDispatchInfo").val("Dispatch in 24-48 hours");
       bootstrap.Modal.getInstance(
         document.getElementById("productModal"),
       ).hide();
@@ -3136,6 +3592,13 @@ $(document).ready(function () {
     .on("click", "#addNewProductBtn", function () {
       $("#productForm")[0].reset();
       $("#productId").val("");
+      $("#productSectionBtn").text("Select Section");
+      $("#productSection").val("");
+      $("#productMovementBtn").text("Quartz");
+      $("#productMovement").val("quartz");
+      $("#productCode").val("");
+      $("#productWarrantyInfo").val("12-month seller warranty");
+      $("#productDispatchInfo").val("Dispatch in 24-48 hours");
       $("#productModalLabel").text("Add New Product");
       new bootstrap.Modal(document.getElementById("productModal")).show();
     });
@@ -3579,6 +4042,8 @@ $(document).ready(function () {
 
 function renderAnalyticsSection() {
   const revenue = Number(adminMetrics?.totalRevenue || 0);
+  const refundLoss = Number(adminMetrics?.refundLoss || 0);
+  const netRevenue = Number(adminMetrics?.netRevenue ?? revenue - refundLoss);
   const orderCount = Math.max(0, parseInt(adminMetrics?.totalOrders, 10) || 0);
   const avgOrderValue = Number(adminMetrics?.avgOrderValue || 0);
   const returningRate = Number(adminMetrics?.returningCustomerRate || 0);
@@ -3666,6 +4131,11 @@ function renderAnalyticsSection() {
   if (pendingRefunds > 0) {
     actionItems.push(
       `Review ${pendingRefunds} pending refund request(s) today.`,
+    );
+  }
+  if (refundLoss > 0) {
+    actionItems.push(
+      `Refund loss in the last 30 days is ${formatPkr(refundLoss)}. Net progress is ${formatPkr(netRevenue)}.`,
     );
   }
   if (orderCount === 0) {
@@ -3769,6 +4239,131 @@ function renderAnalyticsSection() {
       });
     }
   }
+
+  renderAnalyticsProfitLossChart(weekly);
+}
+
+function renderAnalyticsProfitLossChart(weekly) {
+  const canvas = document.getElementById("analyticsProfitLossChart");
+  if (!canvas) {
+    return;
+  }
+
+  if (typeof window.Chart === "undefined") {
+    if (analyticsProfitLossChart) {
+      analyticsProfitLossChart.destroy();
+      analyticsProfitLossChart = null;
+    }
+    return;
+  }
+
+  const fallbackWeekly = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (6 - index));
+    return {
+      label: date.toLocaleDateString("en-US", { weekday: "short" }),
+      revenue: 0,
+      loss: 0,
+      net: 0,
+    };
+  });
+
+  const series =
+    Array.isArray(weekly) && weekly.length ? weekly : fallbackWeekly;
+  const labels = series.map((row) => (row?.label || "Day").toString());
+  const revenueData = series.map((row) => Number(row?.revenue || 0));
+  const lossData = series.map((row) => Number(row?.loss || 0));
+  const netData = series.map((row) => Number(row?.net || 0));
+
+  if (analyticsProfitLossChart) {
+    analyticsProfitLossChart.destroy();
+    analyticsProfitLossChart = null;
+  }
+
+  analyticsProfitLossChart = new window.Chart(canvas.getContext("2d"), {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Revenue",
+          data: revenueData,
+          backgroundColor: "rgba(255, 122, 26, 0.72)",
+          borderColor: "rgba(255, 166, 64, 0.95)",
+          borderWidth: 1,
+          borderRadius: 8,
+          borderSkipped: false,
+        },
+        {
+          label: "Loss",
+          data: lossData,
+          backgroundColor: "rgba(220, 53, 69, 0.72)",
+          borderColor: "rgba(255, 99, 132, 0.95)",
+          borderWidth: 1,
+          borderRadius: 8,
+          borderSkipped: false,
+        },
+        {
+          type: "line",
+          label: "Net Progress",
+          data: netData,
+          borderColor: "rgba(40, 167, 69, 1)",
+          backgroundColor: "rgba(40, 167, 69, 0.25)",
+          borderWidth: 2,
+          tension: 0.35,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          fill: false,
+          yAxisID: "y",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: "index",
+        intersect: false,
+      },
+      plugins: {
+        legend: {
+          labels: {
+            color: "#d9d9d9",
+            boxWidth: 12,
+            boxHeight: 12,
+          },
+        },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              const value = Number(context?.raw || 0);
+              return `${context.dataset.label}: ${formatPkr(value)}`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: "#bcbcbc",
+          },
+          grid: {
+            color: "rgba(255,255,255,0.05)",
+          },
+        },
+        y: {
+          beginAtZero: true,
+          ticks: {
+            color: "#bcbcbc",
+            callback: (value) => formatPkr(Number(value || 0)),
+          },
+          grid: {
+            color: "rgba(255,255,255,0.06)",
+          },
+        },
+      },
+    },
+  });
 }
 
 function refundBadgeClass(status) {
@@ -4058,6 +4653,8 @@ function displayAllOrders() {
     const safeDeliveryEstimate = escapeHtml(
       (order.deliveryEstimate || "").toString(),
     );
+    const isStatusUpdating = ORDER_STATUS_LOCKS.has(rawOrderId);
+    const statusButtonDisabled = isStatusUpdating ? "disabled" : "";
     const invoiceUrl = `../../invoice.php?order=${encodedOrderId}`;
 
     const row = document.createElement("tr");
@@ -4106,12 +4703,13 @@ function displayAllOrders() {
                             <p class="text-orange fw-bold"><strong>Total:</strong> ${formatPkr(order.total || 0)}</p>
                             <div style="margin-top: 15px;">
                         <h6 class="text-orange mb-2 fw-bold">Change Status</h6>
+                                ${isStatusUpdating ? '<p class="text-warning small mb-2"><i class="bi bi-arrow-repeat"></i> Status update in progress...</p>' : ""}
                                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                  <button class="btn btn-sm btn-warning text-dark fw-semibold" onclick="updateOrderStatus(decodeURIComponent('${encodedOrderId}'), 'Pending'); event.stopPropagation();"><i class="bi bi-hourglass"></i> Pending</button>
-                                  <button class="btn btn-sm btn-info text-dark fw-semibold" onclick="updateOrderStatus(decodeURIComponent('${encodedOrderId}'), 'Shipped'); event.stopPropagation();"><i class="bi bi-truck"></i> Shipped</button>
-                                  <button class="btn btn-sm btn-success fw-semibold" onclick="updateOrderStatus(decodeURIComponent('${encodedOrderId}'), 'Delivered'); event.stopPropagation();"><i class="bi bi-check-circle"></i> Delivered</button>
-                                  <button class="btn btn-sm btn-danger fw-semibold" onclick="updateOrderStatus(decodeURIComponent('${encodedOrderId}'), 'Cancelled'); event.stopPropagation();"><i class="bi bi-x-circle"></i> Cancel</button>
-                                  <button class="btn btn-sm btn-outline-orange fw-semibold" onclick="updateOrderLogistics(decodeURIComponent('${encodedOrderId}')); event.stopPropagation();"><i class="bi bi-pencil-square"></i> Logistics</button>
+                                  <button class="btn btn-sm btn-warning text-dark fw-semibold" ${statusButtonDisabled} onclick="updateOrderStatus(decodeURIComponent('${encodedOrderId}'), 'Pending'); event.stopPropagation();"><i class="bi bi-hourglass"></i> Pending</button>
+                                  <button class="btn btn-sm btn-info text-dark fw-semibold" ${statusButtonDisabled} onclick="updateOrderStatus(decodeURIComponent('${encodedOrderId}'), 'Shipped'); event.stopPropagation();"><i class="bi bi-truck"></i> Shipped</button>
+                                  <button class="btn btn-sm btn-success fw-semibold" ${statusButtonDisabled} onclick="updateOrderStatus(decodeURIComponent('${encodedOrderId}'), 'Delivered'); event.stopPropagation();"><i class="bi bi-check-circle"></i> Delivered</button>
+                                  <button class="btn btn-sm btn-danger fw-semibold" ${statusButtonDisabled} onclick="updateOrderStatus(decodeURIComponent('${encodedOrderId}'), 'Cancelled'); event.stopPropagation();"><i class="bi bi-x-circle"></i> Cancel</button>
+                                  <button class="btn btn-sm btn-outline-orange fw-semibold" ${statusButtonDisabled} onclick="updateOrderLogistics(decodeURIComponent('${encodedOrderId}')); event.stopPropagation();"><i class="bi bi-pencil-square"></i> Logistics</button>
                                   <a class="btn btn-sm btn-outline-light fw-semibold" href="${invoiceUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation();"><i class="bi bi-file-earmark-pdf"></i> Invoice</a>
                                 </div>
                             </div>
@@ -4324,8 +4922,24 @@ async function bulkDeleteCustomers() {
 }
 
 async function updateOrderStatus(orderId, newStatus) {
+  const normalizedOrderId = (orderId || "").toString();
+  if (!normalizedOrderId) {
+    showNotification("Invalid order id.", "danger");
+    return;
+  }
+
+  if (ORDER_STATUS_LOCKS.has(normalizedOrderId)) {
+    showNotification(
+      "A status update is already in progress for this order.",
+      "warning",
+    );
+    return;
+  }
+
   const orders = getAdminOrdersData();
-  const targetOrder = orders.find((order) => order.orderId === orderId);
+  const targetOrder = orders.find(
+    (order) => (order.orderId || "").toString() === normalizedOrderId,
+  );
 
   if (!targetOrder) {
     showNotification("Order not found.", "danger");
@@ -4338,47 +4952,38 @@ async function updateOrderStatus(orderId, newStatus) {
     return;
   }
 
-  try {
-    const payload = new URLSearchParams();
-    payload.set("action", "update-status");
-    payload.set("order_number", orderId);
-    payload.set("status", newStatus);
+  ORDER_STATUS_LOCKS.add(normalizedOrderId);
+  displayAllOrders();
 
-    const response = await fetch(ADMIN_ORDERS_API, {
-      method: "POST",
-      credentials: "same-origin",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-        "X-CSRF-Token": ADMIN_CSRF_TOKEN,
-      },
-      body: payload.toString(),
+  try {
+    const result = await adminPostJson(ADMIN_ORDERS_API, {
+      action: "update-status",
+      order_number: normalizedOrderId,
+      status: newStatus,
+      refresh_mode: "minimal",
     });
 
-    const result = await response.json();
-    if (!response.ok || !result?.ok) {
-      throw new Error(result?.message || "Unable to update order status.");
+    const payload = result?.payload || {};
+    if (Array.isArray(payload?.orders)) {
+      setAdminOrdersPayload(payload);
+    } else {
+      applyOrderStatusPatch(payload);
     }
 
-    setAdminOrdersPayload(result?.payload || {});
     displayRecentOrders();
-    displayAllOrders();
-    displayAllCustomers();
     calculateDashboardMetrics();
     renderAnalyticsSection();
-    renderRefundRequests();
     updateNotifications();
 
-    if ($("#emailSection").length) {
-      emailDirectory = buildEmailDirectory();
-      renderEmailRecipients();
-    }
-
-    showStatusNotification(orderId, oldStatus, newStatus);
+    showStatusNotification(normalizedOrderId, oldStatus, newStatus);
   } catch (error) {
     showNotification(
       error?.message || "Unable to update order status.",
       "danger",
     );
+  } finally {
+    ORDER_STATUS_LOCKS.delete(normalizedOrderId);
+    displayAllOrders();
   }
 }
 

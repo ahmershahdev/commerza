@@ -26,6 +26,51 @@ function website_api_json(array $payload, int $status = 200): void
     exit;
 }
 
+function website_api_column_exists(mysqli $con, string $table, string $column): bool
+{
+    $sql = 'SELECT COUNT(*) AS total
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = ?
+              AND COLUMN_NAME = ?';
+
+    $stmt = $con->prepare($sql);
+    if (!$stmt) {
+        return false;
+    }
+
+    $stmt->bind_param('ss', $table, $column);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    return (int)($row['total'] ?? 0) > 0;
+}
+
+function website_api_ensure_slider_compatibility(mysqli $con): void
+{
+    if (!website_api_column_exists($con, 'slider', 'subtitle')) {
+        $con->query('ALTER TABLE slider ADD COLUMN subtitle VARCHAR(255) DEFAULT NULL AFTER title');
+    }
+
+    if (!website_api_column_exists($con, 'slider', 'cta_text_2')) {
+        $con->query('ALTER TABLE slider ADD COLUMN cta_text_2 VARCHAR(80) DEFAULT NULL AFTER cta_url');
+    }
+
+    if (!website_api_column_exists($con, 'slider', 'cta_url_2')) {
+        $con->query('ALTER TABLE slider ADD COLUMN cta_url_2 VARCHAR(255) DEFAULT NULL AFTER cta_text_2');
+    }
+
+    if (!website_api_column_exists($con, 'slider', 'overlay_opacity')) {
+        $con->query('ALTER TABLE slider ADD COLUMN overlay_opacity DECIMAL(3,2) DEFAULT 0.40 AFTER cta_url_2');
+    }
+
+    if (website_api_column_exists($con, 'slider', 'page')) {
+        $con->query('ALTER TABLE slider MODIFY page VARCHAR(100) NULL');
+    }
+}
+
 function website_api_ensure_schema(mysqli $con): void
 {
     $con->query(
@@ -77,6 +122,8 @@ function website_api_ensure_schema(mysqli $con): void
             PRIMARY KEY (id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci'
     );
+
+    website_api_ensure_slider_compatibility($con);
 }
 
 function website_api_get_setting(mysqli $con, string $key, string $fallback = ''): string
@@ -287,6 +334,16 @@ if ($method === 'GET') {
 }
 
 if ($method === 'GET' && $action === 'get') {
+    admin_api_rate_limit_guard(
+        $con,
+        $admin,
+        admin_api_scope('admin_website_api', $action),
+        90,
+        60,
+        120,
+        300
+    );
+
     website_api_json([
         'ok' => true,
         'payload' => website_api_payload($con),
@@ -316,6 +373,16 @@ if (!is_array($body) || !$body) {
 
 $action = strtolower(trim((string)($body['action'] ?? $action)));
 
+admin_api_rate_limit_guard(
+    $con,
+    $admin,
+    admin_api_scope('admin_website_api', $action),
+    90,
+    60,
+    120,
+    300
+);
+
 if ($action === 'save-brand') {
     $name = website_api_clean_text((string)($body['name'] ?? ''), 100);
     $logo = trim((string)($body['logo'] ?? ''));
@@ -339,6 +406,12 @@ if ($action === 'save-brand') {
             'message' => 'Unable to save branding.',
         ], 500);
     }
+
+    admin_api_log_security_event($con, $admin, 'website.brand_updated', 'info', [
+        'name' => $name,
+        'logo' => $logo,
+        'favicon' => $favicon,
+    ]);
 
     website_api_json([
         'ok' => true,
@@ -370,6 +443,11 @@ if ($action === 'save-contact') {
             'message' => 'Unable to save contact details.',
         ], 500);
     }
+
+    admin_api_log_security_event($con, $admin, 'website.contact_updated', 'info', [
+        'email' => $email,
+        'phone' => $phone,
+    ]);
 
     website_api_json([
         'ok' => true,
@@ -424,6 +502,12 @@ if ($action === 'save-social') {
             ], 500);
         }
 
+        admin_api_log_security_event($con, $admin, 'website.social_updated', 'info', [
+            'social_id' => $id,
+            'label' => $label,
+            'url' => $url,
+        ]);
+
         website_api_json([
             'ok' => true,
             'message' => 'Social link updated.',
@@ -463,6 +547,12 @@ if ($action === 'save-social') {
         ], 500);
     }
 
+    admin_api_log_security_event($con, $admin, 'website.social_added', 'info', [
+        'label' => $label,
+        'url' => $url,
+        'sort_order' => $sortOrder,
+    ]);
+
     website_api_json([
         'ok' => true,
         'message' => 'Social link added.',
@@ -497,6 +587,10 @@ if ($action === 'delete-social') {
             'message' => 'Unable to delete social link.',
         ], 500);
     }
+
+    admin_api_log_security_event($con, $admin, 'website.social_deleted', 'warning', [
+        'social_id' => $id,
+    ]);
 
     website_api_json([
         'ok' => true,
@@ -560,6 +654,11 @@ if ($action === 'save-ticker') {
     }
 
     $stmt->close();
+
+    admin_api_log_security_event($con, $admin, 'website.ticker_saved', 'info', [
+        'enabled' => $enabled,
+        'messages' => count($cleaned),
+    ]);
 
     website_api_json([
         'ok' => true,
@@ -626,6 +725,12 @@ if ($action === 'save-slider') {
             ], 500);
         }
 
+        admin_api_log_security_event($con, $admin, 'website.slider_updated', 'info', [
+            'slider_id' => $id,
+            'heading' => $heading,
+            'image' => $image,
+        ]);
+
         website_api_json([
             'ok' => true,
             'message' => 'Slide updated.',
@@ -664,6 +769,13 @@ if ($action === 'save-slider') {
             'message' => 'Unable to add slide.',
         ], 500);
     }
+
+    $createdSliderId = (int)$con->insert_id;
+    admin_api_log_security_event($con, $admin, 'website.slider_added', 'info', [
+        'slider_id' => $createdSliderId,
+        'heading' => $heading,
+        'image' => $image,
+    ]);
 
     website_api_json([
         'ok' => true,
@@ -706,6 +818,11 @@ if ($action === 'save-feature-videos') {
         ], 500);
     }
 
+    admin_api_log_security_event($con, $admin, 'website.featured_videos_saved', 'info', [
+        'home_video' => $homeVideo,
+        'category_a_video' => $categoryAVideo,
+    ]);
+
     website_api_json([
         'ok' => true,
         'message' => 'Featured videos saved.',
@@ -740,6 +857,10 @@ if ($action === 'delete-slider') {
             'message' => 'Unable to delete slide.',
         ], 500);
     }
+
+    admin_api_log_security_event($con, $admin, 'website.slider_deleted', 'warning', [
+        'slider_id' => $id,
+    ]);
 
     website_api_json([
         'ok' => true,

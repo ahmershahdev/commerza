@@ -193,7 +193,7 @@ function commerza_fetch_cart_snapshot(mysqli $con, ?int $cartId = null): array
          FROM cart_items ci
          INNER JOIN products p ON p.id = ci.product_id
          WHERE ci.cart_id = ?
-         ORDER BY ci.added_at DESC'
+            ORDER BY ci.added_at DESC, ci.product_id DESC'
     );
 
     if ($stmt) {

@@ -1,22 +1,31 @@
-# Frontend JS Modules Guide
+# modules Directory Guide
 
-This folder contains structured JS modules loaded by the storefront runtime.
+## Purpose
+Stores JavaScript files for behavior, API calls, and page interactions.
 
-## Files
+## Scope
+- Directory: frontend/assets/js/modules
+- Primary audience: developers and maintainers
+- Update frequency: when assets, APIs, or structure in this folder change
 
-- `01-settings.js`: Shared client runtime settings/constants.
-- `02-notifications.js`: Notification/toast helpers.
-- `03-account.js`: Account page helper behaviors.
-- `04-document-ready.js`: Startup wiring for DOM-ready tasks.
-- `05-products.js`: Product listing/search/filter interactions.
-- `06-newsletter.js`: Newsletter form handling.
-- `07-order-tracking.js`: Order tracking page behavior.
-- `08-wishlist-state.js`: Wishlist state store/sync helpers.
-- `09-compare-core.js`: Compare feature core logic.
-- `10-wishlist-actions.js`: Wishlist action handlers and UI updates.
-- `11-compare-render.js`: Compare UI rendering and updates.
+## File Standards
+- Keep side effects minimal and gate DOM usage after ready state.
+- Use API helpers for requests and centralize repeated logic.
+- Preserve CSRF/session-aware request patterns.
+- Prefer readable function names over inline anonymous blocks.
+
+## Change Workflow
+1. Add or update files only for this directory responsibility.
+2. Verify references from pages/APIs before committing.
+3. Validate production-safe paths and naming consistency.
+4. Remove stale files that are no longer referenced.
+
+## Quality Checklist
+- Paths resolve correctly from consuming pages or scripts.
+- No debug-only or temporary files are left behind.
+- Naming remains consistent with existing conventions.
+- Documentation is updated when behavior/usage changes.
 
 ## Notes
-
-- Numeric prefixes preserve deterministic load order.
-- Keep cross-module dependencies explicit and minimal.
+- Keep this guide concise but current.
+- Prefer incremental updates over large, undocumented restructures.

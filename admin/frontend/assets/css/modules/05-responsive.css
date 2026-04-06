@@ -161,3 +161,79 @@ body.sidebar-open .admin-backdrop {
     height: 52px;
   }
 }
+
+.analytics-chart-shell {
+  position: relative;
+  height: 320px;
+  min-height: 260px;
+}
+
+@media (max-width: 992px) {
+  .tab-content {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .tab-content {
+    max-height: calc(100vh - 152px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-bottom: 1rem;
+  }
+
+  .tab-pane .table-responsive {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 12px;
+  }
+
+  .tab-pane .table {
+    min-width: 760px;
+  }
+
+  .helper-banner {
+    padding: 16px;
+  }
+
+  .analytics-chart-shell {
+    height: 260px;
+    min-height: 220px;
+  }
+}
+
+@media (max-width: 576px) {
+  .tab-content {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    max-height: calc(100vh - 136px);
+  }
+
+  .admin-topbar {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  .helper-actions .btn {
+    width: 100%;
+  }
+
+  .tab-playbook {
+    padding: 16px;
+  }
+
+  .tab-playbook-list li {
+    padding-left: 40px;
+  }
+
+  .coupon-overview-card {
+    min-height: auto;
+  }
+
+  .analytics-chart-shell {
+    height: 220px;
+    min-height: 180px;
+  }
+}

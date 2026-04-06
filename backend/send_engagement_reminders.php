@@ -16,7 +16,25 @@ if (isset($argv[1])) {
     }
 }
 
-$result = commerza_send_pending_engagement_reminders($con, $minutes);
+$jobKey = 'engagement_reminders_dispatch';
+$periodKey = 'global';
+if (!commerza_notifications_acquire_job_lock($con, $jobKey, $periodKey, 0)) {
+    echo json_encode([
+        'ok' => true,
+        'busy' => true,
+        'threshold_minutes' => $minutes,
+        'processed' => 0,
+        'sent' => 0,
+        'failed' => 0,
+    ], JSON_UNESCAPED_SLASHES) . PHP_EOL;
+    exit;
+}
+
+try {
+    $result = commerza_send_pending_engagement_reminders($con, $minutes);
+} finally {
+    commerza_notifications_release_job_lock($con, $jobKey, $periodKey);
+}
 
 echo json_encode([
     'ok' => true,
