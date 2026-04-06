@@ -3,21 +3,21 @@ include "backend/data.php";
 require_once "backend/notifications.php";
 
 if (!empty($_SESSION['user_id']) && $_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header("Location: account.php");
-    exit;
+  header("Location: account.php");
+  exit;
 }
 
 if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+  $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
 $errors = [];
-$email_value = '';
+$login_identifier = '';
 $flash_success = '';
 
 if (!empty($_SESSION['flash_success'])) {
-    $flash_success = (string)$_SESSION['flash_success'];
-    unset($_SESSION['flash_success']);
+  $flash_success = (string)$_SESSION['flash_success'];
+  unset($_SESSION['flash_success']);
 }
 
 if (!empty($_SESSION['oauth_error'])) {
@@ -26,133 +26,148 @@ if (!empty($_SESSION['oauth_error'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (
-        empty($_POST['csrf_token']) ||
-        empty($_SESSION['csrf_token']) ||
-        !hash_equals($_SESSION['csrf_token'], (string)$_POST['csrf_token'])
-    ) {
-        http_response_code(403);
-        exit("Forbidden.");
-    }
+  if (
+    empty($_POST['csrf_token']) ||
+    empty($_SESSION['csrf_token']) ||
+    !hash_equals($_SESSION['csrf_token'], (string)$_POST['csrf_token'])
+  ) {
+    http_response_code(403);
+    exit("Forbidden.");
+  }
 
-    $email_value = strtolower(trim((string)($_POST['user_login_email'] ?? '')));
-    $password = (string)($_POST['user_login_password'] ?? '');
-    $rememberMe = !empty($_POST['remember_me']);
+  $login_identifier = trim((string)($_POST['user_login_identifier'] ?? ''));
+  $normalizedIdentifier = strtolower($login_identifier);
+  $usernameCandidate = commerza_username_slug($normalizedIdentifier);
+  $isEmailLogin = filter_var($normalizedIdentifier, FILTER_VALIDATE_EMAIL) && strlen($normalizedIdentifier) <= 150;
+  $isUsernameLogin = commerza_username_is_valid($usernameCandidate);
+  $password = (string)($_POST['user_login_password'] ?? '');
+  $rememberMe = !empty($_POST['remember_me']);
 
-    $captchaCheck = commerza_captcha_verify_submission($con, $_POST, 'user_login');
-    if (!(bool)$captchaCheck['ok']) {
-      $errors[] = (string)$captchaCheck['message'];
-    }
+  $captchaCheck = commerza_captcha_verify_submission($con, $_POST, 'user_login');
+  if (!(bool)$captchaCheck['ok']) {
+    $errors[] = (string)$captchaCheck['message'];
+  }
 
-    if (!filter_var($email_value, FILTER_VALIDATE_EMAIL) || strlen($email_value) > 150) {
-        $errors[] = "Invalid email or password.";
-    }
+  if (!$isEmailLogin && !$isUsernameLogin) {
+    $errors[] = "Invalid email/username or password.";
+  }
 
-    if ($password === '' || strlen($password) > 255) {
-        $errors[] = "Invalid email or password.";
-    }
+  if ($password === '' || strlen($password) > 255) {
+    $errors[] = "Invalid email/username or password.";
+  }
 
-    $clientIp = commerza_client_ip();
+  $clientIp = commerza_client_ip();
 
-    if (empty($errors)) {
-      $rate = commerza_rate_limit_check(
+  if (empty($errors)) {
+    $rate = commerza_rate_limit_check(
+      $con,
+      'user_login',
+      $normalizedIdentifier !== '' ? $normalizedIdentifier : 'anonymous',
+      $clientIp,
+      4,
+      2700,
+      2700,
+      14400,
+      86400
+    );
+
+    if (!$rate['allowed']) {
+      $retrySeconds = max(1, (int)$rate['retry_after']);
+      $retryMinutes = (int)ceil($retrySeconds / 60);
+      commerza_security_log_rate_limit_block(
         $con,
         'user_login',
-        $email_value !== '' ? $email_value : 'anonymous',
+        'user',
+        $normalizedIdentifier !== '' ? $normalizedIdentifier : 'anonymous',
         $clientIp,
-        4,
-        2700,
-        2700,
-        14400,
-        86400
+        $retrySeconds
       );
+      $errors[] = "Too many login attempts. Try again in " . $retryMinutes . " minute(s) (" . $retrySeconds . " seconds).";
+    }
+  }
 
-      if (!$rate['allowed']) {
-        $retrySeconds = max(1, (int)$rate['retry_after']);
-        $retryMinutes = (int)ceil($retrySeconds / 60);
-        commerza_security_log_rate_limit_block(
-          $con,
-          'user_login',
-          'user',
-          $email_value !== '' ? $email_value : 'anonymous',
-          $clientIp,
-          $retrySeconds
-        );
-        $errors[] = "Too many login attempts. Try again in " . $retryMinutes . " minute(s) (" . $retrySeconds . " seconds).";
+  if (empty($errors)) {
+    $stmt = null;
+
+    if ($isEmailLogin) {
+      $stmt = $con->prepare("SELECT id, full_name, email, password_hash FROM users WHERE email = ? LIMIT 1");
+      if ($stmt) {
+        $stmt->bind_param("s", $normalizedIdentifier);
+      }
+    } else {
+      $stmt = $con->prepare("SELECT id, full_name, email, password_hash FROM users WHERE username_slug = ? OR username = ? LIMIT 1");
+      if ($stmt) {
+        $stmt->bind_param("ss", $usernameCandidate, $usernameCandidate);
       }
     }
 
-    if (empty($errors)) {
-      $stmt = $con->prepare("SELECT id, full_name, email, password_hash FROM users WHERE email = ? LIMIT 1");
+    if (!$stmt) {
+      $errors[] = "Something went wrong. Please try again.";
+    } else {
+      $stmt->execute();
+      $result = $stmt->get_result();
+      $user = $result ? $result->fetch_assoc() : null;
 
-        if (!$stmt) {
-            $errors[] = "Something went wrong. Please try again.";
+      if ($user && commerza_password_verify($password, (string)$user['password_hash'])) {
+        $stmt->close();
+        session_regenerate_id(true);
+        $_SESSION['user_id'] = (int)$user['id'];
+        if ($rememberMe) {
+          commerza_issue_remember_token($con, (int)$user['id']);
         } else {
-            $stmt->bind_param("s", $email_value);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            $user = $result ? $result->fetch_assoc() : null;
-
-            if ($user && commerza_password_verify($password, (string)$user['password_hash'])) {
-                $stmt->close();
-                session_regenerate_id(true);
-                $_SESSION['user_id'] = (int)$user['id'];
-              if ($rememberMe) {
-                commerza_issue_remember_token($con, (int)$user['id']);
-              } else {
-                commerza_forget_current_remember_token($con);
-              }
-              commerza_rate_limit_reset($con, 'user_login', $email_value, $clientIp);
-              commerza_notify_user_login(
-                $con,
-                (int)$user['id'],
-                (string)($user['email'] ?? $email_value),
-                (string)($user['full_name'] ?? ''),
-                $clientIp
-              );
-              commerza_security_log_auth_attempt(
-                $con,
-                'user',
-                (string)($user['email'] ?? $email_value),
-                $clientIp,
-                true,
-                'login_success',
-                (int)$user['id'],
-                0
-              );
-
-              if (commerza_password_needs_rehash((string)$user['password_hash'])) {
-                $rehash = commerza_password_hash($password);
-                if ($rehash !== '') {
-                  $rehashStmt = $con->prepare('UPDATE users SET password_hash = ? WHERE id = ? LIMIT 1');
-                  if ($rehashStmt) {
-                    $userId = (int)$user['id'];
-                    $rehashStmt->bind_param('si', $rehash, $userId);
-                    $rehashStmt->execute();
-                    $rehashStmt->close();
-                  }
-                }
-              }
-
-                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-                header("Location: account.php");
-                exit;
-            }
-
-            commerza_security_log_auth_attempt(
-              $con,
-              'user',
-              $email_value !== '' ? $email_value : 'anonymous',
-              $clientIp,
-              false,
-              'invalid_credentials',
-              0,
-              0
-            );
-            $errors[] = "Invalid email or password.";
-            $stmt->close();
+          commerza_forget_current_remember_token($con);
         }
+        commerza_rate_limit_reset($con, 'user_login', $normalizedIdentifier, $clientIp);
+        commerza_notify_user_login(
+          $con,
+          (int)$user['id'],
+          (string)($user['email'] ?? $normalizedIdentifier),
+          (string)($user['full_name'] ?? ''),
+          $clientIp
+        );
+        commerza_security_log_auth_attempt(
+          $con,
+          'user',
+          (string)($user['email'] ?? $normalizedIdentifier),
+          $clientIp,
+          true,
+          'login_success',
+          (int)$user['id'],
+          0
+        );
+
+        if (commerza_password_needs_rehash((string)$user['password_hash'])) {
+          $rehash = commerza_password_hash($password);
+          if ($rehash !== '') {
+            $rehashStmt = $con->prepare('UPDATE users SET password_hash = ? WHERE id = ? LIMIT 1');
+            if ($rehashStmt) {
+              $userId = (int)$user['id'];
+              $rehashStmt->bind_param('si', $rehash, $userId);
+              $rehashStmt->execute();
+              $rehashStmt->close();
+            }
+          }
+        }
+
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        header("Location: account.php");
+        exit;
+      }
+
+      commerza_security_log_auth_attempt(
+        $con,
+        'user',
+        $normalizedIdentifier !== '' ? $normalizedIdentifier : 'anonymous',
+        $clientIp,
+        false,
+        'invalid_credentials',
+        0,
+        0
+      );
+      $errors[] = "Invalid email/username or password.";
+      $stmt->close();
     }
+  }
 }
 ?>
 <!DOCTYPE html>
@@ -518,10 +533,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <form action="login.php" method="POST" id="loginForm">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
       <div class="mb-3">
-        <label for="user-login-email" class="form-label">Email Address</label>
-        <input type="email" class="form-control" id="user-login-email" name="user_login_email"
-          placeholder="Enter your email" required autocomplete="email" autofocus maxlength="150"
-          value="<?= htmlspecialchars($email_value) ?>" />
+        <label for="user-login-identifier" class="form-label">Email or Username</label>
+        <input type="text" class="form-control" id="user-login-identifier" name="user_login_identifier"
+          placeholder="Enter email or username" required autocomplete="username" autofocus maxlength="150"
+          value="<?= htmlspecialchars($login_identifier) ?>" />
       </div>
 
       <div class="mb-3">
@@ -573,23 +588,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <script src="frontend/assets/js/global-protection.js"></script>
   <?= commerza_captcha_script_tag($con) ?>
   <script <?= commerza_csp_nonce_attr() ?>>
-    $(function () {
+    $(function() {
       let submitted = false;
 
-      $("#togglePassword").on("click", function () {
+      $("#togglePassword").on("click", function() {
         const input = $("#user-login-password");
         input.attr("type", input.attr("type") === "password" ? "text" : "password");
         $(this).toggleClass("bi-eye bi-eye-slash");
       });
 
-      $("#serverAlert, #successAlert").each(function () {
+      $("#serverAlert, #successAlert").each(function() {
         const element = $(this);
-        setTimeout(function () {
+        setTimeout(function() {
           element.fadeOut(400);
         }, 3500);
       });
 
-      $("#loginForm").on("submit", function () {
+      $("#loginForm").on("submit", function() {
         if (submitted) {
           return false;
         }

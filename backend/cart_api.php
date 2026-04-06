@@ -289,6 +289,13 @@ if ($action === 'add') {
         cart_api_json(['ok' => false, 'message' => 'Invalid cart payload.'], 422);
     }
 
+    if ($postedProductName === '' || $postedProductCode === '') {
+        cart_api_json([
+            'ok' => false,
+            'message' => 'Product verification data missing. Refresh and try again.',
+        ], 422);
+    }
+
     if ($quantityToAdd > 10) {
         cart_api_json(['ok' => false, 'message' => 'Quantity is too high.'], 422);
     }

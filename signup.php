@@ -3,19 +3,21 @@ include "backend/data.php";
 require_once "backend/notifications.php";
 
 if (!empty($_SESSION['user_id']) && $_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header("Location: account.php");
-    exit;
+  header("Location: account.php");
+  exit;
 }
 
 if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+  $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
 $errors = [];
 $success = [];
 $full_name = '';
+$username = '';
 $email = '';
 $phone = '';
+$profile_visibility = 'private';
 $pendingSignup = $_SESSION['signup_pending'] ?? null;
 
 if (isset($_GET['reset_pending']) && $_GET['reset_pending'] === '1') {
@@ -25,8 +27,13 @@ if (isset($_GET['reset_pending']) && $_GET['reset_pending'] === '1') {
 
 if (is_array($pendingSignup)) {
   $full_name = (string)($pendingSignup['full_name'] ?? '');
+  $username = (string)($pendingSignup['username'] ?? '');
   $email = (string)($pendingSignup['email'] ?? '');
   $phone = (string)($pendingSignup['phone'] ?? '');
+  $profile_visibility = (string)($pendingSignup['profile_visibility'] ?? 'private');
+  if (!in_array($profile_visibility, ['private', 'public'], true)) {
+    $profile_visibility = 'private';
+  }
 }
 
 function signup_generate_verification_code(): string
@@ -35,202 +42,232 @@ function signup_generate_verification_code(): string
 }
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    if (
-        empty($_POST['csrf_token']) ||
-        empty($_SESSION['csrf_token']) ||
-        !hash_equals($_SESSION['csrf_token'], (string)$_POST['csrf_token'])
-    ) {
-        http_response_code(403);
-        exit("Forbidden.");
+  if (
+    empty($_POST['csrf_token']) ||
+    empty($_SESSION['csrf_token']) ||
+    !hash_equals($_SESSION['csrf_token'], (string)$_POST['csrf_token'])
+  ) {
+    http_response_code(403);
+    exit("Forbidden.");
+  }
+
+  $flowAction = (string)($_POST['flow_action'] ?? 'start_signup');
+
+  $captchaContext = '';
+  if ($flowAction === 'start_signup') {
+    $captchaContext = 'user_signup_start';
+  } elseif ($flowAction === 'resend_code') {
+    $captchaContext = 'user_signup_resend';
+  }
+
+  if ($captchaContext !== '') {
+    $captchaCheck = commerza_captcha_verify_submission($con, $_POST, $captchaContext);
+    if (!(bool)$captchaCheck['ok']) {
+      $errors[] = (string)$captchaCheck['message'];
     }
+  }
 
-    $flowAction = (string)($_POST['flow_action'] ?? 'start_signup');
-
-    $captchaContext = '';
-    if ($flowAction === 'start_signup') {
-      $captchaContext = 'user_signup_start';
-    } elseif ($flowAction === 'resend_code') {
-      $captchaContext = 'user_signup_resend';
-    }
-
-    if ($captchaContext !== '') {
-      $captchaCheck = commerza_captcha_verify_submission($con, $_POST, $captchaContext);
-      if (!(bool)$captchaCheck['ok']) {
-        $errors[] = (string)$captchaCheck['message'];
+  if (empty($errors) && ($flowAction === 'verify_signup' || $flowAction === 'resend_code')) {
+    $pending = $_SESSION['signup_pending'] ?? null;
+    if (!is_array($pending)) {
+      $errors[] = 'Signup session expired. Please start again.';
+    } else {
+      $full_name = (string)($pending['full_name'] ?? '');
+      $username = (string)($pending['username'] ?? '');
+      $email = strtolower(trim((string)($pending['email'] ?? '')));
+      $phone = (string)($pending['phone'] ?? '');
+      $profile_visibility = (string)($pending['profile_visibility'] ?? 'private');
+      if (!in_array($profile_visibility, ['private', 'public'], true)) {
+        $profile_visibility = 'private';
       }
-    }
+      $clientIp = commerza_client_ip();
 
-    if (empty($errors) && ($flowAction === 'verify_signup' || $flowAction === 'resend_code')) {
-      $pending = $_SESSION['signup_pending'] ?? null;
-      if (!is_array($pending)) {
-        $errors[] = 'Signup session expired. Please start again.';
-      } else {
-        $full_name = (string)($pending['full_name'] ?? '');
-        $email = strtolower(trim((string)($pending['email'] ?? '')));
-        $phone = (string)($pending['phone'] ?? '');
-        $clientIp = commerza_client_ip();
+      $verifyScope = $flowAction === 'resend_code' ? 'user_signup_resend' : 'user_signup_verify';
+      $verifyIdentifier = $email !== '' ? $email : 'anonymous';
+      $verifyMax = $flowAction === 'resend_code' ? 4 : 10;
+      $verifyWindow = $flowAction === 'resend_code' ? 3600 : 1800;
+      $verifyRate = commerza_rate_limit_check(
+        $con,
+        $verifyScope,
+        $verifyIdentifier,
+        $clientIp,
+        $verifyMax,
+        $verifyWindow,
+        $verifyWindow,
+        7200,
+        86400
+      );
 
-        $verifyScope = $flowAction === 'resend_code' ? 'user_signup_resend' : 'user_signup_verify';
-        $verifyIdentifier = $email !== '' ? $email : 'anonymous';
-        $verifyMax = $flowAction === 'resend_code' ? 4 : 10;
-        $verifyWindow = $flowAction === 'resend_code' ? 3600 : 1800;
-        $verifyRate = commerza_rate_limit_check(
+      if (!$verifyRate['allowed']) {
+        $retrySeconds = max(1, (int)$verifyRate['retry_after']);
+        $retryMinutes = (int)ceil($retrySeconds / 60);
+        commerza_security_log_rate_limit_block(
           $con,
           $verifyScope,
+          'user',
           $verifyIdentifier,
           $clientIp,
-          $verifyMax,
-          $verifyWindow,
-          $verifyWindow,
-          7200,
-          86400
+          $retrySeconds
         );
+        $errors[] = 'Too many verification attempts. Try again in ' . $retryMinutes . ' minute(s) (' . $retrySeconds . ' seconds).';
+      }
 
-        if (!$verifyRate['allowed']) {
-          $retrySeconds = max(1, (int)$verifyRate['retry_after']);
-          $retryMinutes = (int)ceil($retrySeconds / 60);
-          commerza_security_log_rate_limit_block(
-            $con,
-            $verifyScope,
-            'user',
-            $verifyIdentifier,
-            $clientIp,
-            $retrySeconds
-          );
-          $errors[] = 'Too many verification attempts. Try again in ' . $retryMinutes . ' minute(s) (' . $retrySeconds . ' seconds).';
+      if (!empty($errors)) {
+        $pendingSignup = $_SESSION['signup_pending'] ?? null;
+        goto signup_end;
+      }
+
+      $expiresAt = (int)($pending['expires_at'] ?? 0);
+      if ($expiresAt <= time()) {
+        unset($_SESSION['signup_pending']);
+        $errors[] = 'Verification code expired. Please sign up again.';
+      } elseif ($flowAction === 'resend_code') {
+        $lastResendAt = (int)($pending['last_resend_at'] ?? 0);
+        if ($lastResendAt > 0 && (time() - $lastResendAt) < 45) {
+          $wait = max(1, 45 - (time() - $lastResendAt));
+          $errors[] = 'Please wait ' . $wait . ' second(s) before requesting a new code.';
         }
 
-        if (!empty($errors)) {
-          $pendingSignup = $_SESSION['signup_pending'] ?? null;
-          goto signup_end;
-        }
-
-        $expiresAt = (int)($pending['expires_at'] ?? 0);
-        if ($expiresAt <= time()) {
-          unset($_SESSION['signup_pending']);
-          $errors[] = 'Verification code expired. Please sign up again.';
-        } elseif ($flowAction === 'resend_code') {
-          $lastResendAt = (int)($pending['last_resend_at'] ?? 0);
-          if ($lastResendAt > 0 && (time() - $lastResendAt) < 45) {
-            $wait = max(1, 45 - (time() - $lastResendAt));
-            $errors[] = 'Please wait ' . $wait . ' second(s) before requesting a new code.';
-          }
-
-          if (empty($errors)) {
+        if (empty($errors)) {
           $newCode = signup_generate_verification_code();
           $pending['code_hash'] = hash('sha256', $newCode);
           $pending['expires_at'] = time() + 600;
           $pending['last_resend_at'] = time();
           $_SESSION['signup_pending'] = $pending;
-                commerza_notify_signup_verification_code($con, $email, $full_name, $newCode);
+          commerza_notify_signup_verification_code($con, $email, $full_name, $newCode);
           $success[] = 'A new verification code was sent to your email.';
-          }
+        }
+      } else {
+        $verificationCode = trim((string)($_POST['verification_code'] ?? ''));
+        if (!preg_match('/^\d{6}$/', $verificationCode)) {
+          $errors[] = 'Enter the 6-digit verification code.';
         } else {
-          $verificationCode = trim((string)($_POST['verification_code'] ?? ''));
-          if (!preg_match('/^\d{6}$/', $verificationCode)) {
-            $errors[] = 'Enter the 6-digit verification code.';
-          } else {
-            $codeHash = hash('sha256', $verificationCode);
-            if (!hash_equals((string)($pending['code_hash'] ?? ''), $codeHash)) {
-              $pending['attempts'] = (int)($pending['attempts'] ?? 0) + 1;
-              if ((int)$pending['attempts'] >= 6) {
-                unset($_SESSION['signup_pending']);
-                $errors[] = 'Too many invalid attempts. Please sign up again.';
-              } else {
-                $_SESSION['signup_pending'] = $pending;
-                $errors[] = 'Invalid verification code.';
-              }
+          $codeHash = hash('sha256', $verificationCode);
+          if (!hash_equals((string)($pending['code_hash'] ?? ''), $codeHash)) {
+            $pending['attempts'] = (int)($pending['attempts'] ?? 0) + 1;
+            if ((int)$pending['attempts'] >= 6) {
+              unset($_SESSION['signup_pending']);
+              $errors[] = 'Too many invalid attempts. Please sign up again.';
             } else {
-              $password_hash = (string)($pending['password_hash'] ?? '');
-              if ($password_hash === '') {
-                $errors[] = 'Signup session invalid. Please start again.';
-                unset($_SESSION['signup_pending']);
-              }
+              $_SESSION['signup_pending'] = $pending;
+              $errors[] = 'Invalid verification code.';
+            }
+          } else {
+            $password_hash = (string)($pending['password_hash'] ?? '');
+            $resolvedUsername = commerza_username_resolve_unique(
+              $con,
+              (string)($pending['username'] ?? ''),
+              $full_name,
+              $email
+            );
+            $username = (string)($resolvedUsername['username'] ?? '');
+            $username_slug = (string)($resolvedUsername['slug'] ?? $username);
 
-              if (empty($errors)) {
-                $stmt = $con->prepare("INSERT INTO users (full_name, email, phone, password_hash) VALUES (?, ?, ?, ?)");
+            if (!commerza_username_is_valid($username) || !commerza_username_is_valid($username_slug)) {
+              $errors[] = 'Username is invalid. Please restart signup.';
+            }
 
-                if (!$stmt) {
-                  $errors[] = 'Something went wrong. Please try again.';
-                } else {
-                  $stmt->bind_param("ssss", $full_name, $email, $phone, $password_hash);
+            if ($password_hash === '') {
+              $errors[] = 'Signup session invalid. Please start again.';
+              unset($_SESSION['signup_pending']);
+            }
 
-                  if ($stmt->execute()) {
-                    $stmt->close();
-                    unset($_SESSION['signup_pending']);
-                    $rateIdentifier = $email !== '' ? $email : 'anonymous';
-                    $signupClientIp = commerza_client_ip();
-                    commerza_rate_limit_reset($con, 'user_signup', $rateIdentifier, $signupClientIp);
-                    commerza_rate_limit_reset($con, 'user_signup_verify', $rateIdentifier, $signupClientIp);
-                    commerza_rate_limit_reset($con, 'user_signup_resend', $rateIdentifier, $signupClientIp);
-                    commerza_notify_signup_success($con, $email, $full_name);
-                    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-                    $_SESSION['flash_success'] = 'Email verified. Account created successfully. Please login.';
-                    header('Location: login.php');
-                    exit;
-                  }
+            if (empty($errors)) {
+              $stmt = $con->prepare(
+                "INSERT INTO users (full_name, username, username_slug, email, phone, password_hash, profile_visibility) VALUES (?, ?, ?, ?, ?, ?, ?)"
+              );
 
-                  if ((int)$stmt->errno === 1062 || (int)$con->errno === 1062) {
-                    commerza_security_log_event($con, [
-                      'event_type' => 'signup_duplicate_conflict',
-                      'severity' => 'warning',
-                      'actor_type' => 'user',
-                      'actor_identifier' => $email !== '' ? $email : $phone,
-                      'ip_address' => commerza_client_ip(),
-                      'details' => [
-                        'reason' => 'duplicate_email_or_phone_during_verify',
-                      ],
-                    ]);
-                    $errors[] = 'Email or phone already exists.';
-                    unset($_SESSION['signup_pending']);
-                  } else {
-                    $errors[] = 'Something went wrong. Please try again.';
-                  }
+              if (!$stmt) {
+                $errors[] = 'Something went wrong. Please try again.';
+              } else {
+                $stmt->bind_param("sssssss", $full_name, $username, $username_slug, $email, $phone, $password_hash, $profile_visibility);
 
+                if ($stmt->execute()) {
                   $stmt->close();
+                  unset($_SESSION['signup_pending']);
+                  $rateIdentifier = $email !== '' ? $email : 'anonymous';
+                  $signupClientIp = commerza_client_ip();
+                  commerza_rate_limit_reset($con, 'user_signup', $rateIdentifier, $signupClientIp);
+                  commerza_rate_limit_reset($con, 'user_signup_verify', $rateIdentifier, $signupClientIp);
+                  commerza_rate_limit_reset($con, 'user_signup_resend', $rateIdentifier, $signupClientIp);
+                  commerza_notify_signup_success($con, $email, $full_name);
+                  $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                  $_SESSION['flash_success'] = 'Email verified. Account created successfully. Please login.';
+                  header('Location: login.php');
+                  exit;
                 }
+
+                if ((int)$stmt->errno === 1062 || (int)$con->errno === 1062) {
+                  commerza_security_log_event($con, [
+                    'event_type' => 'signup_duplicate_conflict',
+                    'severity' => 'warning',
+                    'actor_type' => 'user',
+                    'actor_identifier' => $email !== '' ? $email : $phone,
+                    'ip_address' => commerza_client_ip(),
+                    'details' => [
+                      'reason' => 'duplicate_email_or_phone_during_verify',
+                    ],
+                  ]);
+                  $errors[] = 'Email, phone, or username already exists.';
+                  unset($_SESSION['signup_pending']);
+                } else {
+                  $errors[] = 'Something went wrong. Please try again.';
+                }
+
+                $stmt->close();
               }
             }
           }
         }
       }
-    } elseif (empty($errors)) {
-      $full_name = trim((string)($_POST['user_full_name'] ?? ''));
-      $email = strtolower(trim((string)($_POST['user_signup_email'] ?? '')));
-      $phone = preg_replace('/\s+/', '', trim((string)($_POST['user_signup_phone'] ?? '')));
-      $phone = $phone ?? '';
-      $password = (string)($_POST['signup_create_password'] ?? '');
-      $confirm = (string)($_POST['signup_confirm_password'] ?? '');
+    }
+  } elseif (empty($errors)) {
+    $full_name = trim((string)($_POST['user_full_name'] ?? ''));
+    $username = commerza_username_slug((string)($_POST['user_username'] ?? ''));
+    $email = strtolower(trim((string)($_POST['user_signup_email'] ?? '')));
+    $phone = preg_replace('/\s+/', '', trim((string)($_POST['user_signup_phone'] ?? '')));
+    $phone = $phone ?? '';
+    $profile_visibility = strtolower(trim((string)($_POST['profile_visibility'] ?? 'private')));
+    $password = (string)($_POST['signup_create_password'] ?? '');
+    $confirm = (string)($_POST['signup_confirm_password'] ?? '');
 
-      if (
-        strlen($full_name) < 3 ||
-        strlen($full_name) > 40 ||
-        !preg_match("/^[A-Za-z][A-Za-z\\s\\.\\'\\-]{2,39}$/", $full_name)
-      ) {
-        $errors[] = 'Full name must be 3-40 valid letters.';
-      }
+    if (
+      strlen($full_name) < 3 ||
+      strlen($full_name) > 40 ||
+      !preg_match("/^[A-Za-z][A-Za-z\\s\\.\\'\\-]{2,39}$/", $full_name)
+    ) {
+      $errors[] = 'Full name must be 3-40 valid letters.';
+    }
 
-      if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 150) {
-        $errors[] = 'Invalid email address.';
-      }
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 150) {
+      $errors[] = 'Invalid email address.';
+    }
 
-      if (!preg_match('/^\d{11,15}$/', $phone)) {
-        $errors[] = 'Invalid phone number.';
-      }
+    if (!commerza_username_is_valid($username)) {
+      $errors[] = 'Username must be 3-24 chars and use lowercase letters, numbers, or underscores.';
+    }
 
-      if ($password !== $confirm) {
-        $errors[] = 'Passwords do not match.';
-      }
+    if (!preg_match('/^\d{11,15}$/', $phone)) {
+      $errors[] = 'Invalid phone number.';
+    }
 
-      $passwordPolicyError = null;
-      if (!commerza_password_validate($password, $passwordPolicyError)) {
-        $errors[] = $passwordPolicyError !== null ? $passwordPolicyError : commerza_password_policy_description();
-      }
+    if (!in_array($profile_visibility, ['private', 'public'], true)) {
+      $errors[] = 'Invalid profile visibility option.';
+    }
 
-      $clientIp = commerza_client_ip();
-      if (empty($errors)) {
-        $rateIdentifier = $email !== '' ? $email : ($phone !== '' ? $phone : 'anonymous');
-        $rate = commerza_rate_limit_check(
+    if ($password !== $confirm) {
+      $errors[] = 'Passwords do not match.';
+    }
+
+    $passwordPolicyError = null;
+    if (!commerza_password_validate($password, $passwordPolicyError)) {
+      $errors[] = $passwordPolicyError !== null ? $passwordPolicyError : commerza_password_policy_description();
+    }
+
+    $clientIp = commerza_client_ip();
+    if (empty($errors)) {
+      $rateIdentifier = $email !== '' ? $email : ($phone !== '' ? $phone : 'anonymous');
+      $rate = commerza_rate_limit_check(
         $con,
         'user_signup',
         $rateIdentifier,
@@ -240,9 +277,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         2700,
         14400,
         86400
-        );
+      );
 
-        if (!$rate['allowed']) {
+      if (!$rate['allowed']) {
         $retrySeconds = max(1, (int)$rate['retry_after']);
         $retryMinutes = (int)ceil($retrySeconds / 60);
         commerza_security_log_rate_limit_block(
@@ -254,68 +291,79 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
           $retrySeconds
         );
         $errors[] = 'Too many signup attempts. Try again in ' . $retryMinutes . ' minute(s) (' . $retrySeconds . ' seconds).';
-        }
-      }
-
-      if (empty($errors)) {
-        $dupStmt = $con->prepare("SELECT email, phone FROM users WHERE email = ? OR phone = ? LIMIT 2");
-
-        if (!$dupStmt) {
-          $errors[] = 'Something went wrong. Please try again.';
-        } else {
-          $dupStmt->bind_param("ss", $email, $phone);
-          $dupStmt->execute();
-          $dupResult = $dupStmt->get_result();
-
-          $emailTaken = false;
-          $phoneTaken = false;
-
-          if ($dupResult) {
-            while ($row = $dupResult->fetch_assoc()) {
-              if (isset($row['email']) && strcasecmp((string)$row['email'], $email) === 0) {
-                $emailTaken = true;
-              }
-
-              if (isset($row['phone']) && (string)$row['phone'] === $phone) {
-                $phoneTaken = true;
-              }
-            }
-          }
-
-          $dupStmt->close();
-
-          if ($emailTaken) {
-            $errors[] = 'Email already registered.';
-          }
-
-          if ($phoneTaken) {
-            $errors[] = 'Phone already registered.';
-          }
-        }
-      }
-
-      if (empty($errors)) {
-        $verificationCode = signup_generate_verification_code();
-        $_SESSION['signup_pending'] = [
-          'full_name' => $full_name,
-          'email' => $email,
-          'phone' => $phone,
-          'password_hash' => commerza_password_hash($password),
-          'code_hash' => hash('sha256', $verificationCode),
-          'expires_at' => time() + 600,
-          'last_resend_at' => time(),
-          'attempts' => 0,
-        ];
-
-            commerza_notify_signup_verification_code($con, $email, $full_name, $verificationCode);
-        $success[] = 'Verification code sent. Enter it below to complete signup.';
       }
     }
 
-    $pendingSignup = $_SESSION['signup_pending'] ?? null;
+    if (empty($errors)) {
+      $dupStmt = $con->prepare("SELECT email, phone, username_slug FROM users WHERE email = ? OR phone = ? OR username_slug = ? LIMIT 3");
+
+      if (!$dupStmt) {
+        $errors[] = 'Something went wrong. Please try again.';
+      } else {
+        $dupStmt->bind_param("sss", $email, $phone, $username);
+        $dupStmt->execute();
+        $dupResult = $dupStmt->get_result();
+
+        $emailTaken = false;
+        $phoneTaken = false;
+        $usernameTaken = false;
+
+        if ($dupResult) {
+          while ($row = $dupResult->fetch_assoc()) {
+            if (isset($row['email']) && strcasecmp((string)$row['email'], $email) === 0) {
+              $emailTaken = true;
+            }
+
+            if (isset($row['phone']) && (string)$row['phone'] === $phone) {
+              $phoneTaken = true;
+            }
+
+            if (isset($row['username_slug']) && strcasecmp((string)$row['username_slug'], $username) === 0) {
+              $usernameTaken = true;
+            }
+          }
+        }
+
+        $dupStmt->close();
+
+        if ($emailTaken) {
+          $errors[] = 'Email already registered.';
+        }
+
+        if ($phoneTaken) {
+          $errors[] = 'Phone already registered.';
+        }
+
+        if ($usernameTaken) {
+          $errors[] = 'Username already taken.';
+        }
+      }
+    }
+
+    if (empty($errors)) {
+      $verificationCode = signup_generate_verification_code();
+      $_SESSION['signup_pending'] = [
+        'full_name' => $full_name,
+        'username' => $username,
+        'email' => $email,
+        'phone' => $phone,
+        'profile_visibility' => $profile_visibility,
+        'password_hash' => commerza_password_hash($password),
+        'code_hash' => hash('sha256', $verificationCode),
+        'expires_at' => time() + 600,
+        'last_resend_at' => time(),
+        'attempts' => 0,
+      ];
+
+      commerza_notify_signup_verification_code($con, $email, $full_name, $verificationCode);
+      $success[] = 'Verification code sent. Enter it below to complete signup.';
+    }
+  }
+
+  $pendingSignup = $_SESSION['signup_pending'] ?? null;
 }
 
-  signup_end:
+signup_end:
 
 if (!empty($_SESSION['oauth_error'])) {
   $errors[] = (string)$_SESSION['oauth_error'];
@@ -860,12 +908,31 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
               </div>
             </div>
 
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="signup-username" class="form-label">Username</label>
+                <input type="text" class="form-control" id="signup-username" name="user_username"
+                  placeholder="your_username" required autocomplete="username"
+                  minlength="3" maxlength="24" pattern="[a-zA-Z][a-zA-Z0-9_]{2,23}"
+                  title="Use 3-24 characters: letters, numbers, underscore."
+                  value="<?= htmlspecialchars($username) ?>" />
+              </div>
+
+              <div class="col-md-6 mb-3">
+                <label for="signup-phone" class="form-label">Phone Number</label>
+                <input type="tel" class="form-control" id="signup-phone" name="user_signup_phone"
+                  placeholder="03XXXXXXXXX" required autocomplete="tel"
+                  minlength="11" maxlength="15" pattern="\d{11,15}" title="Enter 11 to 15 digits only."
+                  value="<?= htmlspecialchars($phone) ?>" />
+              </div>
+            </div>
+
             <div class="mb-3">
-              <label for="signup-phone" class="form-label">Phone Number</label>
-              <input type="tel" class="form-control" id="signup-phone" name="user_signup_phone"
-                placeholder="03XXXXXXXXX" required autocomplete="tel"
-                minlength="11" maxlength="15" pattern="\d{11,15}" title="Enter 11 to 15 digits only."
-                value="<?= htmlspecialchars($phone) ?>" />
+              <label for="profile-visibility" class="form-label">Profile Visibility</label>
+              <select class="form-control" id="profile-visibility" name="profile_visibility" required>
+                <option value="private" <?= $profile_visibility === 'private' ? 'selected' : '' ?>>Private Profile</option>
+                <option value="public" <?= $profile_visibility === 'public' ? 'selected' : '' ?>>Public Profile</option>
+              </select>
             </div>
 
             <div class="row">
@@ -923,10 +990,14 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
   <script src="frontend/assets/js/global-protection.js"></script>
   <?= commerza_captcha_script_tag($con) ?>
   <script <?= commerza_csp_nonce_attr() ?>>
-    $(function () {
+    $(function() {
       let submitted = false;
       const csrf = $('input[name="csrf_token"]').val();
-      const fieldState = { email: false, phone: false };
+      const fieldState = {
+        email: false,
+        phone: false,
+        username: false
+      };
 
       <?php if (!empty($errors)): ?>
         setTimeout(() => $("#serverAlert").fadeOut(400), 3500);
@@ -963,12 +1034,16 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
       }
 
       function checkField(input, field, value, message) {
-        $.post("backend/check_exists.php", { csrf_token: csrf, field, value })
-          .done(function (res) {
+        $.post("backend/check_exists.php", {
+            csrf_token: csrf,
+            field,
+            value
+          })
+          .done(function(res) {
             fieldState[field] = !!res.exists;
             setFieldStatus(input, !!res.exists, message);
           })
-          .fail(function () {
+          .fail(function() {
             clearFieldStatus(input);
             fieldState[field] = false;
           });
@@ -976,8 +1051,32 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
 
       let emailTimer;
       let phoneTimer;
+      let usernameTimer;
 
-      $("#signup-email").on("input", function () {
+      $("#signup-username").on("input", function() {
+        const input = $(this);
+        const normalized = input
+          .val()
+          .toString()
+          .toLowerCase()
+          .replace(/\s+/g, "_")
+          .replace(/[^a-z0-9_]/g, "")
+          .replace(/_+/g, "_")
+          .replace(/^_+|_+$/g, "");
+
+        input.val(normalized);
+        clearTimeout(usernameTimer);
+        clearFieldStatus(input);
+        fieldState.username = false;
+
+        if (normalized.length < 3) return;
+
+        usernameTimer = setTimeout(() => {
+          checkField(input, "username", normalized, "Username already taken");
+        }, 450);
+      });
+
+      $("#signup-email").on("input", function() {
         const val = $(this).val().trim().toLowerCase();
         clearTimeout(emailTimer);
         clearFieldStatus($(this));
@@ -988,7 +1087,7 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
         }, 500);
       });
 
-      $("#signup-phone").on("input", function () {
+      $("#signup-phone").on("input", function() {
         const val = $(this).val().trim();
         clearTimeout(phoneTimer);
         clearFieldStatus($(this));
@@ -999,14 +1098,14 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
         }, 500);
       });
 
-      $(".toggle-password").on("click", function () {
+      $(".toggle-password").on("click", function() {
         const id = $(this).data("target");
         const input = $("#" + id);
         input.attr("type", input.attr("type") === "password" ? "text" : "password");
         $(this).toggleClass("bi-eye bi-eye-slash");
       });
 
-      $("#signup-password").on("input", function () {
+      $("#signup-password").on("input", function() {
         const pw = $(this).val();
         let strength = 0;
         if (pw.length >= 10) strength++;
@@ -1027,19 +1126,18 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
           ));
       });
 
-      $("#signupForm").on("submit", function () {
+      $("#signupForm").on("submit", function() {
         if (submitted) {
           return false;
         }
 
-        if (fieldState.email || fieldState.phone) {
-          showAlert(
-            fieldState.email && fieldState.phone
-              ? "Email and phone already registered."
-              : fieldState.email
-              ? "Email already registered."
-              : "Phone already registered."
-          );
+        const takenMessages = [];
+        if (fieldState.email) takenMessages.push("Email already registered.");
+        if (fieldState.phone) takenMessages.push("Phone already registered.");
+        if (fieldState.username) takenMessages.push("Username already taken.");
+
+        if (takenMessages.length > 0) {
+          showAlert(takenMessages.join(" "));
           return false;
         }
 
@@ -1055,7 +1153,7 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
         $("#submitBtn").prop("disabled", true).text("Creating Account...");
       });
 
-      $("#verifySignupForm").on("submit", function () {
+      $("#verifySignupForm").on("submit", function() {
         $("#verifyBtn").prop("disabled", true).text("Verifying...");
       });
     });

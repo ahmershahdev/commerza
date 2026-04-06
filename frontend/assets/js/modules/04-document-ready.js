@@ -401,6 +401,7 @@ $(document).ready(function () {
     const item = {
       id: btn.data("productId"),
       name: btn.data("productName"),
+      productCode: btn.data("productCode"),
       image: btn.data("productImage"),
       price: btn.data("productPrice"),
       salePrice: btn.data("productSalePrice"),
