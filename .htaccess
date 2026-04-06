@@ -12,6 +12,15 @@ RewriteRule (^|/)\.(?:git|svn|hg)(?:/|$) - [F,L,NC]
 RewriteRule ^backend/(?:data|mailer|nav_state|notifications|rate_limit|cart_helpers|coupon_helpers|payment_helpers|security_helpers|security_events|products_schema_helpers|expiry_cleanup|send_engagement_reminders|weekly_analytics_report|monthly_profit_report)\.php$ - [F,L,NC]
 RewriteRule ^admin/backend/auth\.php$ - [F,L,NC]
 
+# Block direct browser navigation to backend/admin backend PHP scripts.
+# Keep non-navigation API calls (fetch/XHR or JSON clients) operational.
+RewriteCond %{REQUEST_URI} (?:^|/)(?:admin/)?backend/[^/]+\.php$ [NC]
+RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$ [NC]
+RewriteCond %{HTTP_SEC_FETCH_DEST} =document [OR]
+RewriteCond %{HTTP_SEC_FETCH_MODE} =navigate [OR]
+RewriteCond %{HTTP_ACCEPT} text/html [NC]
+RewriteRule ^ - [R=404,L]
+
 # Legacy .php to clean-path redirects are handled in PHP entry pages to avoid
 # malformed Location headers on some Windows Apache setups.
 

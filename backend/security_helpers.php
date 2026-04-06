@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 function commerza_password_algo()
@@ -412,7 +413,121 @@ function commerza_captcha_script_tag(mysqli $con): string
     $scriptUrl = htmlspecialchars((string)$config['script_url'], ENT_QUOTES, 'UTF-8');
     $nonceAttr = function_exists('commerza_csp_nonce_attr') ? (' ' . commerza_csp_nonce_attr()) : '';
 
-    return '<script' . $nonceAttr . ' src="' . $scriptUrl . '" async defer></script>';
+    $networkGuard = <<<'HTML'
+<script%s>
+(function () {
+    if (window.__commerzaCaptchaNetworkGuardAttached) {
+        return;
+    }
+    window.__commerzaCaptchaNetworkGuardAttached = true;
+
+    var warned = false;
+
+    function hasCaptchaWidget() {
+        return !!document.querySelector('.g-recaptcha, .captcha-widget');
+    }
+
+    function renderFallbackAlert(message) {
+        var existing = document.getElementById('commerza-captcha-network-alert');
+        if (existing) {
+            var text = existing.querySelector('[data-captcha-alert-text]');
+            if (text) {
+                text.textContent = message;
+            }
+            existing.style.display = 'block';
+            return;
+        }
+
+        var box = document.createElement('div');
+        box.id = 'commerza-captcha-network-alert';
+        box.setAttribute('role', 'alert');
+        box.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:9999;max-width:360px;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,102,0,.55);background:rgba(18,18,18,.96);color:#f2f2f2;box-shadow:0 12px 24px rgba(0,0,0,.45);font:600 13px/1.45 Inter,Arial,sans-serif;';
+
+        box.innerHTML = '<div style="display:flex;align-items:flex-start;gap:10px;"><div style="flex:1;"><div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#ffb36a;margin-bottom:4px;">Captcha Notice</div><div data-captcha-alert-text></div></div><button type="button" aria-label="Close" style="border:0;background:transparent;color:#d9d9d9;font-size:16px;line-height:1;cursor:pointer;padding:0 2px;">&times;</button></div>';
+
+        var body = document.body || document.documentElement;
+        body.appendChild(box);
+
+        var textNode = box.querySelector('[data-captcha-alert-text]');
+        if (textNode) {
+            textNode.textContent = message;
+        }
+
+        var closeBtn = box.querySelector('button');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function () {
+                box.style.display = 'none';
+            });
+        }
+    }
+
+    function showNetworkAlert(message) {
+        if (warned) {
+            return;
+        }
+
+        warned = true;
+
+        if (typeof window.showNotif === 'function') {
+            window.showNotif(message, 'warning');
+            return;
+        }
+
+        if (typeof window.showAccountMessage === 'function') {
+            window.showAccountMessage(message, 'warning');
+            return;
+        }
+
+        renderFallbackAlert(message);
+    }
+
+    function checkCaptchaHealth() {
+        if (!hasCaptchaWidget()) {
+            return;
+        }
+
+        if (window.grecaptcha && typeof window.grecaptcha.render === 'function') {
+            return;
+        }
+
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+            showNetworkAlert('Internet seems offline. CAPTCHA will appear after the connection is restored.');
+            return;
+        }
+
+        showNetworkAlert('CAPTCHA is loading slowly. Please check your internet connection and retry.');
+    }
+
+    function scheduleHealthCheck() {
+        window.setTimeout(checkCaptchaHealth, 9000);
+    }
+
+    window.addEventListener('offline', function () {
+        if (!hasCaptchaWidget()) {
+            return;
+        }
+        showNetworkAlert('Internet seems offline. CAPTCHA cannot be verified right now.');
+    });
+
+    window.addEventListener('online', function () {
+        warned = false;
+        var existing = document.getElementById('commerza-captcha-network-alert');
+        if (existing) {
+            existing.style.display = 'none';
+        }
+    });
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', scheduleHealthCheck, { once: true });
+    } else {
+        scheduleHealthCheck();
+    }
+})();
+</script>
+HTML;
+
+    return '<script' . $nonceAttr . ' src="' . $scriptUrl . '" async defer></script>'
+        . sprintf($networkGuard, $nonceAttr);
 }
 
 function commerza_captcha_widget_html(mysqli $con, string $context = ''): string
