@@ -108,6 +108,10 @@
       return "";
     }
 
+    if (rawHref === "#" || rawHref.startsWith("#")) {
+      return rawHref;
+    }
+
     let parsed = null;
     try {
       parsed = new URL(rawHref, window.location.href);
@@ -122,7 +126,7 @@
     const normalizedPath = parsed.pathname.replace(/\\/g, "/");
     const malformedPrefix = /^\/C:\/xampp\/htdocs\/commerza\//i;
     if (!malformedPrefix.test(normalizedPath)) {
-      return parsed.toString();
+      return rawHref;
     }
 
     const fixedPath = normalizedPath.replace(malformedPrefix, "/commerza/");
@@ -160,6 +164,41 @@
         }
 
         anchor.setAttribute("href", normalizedHref);
+      },
+      true,
+    );
+  }
+
+  function installCartAnchorGuard() {
+    if (
+      document.documentElement.dataset.commerzaCartAnchorGuardInstalled === "1"
+    ) {
+      return;
+    }
+
+    document.documentElement.dataset.commerzaCartAnchorGuardInstalled = "1";
+
+    document.addEventListener(
+      "click",
+      function (event) {
+        const anchor =
+          event.target && event.target.closest
+            ? event.target.closest("a.product-btn-cart, a.product-btn-buy")
+            : null;
+
+        if (!anchor) {
+          return;
+        }
+
+        const href = (anchor.getAttribute("href") || "").toString().trim();
+        if (
+          href === "" ||
+          href === "#" ||
+          href.startsWith("#") ||
+          href.endsWith("#")
+        ) {
+          event.preventDefault();
+        }
       },
       true,
     );
@@ -253,6 +292,7 @@
   }
 
   installMalformedLinkGuard();
+  installCartAnchorGuard();
   installGlobalProductCardTracking();
 
   const moduleCandidates = [
