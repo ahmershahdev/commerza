@@ -1,6 +1,7 @@
 <?php
 include "backend/data.php";
 require_once __DIR__ . '/backend/notifications.php';
+require_once __DIR__ . '/backend/media_image_helpers.php';
 
 if (!isset($_SESSION['user_id']) || !is_numeric($_SESSION['user_id'])) {
   header("Location: login.php");
@@ -559,18 +560,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $errors[] = "Invalid upload.";
         } else {
           $finfo = finfo_open(FILEINFO_MIME_TYPE);
-          $mime = $finfo ? finfo_file($finfo, $tmp_path) : '';
+          $mime = $finfo ? (string)finfo_file($finfo, $tmp_path) : '';
 
           if ($finfo) {
             finfo_close($finfo);
           }
 
-          $allowed = [
-            'image/jpeg' => 'jpg',
-            'image/png' => 'png',
-            'image/webp' => 'webp',
-            'image/gif' => 'gif'
-          ];
+          $allowed = commerza_media_allowed_image_mimes();
 
           if (!isset($allowed[$mime])) {
             $errors[] = "Only JPG, PNG, WEBP, and GIF are allowed.";
@@ -580,36 +576,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
               $errors[] = "Failed to create upload directory.";
             } else {
-              $ext = $allowed[$mime];
-              $filename = 'user_' . $user_id . '_' . bin2hex(random_bytes(12)) . '.' . $ext;
-              $destination = $uploadDir . DIRECTORY_SEPARATOR . $filename;
-              $publicPath = 'frontend/assets/images/users/' . $filename;
-
-              if (!move_uploaded_file($tmp_path, $destination)) {
-                $errors[] = "Failed to save uploaded image.";
+              $conversion = commerza_media_convert_upload_to_webp($tmp_path, $mime, 220, 1400);
+              if (!(bool)($conversion['ok'] ?? false)) {
+                $errors[] = (string)($conversion['message'] ?? 'Failed to parse and compress profile picture.');
               } else {
-                $updateStmt = $con->prepare("UPDATE users SET profile_picture = ? WHERE id = ? LIMIT 1");
+                $outputExtension = strtolower(trim((string)($conversion['extension'] ?? '')));
+                if ($outputExtension === '') {
+                  $outputExtension = 'webp';
+                }
 
-                if (!$updateStmt) {
-                  $errors[] = "Something went wrong. Please try again.";
+                $filename = 'user_' . $user_id . '_' . bin2hex(random_bytes(12)) . '.' . $outputExtension;
+                $destination = $uploadDir . DIRECTORY_SEPARATOR . $filename;
+                $publicPath = 'frontend/assets/images/users/' . $filename;
+                $binary = (string)($conversion['binary'] ?? '');
+
+                if ($binary === '' || file_put_contents($destination, $binary) === false) {
+                  $errors[] = "Failed to save uploaded image.";
                 } else {
-                  $updateStmt->bind_param("si", $publicPath, $user_id);
+                  $updateStmt = $con->prepare("UPDATE users SET profile_picture = ? WHERE id = ? LIMIT 1");
 
-                  if ($updateStmt->execute()) {
-                    if (!empty($user['profile_picture']) && strpos((string)$user['profile_picture'], 'frontend/assets/images/users/') === 0) {
-                      $oldPath = __DIR__ . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string)$user['profile_picture']);
+                  if (!$updateStmt) {
+                    $errors[] = "Something went wrong. Please try again.";
+                  } else {
+                    $updateStmt->bind_param("si", $publicPath, $user_id);
 
-                      if (is_file($oldPath)) {
-                        @unlink($oldPath);
+                    if ($updateStmt->execute()) {
+                      if (!empty($user['profile_picture']) && strpos((string)$user['profile_picture'], 'frontend/assets/images/users/') === 0) {
+                        $oldPath = __DIR__ . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string)$user['profile_picture']);
+
+                        if (is_file($oldPath)) {
+                          @unlink($oldPath);
+                        }
                       }
+
+                      $success[] = "Profile picture updated successfully.";
+                    } else {
+                      $errors[] = "Something went wrong. Please try again.";
                     }
 
-                    $success[] = "Profile picture updated successfully.";
-                  } else {
-                    $errors[] = "Something went wrong. Please try again.";
+                    $updateStmt->close();
                   }
-
-                  $updateStmt->close();
                 }
               }
             }

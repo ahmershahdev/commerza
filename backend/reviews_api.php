@@ -5,6 +5,7 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/data.php';
+require_once __DIR__ . '/media_image_helpers.php';
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -236,6 +237,7 @@ function reviews_api_validate_uploaded_images(array $files): array
 
     $validated = [];
     $maxBytes = reviews_api_upload_limit_bytes();
+    $allowedMimes = commerza_media_allowed_image_mimes();
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
 
     foreach ($files as $file) {
@@ -256,11 +258,6 @@ function reviews_api_validate_uploaded_images(array $files): array
             return [false, [], 'Each image must be less than 6 MB.'];
         }
 
-        $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-        if (!in_array($ext, ['jpg', 'jpeg', 'png'], true)) {
-            return [false, [], 'Only PNG and JPG images are allowed.'];
-        }
-
         $mime = '';
         if ($finfo) {
             $mime = (string)finfo_file($finfo, $tmpName);
@@ -268,15 +265,15 @@ function reviews_api_validate_uploaded_images(array $files): array
             $mime = (string)mime_content_type($tmpName);
         }
 
-        if (!in_array($mime, ['image/jpeg', 'image/png'], true)) {
-            return [false, [], 'Only PNG and JPG images are allowed.'];
+        if (!isset($allowedMimes[$mime])) {
+            return [false, [], 'Only JPG, PNG, WEBP, and GIF images are allowed.'];
         }
 
         $validated[] = [
             'tmp_name' => $tmpName,
             'size' => $size,
-            'extension' => $ext === 'jpeg' ? 'jpg' : $ext,
-            'name' => $originalName,
+            'mime' => $mime,
+            'name' => commerza_media_normalize_upload_name($originalName, 'review-image.webp'),
         ];
     }
 
@@ -298,10 +295,23 @@ function reviews_api_store_images(array $files, int $reviewId, int $userId): arr
     }
 
     foreach ($files as $index => $file) {
-        $extension = (string)($file['extension'] ?? 'jpg');
         $tmpName = (string)($file['tmp_name'] ?? '');
-        $size = (int)($file['size'] ?? 0);
+        $mime = (string)($file['mime'] ?? '');
         $displayName = (string)($file['name'] ?? 'review-image');
+
+        $conversion = commerza_media_convert_upload_to_webp($tmpName, $mime, 260, 2200);
+        if (!(bool)($conversion['ok'] ?? false)) {
+            return [
+                false,
+                $stored,
+                (string)($conversion['message'] ?? 'Unable to parse and compress uploaded review image.'),
+            ];
+        }
+
+        $outputExtension = strtolower(trim((string)($conversion['extension'] ?? '')));
+        if ($outputExtension === '') {
+            $outputExtension = 'webp';
+        }
 
         try {
             $token = bin2hex(random_bytes(16));
@@ -309,18 +319,27 @@ function reviews_api_store_images(array $files, int $reviewId, int $userId): arr
             $token = uniqid('rvw', true);
         }
 
-        $fileName = 'review_' . $reviewId . '_' . $userId . '_' . $token . '.' . $extension;
+        $fileName = 'review_' . $reviewId . '_' . $userId . '_' . $token . '.' . $outputExtension;
         $relativePath = $storageDirRelative . '/' . $fileName;
         $absolutePath = $storageDirAbsolute . DIRECTORY_SEPARATOR . $fileName;
 
-        if (!move_uploaded_file($tmpName, $absolutePath)) {
+        $displayStem = pathinfo($displayName, PATHINFO_FILENAME);
+        $displayStem = commerza_media_normalize_upload_name($displayStem, 'review-image');
+        $storedDisplayName = $displayStem . '.' . $outputExtension;
+
+        $binary = (string)($conversion['binary'] ?? '');
+        if ($binary === '') {
+            return [false, $stored, 'Unable to save uploaded review image.'];
+        }
+
+        if (file_put_contents($absolutePath, $binary) === false) {
             return [false, $stored, 'Unable to save uploaded review image.'];
         }
 
         $stored[] = [
             'path' => $relativePath,
-            'name' => $displayName,
-            'size' => $size,
+            'name' => $storedDisplayName,
+            'size' => (int)($conversion['bytes'] ?? 0),
             'sort_order' => $index,
         ];
     }
@@ -745,6 +764,8 @@ reviews_api_rate_limit_guard($con, 'reviews_submit', 'user_' . $userId, 'user', 
 
 $rating = (int)($_POST['rating'] ?? 0);
 $reviewText = trim((string)($_POST['review_text'] ?? ''));
+$removeExistingImagesRaw = strtolower(trim((string)($_POST['remove_existing_images'] ?? '')));
+$removeExistingImages = in_array($removeExistingImagesRaw, ['1', 'true', 'yes', 'on'], true);
 
 if ($rating < 1 || $rating > 5) {
     reviews_api_json([
@@ -786,7 +807,7 @@ if (!$existingReview && !(bool)($eligibility['can_review'] ?? false)) {
 
 if ($existingReview) {
     $reviewId = (int)($existingReview['id'] ?? 0);
-    $replaceImages = !empty($validatedImages);
+    $replaceImages = !empty($validatedImages) || $removeExistingImages;
     $oldImagePaths = [];
     $storedImages = [];
 
@@ -830,29 +851,31 @@ if ($existingReview) {
     if ($replaceImages) {
         $oldImagePaths = reviews_api_delete_image_rows($con, $reviewId);
 
-        [$storeOk, $storedImages, $storeError] = reviews_api_store_images($validatedImages, $reviewId, $userId);
-        if (!$storeOk) {
-            $con->rollback();
-            $newPaths = array_map(static fn(array $image): string => (string)($image['path'] ?? ''), $storedImages);
-            reviews_api_delete_files($newPaths);
+        if (!empty($validatedImages)) {
+            [$storeOk, $storedImages, $storeError] = reviews_api_store_images($validatedImages, $reviewId, $userId);
+            if (!$storeOk) {
+                $con->rollback();
+                $newPaths = array_map(static fn(array $image): string => (string)($image['path'] ?? ''), $storedImages);
+                reviews_api_delete_files($newPaths);
 
-            reviews_api_json([
-                'ok' => false,
-                'message' => $storeError !== '' ? $storeError : 'Unable to save review images.',
-                'csrf_token' => $_SESSION['csrf_token'],
-            ], 500);
-        }
+                reviews_api_json([
+                    'ok' => false,
+                    'message' => $storeError !== '' ? $storeError : 'Unable to save review images.',
+                    'csrf_token' => $_SESSION['csrf_token'],
+                ], 500);
+            }
 
-        if (!reviews_api_insert_image_rows($con, $reviewId, $storedImages)) {
-            $con->rollback();
-            $newPaths = array_map(static fn(array $image): string => (string)($image['path'] ?? ''), $storedImages);
-            reviews_api_delete_files($newPaths);
+            if (!reviews_api_insert_image_rows($con, $reviewId, $storedImages)) {
+                $con->rollback();
+                $newPaths = array_map(static fn(array $image): string => (string)($image['path'] ?? ''), $storedImages);
+                reviews_api_delete_files($newPaths);
 
-            reviews_api_json([
-                'ok' => false,
-                'message' => 'Unable to save review images.',
-                'csrf_token' => $_SESSION['csrf_token'],
-            ], 500);
+                reviews_api_json([
+                    'ok' => false,
+                    'message' => 'Unable to save review images.',
+                    'csrf_token' => $_SESSION['csrf_token'],
+                ], 500);
+            }
         }
     }
 
@@ -876,7 +899,11 @@ if ($existingReview) {
 
     reviews_api_json([
         'ok' => true,
-        'message' => $replaceImages ? 'Your review has been updated and images replaced.' : 'Your review has been updated.',
+        'message' => $replaceImages
+            ? (!empty($validatedImages)
+                ? 'Your review has been updated and images replaced.'
+                : 'Your review has been updated and existing images were removed.')
+            : 'Your review has been updated.',
         'logged_in' => true,
         'payload' => reviews_api_payload($con, $productId, $userId),
         'csrf_token' => $_SESSION['csrf_token'],
@@ -930,10 +957,12 @@ if (!$ok || $reviewId <= 0) {
 
 $didConcurrentUpsert = $affectedRows > 1;
 $oldImagePaths = [];
+$removedExistingImages = false;
 
 $storedImages = [];
-if ($didConcurrentUpsert && !empty($validatedImages)) {
+if ($didConcurrentUpsert && ($removeExistingImages || !empty($validatedImages))) {
     $oldImagePaths = reviews_api_delete_image_rows($con, $reviewId);
+    $removedExistingImages = !empty($oldImagePaths);
 }
 
 if (!empty($validatedImages)) {
@@ -986,7 +1015,9 @@ reviews_api_json([
     'message' => $didConcurrentUpsert
         ? (!empty($storedImages)
             ? 'Your existing review was updated and images were replaced.'
-            : 'Your existing review was updated successfully.')
+            : ($removedExistingImages
+                ? 'Your existing review was updated and previous images were removed.'
+                : 'Your existing review was updated successfully.'))
         : (!empty($storedImages)
             ? 'Thanks! Your review with images was submitted successfully.'
             : 'Thanks! Your review was submitted successfully.'),

@@ -768,9 +768,13 @@ $productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza
           </div>
           <div class="col-12">
             <label for="reviewImages" class="form-label text-light">Upload Images (Optional)</label>
-            <input type="file" id="reviewImages" class="form-control review-file-input" accept="image/png,image/jpeg" multiple>
+            <input type="file" id="reviewImages" class="form-control review-file-input" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
             <div id="reviewFileSelection" class="review-file-selection">No images selected yet.</div>
-            <small class="text-secondary d-block mt-1">PNG/JPG only, max 2 images, each less than 6 MB.</small>
+            <div id="reviewRemoveExistingWrap" class="form-check mt-2 d-none">
+              <input class="form-check-input" type="checkbox" value="1" id="reviewRemoveExistingImages">
+              <label class="form-check-label text-light small" for="reviewRemoveExistingImages">Remove previously uploaded review images when updating.</label>
+            </div>
+            <small class="text-secondary d-block mt-1">JPG, PNG, WEBP, or GIF. Max 2 images, each less than 6 MB. Selected images are converted to optimized WEBP before upload.</small>
           </div>
           <div class="col-12">
             <button type="submit" class="btn product-btn-buy" id="reviewSubmitBtn">Submit Review</button>
@@ -845,29 +849,6 @@ $productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza
   <script src="frontend/assets/js/auth.js"></script>
   <script <?= commerza_csp_nonce_attr() ?>>
     window.CommerzaCsrfToken = <?= json_encode((string)$_SESSION['csrf_token']) ?>;
-
-    document.addEventListener("DOMContentLoaded", function() {
-      const reviewInput = document.getElementById("reviewImages");
-      const reviewSelection = document.getElementById("reviewFileSelection");
-
-      if (!reviewInput || !reviewSelection) {
-        return;
-      }
-
-      const refreshSelectionLabel = function() {
-        const files = Array.from(reviewInput.files || []);
-        if (files.length === 0) {
-          reviewSelection.textContent = "No images selected yet.";
-          return;
-        }
-
-        const names = files.map((file) => (file && file.name ? file.name : "image"));
-        reviewSelection.textContent = names.join(" | ");
-      };
-
-      reviewInput.addEventListener("change", refreshSelectionLabel);
-      refreshSelectionLabel();
-    });
   </script>
   <script src="frontend/assets/js/script.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
