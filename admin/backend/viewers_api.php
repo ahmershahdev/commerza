@@ -260,6 +260,16 @@ if ($method === 'GET') {
     $action = strtolower(trim((string)($_POST['action'] ?? ($body['action'] ?? 'get'))));
 }
 
+admin_api_rate_limit_guard(
+    $con,
+    $admin,
+    admin_api_scope('admin_viewers_api', $action),
+    90,
+    60,
+    120,
+    300
+);
+
 if ($action === 'get') {
     $config = admin_viewers_config($con);
     $stats = admin_viewers_stats($con, (int)$config['window_seconds']);
@@ -326,6 +336,13 @@ if (!$ok) {
         'message' => 'Unable to save viewer settings.',
     ], 500);
 }
+
+admin_api_log_security_event($con, $admin, 'analytics.viewers_settings_updated', 'info', [
+    'mode' => $mode,
+    'fake_min' => $fakeMin,
+    'fake_max' => $fakeMax,
+    'window_seconds' => $windowSeconds,
+]);
 
 $config = admin_viewers_config($con);
 $stats = admin_viewers_stats($con, (int)$config['window_seconds']);

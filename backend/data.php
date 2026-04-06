@@ -73,8 +73,28 @@ function commerza_bootstrap_env(): void
 
 commerza_bootstrap_env();
 
-$isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-    || ((int)($_SERVER['SERVER_PORT'] ?? 0) === 443);
+function commerza_request_is_https(): bool
+{
+    $https = strtolower(trim((string)($_SERVER['HTTPS'] ?? '')));
+    $forwardedProto = strtolower(trim((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')));
+    $cfVisitor = strtolower((string)($_SERVER['HTTP_CF_VISITOR'] ?? ''));
+
+    if ($https !== '' && $https !== 'off') {
+        return true;
+    }
+
+    if ($forwardedProto !== '' && str_contains($forwardedProto, 'https')) {
+        return true;
+    }
+
+    if ($cfVisitor !== '' && str_contains($cfVisitor, '"https"')) {
+        return true;
+    }
+
+    return ((int)($_SERVER['SERVER_PORT'] ?? 0) === 443);
+}
+
+$isHttps = commerza_request_is_https();
 
 function commerza_csp_nonce_value(): string
 {
@@ -118,21 +138,283 @@ function commerza_csp_nonce_attr(): string
 
 function commerza_content_security_policy_header(): string
 {
-    $scriptNonce = "'nonce-" . commerza_csp_nonce_value() . "'";
-
     return implode('; ', [
         "default-src 'self'",
         "base-uri 'self'",
         "frame-ancestors 'self'",
         "object-src 'none'",
-        "img-src 'self' data: https:",
-        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
-        "script-src 'self' 'unsafe-inline' " . $scriptNonce . " https://cdn.jsdelivr.net https://code.jquery.com https://js.stripe.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com",
+        "img-src 'self' data: blob: https:",
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com https://cdnjs.cloudflare.com",
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.jquery.com https://js.stripe.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com https://maps.googleapis.com https://www.googletagmanager.com",
         "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net",
-        "connect-src 'self' https://api.stripe.com https://r.stripe.com https://cdn.jsdelivr.net https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com",
-        "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com",
+        "connect-src 'self' https://api.stripe.com https://r.stripe.com https://cdn.jsdelivr.net https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://maps.googleapis.com https://maps.gstatic.com https://www.google-analytics.com https://www.googletagmanager.com",
+        "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.google.com https://www.google.com/maps https://maps.google.com https://www.recaptcha.net https://challenges.cloudflare.com",
         "form-action 'self'",
     ]);
+}
+
+function commerza_public_base_url(): string
+{
+    static $cached = null;
+
+    if (is_string($cached)) {
+        return $cached;
+    }
+
+    $configured = trim((string)(
+        getenv('COMMERZA_APP_URL')
+        ?: getenv('COMMERZA_PUBLIC_URL')
+        ?: getenv('APP_URL')
+        ?: ''
+    ));
+
+    if ($configured !== '' && filter_var($configured, FILTER_VALIDATE_URL)) {
+        $cached = rtrim($configured, '/');
+        return $cached;
+    }
+
+    $isHttps = commerza_request_is_https();
+    $scheme = $isHttps ? 'https' : 'http';
+    $host = trim((string)($_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? 'localhost')));
+    if ($host === '') {
+        $host = 'localhost';
+    }
+
+    $scriptName = trim((string)($_SERVER['SCRIPT_NAME'] ?? ''), '/');
+    $segments = $scriptName === '' ? [] : explode('/', $scriptName);
+    $prefix = '';
+
+    if (count($segments) >= 2 && !str_ends_with((string)$segments[0], '.php')) {
+        $prefix = '/' . trim((string)$segments[0]);
+    }
+
+    $cached = $scheme . '://' . $host . $prefix;
+    return $cached;
+}
+
+function commerza_absolute_url(string $path = ''): string
+{
+    $base = commerza_public_base_url();
+    if ($path === '') {
+        return $base;
+    }
+
+    return $base . '/' . ltrim($path, '/');
+}
+
+function commerza_is_backend_request(): bool
+{
+    $script = strtolower(str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? '')));
+    return str_contains($script, '/backend/') || str_contains($script, '/admin/backend/');
+}
+
+function commerza_is_sensitive_cache_page(): bool
+{
+    $sensitive = [
+        'login.php',
+        'signup.php',
+        'forgot-password.php',
+        'reset-password.php',
+        'account.php',
+        'cart.php',
+        'wishlist.php',
+        'compare.php',
+        'order-tracking.php',
+        'oauth.php',
+        'admin-login.php',
+        'admin-forgot-password.php',
+        'admin-forgot-email.php',
+        'admin-verify-2fa.php',
+        'admin-panel.php',
+    ];
+
+    $script = strtolower(basename((string)($_SERVER['SCRIPT_NAME'] ?? '')));
+    return in_array($script, $sensitive, true);
+}
+
+function commerza_apply_cache_headers(): void
+{
+    if (headers_sent()) {
+        return;
+    }
+
+    $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    $hasAuthenticatedSession = isset($_SESSION['user_id']) || isset($_SESSION['admin_id']);
+
+    $noStore = $method !== 'GET'
+        || commerza_is_backend_request()
+        || commerza_is_sensitive_cache_page()
+        || $hasAuthenticatedSession;
+
+    if ($noStore) {
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
+        return;
+    }
+
+    header('Cache-Control: public, max-age=300, stale-while-revalidate=600');
+    header('Vary: Accept-Encoding');
+}
+
+function commerza_html_meta_normalize(string $buffer): string
+{
+    if ($buffer === '') {
+        return $buffer;
+    }
+
+    $base = commerza_public_base_url();
+    $buffer = str_replace(
+        ['https://commerza.ahmershah.dev', 'http://commerza.ahmershah.dev'],
+        $base,
+        $buffer
+    );
+
+    if (stripos($buffer, '</head>') === false) {
+        return $buffer;
+    }
+
+    if (
+        stripos($buffer, 'name="twitter:card"') === false
+        && preg_match('/property="og:title"\s+content="([^"]*)"/i', $buffer, $ogTitle)
+        && preg_match('/property="og:description"\s+content="([^"]*)"/i', $buffer, $ogDesc)
+        && preg_match('/property="og:image"\s+content="([^"]*)"/i', $buffer, $ogImage)
+    ) {
+        $twitter = "\n  <meta name=\"twitter:card\" content=\"summary_large_image\">"
+            . "\n  <meta name=\"twitter:title\" content=\"{$ogTitle[1]}\">"
+            . "\n  <meta name=\"twitter:description\" content=\"{$ogDesc[1]}\">"
+            . "\n  <meta name=\"twitter:image\" content=\"{$ogImage[1]}\">\n";
+        $buffer = preg_replace('/<\/head>/i', $twitter . '</head>', $buffer, 1) ?? $buffer;
+    }
+
+    if (
+        stripos($buffer, 'rel="canonical"') === false
+        && preg_match('/property="og:url"\s+content="([^"]*)"/i', $buffer, $ogUrl)
+    ) {
+        $canonical = "\n  <link rel=\"canonical\" href=\"{$ogUrl[1]}\" />\n";
+        $buffer = preg_replace('/<\/head>/i', $canonical . '</head>', $buffer, 1) ?? $buffer;
+    }
+
+    $hasOrganizationSchema = preg_match('/"@type"\s*:\s*"Organization"/i', $buffer) === 1;
+    $hasWebsiteSchema = preg_match('/"@type"\s*:\s*"WebSite"/i', $buffer) === 1;
+    $hasPageSchema = preg_match('/"@type"\s*:\s*"(WebPage|FAQPage|Product|CollectionPage|ItemList|Article|ContactPage|AboutPage|CheckoutPage|ProfilePage|SearchResultsPage)"/i', $buffer) === 1;
+
+    $title = 'Commerza';
+    if (preg_match('/<title>(.*?)<\/title>/is', $buffer, $titleMatch)) {
+        $titleText = trim(strip_tags(html_entity_decode((string)$titleMatch[1], ENT_QUOTES, 'UTF-8')));
+        if ($titleText !== '') {
+            $title = $titleText;
+        }
+    }
+
+    $description = 'Commerza premium watches and ecommerce experience.';
+    if (preg_match('/<meta\s+name="description"\s+content="([^"]*)"/i', $buffer, $descriptionMatch)) {
+        $descriptionText = trim(html_entity_decode((string)$descriptionMatch[1], ENT_QUOTES, 'UTF-8'));
+        if ($descriptionText !== '') {
+            $description = $descriptionText;
+        }
+    }
+
+    $pageUrl = '';
+    if (preg_match('/<link\s+rel="canonical"\s+href="([^"]*)"/i', $buffer, $canonicalMatch)) {
+        $pageUrl = trim((string)$canonicalMatch[1]);
+    }
+    if ($pageUrl === '' && preg_match('/property="og:url"\s+content="([^"]*)"/i', $buffer, $ogUrlMatch)) {
+        $pageUrl = trim((string)$ogUrlMatch[1]);
+    }
+    if ($pageUrl === '') {
+        $scriptName = trim((string)($_SERVER['SCRIPT_NAME'] ?? ''), '/');
+        $pageUrl = rtrim(commerza_public_base_url(), '/') . '/';
+        if ($scriptName !== '') {
+            $pageUrl .= $scriptName;
+        }
+    }
+
+    $pageImage = rtrim(commerza_public_base_url(), '/') . '/frontend/assets/images/logo/commerza-logo.webp';
+    if (preg_match('/property="og:image"\s+content="([^"]*)"/i', $buffer, $ogImageMatch)) {
+        $candidateImage = trim((string)$ogImageMatch[1]);
+        if ($candidateImage !== '') {
+            $pageImage = $candidateImage;
+        }
+    }
+
+    $graph = [];
+
+    if (!$hasOrganizationSchema) {
+        $graph[] = [
+            '@type' => 'Organization',
+            '@id' => rtrim(commerza_public_base_url(), '/') . '/#organization',
+            'name' => 'Commerza',
+            'url' => rtrim(commerza_public_base_url(), '/') . '/',
+            'logo' => $pageImage,
+            'sameAs' => [
+                'https://www.facebook.com/commerza.ahmer',
+                'https://www.instagram.com/commerza.ahmer',
+                'https://x.com/commerza_ahmer',
+            ],
+        ];
+    }
+
+    if (!$hasWebsiteSchema) {
+        $graph[] = [
+            '@type' => 'WebSite',
+            '@id' => rtrim(commerza_public_base_url(), '/') . '/#website',
+            'name' => 'Commerza',
+            'url' => rtrim(commerza_public_base_url(), '/') . '/',
+            'publisher' => [
+                '@id' => rtrim(commerza_public_base_url(), '/') . '/#organization',
+            ],
+            'potentialAction' => [
+                '@type' => 'SearchAction',
+                'target' => rtrim(commerza_public_base_url(), '/') . '/products.php?name={search_term_string}',
+                'query-input' => 'required name=search_term_string',
+            ],
+        ];
+    }
+
+    if (!$hasPageSchema) {
+        $graph[] = [
+            '@type' => 'WebPage',
+            'name' => $title,
+            'url' => $pageUrl,
+            'description' => $description,
+            'isPartOf' => [
+                '@id' => rtrim(commerza_public_base_url(), '/') . '/#website',
+            ],
+            'primaryImageOfPage' => [
+                '@type' => 'ImageObject',
+                'url' => $pageImage,
+            ],
+        ];
+    }
+
+    if (!empty($graph)) {
+        $jsonLd = json_encode([
+            '@context' => 'https://schema.org',
+            '@graph' => $graph,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+
+        if (is_string($jsonLd) && $jsonLd !== '') {
+            $script = "\n  <script " . commerza_csp_nonce_attr() . " type=\"application/ld+json\">\n"
+                . $jsonLd
+                . "\n  </script>\n";
+            $buffer = preg_replace('/<\/head>/i', $script . '</head>', $buffer, 1) ?? $buffer;
+        }
+    }
+
+    return $buffer;
+}
+
+function commerza_enable_meta_normalizer(): void
+{
+    static $enabled = false;
+
+    if ($enabled || PHP_SAPI === 'cli' || commerza_is_backend_request()) {
+        return;
+    }
+
+    $enabled = true;
+    ob_start(static fn(string $buffer): string => commerza_html_meta_normalize($buffer));
 }
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -168,7 +450,11 @@ if (!headers_sent()) {
     if ($isHttps) {
         header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
     }
+
+    commerza_apply_cache_headers();
 }
+
+commerza_enable_meta_normalizer();
 
 $host = trim((string)(getenv('COMMERZA_DB_HOST') ?: getenv('DB_HOST') ?: 'localhost'));
 $user = trim((string)(getenv('COMMERZA_DB_USER') ?: getenv('DB_USER') ?: 'root'));
@@ -212,8 +498,7 @@ if (!defined('COMMERZA_REMEMBER_MAX_SESSIONS')) {
 
 function commerza_remember_cookie_options(int $expires): array
 {
-    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || ((int)($_SERVER['SERVER_PORT'] ?? 0) === 443);
+    $isHttps = commerza_request_is_https();
 
     return [
         'expires' => $expires,

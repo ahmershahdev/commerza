@@ -1,5 +1,24 @@
 <?php
 require_once __DIR__ . '/backend/data.php';
+
+$isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+	|| ((int)($_SERVER['SERVER_PORT'] ?? 0) === 443);
+
+$host = trim((string)($_SERVER['HTTP_HOST'] ?? 'localhost'));
+if ($host === '') {
+	$host = 'localhost';
+}
+
+$configuredAppUrl = trim((string)getenv('COMMERZA_APP_URL'));
+if ($configuredAppUrl !== '' && filter_var($configuredAppUrl, FILTER_VALIDATE_URL)) {
+	$siteBaseUrl = rtrim($configuredAppUrl, '/');
+} else {
+	$siteBaseUrl = ($isHttps ? 'https' : 'http') . '://' . $host;
+}
+
+$homeUrl = $siteBaseUrl . '/';
+$privacyUrl = $siteBaseUrl . '/privacy-policy.php';
+$logoUrl = $siteBaseUrl . '/frontend/assets/images/logo/commerza-logo.webp';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -12,11 +31,11 @@ require_once __DIR__ . '/backend/data.php';
 	<meta name="author" content="Syed Ahmer Shah" />
 	<meta property="og:title" content="Privacy Policy | Commerza" />
 	<meta property="og:description" content="How Commerza collects, uses, and protects your personal information." />
-	<meta property="og:url" content="https://commerza.ahmershah.dev/privacy-policy.php" />
+	<meta property="og:url" content="<?= htmlspecialchars($privacyUrl, ENT_QUOTES, 'UTF-8') ?>" />
 	<meta property="og:type" content="website" />
-	<meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp" />
+	<meta property="og:image" content="<?= htmlspecialchars($logoUrl, ENT_QUOTES, 'UTF-8') ?>" />
 	<title>Privacy Policy | Commerza</title>
-	<link rel="canonical" href="https://commerza.ahmershah.dev/privacy-policy.php" />
+	<link rel="canonical" href="<?= htmlspecialchars($privacyUrl, ENT_QUOTES, 'UTF-8') ?>" />
 
 	<link rel="icon" href="frontend/assets/images/favicon/commerza-watches-icon.ico" />
 	<link rel="stylesheet" href="frontend/assets/css/style.css" />
@@ -37,32 +56,52 @@ require_once __DIR__ . '/backend/data.php';
 			text-decoration: underline;
 		}
 
-		.privacy-accordion .accordion-button {
-			background: #111;
-			color: #f2f2f2;
-			border: 1px solid rgba(255, 90, 0, 0.2);
+		.accordion-button {
+			color: #ff6600 !important;
+			background-color: #1a1a1a;
+			color: #ff6600;
+			border: 1px solid #ff6600;
+			border-radius: 6px;
+			margin-bottom: 8px;
+			transition: all 0.3s ease;
 		}
 
-		.privacy-accordion .accordion-button:not(.collapsed) {
-			background: #1a1a1a;
-			color: #ffcc00;
+		.accordion-button:hover {
+			background-color: #252525;
+			border-color: #ff8533;
 		}
 
-		.privacy-accordion .accordion-body {
-			background: #0f0f0f;
-			color: #bdbdbd;
+		.accordion-button::after {
+			background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23ff6600'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
+		}
+
+		.accordion-item {
+			border: none;
+			background-color: transparent;
+			user-select: none;
+		}
+
+		.accordion-collapse,
+		.accordion-collapse.active {
+			border: 1px solid #ff6600;
+			border-top: none;
+			border-radius: 0 0 6px 6px;
+		}
+
+		.accordion-body {
+			background-color: #0d0d0d;
+			border-radius: 0 0 6px 6px;
 		}
 	</style>
 	<script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
 		{
 			"@context": "https://schema.org",
-			"@graph": [
-				{
+			"@graph": [{
 					"@type": "Organization",
-					"@id": "https://commerza.ahmershah.dev/#organization",
+					"@id": "<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>#organization",
 					"name": "Commerza",
-					"url": "https://commerza.ahmershah.dev/",
-					"logo": "https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp",
+					"url": "<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>",
+					"logo": "<?= htmlspecialchars($logoUrl, ENT_QUOTES, 'UTF-8') ?>",
 					"contactPoint": {
 						"@type": "ContactPoint",
 						"contactType": "Privacy Support",
@@ -72,53 +111,52 @@ require_once __DIR__ . '/backend/data.php';
 				},
 				{
 					"@type": "WebSite",
-					"@id": "https://commerza.ahmershah.dev/#website",
-					"url": "https://commerza.ahmershah.dev/",
+					"@id": "<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>#website",
+					"url": "<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>",
 					"name": "Commerza",
 					"publisher": {
-						"@id": "https://commerza.ahmershah.dev/#organization"
+						"@id": "<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>#organization"
 					}
 				},
 				{
 					"@type": "BreadcrumbList",
-					"@id": "https://commerza.ahmershah.dev/privacy-policy.php#breadcrumb",
-					"itemListElement": [
-						{
+					"@id": "<?= htmlspecialchars($privacyUrl, ENT_QUOTES, 'UTF-8') ?>#breadcrumb",
+					"itemListElement": [{
 							"@type": "ListItem",
 							"position": 1,
 							"name": "Home",
-							"item": "https://commerza.ahmershah.dev/"
+							"item": "<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>"
 						},
 						{
 							"@type": "ListItem",
 							"position": 2,
 							"name": "Privacy Policy",
-							"item": "https://commerza.ahmershah.dev/privacy-policy.php"
+							"item": "<?= htmlspecialchars($privacyUrl, ENT_QUOTES, 'UTF-8') ?>"
 						}
 					]
 				},
 				{
 					"@type": "WebPage",
-					"@id": "https://commerza.ahmershah.dev/privacy-policy.php#webpage",
-					"url": "https://commerza.ahmershah.dev/privacy-policy.php",
+					"@id": "<?= htmlspecialchars($privacyUrl, ENT_QUOTES, 'UTF-8') ?>#webpage",
+					"url": "<?= htmlspecialchars($privacyUrl, ENT_QUOTES, 'UTF-8') ?>",
 					"name": "Privacy Policy | Commerza",
 					"description": "How Commerza collects, uses, stores, and protects personal data for account, order, and payment services.",
 					"inLanguage": "en",
 					"isPartOf": {
-						"@id": "https://commerza.ahmershah.dev/#website"
+						"@id": "<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>#website"
 					},
 					"breadcrumb": {
-						"@id": "https://commerza.ahmershah.dev/privacy-policy.php#breadcrumb"
+						"@id": "<?= htmlspecialchars($privacyUrl, ENT_QUOTES, 'UTF-8') ?>#breadcrumb"
 					}
 				},
 				{
 					"@type": "PrivacyPolicy",
-					"@id": "https://commerza.ahmershah.dev/privacy-policy.php#policy",
+					"@id": "<?= htmlspecialchars($privacyUrl, ENT_QUOTES, 'UTF-8') ?>#policy",
 					"name": "Commerza Privacy Policy",
-					"url": "https://commerza.ahmershah.dev/privacy-policy.php",
+					"url": "<?= htmlspecialchars($privacyUrl, ENT_QUOTES, 'UTF-8') ?>",
 					"dateModified": "2026-01-01",
 					"publisher": {
-						"@id": "https://commerza.ahmershah.dev/#organization"
+						"@id": "<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>#organization"
 					}
 				}
 			]
@@ -165,7 +203,7 @@ require_once __DIR__ . '/backend/data.php';
 						<li class="nav-item"><a class="nav-link" href="about.php">About</a></li>
 						<li class="nav-item"><a class="nav-link" href="contact.php">Contact</a></li>
 						<li class="nav-item"><a class="nav-link" href="terms-of-service.php">Terms</a></li>
-						<li class="nav-item"><a class="nav-link" href="privacy-policy.php">Privacy</a></li>
+						<li class="nav-item"><a class="nav-link" href="privacy-policy.php" aria-current="page">Privacy</a></li>
 					</ul>
 				</div>
 			</div>
@@ -201,7 +239,7 @@ require_once __DIR__ . '/backend/data.php';
 					<li class="nav-item"><a class="nav-link" href="about.php">About</a></li>
 					<li class="nav-item"><a class="nav-link" href="contact.php">Contact</a></li>
 					<li class="nav-item"><a class="nav-link" href="terms-of-service.php">Terms</a></li>
-					<li class="nav-item"><a class="nav-link" href="privacy-policy.php">Privacy</a></li>
+					<li class="nav-item"><a class="nav-link" href="privacy-policy.php" aria-current="page">Privacy</a></li>
 				</ul>
 			</div>
 		</div>
@@ -211,31 +249,45 @@ require_once __DIR__ . '/backend/data.php';
 		<section class="page-hero mb-5">
 			<div class="hero-content">
 				<span class="hero-badge"><i class="bi bi-shield-lock"></i> Legal</span>
-				<h1 class="mt-3" style="color: #ff6600">Privacy Policy</h1>
+				<h1 class="mt-3">Privacy Policy</h1>
 				<p class="product-desc mt-2">Effective date: January 1, 2026. This policy explains what personal data Commerza collects, why we collect it, and how we protect it.</p>
 			</div>
 		</section>
 
 		<section class="mb-4">
-			<div class="accordion privacy-accordion" id="privacyQuickActions">
-				<div class="accordion-item border-0 mb-2">
-					<h2 class="accordion-header" id="quickActionOne">
-						<button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#quickActionPanelOne" aria-expanded="true" aria-controls="quickActionPanelOne">
+
+			<div class="accordion policy-faq-accordion" id="faqAccordion">
+				<div class="accordion-item">
+					<h3 class="accordion-header" id="privacyFaqOne">
+						<button class="accordion-button collapsed" type="button"
+							data-bs-toggle="collapse" data-bs-target="#privacyFaqPanelOne"
+							aria-expanded="false" aria-controls="privacyFaqPanelOne"
+							style="color: #ff6600 !important; background-color: #1a1a1a !important; border: 1px solid #ff6600;">
 							How can I request a data update?
 						</button>
-					</h2>
-					<div id="quickActionPanelOne" class="accordion-collapse collapse show" aria-labelledby="quickActionOne" data-bs-parent="#privacyQuickActions">
-						<div class="accordion-body">Email your registered account address and requested correction to <a class="policy-mail" href="mailto:commerza.ahmer@gmail.com?subject=Commerza%20Data%20Correction%20Request">commerza.ahmer@gmail.com</a>.</div>
+					</h3>
+					<div id="privacyFaqPanelOne" class="accordion-collapse collapse" aria-labelledby="privacyFaqOne" data-bs-parent="#faqAccordion">
+						<div class="accordion-body product-desc">
+							Email your registered account address and requested correction to
+							<a class="policy-mail" href="mailto:commerza.ahmer@gmail.com?subject=Commerza%20Data%20Correction%20Request">commerza.ahmer@gmail.com</a>.
+						</div>
 					</div>
 				</div>
-				<div class="accordion-item border-0 mb-2">
-					<h2 class="accordion-header" id="quickActionTwo">
-						<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#quickActionPanelTwo" aria-expanded="false" aria-controls="quickActionPanelTwo">
+
+				<div class="accordion-item">
+					<h3 class="accordion-header" id="privacyFaqTwo">
+						<button class="accordion-button collapsed" type="button"
+							data-bs-toggle="collapse" data-bs-target="#privacyFaqPanelTwo"
+							aria-expanded="false" aria-controls="privacyFaqPanelTwo"
+							style="color: #ff6600 !important; background-color: #1a1a1a !important; border: 1px solid #ff6600;">
 							How do I report a privacy or security concern?
 						</button>
-					</h2>
-					<div id="quickActionPanelTwo" class="accordion-collapse collapse" aria-labelledby="quickActionTwo" data-bs-parent="#privacyQuickActions">
-						<div class="accordion-body">Send full details, screenshots, and your account email (if applicable) to <a class="policy-mail" href="mailto:commerza.ahmer@gmail.com?subject=Commerza%20Privacy%20Security%20Concern">commerza.ahmer@gmail.com</a>.</div>
+					</h3>
+					<div id="privacyFaqPanelTwo" class="accordion-collapse collapse" aria-labelledby="privacyFaqTwo" data-bs-parent="#faqAccordion">
+						<div class="accordion-body product-desc">
+							Send full details, screenshots, and your account email (if applicable) to
+							<a class="policy-mail" href="mailto:commerza.ahmer@gmail.com?subject=Commerza%20Privacy%20Security%20Concern">commerza.ahmer@gmail.com</a>.
+						</div>
 					</div>
 				</div>
 			</div>

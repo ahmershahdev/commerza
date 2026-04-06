@@ -32,6 +32,107 @@ function fetchUser(mysqli $con, int $user_id): ?array
     return $user ?: null;
 }
 
+function account_delete_session_key(): string
+{
+  return 'account_delete_pending';
+}
+
+function account_delete_pending_clear(): void
+{
+  unset($_SESSION[account_delete_session_key()]);
+}
+
+function account_delete_pending_get(): ?array
+{
+  $pending = $_SESSION[account_delete_session_key()] ?? null;
+  return is_array($pending) ? $pending : null;
+}
+
+function account_delete_pending_set(array $pending): void
+{
+  $_SESSION[account_delete_session_key()] = $pending;
+}
+
+function account_delete_profile_picture_file(string $profilePicture): void
+{
+  $relative = trim($profilePicture);
+  if ($relative === '' || strpos($relative, 'frontend/assets/images/users/') !== 0) {
+    return;
+  }
+
+  $absolutePath = __DIR__ . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+  if (is_file($absolutePath)) {
+    @unlink($absolutePath);
+  }
+}
+
+function account_delete_user_permanently(mysqli $con, int $userId): bool
+{
+  if ($userId <= 0 || !$con->begin_transaction()) {
+    return false;
+  }
+
+  $statements = [
+    'DELETE pri FROM product_review_images pri INNER JOIN product_reviews pr ON pr.id = pri.review_id WHERE pr.user_id = ?',
+    'DELETE FROM product_reviews WHERE user_id = ?',
+    'DELETE FROM coupon_redemptions WHERE user_id = ?',
+    'DELETE FROM engagement_reminders WHERE user_id = ?',
+    'DELETE FROM live_product_viewers WHERE user_id = ?',
+    'DELETE FROM refund_requests WHERE user_id = ?',
+    'DELETE FROM security_events WHERE user_id = ?',
+    'DELETE FROM user_sessions WHERE user_id = ?',
+    'DELETE oi FROM order_items oi INNER JOIN orders o ON o.id = oi.order_id WHERE o.user_id = ?',
+    'DELETE FROM orders WHERE user_id = ?',
+    'DELETE cmpi FROM compare_items cmpi INNER JOIN compare_list cmpl ON cmpl.id = cmpi.compare_id WHERE cmpl.user_id = ?',
+    'DELETE FROM compare_list WHERE user_id = ?',
+    'DELETE ci FROM cart_items ci INNER JOIN cart c ON c.id = ci.cart_id WHERE c.user_id = ?',
+    'DELETE FROM cart WHERE user_id = ?',
+    'DELETE wi FROM wishlist_items wi INNER JOIN wishlist w ON w.id = wi.wishlist_id WHERE w.user_id = ?',
+    'DELETE FROM wishlist WHERE user_id = ?',
+  ];
+
+  try {
+    foreach ($statements as $sql) {
+      $stmt = $con->prepare($sql);
+      if (!$stmt) {
+        throw new RuntimeException('Failed to prepare account cleanup statement.');
+      }
+
+      $stmt->bind_param('i', $userId);
+      if (!$stmt->execute()) {
+        $stmt->close();
+        throw new RuntimeException('Failed to execute account cleanup statement.');
+      }
+
+      $stmt->close();
+    }
+
+    $deleteStmt = $con->prepare('DELETE FROM users WHERE id = ? LIMIT 1');
+    if (!$deleteStmt) {
+      throw new RuntimeException('Failed to prepare user deletion statement.');
+    }
+
+    $deleteStmt->bind_param('i', $userId);
+    if (!$deleteStmt->execute()) {
+      $deleteStmt->close();
+      throw new RuntimeException('Failed to delete account row.');
+    }
+
+    $affected = (int)$deleteStmt->affected_rows;
+    $deleteStmt->close();
+
+    if ($affected !== 1) {
+      throw new RuntimeException('Account row was not deleted.');
+    }
+
+    $con->commit();
+    return true;
+  } catch (Throwable $exception) {
+    $con->rollback();
+    return false;
+  }
+}
+
 function account_ensure_refund_table(mysqli $con): void
 {
   static $initialized = false;
@@ -223,12 +324,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $captchaContexts = [
       'update_profile' => 'user_account_profile',
       'update_password' => 'user_account_password',
+      'request_delete_account_code' => 'user_account_delete_request',
+      'delete_account_permanently' => 'user_account_delete_confirm',
     ];
 
     if (isset($captchaContexts[$action])) {
       $captchaCheck = commerza_captcha_verify_submission($con, $_POST, (string)$captchaContexts[$action]);
       if (!(bool)$captchaCheck['ok']) {
         $errors[] = (string)$captchaCheck['message'];
+      }
+    }
+
+    $clientIp = commerza_client_ip();
+    $rateIdentifier = (string)$user_id;
+    $rateScopeUsed = '';
+    $ratePolicies = [
+      'update_profile' => ['scope' => 'user_account_update_profile', 'max' => 8, 'window' => 3600, 'block' => 1800],
+      'update_password' => ['scope' => 'user_account_update_password', 'max' => 6, 'window' => 3600, 'block' => 2400],
+      'update_profile_picture' => ['scope' => 'user_account_update_picture', 'max' => 8, 'window' => 3600, 'block' => 1800],
+      'request_refund' => ['scope' => 'user_account_request_refund', 'max' => 4, 'window' => 3600, 'block' => 3600],
+      'request_delete_account_code' => ['scope' => 'user_account_delete_code', 'max' => 3, 'window' => 3600, 'block' => 3600],
+      'delete_account_permanently' => ['scope' => 'user_account_delete_confirm', 'max' => 6, 'window' => 3600, 'block' => 3600],
+    ];
+
+    if (isset($ratePolicies[$action]) && empty($errors)) {
+      $policy = $ratePolicies[$action];
+      $rateScopeUsed = (string)$policy['scope'];
+
+      $rate = commerza_rate_limit_check(
+        $con,
+        $rateScopeUsed,
+        $rateIdentifier,
+        $clientIp,
+        (int)$policy['max'],
+        (int)$policy['window'],
+        (int)$policy['block'],
+        max((int)$policy['block'], 7200),
+        86400
+      );
+
+      if (!(bool)($rate['allowed'] ?? false)) {
+        $retrySeconds = max(1, (int)($rate['retry_after'] ?? 1));
+        $retryMinutes = (int)ceil($retrySeconds / 60);
+        commerza_security_log_rate_limit_block(
+          $con,
+          $rateScopeUsed,
+          'user',
+          $rateIdentifier,
+          $clientIp,
+          $retrySeconds
+        );
+        $errors[] = 'Too many requests for this action. Try again in ' . $retryMinutes . ' minute(s) (' . $retrySeconds . ' seconds).';
       }
     }
 
@@ -637,8 +783,124 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $success[] = 'Refund request sent. Our team will review and email you updates.';
       }
+    } elseif ($action === 'request_delete_account_code') {
+      if (empty($errors)) {
+        $freshUser = fetchUser($con, $user_id);
+        if (!$freshUser) {
+          $errors[] = 'Unable to verify your account right now.';
+        } else {
+          $pending = account_delete_pending_get();
+          $lastSentAt = (int)($pending['last_sent_at'] ?? 0);
+          if ($lastSentAt > 0 && (time() - $lastSentAt) < 60) {
+            $waitSeconds = max(1, 60 - (time() - $lastSentAt));
+            $errors[] = 'Please wait ' . $waitSeconds . ' second(s) before requesting another delete code.';
+          } else {
+            $email = strtolower(trim((string)($freshUser['email'] ?? '')));
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+              $errors[] = 'Your account email is invalid. Update your profile email first.';
+            } else {
+              $code = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+              $mailError = null;
+              $mailSent = commerza_notify_account_deletion_code(
+                $con,
+                $email,
+                (string)($freshUser['full_name'] ?? 'Customer'),
+                $code,
+                $mailError
+              );
+
+              if (!$mailSent) {
+                $errors[] = $mailError ?: 'Unable to send deletion code. Please try another method or retry later.';
+              } else {
+                account_delete_pending_set([
+                  'user_id' => $user_id,
+                  'email' => $email,
+                  'code_hash' => hash('sha256', $code),
+                  'attempts' => 0,
+                  'expires_at' => time() + 600,
+                  'last_sent_at' => time(),
+                ]);
+
+                $success[] = 'Deletion code sent to your email. Enter the code to permanently delete your account.';
+              }
+            }
+          }
+        }
+      }
+    } elseif ($action === 'delete_account_permanently') {
+      if (empty($errors)) {
+        $pending = account_delete_pending_get();
+        $freshUser = fetchUser($con, $user_id);
+        $currentPasswordInput = (string)($_POST['delete_account_password'] ?? '');
+
+        if (!$freshUser) {
+          $errors[] = 'Unable to verify your account right now.';
+        } elseif (!is_array($pending)) {
+          $errors[] = 'Request an account deletion code first.';
+        } elseif (!commerza_password_verify($currentPasswordInput, (string)($freshUser['password_hash'] ?? ''))) {
+          $errors[] = 'Enter your current password to confirm account deletion.';
+        } else {
+          $pendingUserId = (int)($pending['user_id'] ?? 0);
+          $pendingEmail = strtolower(trim((string)($pending['email'] ?? '')));
+          $currentEmail = strtolower(trim((string)($freshUser['email'] ?? '')));
+          $expiresAt = (int)($pending['expires_at'] ?? 0);
+
+          if ($pendingUserId !== $user_id || $pendingEmail === '' || $currentEmail !== $pendingEmail) {
+            account_delete_pending_clear();
+            $errors[] = 'Deletion code session is invalid. Request a new code.';
+          } elseif ($expiresAt <= 0 || $expiresAt < time()) {
+            account_delete_pending_clear();
+            $errors[] = 'Deletion code expired. Request a new code.';
+          } else {
+            $enteredCode = trim((string)($_POST['delete_account_code'] ?? ''));
+            if (!preg_match('/^\d{6}$/', $enteredCode)) {
+              $errors[] = 'Enter the 6-digit account deletion code.';
+            } else {
+              $expectedHash = (string)($pending['code_hash'] ?? '');
+              $enteredHash = hash('sha256', $enteredCode);
+
+              if ($expectedHash === '' || !hash_equals($expectedHash, $enteredHash)) {
+                $attempts = max(0, (int)($pending['attempts'] ?? 0)) + 1;
+                $pending['attempts'] = $attempts;
+
+                if ($attempts >= 6) {
+                  account_delete_pending_clear();
+                  $errors[] = 'Too many invalid deletion code attempts. Request a new code.';
+                } else {
+                  account_delete_pending_set($pending);
+                  $remaining = max(0, 6 - $attempts);
+                  $errors[] = 'Invalid deletion code. Remaining attempts: ' . $remaining . '.';
+                }
+              } else {
+                $profilePicture = (string)($freshUser['profile_picture'] ?? '');
+                $deleted = account_delete_user_permanently($con, $user_id);
+
+                if (!$deleted) {
+                  $errors[] = 'Unable to delete your account right now. Please contact support.';
+                } else {
+                  account_delete_pending_clear();
+                  account_delete_profile_picture_file($profilePicture);
+                  commerza_forget_current_remember_token($con);
+                  session_unset();
+                  session_destroy();
+                  header('Location: login.php?account_deleted=1');
+                  exit;
+                }
+              }
+            }
+          }
+        }
+      }
     } else {
         $errors[] = "Invalid request.";
+    }
+
+    if (empty($errors) && $rateScopeUsed !== '') {
+      commerza_rate_limit_reset($con, $rateScopeUsed, $rateIdentifier, $clientIp);
+    }
+
+    if (empty($errors) && $action !== 'logout') {
+      $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     }
 
     $user = fetchUser($con, $user_id);
@@ -708,6 +970,18 @@ if ($orderStmt) {
   }
 
 $profile_picture = !empty($user['profile_picture']) ? (string)$user['profile_picture'] : 'frontend/assets/images/logo/commerza-logo.webp';
+
+$accountDeletePending = account_delete_pending_get();
+$accountDeleteCodeExpiresIn = 0;
+if (is_array($accountDeletePending)) {
+  $expiresAt = (int)($accountDeletePending['expires_at'] ?? 0);
+  if ($expiresAt <= 0 || $expiresAt < time()) {
+    account_delete_pending_clear();
+    $accountDeletePending = null;
+  } else {
+    $accountDeleteCodeExpiresIn = max(1, $expiresAt - time());
+  }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -990,6 +1264,68 @@ $profile_picture = !empty($user['profile_picture']) ? (string)$user['profile_pic
                 Update Password
               </button>
             </form>
+          </div>
+        </div>
+
+        <div class="card product-card mt-4">
+          <div class="card-body">
+            <h3 class="product-name mb-2 text-danger">Delete Account</h3>
+            <p class="product-desc mb-3">This action permanently deletes your profile, saved lists, sessions, and linked account data. This cannot be undone.</p>
+
+            <form action="account.php" method="POST" class="mb-3">
+              <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+              <input type="hidden" name="action" value="request_delete_account_code">
+              <?= commerza_captcha_widget_html($con, 'user_account_delete_request') ?>
+              <button type="submit" class="btn product-btn-cart w-100 mt-3" data-loading-text="Sending Code...">
+                Send Deletion Code
+              </button>
+            </form>
+
+            <?php if (is_array($accountDeletePending)): ?>
+              <?php if ($accountDeleteCodeExpiresIn > 0): ?>
+                <p class="text-warning small mb-2">Current deletion code expires in <?= (int)ceil($accountDeleteCodeExpiresIn / 60) ?> minute(s).</p>
+              <?php endif; ?>
+              <form action="account.php" method="POST">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                <input type="hidden" name="action" value="delete_account_permanently">
+
+                <div class="mb-2">
+                  <label for="delete-account-password" class="form-label">Current Password</label>
+                  <input
+                    type="password"
+                    id="delete-account-password"
+                    name="delete_account_password"
+                    class="form-control search-input"
+                    autocomplete="current-password"
+                    required>
+                </div>
+
+                <div class="mb-2">
+                  <label for="delete-account-code" class="form-label">Deletion Code</label>
+                  <input
+                    type="text"
+                    id="delete-account-code"
+                    name="delete_account_code"
+                    class="form-control search-input"
+                    inputmode="numeric"
+                    pattern="[0-9]{6}"
+                    maxlength="6"
+                    minlength="6"
+                    autocomplete="one-time-code"
+                    required>
+                </div>
+
+                <?= commerza_captcha_widget_html($con, 'user_account_delete_confirm') ?>
+
+                <button
+                  type="submit"
+                  class="btn w-100 mt-3"
+                  style="background:#9e1f1f;color:#fff;border:1px solid #d24b4b;"
+                  data-loading-text="Deleting Account...">
+                  Permanently Delete My Account
+                </button>
+              </form>
+            <?php endif; ?>
           </div>
         </div>
       </div>

@@ -1,51 +1,49 @@
-# Backup and Restore Test
+# Backup and Restore Test Runbook
 
-This repository now includes an automated backup/restore verification script:
+## Purpose
 
-- Script: backend/backup_restore_test.ps1
-- Purpose: Validate that SQL backups can be restored and that media archives can be extracted without data/file-count loss.
+This runbook verifies that database and media backups can be restored correctly in the local XAMPP environment.
 
-## What It Tests
+## Prerequisites
 
-1. Creates a SQL dump of the configured database.
-2. Archives media folders used by storefront/admin.
-3. Restores the SQL dump into a temporary test database.
-4. Verifies table counts and critical row counts match source.
-5. Extracts media archives and compares file counts.
-6. Drops the temporary restore database.
+- XAMPP MySQL is running
+- `C:\xampp\mysql\bin` is available
+- PHP CLI available at `C:\xampp\php\php.exe`
+- Sufficient disk space for backup artifacts
 
-## Default Connection Resolution
+## Script
 
-The script resolves DB settings in this order:
+- Primary script: `backend/backup_restore_test.ps1`
 
-1. Explicit script parameters
-2. COMMERZA_DB_HOST / COMMERZA_DB_USER / COMMERZA_DB_PASS / COMMERZA_DB_NAME
-3. Fallback defaults: localhost, root, (empty password), commerza
+## Example Command
 
-## MySQL Binaries
+`powershell -ExecutionPolicy Bypass -File backend/backup_restore_test.ps1 -MySqlBinPath "C:\xampp\mysql\bin"`
 
-It looks for mysql.exe and mysqldump.exe in this order:
+## What the Test Should Validate
 
-1. -MySqlBinPath parameter
-2. COMMERZA_MYSQL_BIN env var
-3. Common Windows install paths (including C:\xampp\mysql\bin)
+1. Database dump can be generated successfully.
+2. Fresh test schema can be restored from dump.
+3. Table count and key data checks match expected baseline.
+4. Media directory backup and restore paths are valid.
 
-## Run Example
+## Success Criteria
 
-```powershell
-powershell -ExecutionPolicy Bypass -File backend/backup_restore_test.ps1 -MySqlBinPath "C:\xampp\mysql\bin"
-```
+- Script exits with success code.
+- No table import failures in output.
+- Restored schema contains expected core tables.
+- Media restore path validation passes.
 
-Optional explicit DB credentials:
+## Failure Triage
 
-```powershell
-powershell -ExecutionPolicy Bypass -File backend/backup_restore_test.ps1 -DbHost localhost -DbUser root -DbPassword "" -DbName commerza -MySqlBinPath "C:\xampp\mysql\bin"
-```
+- MySQL authentication failure:
+  - verify credentials and MySQL service state
+- Dump/restore path errors:
+  - verify path permissions and available storage
+- SQL import failures:
+  - inspect failing statement and schema compatibility
 
-## Output
+## Recommended Frequency
 
-On success, the script prints a completion message and stores artifacts under:
-
-- tmp/backup-restore-test-<timestamp>
-
-If any validation fails, the script exits with an error and keeps artifacts for debugging.
+- Before production release
+- After schema migrations
+- After backup strategy changes

@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   $action = strtolower(trim((string)($_POST['action'] ?? 'verify')));
 
-  $captchaContext = $action === 'resend' ? 'admin_2fa_resend' : 'admin_2fa_verify';
+  $captchaContext = 'admin_2fa_action';
   $captchaCheck = commerza_captcha_verify_submission($con, $_POST, $captchaContext);
   if (!(bool)$captchaCheck['ok']) {
     $errors[] = (string)$captchaCheck['message'];
@@ -187,6 +187,9 @@ if (!$pending) {
   exit;
 }
 
+$verify2faCanonicalUrl = admin_public_url('/admin/frontend/admin-verify-2fa.php');
+$adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.webp');
+
 function admin_mask_email(string $email): string
 {
   $email = strtolower(trim($email));
@@ -214,6 +217,12 @@ function admin_mask_email(string $email): string
   <meta name="robots" content="noindex, nofollow">
   <meta name="author" content="Syed Ahmer Shah">
   <meta name="referrer" content="no-referrer">
+  <link rel="canonical" href="<?= htmlspecialchars($verify2faCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>">
+  <meta property="og:title" content="Admin 2FA Verification | Commerza">
+  <meta property="og:description" content="Second-factor verification for secure Commerza admin login.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="<?= htmlspecialchars($verify2faCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>">
+  <meta property="og:image" content="<?= htmlspecialchars($adminOgImageUrl, ENT_QUOTES, 'UTF-8') ?>">
   <title>Admin 2FA Verification | Commerza</title>
   <link rel="icon" href="assets/images/favicon/commerza-watches-icon.ico" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
@@ -325,7 +334,6 @@ function admin_mask_email(string $email): string
 
     <form action="admin-verify-2fa.php" method="POST" class="mb-2">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
-      <input type="hidden" name="action" value="verify">
 
       <div class="mb-3">
         <label for="verification-code" class="form-label">Verification Code</label>
@@ -344,21 +352,15 @@ function admin_mask_email(string $email): string
         >
       </div>
 
-      <?= commerza_captcha_widget_html($con, 'admin_2fa_verify') ?>
+      <?= commerza_captcha_widget_html($con, 'admin_2fa_action') ?>
 
       <div class="d-grid mb-2">
-        <button type="submit" class="btn btn-primary">Verify & Login</button>
+        <button type="submit" name="action" value="verify" class="btn btn-primary">Verify & Login</button>
       </div>
+      <button type="submit" name="action" value="resend" formnovalidate class="btn btn-link p-0">Resend code</button>
+      <span class="text-secondary px-2">|</span>
+      <a href="admin-login.php" class="btn-link">Back to login</a>
     </form>
-
-    <form action="admin-verify-2fa.php" method="POST" class="d-inline">
-      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
-      <input type="hidden" name="action" value="resend">
-      <?= commerza_captcha_widget_html($con, 'admin_2fa_resend') ?>
-      <button type="submit" class="btn btn-link p-0">Resend code</button>
-    </form>
-    <span class="text-secondary px-2">|</span>
-    <a href="admin-login.php" class="btn-link">Back to login</a>
   </main>
   <?= commerza_captcha_script_tag($con) ?>
 </body>

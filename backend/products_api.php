@@ -1,6 +1,9 @@
 <?php
 
 require_once __DIR__ . '/data.php';
+require_once __DIR__ . '/products_schema_helpers.php';
+
+commerza_products_ensure_schema($con);
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -39,6 +42,50 @@ function commerza_products_api_send(array $payload, int $maxAgeSeconds = 120): v
     exit;
 }
 
+function commerza_products_rate_limit_guard(
+    mysqli $con,
+    string $scope,
+    string $identifier,
+    int $maxAttempts,
+    int $windowSeconds,
+    int $blockSeconds,
+    int $escalatedBlockSeconds = 600
+): void {
+    $clientIp = commerza_client_ip();
+    $rate = commerza_rate_limit_check(
+        $con,
+        $scope,
+        $identifier,
+        $clientIp,
+        max(1, $maxAttempts),
+        max(60, $windowSeconds),
+        max(60, $blockSeconds),
+        max($blockSeconds, $escalatedBlockSeconds)
+    );
+
+    if ((bool)($rate['allowed'] ?? true)) {
+        return;
+    }
+
+    $retrySeconds = max(1, (int)($rate['retry_after'] ?? $blockSeconds));
+    commerza_security_log_rate_limit_block(
+        $con,
+        $scope,
+        'guest',
+        $identifier,
+        $clientIp,
+        $retrySeconds
+    );
+
+    http_response_code(429);
+    echo json_encode([
+        'ok' => false,
+        'message' => 'Too many product requests. Please retry shortly.',
+        'retry_after' => $retrySeconds,
+    ], JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
 function commerza_normalize_page_name(string $page): string
 {
     $page = trim(str_replace('\\', '/', $page));
@@ -60,6 +107,8 @@ if ($action === '') {
 }
 
 if ($action === 'suggest') {
+    commerza_products_rate_limit_guard($con, 'products_suggest', 'suggest_bucket', 90, 60, 120, 600);
+
     $query = preg_replace('/\s+/', ' ', trim((string)($_GET['q'] ?? '')));
     $query = is_string($query) ? $query : '';
     $limit = (int)($_GET['limit'] ?? 6);
@@ -113,6 +162,8 @@ if ($action === 'suggest') {
     ], 30);
 }
 
+commerza_products_rate_limit_guard($con, 'products_sections', 'sections_payload', 75, 60, 120, 600);
+
 $sections = [];
 
 $sectionResult = $con->query(
@@ -136,7 +187,7 @@ if ($sectionResult) {
 }
 
 $productResult = $con->query(
-    'SELECT id, sectionId, name, description, image, price, salePrice, stock, movement
+    'SELECT id, sectionId, name, description, image, price, salePrice, stock, movement, product_code, warranty_info, dispatch_info
      FROM products
      ORDER BY id ASC'
 );
@@ -169,6 +220,9 @@ if ($productResult) {
             'salePrice' => $row['salePrice'] !== null ? (float)$row['salePrice'] : null,
             'stock' => (int)($row['stock'] ?? 0),
             'movement' => (string)($row['movement'] ?? 'quartz'),
+            'productCode' => (string)($row['product_code'] ?? ''),
+            'warrantyInfo' => (string)($row['warranty_info'] ?? ''),
+            'dispatchInfo' => (string)($row['dispatch_info'] ?? ''),
         ];
     }
 }

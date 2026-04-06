@@ -171,8 +171,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://fonts.googleapis.com https://fonts.gstatic.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdn.jsdelivr.net https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; connect-src 'self' https://cdn.jsdelivr.net https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; frame-src 'self' https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'">
   <title>Login | Commerza</title>
   <link rel="canonical" href="https://commerza.ahmershah.dev/login.php" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -229,7 +227,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       max-width: 450px;
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 69, 0, 0.1);
       position: relative;
-      animation: reveal-up 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      animation: reveal-up 1s ease-out forwards;
     }
 
     @keyframes reveal-up {
@@ -349,7 +347,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       text-transform: uppercase;
       letter-spacing: 1.5px;
       padding: 12px !important;
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.22s ease-out;
       position: relative;
       overflow: hidden;
     }

@@ -22,6 +22,9 @@ CREATE TABLE `products` (
   `stock` int DEFAULT 0,
   `movement` enum('auto','manual','quartz','smart') DEFAULT NULL,
   `video_url` varchar(255) DEFAULT NULL COMMENT 'Optional product video',
+  `product_code` varchar(40) DEFAULT NULL COMMENT 'Unique product support code',
+  `warranty_info` varchar(120) NOT NULL DEFAULT '12-month seller warranty',
+  `dispatch_info` varchar(120) NOT NULL DEFAULT 'Dispatch in 24-48 hours',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -129,6 +132,21 @@ WHERE `sectionId` = 'sports-sales-division'
   AND `name` = 'TAG Heuer Carrera Chronograph Extreme Sport'
   AND `price` = 17800.00;
 
+UPDATE `products`
+SET `warranty_info` = '12-month seller warranty'
+WHERE `warranty_info` IS NULL OR TRIM(`warranty_info`) = '';
+
+UPDATE `products`
+SET `dispatch_info` = CASE
+  WHEN COALESCE(`stock`, 0) > 0 THEN 'Dispatch in 24-48 hours'
+  ELSE 'Pre-order availability'
+END
+WHERE `dispatch_info` IS NULL OR TRIM(`dispatch_info`) = '';
+
+UPDATE `products`
+SET `product_code` = CONCAT('CMRZ-', LPAD(`id`, 5, '0'))
+WHERE `product_code` IS NULL OR TRIM(`product_code`) = '';
+
 CREATE TABLE `sections` (
   `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `sectionId` varchar(64) NOT NULL UNIQUE,
@@ -162,7 +180,13 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 ALTER TABLE `products`
-  ADD KEY `sectionId` (`sectionId`);
+  ADD KEY `sectionId` (`sectionId`),
+  ADD KEY `idx_products_section_updated` (`sectionId`, `updated_at`, `id`),
+  ADD KEY `idx_products_movement` (`movement`),
+  ADD KEY `idx_products_price` (`price`),
+  ADD KEY `idx_products_sale_price` (`salePrice`),
+  ADD KEY `idx_products_stock` (`stock`),
+  ADD UNIQUE KEY `uq_products_product_code` (`product_code`);
 
 ALTER TABLE `products`
   ADD CONSTRAINT `products_ibfk_1` FOREIGN KEY (`sectionId`) REFERENCES `sections` (`sectionId`) ON DELETE CASCADE;
@@ -255,10 +279,10 @@ INSERT INTO `ticker` (`message`, `link_url`, `link_text`, `sort_order`) VALUES
 -- Hero carousel / banner slides for the homepage
 -- ============================================================
 
-CREATE TABLE `slider` (
+CREATE TABLE IF NOT EXISTS `slider` (
   `id`             int     NOT NULL AUTO_INCREMENT,
   `title`           varchar(150) DEFAULT NULL,
-  `page`             varchar(100) NOT NULL UNIQUE COMMENT 'Filename, e.g. index.php or about.php',
+  `subtitle`         varchar(255) DEFAULT NULL,
   `description`     text         DEFAULT NULL,
   `image_url`       varchar(255) NOT NULL,
   `alt_text`        varchar(255) DEFAULT NULL COMMENT 'Image alt text for SEO/accessibility',
@@ -274,6 +298,77 @@ CREATE TABLE `slider` (
   `updated_at`      timestamp    NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Compatibility migration for legacy slider schemas during re-import.
+SET @slider_has_subtitle := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'slider' AND COLUMN_NAME = 'subtitle'
+);
+SET @slider_sql := IF(
+  @slider_has_subtitle = 0,
+  'ALTER TABLE `slider` ADD COLUMN `subtitle` VARCHAR(255) DEFAULT NULL AFTER `title`',
+  'SELECT 1'
+);
+PREPARE slider_stmt FROM @slider_sql;
+EXECUTE slider_stmt;
+DEALLOCATE PREPARE slider_stmt;
+
+SET @slider_has_cta2_text := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'slider' AND COLUMN_NAME = 'cta_text_2'
+);
+SET @slider_sql := IF(
+  @slider_has_cta2_text = 0,
+  'ALTER TABLE `slider` ADD COLUMN `cta_text_2` VARCHAR(80) DEFAULT NULL AFTER `cta_url`',
+  'SELECT 1'
+);
+PREPARE slider_stmt FROM @slider_sql;
+EXECUTE slider_stmt;
+DEALLOCATE PREPARE slider_stmt;
+
+SET @slider_has_cta2_url := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'slider' AND COLUMN_NAME = 'cta_url_2'
+);
+SET @slider_sql := IF(
+  @slider_has_cta2_url = 0,
+  'ALTER TABLE `slider` ADD COLUMN `cta_url_2` VARCHAR(255) DEFAULT NULL AFTER `cta_text_2`',
+  'SELECT 1'
+);
+PREPARE slider_stmt FROM @slider_sql;
+EXECUTE slider_stmt;
+DEALLOCATE PREPARE slider_stmt;
+
+SET @slider_has_overlay := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'slider' AND COLUMN_NAME = 'overlay_opacity'
+);
+SET @slider_sql := IF(
+  @slider_has_overlay = 0,
+  'ALTER TABLE `slider` ADD COLUMN `overlay_opacity` DECIMAL(3,2) DEFAULT 0.40 AFTER `cta_url_2`',
+  'SELECT 1'
+);
+PREPARE slider_stmt FROM @slider_sql;
+EXECUTE slider_stmt;
+DEALLOCATE PREPARE slider_stmt;
+
+SET @slider_has_page := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'slider' AND COLUMN_NAME = 'page'
+);
+SET @slider_sql := IF(
+  @slider_has_page > 0,
+  'ALTER TABLE `slider` MODIFY `page` VARCHAR(100) NULL',
+  'SELECT 1'
+);
+PREPARE slider_stmt FROM @slider_sql;
+EXECUTE slider_stmt;
+DEALLOCATE PREPARE slider_stmt;
 
 INSERT INTO `slider` (`title`, `subtitle`, `description`, `image_url`, `alt_text`, `video_url`, `cta_text`, `cta_url`, `cta_text_2`, `cta_url_2`, `overlay_opacity`, `sort_order`) VALUES
 ('Chronograph Precision',  'Premium Collection', 'Engineered movements with dual finish cases',   'frontend/assets/images/slider/watch-banner-chronograph.webp', 'luxury chronograph watch banner premium collection', NULL, 'Explore Now',     'shop-category-a.php', NULL, NULL, 0.40, 1),
@@ -337,7 +432,7 @@ CREATE TABLE `cart_items` (
 CREATE TABLE `live_product_viewers` (
   `id`           int          NOT NULL AUTO_INCREMENT,
   `session_key`  varchar(128) NOT NULL,
-  `page`          varchar(100) NOT NULL COMMENT 'Filename, e.g. about.php',
+  `user_id`      int          DEFAULT NULL COMMENT 'NULL for guests',
   `product_id`   int          NOT NULL,
   `ip_address`   varchar(45)  DEFAULT NULL,
   `first_seen_at` timestamp   NOT NULL DEFAULT current_timestamp(),
@@ -631,6 +726,91 @@ CREATE TABLE `user_sessions` (
   `created_at`  timestamp    NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ============================================================
+-- 15A. RATE LIMITS
+-- Stores anti-abuse counters for auth, captcha, and API endpoints
+-- ============================================================
+
+CREATE TABLE `rate_limits` (
+  `id`               int          NOT NULL AUTO_INCREMENT,
+  `scope`             varchar(80)  NOT NULL,
+  `identifier`        varchar(191) NOT NULL,
+  `ip_address`        varchar(45)  NOT NULL,
+  `attempts`          int          NOT NULL DEFAULT 0,
+  `window_started_at` datetime     NOT NULL,
+  `blocked_until`     datetime     DEFAULT NULL,
+  `strikes`           int          NOT NULL DEFAULT 0,
+  `last_blocked_at`   datetime     DEFAULT NULL,
+  `updated_at`        timestamp    NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_rate_limit_scope_identifier_ip` (`scope`, `identifier`, `ip_address`),
+  KEY `idx_rate_limit_blocked_until` (`blocked_until`),
+  KEY `idx_rate_limit_updated_at` (`updated_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ============================================================
+-- 15B. SECURITY EVENTS
+-- Security telemetry for auth/rate-limit/suspicious activity monitoring
+-- ============================================================
+
+CREATE TABLE `security_events` (
+  `id`               bigint       NOT NULL AUTO_INCREMENT,
+  `event_type`        varchar(80)  NOT NULL,
+  `severity`          enum('info','warning','critical') NOT NULL DEFAULT 'info',
+  `actor_type`        varchar(32)  DEFAULT NULL,
+  `actor_identifier`  varchar(191) DEFAULT NULL,
+  `user_id`          int          DEFAULT NULL,
+  `admin_id`         int          DEFAULT NULL,
+  `ip_address`        varchar(45)  DEFAULT NULL,
+  `user_agent`        varchar(255) DEFAULT NULL,
+  `details_json`      json         DEFAULT NULL,
+  `created_at`        datetime     NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_security_event_type_time` (`event_type`, `created_at`),
+  KEY `idx_security_actor_time` (`actor_type`, `actor_identifier`, `created_at`),
+  KEY `idx_security_severity_time` (`severity`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ============================================================
+-- 15C. ENGAGEMENT REMINDERS
+-- Deferred cart/wishlist nudges used by scheduled notification jobs
+-- ============================================================
+
+CREATE TABLE `engagement_reminders` (
+  `id`            int                  NOT NULL AUTO_INCREMENT,
+  `user_id`      int                  NOT NULL,
+  `product_id`   int                  NOT NULL,
+  `reminder_type` enum('cart','wishlist') NOT NULL,
+  `created_at`    datetime             NOT NULL DEFAULT current_timestamp(),
+  `last_seen_at`  datetime             NOT NULL DEFAULT current_timestamp(),
+  `sent_at`       datetime             DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_engagement_user_product_type` (`user_id`, `product_id`, `reminder_type`),
+  KEY `idx_engagement_pending` (`sent_at`, `last_seen_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ============================================================
+-- 15D. REFUND REQUESTS
+-- Customer refund requests linked to orders, managed by admin
+-- ============================================================
+
+CREATE TABLE `refund_requests` (
+  `id`            int                  NOT NULL AUTO_INCREMENT,
+  `order_id`      int                  NOT NULL,
+  `user_id`      int                  NOT NULL,
+  `reason`        varchar(500)         DEFAULT NULL,
+  `status`        enum('pending','accepted','rejected') NOT NULL DEFAULT 'pending',
+  `admin_note`    varchar(500)         DEFAULT NULL,
+  `evidence_path` varchar(255)         DEFAULT NULL,
+  `evidence_name` varchar(255)         DEFAULT NULL,
+  `evidence_size` int                  NOT NULL DEFAULT 0,
+  `requested_at`  datetime             NOT NULL DEFAULT current_timestamp(),
+  `updated_at`    datetime             NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_refund_order` (`order_id`),
+  KEY `idx_refund_user_status` (`user_id`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ============================================================
@@ -1011,6 +1191,9 @@ SELECT
   p.stock,
   p.movement,
   p.video_url,
+  p.product_code,
+  p.warranty_info,
+  p.dispatch_info,
   p.created_at,
   p.updated_at
 FROM `products` p
@@ -1111,6 +1294,9 @@ SELECT
   p.salePrice   AS product_sale_price,
   p.stock       AS product_stock,
   p.movement,
+  p.product_code,
+  p.warranty_info,
+  p.dispatch_info,
   wi.added_at
 FROM `wishlist` w
 JOIN `wishlist_items` wi ON wi.wishlist_id = w.id
@@ -1132,6 +1318,9 @@ SELECT
   p.salePrice    AS product_sale_price,
   p.stock        AS product_stock,
   p.movement,
+  p.product_code,
+  p.warranty_info,
+  p.dispatch_info,
   p.description,
   cit.added_at
 FROM `compare_list`  cl

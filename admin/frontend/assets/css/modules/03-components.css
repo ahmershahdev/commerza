@@ -29,7 +29,7 @@
 
 .dropdown-item {
   color: #d1d1d1 !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.22s ease-out;
   font-weight: 600 !important;
   font-family: "Montserrat", sans-serif;
   text-transform: uppercase;
@@ -138,7 +138,7 @@ footer {
 .dropdown-item,
 .form-control,
 .badge {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.22s ease-out;
   user-select: none;
 }
 
@@ -178,4 +178,184 @@ img {
   );
   border: 1px solid rgba(255, 122, 26, 0.25);
   border-radius: 18px;
+}
+
+.captcha-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.captcha-shell {
+  display: flex;
+  justify-content: center;
+  width: min(100%, 360px);
+  padding: 12px;
+  border-radius: 16px;
+  border: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(18, 18, 22, 0.96),
+    rgba(8, 8, 10, 0.96)
+  );
+  box-shadow:
+    0 16px 32px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.captcha-shell .g-recaptcha {
+  transform-origin: top center;
+}
+
+@media (max-width: 420px) {
+  .captcha-shell {
+    width: 100%;
+    padding: 10px 4px;
+  }
+
+  .captcha-shell .g-recaptcha {
+    transform: scale(0.89);
+  }
+}
+
+.security-events-shell .helper-banner {
+  border-color: rgba(255, 122, 26, 0.35);
+  background: linear-gradient(
+    120deg,
+    rgba(255, 122, 26, 0.14),
+    rgba(9, 9, 15, 0.74)
+  );
+}
+
+.security-events-panel {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.security-events-filters .form-control,
+.security-events-filters .form-select {
+  background: rgba(18, 18, 24, 0.95);
+  border: 1px solid rgba(255, 122, 26, 0.2);
+}
+
+.security-events-table-wrap {
+  border-radius: 0;
+}
+
+.security-events-table thead th {
+  letter-spacing: 0.4px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.security-event-row {
+  border-left: 3px solid transparent;
+}
+
+.security-event-row.security-event-critical {
+  border-left-color: rgba(220, 53, 69, 0.95);
+}
+
+.security-event-row.security-event-warning {
+  border-left-color: rgba(255, 193, 7, 0.95);
+}
+
+.security-event-row.security-event-info {
+  border-left-color: rgba(13, 202, 240, 0.9);
+}
+
+.security-severity-pill {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  font-weight: 700;
+}
+
+.security-severity-pill.security-severity-critical {
+  background: rgba(220, 53, 69, 0.18);
+  border: 1px solid rgba(220, 53, 69, 0.5);
+  color: #ff96a2;
+}
+
+.security-severity-pill.security-severity-warning {
+  background: rgba(255, 193, 7, 0.18);
+  border: 1px solid rgba(255, 193, 7, 0.45);
+  color: #ffd768;
+}
+
+.security-severity-pill.security-severity-info {
+  background: rgba(13, 202, 240, 0.18);
+  border: 1px solid rgba(13, 202, 240, 0.42);
+  color: #8fefff;
+}
+
+.security-event-identifier,
+.security-event-ip {
+  font-family: "JetBrains Mono", monospace;
+  word-break: break-word;
+}
+
+.security-event-details {
+  max-width: 320px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.security-events-footer {
+  background: linear-gradient(
+    180deg,
+    rgba(12, 12, 16, 0.97),
+    rgba(9, 9, 13, 0.95)
+  );
+}
+
+.modal-backdrop.show {
+  opacity: 0.78;
+}
+
+.modal-content {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 122, 26, 0.35) !important;
+  background: linear-gradient(
+    165deg,
+    rgba(19, 19, 24, 0.98),
+    rgba(9, 9, 12, 0.98)
+  ) !important;
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.62),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+}
+
+.modal-header,
+.modal-footer {
+  border-color: rgba(255, 122, 26, 0.25) !important;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.modal-title {
+  letter-spacing: 0.4px;
+}
+
+.modal-body {
+  background: linear-gradient(
+    180deg,
+    rgba(16, 16, 22, 0.95),
+    rgba(11, 11, 16, 0.95)
+  );
+}
+
+.modal .btn-close {
+  filter: invert(0.92);
+  opacity: 0.85;
+  transition:
+    transform 0.2s ease-out,
+    opacity 0.2s ease-out;
+}
+
+.modal .btn-close:hover {
+  opacity: 1;
+  transform: rotate(90deg) scale(1.04);
 }

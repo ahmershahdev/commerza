@@ -14,6 +14,46 @@ function stripe_intent_json(array $payload, int $statusCode = 200): void
     exit;
 }
 
+function stripe_intent_rate_limit_guard(mysqli $con, int $userId): void
+{
+    $identifier = 'user_' . max(0, $userId);
+    $clientIp = commerza_client_ip();
+    $maxAttempts = 6;
+    $windowSeconds = 300;
+    $blockSeconds = 600;
+
+    $rate = commerza_rate_limit_check(
+        $con,
+        'stripe_intent_create',
+        $identifier,
+        $clientIp,
+        $maxAttempts,
+        $windowSeconds,
+        $blockSeconds,
+        1800
+    );
+
+    if ((bool)($rate['allowed'] ?? true)) {
+        return;
+    }
+
+    $retrySeconds = max(1, (int)($rate['retry_after'] ?? $blockSeconds));
+    commerza_security_log_rate_limit_block(
+        $con,
+        'stripe_intent_create',
+        'user',
+        $identifier,
+        $clientIp,
+        $retrySeconds
+    );
+
+    stripe_intent_json([
+        'ok' => false,
+        'message' => 'Too many checkout attempts. Please wait and retry.',
+        'retry_after' => $retrySeconds,
+    ], 429);
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     stripe_intent_json(['ok' => false, 'message' => 'Method not allowed.'], 405);
 }
@@ -28,6 +68,18 @@ if (
 
 if (!isset($_SESSION['user_id']) || !is_numeric($_SESSION['user_id'])) {
     stripe_intent_json(['ok' => false, 'message' => 'Please login before checkout.'], 401);
+}
+
+stripe_intent_rate_limit_guard($con, (int)$_SESSION['user_id']);
+
+$requestId = commerza_request_id_from_server($_POST);
+$idempotency = commerza_idempotency_consume($con, 'checkout_stripe_intent', $requestId, 21600);
+if (!(bool)($idempotency['ok'] ?? false)) {
+    $status = (int)($idempotency['status'] ?? 409);
+    stripe_intent_json([
+        'ok' => false,
+        'message' => (string)($idempotency['message'] ?? 'Duplicate request detected.'),
+    ], $status > 0 ? $status : 409);
 }
 
 $amountPkr = (int)($_POST['amount_pkr'] ?? 0);

@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 include "backend/data.php";
 
 if (empty($_SESSION['csrf_token'])) {
@@ -9,7 +11,22 @@ $errors = [];
 $success = '';
 $contact_name = '';
 $contact_email = '';
+$contact_subject = '';
+$contact_inquiry_type = 'general';
+$contact_order_ref = '';
+$contact_phone = '';
+$contact_preferred_reply = 'email';
 $contact_message = '';
+
+$contactInquiryLabels = [
+  'general' => 'General',
+  'order' => 'Order Support',
+  'shipping' => 'Shipping',
+  'returns' => 'Returns',
+  'warranty' => 'Warranty',
+  'technical' => 'Technical Issue',
+  'payment' => 'Payment',
+];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (
@@ -28,7 +45,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $contact_name = trim((string)($_POST['contact_name'] ?? ''));
     $contact_email = strtolower(trim((string)($_POST['contact_email'] ?? '')));
+    $contact_subject = trim((string)($_POST['contact_subject'] ?? ''));
+    $contact_inquiry_type = strtolower(trim((string)($_POST['contact_inquiry_type'] ?? 'general')));
+    $contact_order_ref = strtoupper(trim((string)($_POST['contact_order_ref'] ?? '')));
+    $contact_phone = trim((string)($_POST['contact_phone'] ?? ''));
+    $contact_preferred_reply = strtolower(trim((string)($_POST['contact_preferred_reply'] ?? 'email')));
     $contact_message = trim((string)($_POST['contact_message'] ?? ''));
+
+    $allowedInquiryTypes = ['general', 'order', 'shipping', 'returns', 'warranty', 'technical', 'payment'];
+    $allowedReplyModes = ['email', 'phone', 'either'];
 
     if (strlen($contact_name) < 3 || strlen($contact_name) > 100) {
         $errors[] = "Name must be 3-100 characters.";
@@ -38,12 +63,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = "Invalid email address.";
     }
 
+    if (strlen($contact_subject) < 3 || strlen($contact_subject) > 120) {
+      $errors[] = "Subject must be 3-120 characters.";
+    }
+
+    if (!in_array($contact_inquiry_type, $allowedInquiryTypes, true)) {
+      $errors[] = "Invalid inquiry type selected.";
+    }
+
+    if ($contact_order_ref !== '' && !preg_match('/^#?[A-Z0-9\-]{4,32}$/', $contact_order_ref)) {
+      $errors[] = "Order reference can only contain letters, numbers, and hyphens.";
+    }
+
+    if ($contact_phone !== '' && !preg_match('/^\+?[0-9\s\-]{8,20}$/', $contact_phone)) {
+      $errors[] = "Phone number format is invalid.";
+    }
+
+    if (!in_array($contact_preferred_reply, $allowedReplyModes, true)) {
+      $errors[] = "Invalid preferred reply option.";
+    }
+
     if (strlen($contact_message) < 10 || strlen($contact_message) > 3000) {
         $errors[] = "Message must be 10-3000 characters.";
     }
 
     $clientIp = commerza_client_ip();
-    $rateIdentifier = 'contact_submit';
+    $rateIdentifier = $contact_email !== '' ? $contact_email : ($clientIp !== '' ? $clientIp : 'anonymous');
 
     if (empty($errors)) {
       $rate = commerza_rate_limit_check(
@@ -93,12 +138,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($errors)) {
       $ip_value = $clientIp !== '' ? $clientIp : null;
+      $contactMessagePayload =
+        "Inquiry Type: " . ucfirst($contact_inquiry_type) . "\n" .
+        "Subject: " . $contact_subject . "\n" .
+        "Order Ref: " . ($contact_order_ref !== '' ? $contact_order_ref : 'Not provided') . "\n" .
+        "Preferred Reply: " . ucfirst($contact_preferred_reply) . "\n" .
+        "Phone: " . ($contact_phone !== '' ? $contact_phone : 'Not provided') . "\n\n" .
+        "Message:\n" . $contact_message;
+
         $insertStmt = $con->prepare("INSERT INTO contact_messages (name, email, message, ip_address) VALUES (?, ?, ?, ?)");
 
         if (!$insertStmt) {
             $errors[] = "Something went wrong. Please try again.";
         } else {
-            $insertStmt->bind_param("ssss", $contact_name, $contact_email, $contact_message, $ip_value);
+            $insertStmt->bind_param("ssss", $contact_name, $contact_email, $contactMessagePayload, $ip_value);
 
             if ($insertStmt->execute()) {
               commerza_security_log_event($con, [
@@ -108,9 +161,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'actor_identifier' => $contact_email,
                 'ip_address' => $clientIp,
               ]);
+                commerza_rate_limit_reset($con, 'contact_form', $rateIdentifier, $clientIp);
                 $success = "Message sent successfully. We will get back to you soon.";
                 $contact_name = '';
                 $contact_email = '';
+                $contact_subject = '';
+                $contact_inquiry_type = 'general';
+                $contact_order_ref = '';
+                $contact_phone = '';
+                $contact_preferred_reply = 'email';
                 $contact_message = '';
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
             } else {
@@ -177,6 +236,215 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     .contact-input:focus {
       border: 2px solid orangered !important;
       box-shadow: none;
+    }
+
+    .contact-touch-list {
+      display: grid;
+      gap: 0.65rem;
+    }
+
+    .contact-touch-item {
+      display: grid;
+      grid-template-columns: 38px 1fr;
+      gap: 10px;
+      align-items: flex-start;
+      border: 1px solid rgba(255, 102, 0, 0.2);
+      border-radius: 12px;
+      background: rgba(8, 8, 8, 0.72);
+      padding: 10px 12px;
+    }
+
+    .contact-touch-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(255, 102, 0, 0.35);
+      background: rgba(255, 102, 0, 0.14);
+      color: #ff6600;
+      font-size: 1rem;
+    }
+
+    .contact-touch-meta-title {
+      margin: 0;
+      color: #ffcc9f;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .contact-touch-meta-value {
+      margin: 0;
+      color: #d6d6d6;
+      font-size: 0.92rem;
+      line-height: 1.35;
+    }
+
+    .contact-touch-meta-value a {
+      color: #ffd5b8;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .contact-touch-meta-value a:hover,
+    .contact-touch-meta-value a:focus-visible {
+      color: #ffcc00;
+      text-decoration: underline;
+      outline: none;
+    }
+
+    .contact-touch-social {
+      margin-top: 0.25rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border-top: 1px dashed rgba(255, 102, 0, 0.25);
+      padding-top: 10px;
+    }
+
+    .contact-touch-note {
+      margin: 0;
+      color: #b8b8b8;
+      font-size: 0.82rem;
+    }
+
+    .contact-step-card {
+      border: 1px solid rgba(255, 102, 0, 0.2);
+      border-radius: 14px;
+      background: linear-gradient(150deg, rgba(20, 20, 20, 0.95), rgba(8, 8, 8, 0.95));
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28);
+      padding: 14px;
+      height: 100%;
+    }
+
+    .step-chip {
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px dashed rgba(255, 122, 26, 0.4);
+      color: #ffcc00;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .contact-step-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 204, 0, 0.35);
+      background: rgba(255, 204, 0, 0.1);
+      color: #ffda94;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 2px 10px;
+      margin-bottom: 8px;
+    }
+
+    .contact-step-card h3 {
+      color: #fff;
+      font-size: 0.96rem;
+      margin-bottom: 6px;
+    }
+
+    .contact-step-card p {
+      color: #b8b8b8;
+      margin-bottom: 0;
+      font-size: 0.84rem;
+      line-height: 1.5;
+    }
+
+    .contact-precaution-panel {
+      border: 1px solid rgba(255, 153, 61, 0.3);
+      border-radius: 16px;
+      background: linear-gradient(145deg, rgba(25, 22, 18, 0.92), rgba(12, 10, 8, 0.95));
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.3);
+      padding: 16px;
+    }
+
+    .contact-precaution-panel h3 {
+      color: #ffd7a8;
+      font-size: 1.02rem;
+      margin-bottom: 12px;
+    }
+
+    .contact-precaution-list {
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 12px;
+    }
+
+    .contact-precaution-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      color: #d0d0d0;
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    .contact-precaution-list i {
+      color: #ffb86b;
+      margin-top: 1px;
+    }
+
+    @media (max-width: 767px) {
+      .contact-precaution-list {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .contact-dropdown-toggle {
+      background-color: #ffffff;
+      border: 1px solid #a01818 !important;
+      border-radius: 12px;
+      color: #111111;
+      padding: 10px 20px;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+    }
+
+    .contact-dropdown-toggle:focus,
+    .contact-dropdown-toggle:active {
+      border: 2px solid orangered !important;
+      box-shadow: none !important;
+      color: #111111;
+      background-color: #ffffff;
+    }
+
+    .contact-dropdown-menu {
+      background: #111;
+      border: 1px solid rgba(255, 102, 0, 0.35);
+      border-radius: 10px;
+      overflow: hidden;
+      padding: 4px;
+    }
+
+    .contact-dropdown-menu .dropdown-item {
+      color: #f2f2f2;
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+
+    .contact-dropdown-menu .dropdown-item:hover,
+    .contact-dropdown-menu .dropdown-item:focus,
+    .contact-dropdown-menu .dropdown-item.active {
+      background: rgba(255, 102, 0, 0.16);
+      color: #ffcfab;
     }
 
     #serverAlert,
@@ -349,6 +617,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       </div>
     </section>
 
+    <section class="mb-4" aria-label="Contact support steps">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <h2 class="mb-0" style="color: #ff6600; font-size: 1.2rem;">Step-by-Step Contact Flow</h2>
+        <span class="step-chip">Follow these steps for faster support resolution.</span>
+      </div>
+      <div class="row g-3">
+        <div class="col-sm-6 col-xl-3">
+          <article class="contact-step-card">
+            <span class="contact-step-pill">Step 1</span>
+            <h3>Pick Inquiry Type</h3>
+            <p>Select Order, Shipping, Warranty, or Technical issue so your ticket is routed correctly.</p>
+          </article>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+          <article class="contact-step-card">
+            <span class="contact-step-pill">Step 2</span>
+            <h3>Add Correct Details</h3>
+            <p>Enter your order reference, subject, and preferred reply method to avoid back-and-forth.</p>
+          </article>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+          <article class="contact-step-card">
+            <span class="contact-step-pill">Step 3</span>
+            <h3>Describe the Problem</h3>
+            <p>Write clear issue details with timeline and expected outcome for quicker troubleshooting.</p>
+          </article>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+          <article class="contact-step-card">
+            <span class="contact-step-pill">Step 4</span>
+            <h3>Watch Your Inbox</h3>
+            <p>After sending, monitor your email or phone for response and keep follow-ups in one thread.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="mb-4" aria-label="Contact precautions">
+      <div class="contact-precaution-panel">
+        <h3><i class="bi bi-exclamation-triangle me-2"></i>Contact Precautions</h3>
+        <ul class="contact-precaution-list">
+          <li><i class="bi bi-check2-circle"></i><span>Use the same email that you used for checkout so we can verify your record quickly.</span></li>
+          <li><i class="bi bi-check2-circle"></i><span>Do not share sensitive data like card numbers or OTP codes in your message.</span></li>
+          <li><i class="bi bi-check2-circle"></i><span>If your issue is order-related, include order number and delivery city in the first message.</span></li>
+          <li><i class="bi bi-check2-circle"></i><span>Send one detailed ticket instead of many short messages to prevent duplicate handling delays.</span></li>
+        </ul>
+      </div>
+    </section>
+
     <div class="text-center mb-5">
       <h1 style="color: #ff6600">Contact Us</h1>
       <p class="product-desc mt-3">
@@ -362,28 +679,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <div class="card-body">
             <h4 class="product-name mb-4">Get in Touch</h4>
 
-            <p class="product-desc mb-3">
-              <i class="bi bi-geo-alt me-2" style="color: #ff6600"></i>
-              <span id="contactAddress">Barrage Colony, HYD, PK</span>
-            </p>
+            <div class="contact-touch-list">
+              <div class="contact-touch-item">
+                <span class="contact-touch-icon"><i class="bi bi-geo-alt"></i></span>
+                <div>
+                  <p class="contact-touch-meta-title">Address</p>
+                  <p class="contact-touch-meta-value" id="contactAddress">Barrage Colony, HYD, PK</p>
+                </div>
+              </div>
 
-            <p class="product-desc mb-3">
-              <i class="bi bi-envelope me-2" style="color: #ff6600"></i>
-              <span id="contactEmail">commerza.ahmer@gmail.com</span>
-            </p>
+              <div class="contact-touch-item">
+                <span class="contact-touch-icon"><i class="bi bi-envelope"></i></span>
+                <div>
+                  <p class="contact-touch-meta-title">Email</p>
+                  <p class="contact-touch-meta-value"><a id="contactEmail" href="mailto:commerza.ahmer@gmail.com">commerza.ahmer@gmail.com</a></p>
+                </div>
+              </div>
 
-            <p class="product-desc mb-4">
-              <i class="bi bi-telephone me-2" style="color: #ff6600"></i>
-              <span id="contactPhone">+92 314 8396293</span>
-            </p>
+              <div class="contact-touch-item">
+                <span class="contact-touch-icon"><i class="bi bi-telephone"></i></span>
+                <div>
+                  <p class="contact-touch-meta-title">Phone</p>
+                  <p class="contact-touch-meta-value"><a id="contactPhone" href="tel:+923148396293">+92 314 8396293</a></p>
+                </div>
+              </div>
 
-            <div class="social-links">
-              <a href="https://www.facebook.com/commerza.ahmer" target="_blank" aria-label="Commerza on Facebook"><i
-                  class="bi bi-facebook"></i></a>
-              <a href="https://x.com/commerza_ahmer" target="_blank" aria-label="Commerza on X"><i
-                  class="bi bi-twitter"></i></a>
-              <a href="https://www.instagram.com/commerza.ahmer" target="_blank" aria-label="Commerza on Instagram"><i
-                  class="bi bi-instagram"></i></a>
+              <div class="contact-touch-social">
+                <p class="contact-touch-note">Average response time: within 24 hours.</p>
+                <div class="social-links">
+                <a href="https://www.facebook.com/commerza.ahmer" target="_blank" rel="noopener noreferrer" aria-label="Commerza on Facebook"><i
+                    class="bi bi-facebook"></i></a>
+                <a href="https://x.com/commerza_ahmer" target="_blank" rel="noopener noreferrer" aria-label="Commerza on X"><i
+                    class="bi bi-twitter"></i></a>
+                <a href="https://www.instagram.com/commerza.ahmer" target="_blank" rel="noopener noreferrer" aria-label="Commerza on Instagram"><i
+                    class="bi bi-instagram"></i></a>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -411,10 +742,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   value="<?= htmlspecialchars($contact_email) ?>" />
               </div>
 
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label for="contact-inquiry-type" class="form-label">Inquiry Type</label>
+                  <div class="dropdown contact-inquiry-dropdown">
+                    <button
+                      class="btn contact-dropdown-toggle dropdown-toggle"
+                      type="button"
+                      id="contactInquiryDropdownBtn"
+                      data-bs-toggle="dropdown"
+                      aria-expanded="false"
+                    >
+                      <span id="contactInquiryLabel"><?= htmlspecialchars($contactInquiryLabels[$contact_inquiry_type] ?? $contactInquiryLabels['general']) ?></span>
+                    </button>
+                    <ul class="dropdown-menu contact-dropdown-menu w-100" aria-labelledby="contactInquiryDropdownBtn">
+                      <?php foreach ($contactInquiryLabels as $inquiryValue => $inquiryLabel): ?>
+                        <li>
+                          <button
+                            type="button"
+                            class="dropdown-item contact-inquiry-option <?= $contact_inquiry_type === $inquiryValue ? 'active' : '' ?>"
+                            data-value="<?= htmlspecialchars($inquiryValue) ?>"
+                          >
+                            <?= htmlspecialchars($inquiryLabel) ?>
+                          </button>
+                        </li>
+                      <?php endforeach; ?>
+                    </ul>
+                    <input type="hidden" id="contact-inquiry-type" name="contact_inquiry_type" value="<?= htmlspecialchars($contact_inquiry_type) ?>" required>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <label for="contact-subject" class="form-label">Subject</label>
+                  <input type="text" id="contact-subject" name="contact_subject" class="form-control contact-input"
+                    placeholder="Short subject" required autocomplete="off" minlength="3" maxlength="120"
+                    value="<?= htmlspecialchars($contact_subject) ?>" />
+                </div>
+              </div>
+
+              <div class="row g-3 mt-0">
+                <div class="col-md-6">
+                  <label for="contact-order-ref" class="form-label">Order Reference (optional)</label>
+                  <input type="text" id="contact-order-ref" name="contact_order_ref" class="form-control contact-input"
+                    placeholder="#ORD-1234" autocomplete="off" maxlength="32"
+                    value="<?= htmlspecialchars($contact_order_ref) ?>" />
+                </div>
+                <div class="col-md-6">
+                  <label for="contact-phone" class="form-label">Phone (optional)</label>
+                  <input type="text" id="contact-phone" name="contact_phone" class="form-control contact-input"
+                    placeholder="+92 300 0000000" autocomplete="tel" maxlength="20"
+                    value="<?= htmlspecialchars($contact_phone) ?>" />
+                </div>
+              </div>
+
+              <div class="mb-3 mt-3">
+                <label for="contact-preferred-reply" class="form-label">Preferred Reply Method</label>
+                <select id="contact-preferred-reply" name="contact_preferred_reply" class="form-control contact-input" required>
+                  <option value="email" <?= $contact_preferred_reply === 'email' ? 'selected' : '' ?>>Email</option>
+                  <option value="phone" <?= $contact_preferred_reply === 'phone' ? 'selected' : '' ?>>Phone</option>
+                  <option value="either" <?= $contact_preferred_reply === 'either' ? 'selected' : '' ?>>Either</option>
+                </select>
+              </div>
+
               <div class="mb-3">
                 <label for="contact-message" class="form-label">Message</label>
                 <textarea id="contact-message" name="contact_message" class="form-control contact-input" rows="5"
-                  placeholder="Write your message" required autocomplete="off" minlength="10" maxlength="3000"><?= htmlspecialchars($contact_message) ?></textarea>
+                  placeholder="Describe your issue in detail so we can help faster" required autocomplete="off" minlength="10" maxlength="3000"><?= htmlspecialchars($contact_message) ?></textarea>
               </div>
 
               <?= commerza_captcha_widget_html($con, 'contact_form') ?>
@@ -463,11 +855,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="col-12 col-sm-6 col-md-6 col-lg-3 mb-4">
           <h3 class="footer-heading">Connect</h3>
           <div class="social-links">
-            <a href="https://www.facebook.com/commerza.ahmer" target="_blank" aria-label="Commerza on Facebook"><i
+            <a href="https://www.facebook.com/commerza.ahmer" target="_blank" rel="noopener noreferrer" aria-label="Commerza on Facebook"><i
                 class="bi bi-facebook"></i></a>
-            <a href="https://x.com/commerza_ahmer" target="_blank" aria-label="Commerza on X"><i
+            <a href="https://x.com/commerza_ahmer" target="_blank" rel="noopener noreferrer" aria-label="Commerza on X"><i
                 class="bi bi-twitter"></i></a>
-            <a href="https://www.instagram.com/commerza.ahmer" target="_blank" aria-label="Commerza on Instagram"><i
+            <a href="https://www.instagram.com/commerza.ahmer" target="_blank" rel="noopener noreferrer" aria-label="Commerza on Instagram"><i
                 class="bi bi-instagram"></i></a>
           </div>
           <p class="footer-text mt-3">Email: commerza.ahmer@gmail.com</p>
@@ -501,6 +893,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       });
 
       let submitted = false;
+
+      const inquiryInput = $('#contact-inquiry-type');
+      const inquiryLabel = $('#contactInquiryLabel');
+      $('.contact-inquiry-option').on('click', function () {
+        const nextValue = ($(this).data('value') || '').toString().trim();
+        const nextLabel = ($(this).text() || '').toString().trim();
+
+        if (!nextValue || !nextLabel) {
+          return;
+        }
+
+        inquiryInput.val(nextValue);
+        inquiryLabel.text(nextLabel);
+        $('.contact-inquiry-option').removeClass('active');
+        $(this).addClass('active');
+      });
+
       $("#contactForm").on("submit", function () {
         if (submitted) {
           return false;

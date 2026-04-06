@@ -12,6 +12,11 @@ if (empty($_SESSION['csrf_token'])) {
 
 function cart_api_json(array $payload, int $statusCode = 200): void
 {
+    global $con;
+    if ($con instanceof mysqli) {
+        cart_api_clear_active_lock($con);
+    }
+
     http_response_code($statusCode);
     echo json_encode($payload);
     exit;
@@ -68,6 +73,120 @@ function cart_api_validate_product(mysqli $con, int $productId): bool
     return $exists;
 }
 
+function cart_api_lock_name(int $cartId): string
+{
+    return 'commerza_cart_' . max(0, $cartId);
+}
+
+function cart_api_acquire_lock(mysqli $con, int $cartId, int $timeoutSeconds = 2): bool
+{
+    $lockName = cart_api_lock_name($cartId);
+    $timeout = max(0, $timeoutSeconds);
+
+    $stmt = $con->prepare('SELECT GET_LOCK(?, ?) AS acquired');
+    if (!$stmt) {
+        return false;
+    }
+
+    $stmt->bind_param('si', $lockName, $timeout);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    $acquired = (int)($row['acquired'] ?? 0) === 1;
+    if ($acquired) {
+        $GLOBALS['commerza_cart_active_lock'] = $lockName;
+    }
+
+    return $acquired;
+}
+
+function cart_api_release_lock(mysqli $con, string $lockName): void
+{
+    if ($lockName === '') {
+        return;
+    }
+
+    $stmt = $con->prepare('SELECT RELEASE_LOCK(?)');
+    if (!$stmt) {
+        return;
+    }
+
+    $stmt->bind_param('s', $lockName);
+    $stmt->execute();
+    $stmt->close();
+}
+
+function cart_api_clear_active_lock(mysqli $con): void
+{
+    $active = trim((string)($GLOBALS['commerza_cart_active_lock'] ?? ''));
+    if ($active === '') {
+        return;
+    }
+
+    cart_api_release_lock($con, $active);
+    $GLOBALS['commerza_cart_active_lock'] = '';
+}
+
+function cart_api_rate_limit_identifier(): string
+{
+    if (commerza_is_logged_in_user()) {
+        return 'user_' . (int)($_SESSION['user_id'] ?? 0);
+    }
+
+    $sessionId = trim((string)session_id());
+    if ($sessionId !== '') {
+        return 'session_' . substr($sessionId, 0, 64);
+    }
+
+    return 'guest';
+}
+
+function cart_api_rate_limit_guard(
+    mysqli $con,
+    string $scope,
+    int $maxAttempts,
+    int $windowSeconds,
+    int $blockSeconds,
+    int $escalatedBlockSeconds = 300
+): void {
+    $identifier = cart_api_rate_limit_identifier();
+    $clientIp = commerza_client_ip();
+
+    $rate = commerza_rate_limit_check(
+        $con,
+        $scope,
+        $identifier,
+        $clientIp,
+        max(1, $maxAttempts),
+        max(60, $windowSeconds),
+        max(60, $blockSeconds),
+        max($blockSeconds, $escalatedBlockSeconds)
+    );
+
+    if ((bool)($rate['allowed'] ?? true)) {
+        return;
+    }
+
+    $retrySeconds = max(1, (int)($rate['retry_after'] ?? $blockSeconds));
+    commerza_security_log_rate_limit_block(
+        $con,
+        $scope,
+        commerza_is_logged_in_user() ? 'user' : 'guest',
+        $identifier,
+        $clientIp,
+        $retrySeconds
+    );
+
+    cart_api_json([
+        'ok' => false,
+        'message' => 'Too many cart requests. Please wait and retry.',
+        'retry_after' => $retrySeconds,
+        'csrf_token' => $_SESSION['csrf_token'],
+    ], 429);
+}
+
 $method = $_SERVER['REQUEST_METHOD'];
 $action = strtolower(trim((string)($_REQUEST['action'] ?? 'status')));
 
@@ -94,6 +213,8 @@ if (
 }
 
 if ($action === 'add') {
+    cart_api_rate_limit_guard($con, 'cart_add', 25, 60, 90, 300);
+
     $productId = (int)($_POST['product_id'] ?? 0);
     $quantityToAdd = (int)($_POST['quantity'] ?? 1);
 
@@ -112,6 +233,10 @@ if ($action === 'add') {
     $cartId = commerza_get_cart_id($con, true);
     if (!$cartId) {
         cart_api_json(['ok' => false, 'message' => 'Unable to access cart.'], 500);
+    }
+
+    if (!cart_api_acquire_lock($con, $cartId, 2)) {
+        cart_api_json(['ok' => false, 'message' => 'Cart is busy. Please retry.'], 409);
     }
 
     $existingQty = 0;
@@ -137,8 +262,7 @@ if ($action === 'add') {
         'INSERT INTO cart_items (cart_id, product_id, quantity, added_at)
          VALUES (?, ?, ?, CURRENT_TIMESTAMP)
          ON DUPLICATE KEY UPDATE
-           quantity = quantity + VALUES(quantity),
-           added_at = CURRENT_TIMESTAMP'
+            quantity = quantity + VALUES(quantity)'
     );
 
     if (!$upsertStmt) {
@@ -165,6 +289,8 @@ if ($action === 'add') {
 }
 
 if ($action === 'apply_coupon') {
+    cart_api_rate_limit_guard($con, 'cart_apply_coupon', 10, 300, 300, 900);
+
     $code = commerza_coupon_normalize_code((string)($_POST['code'] ?? ''));
 
     if ($code === '') {
@@ -197,6 +323,8 @@ if ($action === 'apply_coupon') {
 }
 
 if ($action === 'remove_coupon') {
+    cart_api_rate_limit_guard($con, 'cart_remove_coupon', 15, 300, 180, 600);
+
     commerza_coupon_clear_session_code();
     $response = cart_api_snapshot_response($con);
     $response['message'] = 'Coupon removed.';
@@ -204,6 +332,8 @@ if ($action === 'remove_coupon') {
 }
 
 if ($action === 'set_qty') {
+    cart_api_rate_limit_guard($con, 'cart_set_qty', 30, 60, 120, 300);
+
     $productId = (int)($_POST['product_id'] ?? 0);
     $quantity = (int)($_POST['quantity'] ?? 0);
 
@@ -214,6 +344,10 @@ if ($action === 'set_qty') {
     $cartId = commerza_get_cart_id($con, false);
     if (!$cartId) {
         cart_api_json(['ok' => false, 'message' => 'Cart not found.'], 404);
+    }
+
+    if (!cart_api_acquire_lock($con, $cartId, 2)) {
+        cart_api_json(['ok' => false, 'message' => 'Cart is busy. Please retry.'], 409);
     }
 
     $existingQty = 0;
@@ -258,7 +392,7 @@ if ($action === 'set_qty') {
         cart_api_json(['ok' => false, 'message' => 'Cart limit is 10 items.'], 422);
     }
 
-    $updateStmt = $con->prepare('UPDATE cart_items SET quantity = ?, added_at = CURRENT_TIMESTAMP WHERE cart_id = ? AND product_id = ? LIMIT 1');
+    $updateStmt = $con->prepare('UPDATE cart_items SET quantity = ? WHERE cart_id = ? AND product_id = ? LIMIT 1');
     if (!$updateStmt) {
         cart_api_json(['ok' => false, 'message' => 'Unable to update cart.'], 500);
     }
@@ -279,6 +413,8 @@ if ($action === 'set_qty') {
 }
 
 if ($action === 'remove') {
+    cart_api_rate_limit_guard($con, 'cart_remove', 40, 60, 90, 300);
+
     $productId = (int)($_POST['product_id'] ?? 0);
     if ($productId <= 0) {
         cart_api_json(['ok' => false, 'message' => 'Invalid product id.'], 422);
@@ -287,6 +423,10 @@ if ($action === 'remove') {
     $cartId = commerza_get_cart_id($con, false);
     if (!$cartId) {
         cart_api_json(cart_api_snapshot_response($con));
+    }
+
+    if (!cart_api_acquire_lock($con, $cartId, 2)) {
+        cart_api_json(['ok' => false, 'message' => 'Cart is busy. Please retry.'], 409);
     }
 
     $deleteStmt = $con->prepare('DELETE FROM cart_items WHERE cart_id = ? AND product_id = ? LIMIT 1');
@@ -306,10 +446,16 @@ if ($action === 'remove') {
 }
 
 if ($action === 'clear') {
+    cart_api_rate_limit_guard($con, 'cart_clear', 8, 300, 300, 900);
+
     commerza_coupon_clear_session_code();
 
     $cartId = commerza_get_cart_id($con, false);
     if ($cartId) {
+        if (!cart_api_acquire_lock($con, $cartId, 2)) {
+            cart_api_json(['ok' => false, 'message' => 'Cart is busy. Please retry.'], 409);
+        }
+
         $clearStmt = $con->prepare('DELETE FROM cart_items WHERE cart_id = ?');
         if ($clearStmt) {
             $clearStmt->bind_param('i', $cartId);

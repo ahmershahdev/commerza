@@ -377,7 +377,7 @@
   object-fit: cover;
   user-select: none;
   will-change: transform, filter;
-  transition: all 1s cubic-bezier(0.1, 0, 0.1, 1);
+  transition: all 0.5s ease-out;
   filter: brightness(0.65) saturate(0.8) contrast(1.1);
 }
 
@@ -430,8 +430,7 @@
     transparent
   );
   transform: skewX(-25deg);
-  transition: 0.75s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: 0.45s ease-out;
   z-index: 2;
   pointer-events: none;
 }
-

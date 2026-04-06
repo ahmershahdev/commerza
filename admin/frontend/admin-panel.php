@@ -11,6 +11,8 @@ $adminUser = admin_require_login($con);
 $adminCsrfToken = admin_generate_csrf_token();
 $adminCssVersion = @filemtime(__DIR__ . '/assets/css/style.css') ?: time();
 $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
+$adminPanelCanonicalUrl = admin_public_url('/admin/frontend/admin-panel.php');
+$adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.webp');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -20,6 +22,12 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <meta name="admin-csrf-token" content="<?= htmlspecialchars($adminCsrfToken) ?>">
+    <link rel="canonical" href="<?= htmlspecialchars($adminPanelCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>">
+    <meta property="og:title" content="Admin Panel | Commerza">
+    <meta property="og:description" content="Commerza admin dashboard for operations, analytics, and security monitoring.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="<?= htmlspecialchars($adminPanelCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>">
+    <meta property="og:image" content="<?= htmlspecialchars($adminOgImageUrl, ENT_QUOTES, 'UTF-8') ?>">
     <title>Admin Panel | Commerza</title>
     <link rel="icon" href="assets/images/favicon/commerza-watches-icon.ico">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
@@ -411,9 +419,9 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                                 <div class="helper-banner mb-4">
                                     <div>
                                         <h2 class="h5 mb-2 text-light">Products setup checklist</h2>
-                                        <p class="mb-0 text-secondary">Step 1: Create a section. Step 2: Add products to that section.</p>
+                                        <p class="mb-0 text-secondary">Step 1: Create a section. Step 2: Add products. Step 3: Set Product Code, Warranty, and Dispatch info for each product.</p>
                                     </div>
-                                    <span class="step-chip">Tip: Use clear section names like "Featured Collection".</span>
+                                    <span class="step-chip">Tip: Use unique product codes and clear service details so support teams can resolve issues faster.</span>
                                 </div>
                                 <div class="mb-3 d-flex gap-2 align-items-start">
                                     <div style="flex: 1;">
@@ -642,6 +650,30 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                             <span class="step-chip">Tip: Keep coupon codes short and easy to type.</span>
                         </div>
 
+                        <div class="row g-3 mb-4">
+                            <div class="col-12 col-md-4">
+                                <div class="coupon-overview-card">
+                                    <p class="coupon-overview-kicker mb-1">Total Coupons</p>
+                                    <h3 class="coupon-overview-value mb-0" id="couponStatsTotal">0</h3>
+                                    <small class="field-hint">All created codes</small>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <div class="coupon-overview-card coupon-overview-active">
+                                    <p class="coupon-overview-kicker mb-1">Currently Active</p>
+                                    <h3 class="coupon-overview-value mb-0" id="couponStatsActive">0</h3>
+                                    <small class="field-hint">Live and not expired</small>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <div class="coupon-overview-card coupon-overview-used">
+                                    <p class="coupon-overview-kicker mb-1">Total Redemptions</p>
+                                    <h3 class="coupon-overview-value mb-0" id="couponStatsUsed">0</h3>
+                                    <small class="field-hint">Times customers used offers</small>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="row g-4 mb-4">
                             <div class="col-12 col-xl-6">
                                 <div class="card admin-card border-0 shadow-sm h-100">
@@ -747,9 +779,8 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                                     <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                                         <h3 class="h5 mb-0 fw-bold text-orange">All Coupons</h3>
                                         <div class="d-flex align-items-center gap-2 flex-wrap">
-                                            <span class="badge bg-secondary text-light">Total: <span id="couponStatsTotal">0</span></span>
-                                            <span class="badge bg-success">Active: <span id="couponStatsActive">0</span></span>
-                                            <span class="badge bg-info text-dark">Used: <span id="couponStatsUsed">0</span></span>
+                                            <span class="badge bg-secondary text-light">Live dashboard</span>
+                                            <span class="badge bg-warning text-dark">Sort by status + expiry</span>
                                             <button class="btn btn-sm btn-outline-orange" id="refreshCouponsBtn" type="button">
                                                 <i class="bi bi-arrow-clockwise me-1"></i>Refresh
                                             </button>
@@ -927,6 +958,23 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                                         <div class="progress mt-3" style="height: 6px;">
                                             <div class="progress-bar bg-success" style="width: 38%"></div>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-4 mb-4">
+                            <div class="col-12">
+                                <div class="card admin-card border-0 shadow-sm">
+                                    <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center">
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Profit vs Loss Trend (7 Days)</h3>
+                                        <span class="text-secondary small">Revenue, refunds, and net progress</span>
+                                    </div>
+                                    <div class="card-body p-4">
+                                        <div class="analytics-chart-shell">
+                                            <canvas id="analyticsProfitLossChart" height="120" aria-label="Profit and loss chart"></canvas>
+                                        </div>
+                                        <small class="field-hint mt-3">Loss is estimated from accepted refunds distributed across the week.</small>
                                     </div>
                                 </div>
                             </div>
@@ -1447,7 +1495,7 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                             </div>
                         </div>
                     </div>
-                    <div class="tab-pane fade" id="securityEventsSection">
+                    <div class="tab-pane fade security-events-shell" id="securityEventsSection">
                         <div class="helper-banner mb-4">
                             <div>
                                 <h2 class="h5 mb-2 text-light">Security Event Monitoring</h2>
@@ -1456,7 +1504,7 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                             <span class="step-chip">Tip: Filter by severity and date range for faster incident triage.</span>
                         </div>
 
-                        <div class="card admin-card border-0 shadow-sm mb-4">
+                        <div class="card admin-card border-0 shadow-sm mb-4 security-events-panel security-events-filters">
                             <div class="card-header bg-dark border-bottom border-secondary py-3">
                                 <h3 class="h5 mb-0 fw-bold text-orange">Filters</h3>
                             </div>
@@ -1503,7 +1551,7 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                             </div>
                         </div>
 
-                        <div class="card admin-card border-0 shadow-sm mb-4">
+                        <div class="card admin-card border-0 shadow-sm mb-4 security-events-panel security-events-log">
                             <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center">
                                 <h3 class="h5 mb-0 fw-bold text-orange">Security Events Log</h3>
                                 <button class="btn btn-sm btn-outline-orange" id="securityEventsRefreshBtn" type="button">
@@ -1511,8 +1559,8 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                                 </button>
                             </div>
                             <div class="card-body p-0">
-                                <div class="table-responsive">
-                                    <table class="table table-dark table-hover align-middle mb-0" id="securityEventsTable">
+                                <div class="table-responsive security-events-table-wrap">
+                                    <table class="table table-dark table-hover align-middle mb-0 security-events-table" id="securityEventsTable">
                                         <thead class="border-bottom border-secondary">
                                             <tr>
                                                 <th class="ps-4 py-3 text-orange fw-semibold">Time</th>
@@ -1531,7 +1579,7 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                                     </table>
                                 </div>
                             </div>
-                            <div class="card-footer bg-dark border-top border-secondary d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <div class="card-footer bg-dark border-top border-secondary d-flex flex-wrap justify-content-between align-items-center gap-2 security-events-footer">
                                 <small class="text-secondary" id="securityEventsMeta">Page 1</small>
                                 <div class="btn-group">
                                     <button class="btn btn-sm btn-outline-secondary" id="securityEventsPrevBtn" type="button">Previous</button>
@@ -1760,6 +1808,21 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
                                 <input type="hidden" id="productMovement" value="quartz">
                             </div>
                         </div>
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="productCode" class="form-label text-light">Product Code</label>
+                                <input type="text" class="form-control bg-secondary border-0 text-light" id="productCode" maxlength="40" placeholder="CMRZ-00001">
+                                <small class="field-hint">Unique code for support, warranty, and dispatch tracking.</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="productWarrantyInfo" class="form-label text-light">Warranty</label>
+                                <input type="text" class="form-control bg-secondary border-0 text-light" id="productWarrantyInfo" maxlength="120" value="12-month seller warranty" placeholder="12-month seller warranty">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="productDispatchInfo" class="form-label text-light">Dispatch</label>
+                                <input type="text" class="form-control bg-secondary border-0 text-light" id="productDispatchInfo" maxlength="120" value="Dispatch in 24-48 hours" placeholder="Dispatch in 24-48 hours">
+                            </div>
+                        </div>
                         <div class="mb-3">
                             <label for="productImage" class="form-label text-light">Image Path</label>
                             <input type="text" class="form-control bg-secondary border-0 text-light" id="productImage" placeholder="frontend/assets/images/products/..." required>
@@ -1816,6 +1879,7 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
         integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
         crossorigin="anonymous"></script>
     <script <?= commerza_csp_nonce_attr() ?> src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script <?= commerza_csp_nonce_attr() ?>>
         window.CommerzaAdminRuntime = {
             csrfToken: <?= json_encode($adminCsrfToken, JSON_UNESCAPED_SLASHES) ?>,

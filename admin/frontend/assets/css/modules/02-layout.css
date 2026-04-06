@@ -69,25 +69,13 @@
   font-family: "Montserrat", sans-serif;
   text-transform: uppercase;
   letter-spacing: 1px;
-  transition: all 0.25s ease;
+  transition: all 0.2s ease-out;
   position: relative;
   overflow: hidden;
 }
 
 .btn-orange::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    120deg,
-    transparent,
-    rgba(255, 255, 255, 0.3),
-    transparent
-  );
-  transition: 0.5s;
+  content: none;
 }
 
 .btn-orange:hover,
@@ -101,7 +89,7 @@
 }
 
 .btn-orange:hover::before {
-  left: 100%;
+  left: -100%;
 }
 
 .btn-outline-orange {

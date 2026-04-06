@@ -40,6 +40,16 @@ if (!admin_validate_csrf_token($csrfToken)) {
 
 $target = strtolower(trim((string)($_POST['target'] ?? '')));
 
+admin_api_rate_limit_guard(
+    $con,
+    $admin,
+    admin_api_scope('admin_media_api', $target !== '' ? $target : 'upload'),
+    45,
+    60,
+    120,
+    300
+);
+
 $targets = [
     'product-image' => [
         'dir' => 'frontend/assets/images/products/uploads',
@@ -206,6 +216,13 @@ if (!move_uploaded_file($tmpPath, $absolutePath)) {
     ]);
     exit;
 }
+
+admin_api_log_security_event($con, $admin, 'media.upload', 'info', [
+    'target' => $target,
+    'path' => $relativePath,
+    'size' => $size,
+    'mime' => $mime,
+]);
 
 http_response_code(200);
 echo json_encode([

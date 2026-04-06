@@ -124,7 +124,7 @@ h1 {
   color: transparent;
   animation:
     h1-shine 4s linear infinite,
-    reveal-up 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    reveal-up 1s ease-out forwards;
 }
 
 h2 {
@@ -142,7 +142,7 @@ h2 {
   color: transparent;
   border-left: 5px solid #ff4500;
   box-shadow: -10px 0 15px -10px rgba(255, 69, 0, 0.6);
-  animation: reveal-up 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.3s forwards;
+  animation: reveal-up 1s ease-out 0.3s forwards;
 }
 
 @keyframes reveal-up {
@@ -185,3 +185,40 @@ main {
   padding-top: 70px;
 }
 
+.captcha-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.captcha-shell {
+  display: flex;
+  justify-content: center;
+  width: min(100%, 360px);
+  padding: 12px;
+  border-radius: 16px;
+  border: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(18, 18, 18, 0.96),
+    rgba(8, 8, 8, 0.96)
+  );
+  box-shadow:
+    0 16px 32px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.captcha-shell .g-recaptcha {
+  transform-origin: top center;
+}
+
+@media (max-width: 420px) {
+  .captcha-shell {
+    width: 100%;
+    padding: 10px 4px;
+  }
+
+  .captcha-shell .g-recaptcha {
+    transform: scale(0.89);
+  }
+}

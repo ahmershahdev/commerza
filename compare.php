@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 include "backend/data.php";
 require_once __DIR__ . '/backend/nav_state.php';
 
@@ -30,6 +32,31 @@ function sanitize_compare_ids($raw): array
 
     return array_slice(array_values($clean), 0, 4);
 }
+
+  function compare_image_path(string $value): string
+  {
+    $path = trim(str_replace('\\', '/', $value));
+    if ($path === '') {
+      return 'frontend/assets/images/logo/commerza-logo.webp';
+    }
+
+    if (preg_match('#^https?://#i', $path) === 1) {
+      return preg_replace('/[\x00-\x1F\x7F]/', '', $path) ?? $path;
+    }
+
+    if (str_starts_with($path, '/')) {
+      $path = ltrim($path, '/');
+    }
+
+    if (!str_starts_with($path, 'frontend/assets/')) {
+      $path = 'frontend/assets/images/products/' . ltrim($path, '/');
+    }
+
+    $sanitized = preg_replace('/[\x00-\x1F\x7F]/', '', $path);
+    return $sanitized !== null && $sanitized !== ''
+      ? $sanitized
+      : 'frontend/assets/images/logo/commerza-logo.webp';
+  }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (
@@ -95,6 +122,7 @@ if (!empty($compare_ids)) {
 
         $products_map = [];
         while ($row = $result->fetch_assoc()) {
+          $row['image'] = compare_image_path((string)($row['image'] ?? ''));
             $products_map[(int)$row['id']] = $row;
         }
 
@@ -107,6 +135,48 @@ if (!empty($compare_ids)) {
         $stmt->close();
     }
 }
+
+  function compare_effective_price(array $item): float
+  {
+    $price = (float)($item['price'] ?? 0);
+    $sale = (float)($item['salePrice'] ?? 0);
+
+    if ($sale > 0 && $sale < $price) {
+      return $sale;
+    }
+
+    return $price;
+  }
+
+  function compare_savings_amount(array $item): float
+  {
+    $price = (float)($item['price'] ?? 0);
+    $effective = compare_effective_price($item);
+    return max(0, $price - $effective);
+  }
+
+  function compare_savings_percent(array $item): int
+  {
+    $price = (float)($item['price'] ?? 0);
+    $savings = compare_savings_amount($item);
+
+    if ($price <= 0 || $savings <= 0) {
+      return 0;
+    }
+
+    return (int)round(($savings / $price) * 100);
+  }
+
+  $effectivePrices = [];
+  $stockValues = [];
+
+  foreach ($compare_products as $item) {
+    $effectivePrices[] = compare_effective_price($item);
+    $stockValues[] = (int)($item['stock'] ?? 0);
+  }
+
+  $lowestEffectivePrice = !empty($effectivePrices) ? min($effectivePrices) : 0;
+  $highestStock = !empty($stockValues) ? max($stockValues) : 0;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -141,6 +211,158 @@ if (!empty($compare_ids)) {
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .compare-shell {
+      background: linear-gradient(160deg, rgba(19, 19, 19, 0.98), rgba(7, 7, 7, 0.96));
+      border: 1px solid rgba(255, 102, 0, 0.22);
+      border-radius: 16px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.32);
+      padding: 20px;
+    }
+
+    .compare-meta {
+      color: #cfcfcf;
+      font-size: 0.92rem;
+    }
+
+    .compare-summary-chip {
+      border: 1px solid rgba(255, 102, 0, 0.35);
+      background: rgba(0, 0, 0, 0.35);
+      color: #ffd89f;
+      border-radius: 999px;
+      padding: 5px 12px;
+      font-size: 0.8rem;
+    }
+
+    .compare-product-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .compare-product-card {
+      border: 1px solid rgba(255, 102, 0, 0.24);
+      border-radius: 14px;
+      background: linear-gradient(170deg, rgba(23, 23, 23, 0.95), rgba(8, 8, 8, 0.95));
+      padding: 12px;
+      height: 100%;
+    }
+
+    .compare-product-image {
+      width: 100%;
+      height: 160px;
+      object-fit: contain;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 6px;
+    }
+
+    .compare-table-product-image {
+      width: 100%;
+      max-width: 180px;
+      height: 130px;
+      object-fit: contain;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 4px;
+    }
+
+    .compare-product-name {
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.96rem;
+      margin: 10px 0 6px;
+      min-height: 42px;
+    }
+
+    .compare-price-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .compare-price-current {
+      color: #ffcc00;
+      font-weight: 700;
+    }
+
+    .compare-price-old {
+      color: #8b8b8b;
+      text-decoration: line-through;
+      font-size: 0.82rem;
+    }
+
+    .compare-badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      border: 1px solid rgba(255, 102, 0, 0.35);
+      color: #ffd89f;
+      background: rgba(255, 102, 0, 0.08);
+    }
+
+    .compare-badge.good {
+      border-color: rgba(255, 204, 0, 0.5);
+      color: #ffec9f;
+      background: rgba(255, 204, 0, 0.12);
+    }
+
+    .compare-table-wrap {
+      border-radius: 12px;
+      overflow: auto;
+      border: 1px solid rgba(255, 102, 0, 0.2);
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    .compare-matrix {
+      min-width: 760px;
+      margin-bottom: 0;
+    }
+
+    .compare-matrix th,
+    .compare-matrix td {
+      padding: 12px;
+      border-color: rgba(255, 255, 255, 0.09);
+      vertical-align: middle;
+    }
+
+    .compare-matrix thead th {
+      background: #121212;
+      color: #fff;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    .compare-matrix .feature-col {
+      background: #101010;
+      color: #ffd89f;
+      font-weight: 700;
+      min-width: 180px;
+      position: sticky;
+      left: 0;
+      z-index: 1;
+    }
+
+    .compare-cell-highlight {
+      background: rgba(255, 204, 0, 0.08);
+      color: #ffefb6;
+      font-weight: 700;
+      border-radius: 8px;
+      padding: 4px 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+  </style>
 </head>
 
 <body class="dark-theme">
@@ -267,74 +489,130 @@ if (!empty($compare_ids)) {
       </section>
     <?php else: ?>
       <section id="compare-container">
-        <div class="d-flex justify-content-end mb-3">
-          <form action="compare.php" method="POST">
-            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
-            <input type="hidden" name="action" value="clear_compare">
-            <button type="submit" class="btn product-btn-cart">Clear Compare</button>
-          </form>
-        </div>
+        <div class="compare-shell">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div class="compare-meta d-flex flex-wrap gap-2 align-items-center">
+              <span class="compare-summary-chip"><i class="bi bi-layers me-1"></i><?= count($compare_products) ?> product<?= count($compare_products) === 1 ? '' : 's' ?></span>
+              <span class="compare-summary-chip"><i class="bi bi-tag me-1"></i>Best price highlighted</span>
+              <span class="compare-summary-chip"><i class="bi bi-box-seam me-1"></i>Highest stock highlighted</span>
+            </div>
+            <form action="compare.php" method="POST">
+              <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+              <input type="hidden" name="action" value="clear_compare">
+              <button type="submit" class="btn product-btn-cart">Clear Compare</button>
+            </form>
+          </div>
 
-        <div class="table-responsive">
-          <table class="table table-dark table-bordered align-middle">
-            <tbody>
-              <tr>
-                <th scope="row" style="min-width: 140px;">Image</th>
-                <?php foreach ($compare_products as $item): ?>
-                  <td>
-                    <img
-                      src="<?= htmlspecialchars((string)$item['image']) ?>"
-                      alt="<?= htmlspecialchars((string)$item['name']) ?>"
-                      style="width: 120px; height: 120px; object-fit: cover; border-radius: 10px;"
-                    />
-                  </td>
-                <?php endforeach; ?>
-              </tr>
-              <tr>
-                <th scope="row">Name</th>
-                <?php foreach ($compare_products as $item): ?>
-                  <td class="text-white fw-bold"><?= htmlspecialchars((string)$item['name']) ?></td>
-                <?php endforeach; ?>
-              </tr>
-              <tr>
-                <th scope="row">Price</th>
-                <?php foreach ($compare_products as $item): ?>
-                  <td><?= number_format((float)$item['price'], 2) ?> PKR</td>
-                <?php endforeach; ?>
-              </tr>
-              <tr>
-                <th scope="row">Sale Price</th>
-                <?php foreach ($compare_products as $item): ?>
-                  <td><?= number_format((float)$item['salePrice'], 2) ?> PKR</td>
-                <?php endforeach; ?>
-              </tr>
-              <tr>
-                <th scope="row">Movement</th>
-                <?php foreach ($compare_products as $item): ?>
-                  <td><?= htmlspecialchars((string)($item['movement'] ?: 'quartz')) ?></td>
-                <?php endforeach; ?>
-              </tr>
-              <tr>
-                <th scope="row">Stock</th>
-                <?php foreach ($compare_products as $item): ?>
-                  <td><?= (int)$item['stock'] ?></td>
-                <?php endforeach; ?>
-              </tr>
-              <tr>
-                <th scope="row">Action</th>
-                <?php foreach ($compare_products as $item): ?>
-                  <td>
-                    <form action="compare.php" method="POST">
-                      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
-                      <input type="hidden" name="action" value="remove_compare">
-                      <input type="hidden" name="product_id" value="<?= (int)$item['id'] ?>">
-                      <button class="btn product-btn-buy" type="submit">Remove</button>
-                    </form>
-                  </td>
-                <?php endforeach; ?>
-              </tr>
-            </tbody>
-          </table>
+          <div class="compare-product-grid">
+            <?php foreach ($compare_products as $item): ?>
+              <?php
+                $effective = compare_effective_price($item);
+                $savingsPercent = compare_savings_percent($item);
+                $savingsAmount = compare_savings_amount($item);
+              ?>
+              <article class="compare-product-card">
+                <img src="<?= htmlspecialchars((string)$item['image']) ?>" alt="<?= htmlspecialchars((string)$item['name']) ?>" class="compare-product-image" />
+                <h3 class="compare-product-name"><?= htmlspecialchars((string)$item['name']) ?></h3>
+                <div class="compare-price-row">
+                  <span class="compare-price-current">PKR <?= number_format($effective, 0) ?></span>
+                  <?php if ($savingsAmount > 0): ?>
+                    <span class="compare-price-old">PKR <?= number_format((float)$item['price'], 0) ?></span>
+                    <span class="compare-badge good">-<?= (int)$savingsPercent ?>%</span>
+                  <?php endif; ?>
+                </div>
+                <form action="compare.php" method="POST" class="mt-2">
+                  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                  <input type="hidden" name="action" value="remove_compare">
+                  <input type="hidden" name="product_id" value="<?= (int)$item['id'] ?>">
+                  <button class="btn product-btn-buy w-100" type="submit">Remove From Compare</button>
+                </form>
+              </article>
+            <?php endforeach; ?>
+          </div>
+
+          <div class="compare-table-wrap">
+            <table class="table table-dark table-bordered align-middle compare-matrix">
+              <thead>
+                <tr>
+                  <th class="feature-col">Feature</th>
+                  <?php foreach ($compare_products as $item): ?>
+                    <th><?= htmlspecialchars((string)$item['name']) ?></th>
+                  <?php endforeach; ?>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row" class="feature-col">Image</th>
+                  <?php foreach ($compare_products as $item): ?>
+                    <td>
+                      <img
+                        src="<?= htmlspecialchars((string)$item['image']) ?>"
+                        alt="<?= htmlspecialchars((string)$item['name']) ?>"
+                        class="compare-table-product-image"
+                        loading="lazy"
+                      />
+                    </td>
+                  <?php endforeach; ?>
+                </tr>
+                <tr>
+                  <th scope="row" class="feature-col">Current Price</th>
+                  <?php foreach ($compare_products as $item): ?>
+                    <?php $effective = compare_effective_price($item); ?>
+                    <td>
+                      <?php if ($effective > 0 && abs($effective - $lowestEffectivePrice) < 0.001): ?>
+                        <span class="compare-cell-highlight"><i class="bi bi-award"></i>PKR <?= number_format($effective, 0) ?></span>
+                      <?php else: ?>
+                        PKR <?= number_format($effective, 0) ?>
+                      <?php endif; ?>
+                    </td>
+                  <?php endforeach; ?>
+                </tr>
+                <tr>
+                  <th scope="row" class="feature-col">Original Price</th>
+                  <?php foreach ($compare_products as $item): ?>
+                    <td>PKR <?= number_format((float)$item['price'], 0) ?></td>
+                  <?php endforeach; ?>
+                </tr>
+                <tr>
+                  <th scope="row" class="feature-col">Savings</th>
+                  <?php foreach ($compare_products as $item): ?>
+                    <?php
+                      $savingsAmount = compare_savings_amount($item);
+                      $savingsPercent = compare_savings_percent($item);
+                    ?>
+                    <td>
+                      <?php if ($savingsAmount > 0): ?>
+                        <span class="compare-badge good">PKR <?= number_format($savingsAmount, 0) ?> (<?= (int)$savingsPercent ?>%)</span>
+                      <?php else: ?>
+                        <span class="text-secondary">No discount</span>
+                      <?php endif; ?>
+                    </td>
+                  <?php endforeach; ?>
+                </tr>
+                <tr>
+                  <th scope="row" class="feature-col">Movement</th>
+                  <?php foreach ($compare_products as $item): ?>
+                    <td><?= htmlspecialchars((string)($item['movement'] ?: 'quartz')) ?></td>
+                  <?php endforeach; ?>
+                </tr>
+                <tr>
+                  <th scope="row" class="feature-col">Availability</th>
+                  <?php foreach ($compare_products as $item): ?>
+                    <?php $stockValue = (int)($item['stock'] ?? 0); ?>
+                    <td>
+                      <?php if ($stockValue <= 0): ?>
+                        <span class="text-danger">Out of stock</span>
+                      <?php elseif ($stockValue === $highestStock): ?>
+                        <span class="compare-cell-highlight"><i class="bi bi-box2-heart"></i><?= $stockValue ?> in stock</span>
+                      <?php else: ?>
+                        <span class="text-success"><?= $stockValue ?> in stock</span>
+                      <?php endif; ?>
+                    </td>
+                  <?php endforeach; ?>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
     <?php endif; ?>
@@ -457,7 +735,13 @@ if (!empty($compare_ids)) {
         return;
       }
 
-      if (sessionIdsSignature !== localIdsSignature) {
+      if (localIdsSignature !== '' && localIdsSignature !== sessionIdsSignature) {
+        $('#compareIdsInput').val(localIdsSignature);
+        $('#compareSyncForm').trigger('submit');
+        return;
+      }
+
+      if (localIdsSignature === '' && sessionIdsSignature !== '') {
         const localMap = new Map();
         localCompare.forEach((item) => {
           const id = parseInt(item?.id, 10);
