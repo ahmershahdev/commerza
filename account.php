@@ -1099,7 +1099,7 @@ if (is_array($accountDeletePending)) {
       margin: 0 auto;
     }
 
-    label {
+    .account-page label {
       color: rgb(255, 255, 255);
     }
 
@@ -1207,10 +1207,65 @@ if (is_array($accountDeletePending)) {
       color: #ffd8b8;
       background: rgba(255, 102, 0, 0.1);
     }
+
+    .account-section-subtitle {
+      color: #b9b9b9;
+      font-size: 0.92rem;
+      margin: -2px 0 16px;
+      line-height: 1.5;
+    }
+
+    .account-personal-form .account-field {
+      border: 1px solid rgba(255, 102, 0, 0.2);
+      border-radius: 12px;
+      padding: 14px;
+      background: rgba(14, 14, 14, 0.62);
+      height: 100%;
+    }
+
+    .account-personal-form .form-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 0.74rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #ffd7b0;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .account-personal-form .form-label i {
+      color: #ff9c53;
+      font-size: 0.85rem;
+    }
+
+    .account-personal-form .account-help {
+      min-height: 34px;
+      margin-top: 8px;
+      font-size: 0.78rem;
+      line-height: 1.45;
+      display: block;
+    }
+
+    .account-personal-form .account-live-feedback {
+      margin-top: 6px;
+      min-height: 16px;
+    }
+
+    @media (max-width: 767.98px) {
+      .account-personal-form .account-field {
+        padding: 12px;
+      }
+
+      .account-personal-form .account-help {
+        min-height: 0;
+      }
+    }
   </style>
 </head>
 
-<body class="dark-theme">
+<body class="dark-theme account-page">
   <?php if (!empty($errors)): ?>
     <div id="serverError"><?= htmlspecialchars(implode(' ', $errors)) ?></div>
   <?php endif; ?>
@@ -1473,98 +1528,113 @@ if (is_array($accountDeletePending)) {
         <div class="card product-card mb-4">
           <div class="card-body">
             <h4 class="product-name mb-3">Personal Information</h4>
+            <p class="account-section-subtitle">Keep your profile details accurate so checkout, delivery, and account security work smoothly.</p>
 
-            <form action="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" id="updateProfileForm">
+            <form action="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" id="updateProfileForm" class="account-personal-form">
               <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
               <input type="hidden" name="action" value="update_profile">
 
-              <div class="row">
-                <div class="col-md-6 mb-3">
-                  <label for="full-name" class="form-label">Full Name</label>
-                  <input type="text" id="full-name" name="full_name" class="form-control search-input"
-                    value="<?= htmlspecialchars((string)$user['full_name']) ?>" required
-                    autocomplete="name" minlength="3" maxlength="40"
-                    pattern="[A-Za-z][A-Za-z\s\.\'\-]{2,39}"
-                    title="Use 3-40 letters with spaces, dots, apostrophes, or hyphens." />
-                  <small class="text-secondary d-block mt-1">Use your real name for invoices and delivery records.</small>
-                </div>
-
-                <div class="col-md-6 mb-3">
-                  <label for="username" class="form-label">Username</label>
-                  <input type="text" id="username" name="username" class="form-control search-input"
-                    value="<?= htmlspecialchars($username_value) ?>" required
-                    autocomplete="username" minlength="3" maxlength="24"
-                    pattern="[a-zA-Z][a-zA-Z0-9_]{2,23}"
-                    title="Use 3-24 characters: letters, numbers, underscore." />
-                  <div id="usernameLiveFeedback" class="account-live-feedback" aria-live="polite"></div>
-                  <small class="text-secondary d-block mt-1">This username may appear publicly in reviews when profile is public.</small>
-                </div>
-
-                <div class="col-md-6 mb-3">
-                  <label for="email" class="form-label">Email Address</label>
-                  <input type="email" id="email" name="email" class="form-control search-input"
-                    value="<?= htmlspecialchars((string)$user['email']) ?>" required
-                    autocomplete="email" maxlength="150" />
-                  <div id="emailLiveFeedback" class="account-live-feedback" aria-live="polite"></div>
-                  <small class="text-secondary d-block mt-1">Use an active email to receive security and order updates.</small>
-                </div>
-
-                <div class="col-md-6 mb-3">
-                  <label for="profile-visibility" class="form-label">Profile Visibility</label>
-                  <input type="hidden" id="profile-visibility" name="profile_visibility" value="<?= htmlspecialchars($profile_visibility_value) ?>" required>
-                  <div class="dropdown account-visibility-dropdown">
-                    <button class="btn dropdown-toggle w-100 text-start d-flex align-items-center justify-content-between"
-                      type="button" id="profileVisibilityMenu" data-bs-toggle="dropdown" aria-expanded="false">
-                      <span class="d-inline-flex align-items-center gap-2">
-                        <i class="bi <?= $profile_visibility_value === 'public' ? 'bi-globe2' : 'bi-shield-lock' ?>" id="profileVisibilityIcon"></i>
-                        <span id="profileVisibilityLabel"><?= htmlspecialchars($profile_visibility_label) ?></span>
-                      </span>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-dark w-100 border-secondary" aria-labelledby="profileVisibilityMenu">
-                      <li>
-                        <button type="button" class="dropdown-item profile-visibility-option <?= $profile_visibility_value === 'private' ? 'active' : '' ?>" data-value="private" data-label="Private Profile" data-icon="bi-shield-lock">
-                          <i class="bi bi-shield-lock me-2"></i>Private Profile
-                        </button>
-                      </li>
-                      <li>
-                        <button type="button" class="dropdown-item profile-visibility-option <?= $profile_visibility_value === 'public' ? 'active' : '' ?>" data-value="public" data-label="Public Profile" data-icon="bi-globe2">
-                          <i class="bi bi-globe2 me-2"></i>Public Profile
-                        </button>
-                      </li>
-                    </ul>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <div class="account-field h-100">
+                    <label for="full-name" class="form-label"><i class="bi bi-person-badge"></i><span>Full Name</span></label>
+                    <input type="text" id="full-name" name="full_name" class="form-control search-input"
+                      value="<?= htmlspecialchars((string)$user['full_name']) ?>" required
+                      autocomplete="name" minlength="3" maxlength="40"
+                      pattern="[A-Za-z][A-Za-z\s\.\'\-]{2,39}"
+                      title="Use 3-40 letters with spaces, dots, apostrophes, or hyphens." />
+                    <small class="account-help text-secondary">Use your real name for invoices and delivery records.</small>
                   </div>
-                  <small class="text-secondary">Public profile shows your username in public-facing areas (like reviews). Private keeps identity generic.</small>
                 </div>
 
-                <div class="col-md-6 mb-3">
-                  <label for="phone" class="form-label">Phone Number</label>
-                  <input type="tel" id="phone" name="phone" class="form-control search-input"
-                    value="<?= htmlspecialchars((string)$user['phone']) ?>" required
-                    autocomplete="tel" minlength="11" maxlength="15"
-                    pattern="\d{11,15}" title="Enter 11 to 15 digits only." />
-                  <div id="phoneLiveFeedback" class="account-live-feedback" aria-live="polite"></div>
-                  <small class="text-secondary d-block mt-1">Digits only. Include your area/mobile code without symbols.</small>
-                </div>
-
-                <div class="col-md-12 mb-3">
-                  <label for="address" class="form-label">Address</label>
-                  <textarea id="address" name="address" class="form-control search-input" rows="3" maxlength="255"
-                    minlength="8" placeholder="Enter your address"><?= htmlspecialchars((string)($user['address'] ?? '')) ?></textarea>
-                  <small class="text-secondary d-block mt-1">Add complete house, street, city details for accurate delivery.</small>
-                </div>
-
-                <div class="col-md-12 mb-3">
-                  <label class="form-label">Address Map Preview</label>
-                  <div class="ratio ratio-16x9 border border-secondary rounded overflow-hidden">
-                    <iframe
-                      id="address-map-frame"
-                      src="https://www.google.com/maps?q=<?= rawurlencode((string)($user['address'] ?: 'Pakistan')) ?>&output=embed"
-                      title="Address Map Preview"
-                      loading="lazy"
-                      referrerpolicy="no-referrer-when-downgrade"
-                      style="border:0;"></iframe>
+                <div class="col-md-6">
+                  <div class="account-field h-100">
+                    <label for="username" class="form-label"><i class="bi bi-at"></i><span>Username</span></label>
+                    <input type="text" id="username" name="username" class="form-control search-input"
+                      value="<?= htmlspecialchars($username_value) ?>" required
+                      autocomplete="username" minlength="3" maxlength="24"
+                      pattern="[a-zA-Z][a-zA-Z0-9_]{2,23}"
+                      title="Use 3-24 characters: letters, numbers, underscore." />
+                    <div id="usernameLiveFeedback" class="account-live-feedback" aria-live="polite"></div>
+                    <small class="account-help text-secondary">This username may appear publicly in reviews when profile is public.</small>
                   </div>
-                  <small class="text-secondary">Map refreshes automatically as you edit your address.</small>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="account-field h-100">
+                    <label for="email" class="form-label"><i class="bi bi-envelope"></i><span>Email Address</span></label>
+                    <input type="email" id="email" name="email" class="form-control search-input"
+                      value="<?= htmlspecialchars((string)$user['email']) ?>" required
+                      autocomplete="email" maxlength="150" />
+                    <div id="emailLiveFeedback" class="account-live-feedback" aria-live="polite"></div>
+                    <small class="account-help text-secondary">Use an active email to receive security and order updates.</small>
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="account-field h-100">
+                    <label for="profile-visibility" class="form-label"><i class="bi bi-shield-check"></i><span>Profile Visibility</span></label>
+                    <input type="hidden" id="profile-visibility" name="profile_visibility" value="<?= htmlspecialchars($profile_visibility_value) ?>" required>
+                    <div class="dropdown account-visibility-dropdown">
+                      <button class="btn dropdown-toggle w-100 text-start d-flex align-items-center justify-content-between"
+                        type="button" id="profileVisibilityMenu" data-bs-toggle="dropdown" aria-expanded="false">
+                        <span class="d-inline-flex align-items-center gap-2">
+                          <i class="bi <?= $profile_visibility_value === 'public' ? 'bi-globe2' : 'bi-shield-lock' ?>" id="profileVisibilityIcon"></i>
+                          <span id="profileVisibilityLabel"><?= htmlspecialchars($profile_visibility_label) ?></span>
+                        </span>
+                      </button>
+                      <ul class="dropdown-menu dropdown-menu-dark w-100 border-secondary" aria-labelledby="profileVisibilityMenu">
+                        <li>
+                          <button type="button" class="dropdown-item profile-visibility-option <?= $profile_visibility_value === 'private' ? 'active' : '' ?>" data-value="private" data-label="Private Profile" data-icon="bi-shield-lock">
+                            <i class="bi bi-shield-lock me-2"></i>Private Profile
+                          </button>
+                        </li>
+                        <li>
+                          <button type="button" class="dropdown-item profile-visibility-option <?= $profile_visibility_value === 'public' ? 'active' : '' ?>" data-value="public" data-label="Public Profile" data-icon="bi-globe2">
+                            <i class="bi bi-globe2 me-2"></i>Public Profile
+                          </button>
+                        </li>
+                      </ul>
+                    </div>
+                    <small class="account-help text-secondary">Public profile shows your username in public-facing areas (like reviews). Private keeps identity generic.</small>
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="account-field h-100">
+                    <label for="phone" class="form-label"><i class="bi bi-telephone"></i><span>Phone Number</span></label>
+                    <input type="tel" id="phone" name="phone" class="form-control search-input"
+                      value="<?= htmlspecialchars((string)$user['phone']) ?>" required
+                      autocomplete="tel" minlength="11" maxlength="15"
+                      pattern="\d{11,15}" title="Enter 11 to 15 digits only." />
+                    <div id="phoneLiveFeedback" class="account-live-feedback" aria-live="polite"></div>
+                    <small class="account-help text-secondary">Digits only. Include your area/mobile code without symbols.</small>
+                  </div>
+                </div>
+
+                <div class="col-md-12">
+                  <div class="account-field">
+                    <label for="address" class="form-label"><i class="bi bi-geo-alt"></i><span>Address</span></label>
+                    <textarea id="address" name="address" class="form-control search-input" rows="3" maxlength="255"
+                      minlength="8" placeholder="Enter your address"><?= htmlspecialchars((string)($user['address'] ?? '')) ?></textarea>
+                    <small class="account-help text-secondary">Add complete house, street, city details for accurate delivery.</small>
+                  </div>
+                </div>
+
+                <div class="col-md-12">
+                  <div class="account-field">
+                    <label class="form-label"><i class="bi bi-map"></i><span>Address Map Preview</span></label>
+                    <div class="ratio ratio-16x9 border border-secondary rounded overflow-hidden">
+                      <iframe
+                        id="address-map-frame"
+                        src="https://www.google.com/maps?q=<?= rawurlencode((string)($user['address'] ?: 'Pakistan')) ?>&output=embed"
+                        title="Address Map Preview"
+                        loading="lazy"
+                        referrerpolicy="no-referrer-when-downgrade"
+                        style="border:0;"></iframe>
+                    </div>
+                    <small class="account-help text-secondary">Map refreshes automatically as you edit your address.</small>
+                  </div>
                 </div>
               </div>
 

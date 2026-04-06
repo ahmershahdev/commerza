@@ -1424,7 +1424,40 @@ $(document).ready(function () {
     return fromName || "product";
   }
 
+  function sanitizeProductBasePath(rawPath) {
+    const raw = (rawPath || "").toString().trim().replace(/\\/g, "/");
+    if (!raw) {
+      return "";
+    }
+
+    const segments = raw.split("/").filter(Boolean);
+    const isSafeSegment = (segment) => /^[a-z0-9_-]+$/i.test(segment || "");
+    const projectSegment = segments.find((segment) =>
+      /^commerza$/i.test(segment),
+    );
+
+    if (projectSegment && isSafeSegment(projectSegment)) {
+      return `/${projectSegment}/`;
+    }
+
+    for (let index = 0; index < segments.length; index += 1) {
+      const segment = (segments[index] || "").toString().trim();
+      if (isSafeSegment(segment)) {
+        return `/${segment}/`;
+      }
+    }
+
+    return raw.includes(":") ? "/" : "";
+  }
+
   function getProductAppBasePath() {
+    const globalBase = sanitizeProductBasePath(
+      window.CommerzaAppBasePath || "",
+    );
+    if (globalBase) {
+      return globalBase;
+    }
+
     const pathname = window.location.pathname.replace(/\\/g, "/");
     const lowerPathname = pathname.toLowerCase();
     const markers = ["/products.php", "/prodcuts/", "/products/", "/product/"];
@@ -1432,16 +1465,20 @@ $(document).ready(function () {
     for (const marker of markers) {
       const markerIndex = lowerPathname.indexOf(marker);
       if (markerIndex >= 0) {
-        return pathname.slice(0, markerIndex + 1);
+        return (
+          sanitizeProductBasePath(pathname.slice(0, markerIndex + 1)) || "/"
+        );
       }
     }
 
     const lastSlashIndex = pathname.lastIndexOf("/");
     if (lastSlashIndex >= 0) {
-      return pathname.slice(0, lastSlashIndex + 1);
+      return (
+        sanitizeProductBasePath(pathname.slice(0, lastSlashIndex + 1)) || "/"
+      );
     }
 
-    return "/";
+    return sanitizeProductBasePath(pathname) || "/";
   }
 
   function getProductDetailPath(slug) {
@@ -1453,16 +1490,11 @@ $(document).ready(function () {
     return `products/${encodeURIComponent(normalizedSlug)}`;
   }
 
-  function getProductDetailAbsoluteUrl(slug, productId = null) {
+  function getProductDetailAbsoluteUrl(slug) {
     const basePath = getProductAppBasePath();
     const detailPath = getProductDetailPath(slug);
-    const numericProductId = Number.parseInt(productId, 10);
-    const idQuery =
-      Number.isInteger(numericProductId) && numericProductId > 0
-        ? `?id=${encodeURIComponent(String(numericProductId))}`
-        : "";
 
-    return `${window.location.origin}${basePath}${detailPath}${idQuery}`;
+    return `${window.location.origin}${basePath}${detailPath}`;
   }
 
   function extractProductSlugFromPath() {

@@ -62,8 +62,16 @@
 
     const pathname = window.location.pathname.replace(/\\/g, "/");
     const segments = pathname.split("/").filter(Boolean);
+    const isSafeSegment = (value) => /^[a-z0-9_-]+$/i.test(value || "");
+    const projectSegment = segments.find((segment) =>
+      /^commerza$/i.test(segment),
+    );
 
-    if (segments.length > 0 && !segments[0].includes(".")) {
+    if (projectSegment && isSafeSegment(projectSegment)) {
+      return `${window.location.origin}/${projectSegment}/`;
+    }
+
+    if (segments.length > 0 && isSafeSegment(segments[0])) {
       return `${window.location.origin}/${segments[0]}/`;
     }
 
@@ -93,6 +101,159 @@
 
     return `${appBaseUrl}${rawPath.replace(/^\/+/, "")}`;
   }
+
+  function normalizeCommerzaHref(href) {
+    const rawHref = (href || "").toString().trim();
+    if (!rawHref) {
+      return "";
+    }
+
+    let parsed = null;
+    try {
+      parsed = new URL(rawHref, window.location.href);
+    } catch (error) {
+      parsed = null;
+    }
+
+    if (!parsed) {
+      return rawHref;
+    }
+
+    const normalizedPath = parsed.pathname.replace(/\\/g, "/");
+    const malformedPrefix = /^\/C:\/xampp\/htdocs\/commerza\//i;
+    if (!malformedPrefix.test(normalizedPath)) {
+      return parsed.toString();
+    }
+
+    const fixedPath = normalizedPath.replace(malformedPrefix, "/commerza/");
+    parsed.pathname = fixedPath;
+    return parsed.toString();
+  }
+
+  function installMalformedLinkGuard() {
+    if (document.documentElement.dataset.commerzaLinkGuardInstalled === "1") {
+      return;
+    }
+
+    document.documentElement.dataset.commerzaLinkGuardInstalled = "1";
+
+    document.addEventListener(
+      "click",
+      function (event) {
+        const anchor =
+          event.target && event.target.closest
+            ? event.target.closest("a[href]")
+            : null;
+
+        if (!anchor) {
+          return;
+        }
+
+        const currentHref = (anchor.getAttribute("href") || "").toString();
+        if (!currentHref) {
+          return;
+        }
+
+        const normalizedHref = normalizeCommerzaHref(currentHref);
+        if (!normalizedHref || normalizedHref === currentHref) {
+          return;
+        }
+
+        anchor.setAttribute("href", normalizedHref);
+      },
+      true,
+    );
+  }
+
+  function installGlobalProductCardTracking() {
+    if (
+      document.documentElement.dataset.commerzaCardTrackingInstalled === "1"
+    ) {
+      return;
+    }
+
+    if (
+      window.matchMedia &&
+      !window.matchMedia("(hover: hover) and (pointer: fine)").matches
+    ) {
+      return;
+    }
+
+    const setCardMotion = function (card, pointerX, pointerY) {
+      if (!card || !card.getBoundingClientRect) {
+        return;
+      }
+
+      const rect = card.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) {
+        return;
+      }
+
+      const relativeX = (pointerX - rect.left) / rect.width;
+      const relativeY = (pointerY - rect.top) / rect.height;
+      const rotateY = (relativeX - 0.5) * 10;
+      const rotateX = (0.5 - relativeY) * 8;
+      const shiftX = (relativeX - 0.5) * 8;
+      const shiftY = (relativeY - 0.5) * 2;
+
+      card.style.setProperty("--pc-rotate-x", `${rotateX.toFixed(2)}deg`);
+      card.style.setProperty("--pc-rotate-y", `${rotateY.toFixed(2)}deg`);
+      card.style.setProperty("--pc-shift-x", `${shiftX.toFixed(2)}px`);
+      card.style.setProperty("--pc-shift-y", `${shiftY.toFixed(2)}px`);
+    };
+
+    const resetCardMotion = function (card) {
+      if (!card || !card.style) {
+        return;
+      }
+
+      card.style.setProperty("--pc-rotate-x", "0deg");
+      card.style.setProperty("--pc-rotate-y", "0deg");
+      card.style.setProperty("--pc-shift-x", "0px");
+      card.style.setProperty("--pc-shift-y", "0px");
+    };
+
+    document.documentElement.dataset.commerzaCardTrackingInstalled = "1";
+
+    document.addEventListener("mousemove", function (event) {
+      const card =
+        event.target && event.target.closest
+          ? event.target.closest(".product-card")
+          : null;
+      if (!card) {
+        return;
+      }
+
+      setCardMotion(card, event.clientX, event.clientY);
+    });
+
+    document.addEventListener("mouseout", function (event) {
+      const card =
+        event.target && event.target.closest
+          ? event.target.closest(".product-card")
+          : null;
+      if (!card) {
+        return;
+      }
+
+      const nextTarget = event.relatedTarget;
+      if (nextTarget && card.contains(nextTarget)) {
+        return;
+      }
+
+      resetCardMotion(card);
+    });
+
+    window.addEventListener("blur", function () {
+      const cards = document.querySelectorAll(".product-card");
+      cards.forEach(function (card) {
+        resetCardMotion(card);
+      });
+    });
+  }
+
+  installMalformedLinkGuard();
+  installGlobalProductCardTracking();
 
   const moduleCandidates = [
     [
