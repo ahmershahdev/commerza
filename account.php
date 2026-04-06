@@ -1336,6 +1336,7 @@ if (is_array($accountDeletePending)) {
               <input type="hidden" name="action" value="update_profile_picture">
               <input type="file" name="profile_picture" id="profilePictureInput" class="form-control search-input mt-3"
                 accept="image/jpeg,image/png,image/webp,image/gif" />
+              <small class="text-secondary d-block mt-2">Upload a clear square photo. Supported formats: JPG, PNG, WebP, GIF.</small>
               <button type="submit" class="btn product-btn-buy w-100 mt-2" data-loading-text="Updating Picture...">
                 Update Picture
               </button>
@@ -1365,6 +1366,7 @@ if (is_array($accountDeletePending)) {
                     maxlength="20" />
                   <i class="bi bi-eye account-toggle-password" data-target="#current-password" role="button" tabindex="0" aria-label="Toggle current password visibility"></i>
                 </div>
+                <small class="text-secondary d-block mt-1">Enter the password you currently use to sign in.</small>
               </div>
 
               <div class="mb-2">
@@ -1377,6 +1379,7 @@ if (is_array($accountDeletePending)) {
                     spellcheck="false" />
                   <i class="bi bi-eye account-toggle-password" data-target="#new-password" role="button" tabindex="0" aria-label="Toggle new password visibility"></i>
                 </div>
+                <small class="text-secondary d-block mt-1">Use a stronger password than your previous one.</small>
               </div>
 
               <div class="mb-3">
@@ -1389,6 +1392,7 @@ if (is_array($accountDeletePending)) {
                     spellcheck="false" />
                   <i class="bi bi-eye account-toggle-password" data-target="#confirm-password" role="button" tabindex="0" aria-label="Toggle confirm password visibility"></i>
                 </div>
+                <small class="text-secondary d-block mt-1">Re-type your new password exactly to confirm.</small>
               </div>
 
               <?= commerza_captcha_widget_html($con, 'user_account_password') ?>
@@ -1431,6 +1435,7 @@ if (is_array($accountDeletePending)) {
                     class="form-control search-input"
                     autocomplete="current-password"
                     required>
+                  <small class="text-secondary d-block mt-1">For security, enter your current account password.</small>
                 </div>
 
                 <div class="mb-2">
@@ -1446,6 +1451,7 @@ if (is_array($accountDeletePending)) {
                     minlength="6"
                     autocomplete="one-time-code"
                     required>
+                  <small class="text-secondary d-block mt-1">Enter the 6-digit deletion code sent to your email.</small>
                 </div>
 
                 <?= commerza_captcha_widget_html($con, 'user_account_delete_confirm') ?>
@@ -1480,6 +1486,7 @@ if (is_array($accountDeletePending)) {
                     autocomplete="name" minlength="3" maxlength="40"
                     pattern="[A-Za-z][A-Za-z\s\.\'\-]{2,39}"
                     title="Use 3-40 letters with spaces, dots, apostrophes, or hyphens." />
+                  <small class="text-secondary d-block mt-1">Use your real name for invoices and delivery records.</small>
                 </div>
 
                 <div class="col-md-6 mb-3">
@@ -1490,6 +1497,7 @@ if (is_array($accountDeletePending)) {
                     pattern="[a-zA-Z][a-zA-Z0-9_]{2,23}"
                     title="Use 3-24 characters: letters, numbers, underscore." />
                   <div id="usernameLiveFeedback" class="account-live-feedback" aria-live="polite"></div>
+                  <small class="text-secondary d-block mt-1">This username may appear publicly in reviews when profile is public.</small>
                 </div>
 
                 <div class="col-md-6 mb-3">
@@ -1498,6 +1506,7 @@ if (is_array($accountDeletePending)) {
                     value="<?= htmlspecialchars((string)$user['email']) ?>" required
                     autocomplete="email" maxlength="150" />
                   <div id="emailLiveFeedback" class="account-live-feedback" aria-live="polite"></div>
+                  <small class="text-secondary d-block mt-1">Use an active email to receive security and order updates.</small>
                 </div>
 
                 <div class="col-md-6 mb-3">
@@ -1534,12 +1543,14 @@ if (is_array($accountDeletePending)) {
                     autocomplete="tel" minlength="11" maxlength="15"
                     pattern="\d{11,15}" title="Enter 11 to 15 digits only." />
                   <div id="phoneLiveFeedback" class="account-live-feedback" aria-live="polite"></div>
+                  <small class="text-secondary d-block mt-1">Digits only. Include your area/mobile code without symbols.</small>
                 </div>
 
                 <div class="col-md-12 mb-3">
                   <label for="address" class="form-label">Address</label>
                   <textarea id="address" name="address" class="form-control search-input" rows="3" maxlength="255"
                     minlength="8" placeholder="Enter your address"><?= htmlspecialchars((string)($user['address'] ?? '')) ?></textarea>
+                  <small class="text-secondary d-block mt-1">Add complete house, street, city details for accurate delivery.</small>
                 </div>
 
                 <div class="col-md-12 mb-3">

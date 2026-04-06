@@ -1500,9 +1500,10 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                                 <label for="socialIcon" class="form-label text-light">Icon</label>
                                                 <input type="text" class="form-control bg-secondary border-0 text-light" id="socialIcon" placeholder="bi bi-facebook or frontend/assets/images/social/icon.png">
                                                 <div class="d-flex gap-2 mt-2">
-                                                    <input type="file" class="form-control bg-secondary border-0 text-light" id="socialIconFile" accept="image/*,.ico">
+                                                    <input type="file" class="form-control bg-secondary border-0 text-light" id="socialIconFile" accept="image/*,.ico" multiple>
                                                     <button class="btn btn-outline-orange" id="uploadSocialIconBtn" type="button"><i class="bi bi-upload"></i></button>
                                                 </div>
+                                                <small class="field-hint">Select one or more icons. Images are parsed and compressed to WebP; ICO files stay ICO.</small>
                                             </div>
                                         </div>
                                         <div class="d-flex gap-2 mt-3">
@@ -1670,7 +1671,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                                 <label for="homeFeatureVideo" class="form-label text-light">Homepage Feature Video</label>
                                                 <input type="text" class="form-control bg-secondary border-0 text-light" id="homeFeatureVideo" placeholder="frontend/assets/videos/slider/...mp4">
                                                 <div class="d-flex gap-2 mt-2">
-                                                    <input type="file" class="form-control bg-secondary border-0 text-light" id="homeFeatureVideoFile" accept="video/mp4,video/webm,video/ogg">
+                                                    <input type="file" class="form-control bg-secondary border-0 text-light" id="homeFeatureVideoFile" accept="video/mp4,video/webm,video/ogg" multiple>
                                                     <button class="btn btn-outline-orange" id="uploadHomeFeatureVideoBtn" type="button"><i class="bi bi-upload"></i></button>
                                                 </div>
                                                 <small class="field-hint">This video appears on the homepage showcase section.</small>
@@ -1679,7 +1680,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                                 <label for="categoryAFeatureVideo" class="form-label text-light">Shop Category A Feature Video</label>
                                                 <input type="text" class="form-control bg-secondary border-0 text-light" id="categoryAFeatureVideo" placeholder="frontend/assets/videos/products/...mp4">
                                                 <div class="d-flex gap-2 mt-2">
-                                                    <input type="file" class="form-control bg-secondary border-0 text-light" id="categoryAFeatureVideoFile" accept="video/mp4,video/webm,video/ogg">
+                                                    <input type="file" class="form-control bg-secondary border-0 text-light" id="categoryAFeatureVideoFile" accept="video/mp4,video/webm,video/ogg" multiple>
                                                     <button class="btn btn-outline-orange" id="uploadCategoryAFeatureVideoBtn" type="button"><i class="bi bi-upload"></i></button>
                                                 </div>
                                                 <small class="field-hint">This video appears in Shop Category A above products.</small>
@@ -1708,9 +1709,10 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                                 <label for="sliderImage" class="form-label text-light">Image Path</label>
                                                 <input type="text" class="form-control bg-secondary border-0 text-light" id="sliderImage" placeholder="frontend/assets/images/slider/...">
                                                 <div class="d-flex gap-2 mt-2">
-                                                    <input type="file" class="form-control bg-secondary border-0 text-light" id="sliderImageFile" accept="image/*">
+                                                    <input type="file" class="form-control bg-secondary border-0 text-light" id="sliderImageFile" accept="image/*" multiple>
                                                     <button class="btn btn-outline-orange" id="uploadSliderImageBtn" type="button"><i class="bi bi-upload"></i></button>
                                                 </div>
+                                                <small class="field-hint">Bulk select images to parse/compress to WebP and upload in a queue.</small>
                                             </div>
                                             <div class="col-12 col-lg-4">
                                                 <label for="sliderAlt" class="form-label text-light">Alt Text</label>
@@ -1740,9 +1742,10 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                                 <label for="sliderVideo" class="form-label text-light">Optional Video Path</label>
                                                 <input type="text" class="form-control bg-secondary border-0 text-light" id="sliderVideo" placeholder="frontend/assets/videos/slider/...mp4">
                                                 <div class="d-flex gap-2 mt-2">
-                                                    <input type="file" class="form-control bg-secondary border-0 text-light" id="sliderVideoFile" accept="video/mp4,video/webm,video/ogg">
+                                                    <input type="file" class="form-control bg-secondary border-0 text-light" id="sliderVideoFile" accept="video/mp4,video/webm,video/ogg" multiple>
                                                     <button class="btn btn-outline-orange" id="uploadSliderVideoBtn" type="button"><i class="bi bi-upload"></i></button>
                                                 </div>
+                                                <small class="field-hint">Bulk video parsing is queued to avoid stuck uploads.</small>
                                             </div>
                                         </div>
                                         <div class="d-flex gap-2 mt-3">
@@ -1862,17 +1865,19 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                             <label for="productImage" class="form-label text-light">Image Path</label>
                             <input type="text" class="form-control bg-secondary border-0 text-light" id="productImage" placeholder="frontend/assets/images/products/..." required>
                             <div class="d-flex gap-2 mt-2">
-                                <input type="file" class="form-control bg-secondary border-0 text-light" id="productImageFile" accept="image/*">
+                                <input type="file" class="form-control bg-secondary border-0 text-light" id="productImageFile" accept="image/*" multiple>
                                 <button class="btn btn-outline-orange" id="uploadProductImageBtn" type="button"><i class="bi bi-upload"></i></button>
                             </div>
+                            <small class="field-hint">Supports bulk image uploads with visual parser/compressor progress.</small>
                         </div>
                         <div class="mb-3">
                             <label for="productVideo" class="form-label text-light">Optional Video Path</label>
                             <input type="text" class="form-control bg-secondary border-0 text-light" id="productVideo" placeholder="frontend/assets/videos/products/...mp4">
                             <div class="d-flex gap-2 mt-2">
-                                <input type="file" class="form-control bg-secondary border-0 text-light" id="productVideoFile" accept="video/mp4,video/webm,video/ogg">
+                                <input type="file" class="form-control bg-secondary border-0 text-light" id="productVideoFile" accept="video/mp4,video/webm,video/ogg" multiple>
                                 <button class="btn btn-outline-orange" id="uploadProductVideoBtn" type="button"><i class="bi bi-upload"></i></button>
                             </div>
+                            <small class="field-hint">Supports bulk video uploads with queued processing status.</small>
                         </div>
                         <div class="mb-3">
                             <label for="productDescription" class="form-label text-light">Description</label>

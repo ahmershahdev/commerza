@@ -73,6 +73,59 @@ function commerza_bootstrap_env(): void
 
 commerza_bootstrap_env();
 
+function commerza_request_is_browser_navigation(): bool
+{
+    if (PHP_SAPI === 'cli' || PHP_SAPI === 'phpdbg') {
+        return false;
+    }
+
+    $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    if (!in_array($method, ['GET', 'HEAD'], true)) {
+        return false;
+    }
+
+    $fetchDest = strtolower(trim((string)($_SERVER['HTTP_SEC_FETCH_DEST'] ?? '')));
+    $fetchMode = strtolower(trim((string)($_SERVER['HTTP_SEC_FETCH_MODE'] ?? '')));
+    if ($fetchDest === 'document' || $fetchMode === 'navigate') {
+        return true;
+    }
+
+    $accept = strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? ''));
+    if ($accept !== '' && str_contains($accept, 'text/html')) {
+        return true;
+    }
+
+    return false;
+}
+
+function commerza_request_targets_system_backend_php(): bool
+{
+    $scriptName = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? ''));
+    if ($scriptName === '') {
+        return false;
+    }
+
+    return preg_match('#/(?:admin/)?backend/[^/]+\.php$#i', $scriptName) === 1;
+}
+
+function commerza_block_direct_system_backend_navigation(): void
+{
+    if (!commerza_request_targets_system_backend_php()) {
+        return;
+    }
+
+    if (!commerza_request_is_browser_navigation()) {
+        return;
+    }
+
+    http_response_code(404);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo 'Not found.';
+    exit;
+}
+
+commerza_block_direct_system_backend_navigation();
+
 function commerza_request_is_https(): bool
 {
     $https = strtolower(trim((string)($_SERVER['HTTPS'] ?? '')));

@@ -64,79 +64,171 @@ if ($homeVideoStmt) {
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
   <style>
     .app-coming-home {
-      border: 1px solid rgba(255, 128, 0, 0.32);
-      border-radius: 20px;
-      padding: 22px;
+      border: 1px solid rgba(188, 52, 20, 0.45);
+      border-radius: 26px;
+      padding: 26px;
       background:
-        radial-gradient(circle at 88% 18%, rgba(255, 128, 0, 0.24), transparent 44%),
-        linear-gradient(140deg, rgba(10, 10, 10, 0.98), rgba(20, 20, 20, 0.95));
-      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.46);
+        radial-gradient(circle at 50% 6%, rgba(255, 190, 110, 0.22), transparent 42%),
+        linear-gradient(165deg, rgba(15, 6, 7, 0.98), rgba(35, 9, 11, 0.96));
+      box-shadow: 0 24px 54px rgba(0, 0, 0, 0.5);
       overflow: hidden;
       position: relative;
     }
 
-    .app-coming-home::before {
+    .app-coming-home::before,
+    .app-coming-home::after {
       content: "";
       position: absolute;
-      inset: -30% auto auto -18%;
-      width: 220px;
-      height: 220px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(255, 153, 0, 0.16), rgba(255, 153, 0, 0));
+      top: -90px;
+      bottom: -90px;
+      width: min(38vw, 360px);
+      border-radius: 0 26px 26px 0;
+      background:
+        linear-gradient(180deg, rgba(126, 14, 24, 0.94), rgba(64, 7, 16, 0.94)),
+        repeating-linear-gradient(90deg,
+          rgba(255, 255, 255, 0.08) 0,
+          rgba(255, 255, 255, 0.08) 2px,
+          transparent 2px,
+          transparent 16px);
+      box-shadow: inset -10px 0 20px rgba(0, 0, 0, 0.35);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .app-coming-home::before {
+      left: -20px;
+      transform-origin: left center;
+      animation: curtainOpenLeft 1.2s ease-out forwards;
+    }
+
+    .app-coming-home::after {
+      right: -20px;
+      transform-origin: right center;
+      border-radius: 26px 0 0 26px;
+      box-shadow: inset 10px 0 20px rgba(0, 0, 0, 0.35);
+      animation: curtainOpenRight 1.2s ease-out forwards;
+    }
+
+    .app-coming-stage-glow {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(255, 214, 154, 0.26), transparent 34%),
+        radial-gradient(circle at 50% 100%, rgba(255, 104, 43, 0.14), transparent 48%);
+      z-index: 1;
       pointer-events: none;
     }
 
     .app-coming-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-      gap: 18px;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      gap: 20px;
       position: relative;
-      z-index: 1;
+      z-index: 2;
+      align-items: stretch;
+    }
+
+    .app-coming-copy {
+      border: 1px solid rgba(255, 163, 112, 0.24);
+      border-radius: 18px;
+      padding: 18px;
+      background: linear-gradient(180deg, rgba(16, 16, 16, 0.7), rgba(10, 10, 10, 0.62));
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    }
+
+    .app-coming-copy .section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+      letter-spacing: 0.02em;
+      margin-bottom: 10px;
+      color: #ffe5ca;
     }
 
     .app-coming-copy p {
-      color: #d3d3d3;
+      color: #e6d4c9;
       font-family: 'Inter', sans-serif;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
 
     .app-bullet-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 14px;
+      gap: 9px;
+      margin-top: 12px;
     }
 
     .app-bullet {
-      border: 1px solid rgba(255, 170, 88, 0.35);
-      background: rgba(0, 0, 0, 0.32);
+      border: 1px solid rgba(255, 177, 128, 0.36);
+      background: rgba(72, 22, 12, 0.5);
       border-radius: 999px;
-      color: #ffd1a3;
+      color: #ffd9b7;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.69rem;
+      font-size: 0.67rem;
       letter-spacing: 0.07em;
-      padding: 6px 10px;
+      padding: 6px 11px;
       text-transform: uppercase;
       white-space: nowrap;
     }
 
+    .app-launch-timeline {
+      margin-top: 16px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .app-launch-step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #f5e0ce;
+      font-size: 0.88rem;
+    }
+
+    .app-launch-step span {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 131, 60, 0.26);
+      border: 1px solid rgba(255, 173, 105, 0.38);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: #ffd8b4;
+      flex-shrink: 0;
+    }
+
     .app-device-frame {
-      border: 1px solid rgba(255, 128, 0, 0.3);
+      border: 1px solid rgba(255, 128, 76, 0.35);
       border-radius: 18px;
-      background: rgba(0, 0, 0, 0.42);
+      background: rgba(12, 8, 8, 0.68);
       padding: 14px;
-      backdrop-filter: blur(3px);
+      backdrop-filter: blur(4px);
     }
 
     .app-device-head {
       font-size: 0.72rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: #ffb066;
+      color: #ffbe82;
       font-family: 'JetBrains Mono', monospace;
       margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .app-live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ff6d32;
+      box-shadow: 0 0 0 0 rgba(255, 109, 50, 0.7);
+      animation: pulseLive 1.6s ease-in-out infinite;
     }
 
     .app-feature-columns {
@@ -147,15 +239,15 @@ if ($homeVideoStmt) {
     }
 
     .app-feature-col {
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 177, 128, 0.2);
       border-radius: 12px;
-      background: rgba(12, 12, 12, 0.65);
+      background: rgba(8, 8, 10, 0.66);
       padding: 10px;
     }
 
     .app-feature-col h3 {
       margin: 0 0 8px;
-      color: #ffd7b0;
+      color: #ffdebf;
       font-size: 0.74rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -171,7 +263,7 @@ if ($homeVideoStmt) {
     }
 
     .app-feature-list li {
-      color: #f0f0f0;
+      color: #f4ede6;
       font-size: 0.87rem;
       display: flex;
       align-items: center;
@@ -179,7 +271,7 @@ if ($homeVideoStmt) {
     }
 
     .app-feature-list i {
-      color: #ff8a2a;
+      color: #ff9640;
     }
 
     .store-row {
@@ -189,10 +281,10 @@ if ($homeVideoStmt) {
     }
 
     .store-pill {
-      border: 1px solid rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 172, 116, 0.3);
       border-radius: 12px;
       padding: 9px 10px;
-      background: rgba(8, 8, 8, 0.72);
+      background: rgba(25, 11, 9, 0.72);
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -206,7 +298,7 @@ if ($homeVideoStmt) {
     }
 
     .store-pill small {
-      color: #b8b8b8;
+      color: #ccb5a5;
       display: block;
       font-size: 0.68rem;
       text-transform: uppercase;
@@ -215,15 +307,15 @@ if ($homeVideoStmt) {
     }
 
     .store-pill i {
-      color: #ffcc80;
+      color: #ffd19c;
       font-size: 1.1rem;
       width: 22px;
       text-align: center;
     }
 
     .store-pill span {
-      border: 1px solid rgba(255, 176, 103, 0.36);
-      color: #ffb067;
+      border: 1px solid rgba(255, 176, 103, 0.5);
+      color: #ffca8f;
       border-radius: 999px;
       padding: 4px 8px;
       font-size: 0.67rem;
@@ -233,15 +325,64 @@ if ($homeVideoStmt) {
       white-space: nowrap;
     }
 
+    @keyframes curtainOpenLeft {
+      0% {
+        transform: translateX(0) scaleX(1);
+      }
+
+      100% {
+        transform: translateX(-74%) scaleX(0.82);
+      }
+    }
+
+    @keyframes curtainOpenRight {
+      0% {
+        transform: translateX(0) scaleX(1);
+      }
+
+      100% {
+        transform: translateX(74%) scaleX(0.82);
+      }
+    }
+
+    @keyframes pulseLive {
+      0% {
+        box-shadow: 0 0 0 0 rgba(255, 109, 50, 0.7);
+      }
+
+      70% {
+        box-shadow: 0 0 0 8px rgba(255, 109, 50, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(255, 109, 50, 0);
+      }
+    }
+
     @media (max-width: 991.98px) {
       .app-coming-grid {
         grid-template-columns: 1fr;
       }
+
+      .app-coming-home::before,
+      .app-coming-home::after {
+        width: min(44vw, 300px);
+      }
     }
 
     @media (max-width: 575.98px) {
+      .app-coming-home {
+        padding: 18px;
+      }
+
       .app-feature-columns {
         grid-template-columns: 1fr;
+      }
+
+      .app-coming-home::before,
+      .app-coming-home::after {
+        top: -50px;
+        bottom: -50px;
       }
     }
   </style>
@@ -1038,41 +1179,44 @@ if ($homeVideoStmt) {
       </section>
 
       <section class="app-coming-home mt-5" aria-labelledby="homeAppSoonTitle">
+        <div class="app-coming-stage-glow" aria-hidden="true"></div>
         <div class="app-coming-grid">
           <div class="app-coming-copy">
-            <p class="section-kicker">Mobile First Release</p>
-            <h2 id="homeAppSoonTitle" class="section-title">Commerza App Coming Soon</h2>
-            <p>We are preparing a dedicated mobile app to make watch discovery faster and shopping smoother. The app will include personalized picks, synced wishlist, and real-time order updates.</p>
-            <p>Early rollout notifications will begin soon for both major app stores.</p>
+            <p class="section-kicker">Stage Lights On</p>
+            <h2 id="homeAppSoonTitle" class="section-title">Commerza Mobile App Arrives Behind The Curtain</h2>
+            <p>Our first mobile release is being crafted like a product premiere: faster browse flows, smarter watch discovery, and checkout optimized for one-handed speed.</p>
+            <p>As the curtains open, early access invites will roll out first, followed by a wider public launch in both major stores.</p>
             <div class="app-bullet-row" aria-hidden="true">
               <span class="app-bullet">Wishlist Sync</span>
               <span class="app-bullet">Order Tracking</span>
-              <span class="app-bullet">Fast Checkout</span>
+              <span class="app-bullet">Smart Checkout</span>
+              <span class="app-bullet">Drop Alerts</span>
+            </div>
+            <div class="app-launch-timeline" aria-label="Mobile app rollout timeline">
+              <div class="app-launch-step"><span>1</span>Private beta for loyal Commerza shoppers</div>
+              <div class="app-launch-step"><span>2</span>Feature wave: reviews, support chat, reorder shortcuts</div>
+              <div class="app-launch-step"><span>3</span>Public store launch with launch-week rewards</div>
             </div>
           </div>
           <div class="app-device-frame">
-            <div class="app-device-head">Commerza Mobile Preview</div>
+            <div class="app-device-head"><span class="app-live-dot"></span>Commerza mobile preview</div>
             <div class="app-feature-columns" aria-label="Commerza app feature roadmap">
               <div class="app-feature-col">
-                <h3>User Experience 6</h3>
+                <h3>Discovery Engine</h3>
                 <ul class="app-feature-list">
                   <li><i class="bi bi-stars"></i><span>Personalized watch recommendations</span></li>
-                  <li><i class="bi bi-heart"></i><span>Synced wishlist on every device</span></li>
-                  <li><i class="bi bi-truck"></i><span>Real-time order tracking updates</span></li>
-                  <li><i class="bi bi-shield-lock"></i><span>One-tap secure checkout flow</span></li>
-                  <li><i class="bi bi-bell"></i><span>Low-stock and launch drop alerts</span></li>
-                  <li><i class="bi bi-award"></i><span>Warranty reminders and support</span></li>
+                  <li><i class="bi bi-search"></i><span>Lightning filters for movement, dial, and finish</span></li>
+                  <li><i class="bi bi-heart"></i><span>One account, synced wishlist everywhere</span></li>
+                  <li><i class="bi bi-bell"></i><span>Back-in-stock and limited-drop push alerts</span></li>
                 </ul>
               </div>
               <div class="app-feature-col">
-                <h3>Launch Toolkit 6</h3>
+                <h3>Checkout + Support</h3>
                 <ul class="app-feature-list">
-                  <li><i class="bi bi-calendar-event"></i><span>Early-access drop calendar</span></li>
-                  <li><i class="bi bi-search"></i><span>Faster watch discovery filters</span></li>
-                  <li><i class="bi bi-clock-history"></i><span>Quick reorder from order history</span></li>
-                  <li><i class="bi bi-geo-alt"></i><span>Saved shipping and delivery zones</span></li>
-                  <li><i class="bi bi-chat-square-dots"></i><span>In-app support conversation panel</span></li>
-                  <li><i class="bi bi-camera"></i><span>Photo-first review uploads</span></li>
+                  <li><i class="bi bi-shield-lock"></i><span>Secure one-tap checkout with saved profiles</span></li>
+                  <li><i class="bi bi-truck"></i><span>Live order timeline with courier checkpoints</span></li>
+                  <li><i class="bi bi-chat-square-dots"></i><span>Direct support chat from inside order cards</span></li>
+                  <li><i class="bi bi-clock-history"></i><span>Quick reorder from purchase history</span></li>
                 </ul>
               </div>
             </div>
@@ -1080,18 +1224,18 @@ if ($homeVideoStmt) {
               <div class="store-pill" aria-label="Coming soon on Google Play Store">
                 <i class="bi bi-google-play"></i>
                 <div>
-                  <small>Coming Soon On</small>
+                  <small>Curtain Call On</small>
                   <strong>Google Play Store</strong>
                 </div>
-                <span>Soon</span>
+                <span>Pre-register</span>
               </div>
               <div class="store-pill" aria-label="Coming soon on Apple App Store">
                 <i class="bi bi-apple"></i>
                 <div>
-                  <small>Coming Soon On</small>
-                  <strong>App Store</strong>
+                  <small>Curtain Call On</small>
+                  <strong>Apple App Store</strong>
                 </div>
-                <span>Soon</span>
+                <span>Waitlist</span>
               </div>
             </div>
           </div>
