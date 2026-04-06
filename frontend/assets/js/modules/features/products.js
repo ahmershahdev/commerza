@@ -23,6 +23,48 @@ function productsSanitizeAssetUrl(value) {
   return raw.replace(/[\u0000-\u001F\u007F]/g, "");
 }
 
+function productsNormalizeSlug(value) {
+  return (value || "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function productsResolveSlug(product) {
+  const explicitSlug = productsNormalizeSlug(product?.slug);
+  if (explicitSlug) {
+    return explicitSlug;
+  }
+
+  const fromName = productsNormalizeSlug(product?.name || "");
+  return fromName || "product";
+}
+
+function productsBuildDetailPath(product) {
+  const params = new URLSearchParams();
+  const numericProductId = Number.parseInt(product?.id, 10);
+  const name = (product?.name || "").toString().trim();
+  const code = (product?.productCode || "").toString().trim();
+
+  if (Number.isInteger(numericProductId) && numericProductId > 0) {
+    params.set("id", String(numericProductId));
+  }
+
+  if (name !== "") {
+    params.set("name", name);
+  }
+
+  if (code !== "") {
+    params.set("code", code);
+  }
+
+  const query = params.toString();
+  return query ? `products.php?${query}` : "products.php";
+}
+
 function fetchProductsPayload() {
   if (commerzaProductsPayloadPromise) {
     return commerzaProductsPayloadPromise;
@@ -82,28 +124,6 @@ function formatProductPrice(value) {
     return "0";
   }
   return Math.round(numeric).toLocaleString();
-}
-
-function buildProductDetailPath(product) {
-  const params = new URLSearchParams();
-  const numericProductId = Number.parseInt(product?.id, 10);
-  const name = (product?.name || "").toString().trim();
-  const code = (product?.productCode || "").toString().trim();
-
-  if (Number.isInteger(numericProductId) && numericProductId > 0) {
-    params.set("id", String(numericProductId));
-  }
-
-  if (name !== "") {
-    params.set("name", name);
-  }
-
-  if (code !== "") {
-    params.set("code", code);
-  }
-
-  const query = params.toString();
-  return query ? `products.php?${query}` : "products.php";
 }
 
 function renderProducts(products, containerId) {
@@ -169,7 +189,7 @@ function createProductCard(product) {
     product.movement !== "smart"
       ? '<span class="sale-badge">PREMIUM SALE</span>'
       : "";
-  const detailUrl = productsEscapeHtml(buildProductDetailPath(product));
+  const detailUrl = productsEscapeHtml(productsBuildDetailPath(product));
   const wishlistActive = isInWishlist(product.id, product.name);
   const wishlistIcon = wishlistActive ? "bi-heart-fill" : "bi-heart";
 
