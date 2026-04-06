@@ -180,12 +180,30 @@ function commerza_public_base_url(): string
         $host = 'localhost';
     }
 
-    $scriptName = trim((string)($_SERVER['SCRIPT_NAME'] ?? ''), '/');
-    $segments = $scriptName === '' ? [] : explode('/', $scriptName);
     $prefix = '';
 
-    if (count($segments) >= 2 && !str_ends_with((string)$segments[0], '.php')) {
-        $prefix = '/' . trim((string)$segments[0]);
+    $docRoot = realpath((string)($_SERVER['DOCUMENT_ROOT'] ?? ''));
+    $projectRoot = realpath(dirname(__DIR__));
+
+    if (is_string($docRoot) && $docRoot !== '' && is_string($projectRoot) && $projectRoot !== '') {
+        $normalizedDocRoot = strtolower(str_replace('\\', '/', rtrim($docRoot, DIRECTORY_SEPARATOR)));
+        $normalizedProjectRoot = strtolower(str_replace('\\', '/', rtrim($projectRoot, DIRECTORY_SEPARATOR)));
+
+        if ($normalizedDocRoot !== '' && str_starts_with($normalizedProjectRoot, $normalizedDocRoot)) {
+            $relative = trim(substr($projectRoot, strlen($docRoot)), "\\/");
+            if ($relative !== '') {
+                $prefix = '/' . str_replace('\\', '/', $relative);
+            }
+        }
+    }
+
+    if ($prefix === '') {
+        $scriptName = trim((string)($_SERVER['SCRIPT_NAME'] ?? ''), '/');
+        $segments = $scriptName === '' ? [] : explode('/', $scriptName);
+
+        if (count($segments) >= 2 && !str_ends_with((string)$segments[0], '.php')) {
+            $prefix = '/' . trim((string)$segments[0]);
+        }
     }
 
     $cached = $scheme . '://' . $host . $prefix;
@@ -206,6 +224,103 @@ function commerza_is_backend_request(): bool
 {
     $script = strtolower(str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? '')));
     return str_contains($script, '/backend/') || str_contains($script, '/admin/backend/');
+}
+
+function commerza_clean_route_map(): array
+{
+    static $map = null;
+
+    if (is_array($map)) {
+        return $map;
+    }
+
+    $map = [
+        'index.php' => '/home',
+        'about.php' => '/about',
+        'contact.php' => '/contact',
+        'faq.php' => '/faq',
+        'shipping.php' => '/shipping',
+        'returns.php' => '/returns',
+        'privacy-policy.php' => '/privacy-policy',
+        'terms-of-service.php' => '/terms-of-service',
+        'warranty.php' => '/warranty',
+        'shop-category-a.php' => '/shop-category-a',
+        'shop-category-b.php' => '/shop-category-b',
+        'products.php' => '/products',
+        'cart.php' => '/cart',
+        'wishlist.php' => '/wishlist',
+        'compare.php' => '/compare',
+        'login.php' => '/login',
+        'signup.php' => '/signup',
+        'forgot-password.php' => '/forgot-password',
+        'reset-password.php' => '/reset-password',
+        'order-tracking.php' => '/order-tracking',
+        'account.php' => '/account',
+        'invoice.php' => '/invoice',
+        'oauth.php' => '/oauth',
+        'admin-login.php' => '/admin-login',
+        'admin-panel.php' => '/admin-panel',
+        'admin-forgot-password.php' => '/admin-forgot-password',
+        'admin-forgot-email.php' => '/admin-forgot-email',
+        'admin-verify-2fa.php' => '/admin-verify-2fa',
+    ];
+
+    return $map;
+}
+
+function commerza_maybe_redirect_clean_route(): void
+{
+    if (PHP_SAPI === 'cli' || headers_sent() || commerza_is_backend_request()) {
+        return;
+    }
+
+    $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    if (!in_array($method, ['GET', 'HEAD'], true)) {
+        return;
+    }
+
+    $requestUri = (string)($_SERVER['REQUEST_URI'] ?? '');
+    $requestPath = (string)(parse_url($requestUri, PHP_URL_PATH) ?? '');
+    if ($requestPath === '' || !str_ends_with(strtolower($requestPath), '.php')) {
+        return;
+    }
+
+    $filename = strtolower(basename($requestPath));
+    $routeMap = commerza_clean_route_map();
+    if (!isset($routeMap[$filename])) {
+        return;
+    }
+
+    if ($filename === 'products.php') {
+        $hasSlugQuery = isset($_GET['slug']) && trim((string)$_GET['slug']) !== '';
+        if ($hasSlugQuery) {
+            return;
+        }
+    }
+
+    if ($filename === 'account.php' && isset($_GET['u']) && trim((string)$_GET['u']) !== '') {
+        return;
+    }
+
+    $targetUrl = commerza_absolute_url($routeMap[$filename]);
+    $queryString = (string)(parse_url($requestUri, PHP_URL_QUERY) ?? '');
+    if ($queryString !== '') {
+        $targetUrl .= '?' . $queryString;
+    }
+
+    $normalizePath = static function (string $path): string {
+        $normalized = '/' . trim(str_replace('\\', '/', $path), '/');
+        $normalized = preg_replace('#/+#', '/', $normalized) ?: $normalized;
+        return strtolower(rtrim($normalized, '/'));
+    };
+
+    $targetPath = (string)(parse_url($targetUrl, PHP_URL_PATH) ?? '');
+    if ($normalizePath($requestPath) === $normalizePath($targetPath)) {
+        return;
+    }
+
+    header('Location: ' . $targetUrl, true, 301);
+    exit;
 }
 
 function commerza_is_sensitive_cache_page(): bool
@@ -462,6 +577,8 @@ if (session_status() === PHP_SESSION_NONE) {
 
     session_start();
 }
+
+commerza_maybe_redirect_clean_route();
 
 if (!headers_sent()) {
     header('X-Frame-Options: SAMEORIGIN');

@@ -1,5 +1,24 @@
 (function () {
   function detectAppBaseUrl() {
+    const baseElement = document.querySelector("base[href]");
+    if (baseElement) {
+      const baseHref = (baseElement.getAttribute("href") || "")
+        .toString()
+        .trim();
+      if (baseHref) {
+        try {
+          const parsedBase = new URL(baseHref, window.location.href);
+          const normalizedPath = parsedBase.pathname.replace(/\\/g, "/");
+          const withTrailingSlash = normalizedPath.endsWith("/")
+            ? normalizedPath
+            : `${normalizedPath}/`;
+          return `${parsedBase.origin}${withTrailingSlash}`;
+        } catch (error) {
+          // Ignore invalid base href and continue with script detection.
+        }
+      }
+    }
+
     const marker = "/frontend/assets/js/script.js";
     const candidateScripts = [];
 
@@ -39,6 +58,13 @@
       if (markerIndex >= 0) {
         return `${parsed.origin}${normalizedPath.slice(0, markerIndex + 1)}`;
       }
+    }
+
+    const pathname = window.location.pathname.replace(/\\/g, "/");
+    const segments = pathname.split("/").filter(Boolean);
+
+    if (segments.length > 0 && !segments[0].includes(".")) {
+      return `${window.location.origin}/${segments[0]}/`;
     }
 
     return `${window.location.origin}/`;

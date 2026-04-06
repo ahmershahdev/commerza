@@ -1435,7 +1435,7 @@ $(document).ready(function () {
   function getProductAppBasePath() {
     const pathname = window.location.pathname.replace(/\\/g, "/");
     const lowerPathname = pathname.toLowerCase();
-    const markers = ["/products.php", "/prodcuts/", "/products/"];
+    const markers = ["/products.php", "/prodcuts/", "/products/", "/product/"];
 
     for (const marker of markers) {
       const markerIndex = lowerPathname.indexOf(marker);
@@ -1466,14 +1466,21 @@ $(document).ready(function () {
     const detailPath = buildProductDetailPathFromSlug(
       resolveProductIdentitySlug(product),
     );
-    return `${window.location.origin}${basePath}${detailPath}`;
+    const numericProductId = Number.parseInt(product?.id, 10);
+    const idQuery =
+      Number.isInteger(numericProductId) && numericProductId > 0
+        ? `?id=${encodeURIComponent(String(numericProductId))}`
+        : "";
+
+    return `${window.location.origin}${basePath}${detailPath}${idQuery}`;
   }
 
   function extractProductSlugFromPath() {
     const pathname = window.location.pathname.replace(/\\/g, "/");
     const match =
       pathname.match(/\/prodcuts\/([^/?#]+)/i) ||
-      pathname.match(/\/products\/([^/?#]+)/i);
+      pathname.match(/\/products\/([^/?#]+)/i) ||
+      pathname.match(/\/product\/([^/?#]+)/i);
 
     if (!match || !match[1]) {
       return "";
