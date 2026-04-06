@@ -57,20 +57,97 @@ function cart_api_snapshot_response(mysqli $con): array
     ];
 }
 
-function cart_api_validate_product(mysqli $con, int $productId): bool
+function cart_api_normalize_product_name(string $value): string
 {
-    $stmt = $con->prepare('SELECT id FROM products WHERE id = ? LIMIT 1');
+    $normalized = preg_replace('/\s+/', ' ', trim($value));
+    if (!is_string($normalized)) {
+        return '';
+    }
+
+    return strtolower($normalized);
+}
+
+function cart_api_normalize_product_code(string $value): string
+{
+    $normalized = preg_replace('/\s+/', '', trim($value));
+    if (!is_string($normalized)) {
+        return '';
+    }
+
+    return strtoupper($normalized);
+}
+
+function cart_api_validate_product_identity(
+    mysqli $con,
+    int $productId,
+    string $expectedName = '',
+    string $expectedCode = ''
+): array {
+    $stmt = $con->prepare('SELECT id, name, product_code FROM products WHERE id = ? LIMIT 1');
     if (!$stmt) {
-        return false;
+        return [
+            'ok' => false,
+            'message' => 'Unable to validate product right now.',
+        ];
     }
 
     $stmt->bind_param('i', $productId);
     $stmt->execute();
-    $stmt->store_result();
-    $exists = $stmt->num_rows > 0;
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
     $stmt->close();
 
-    return $exists;
+    if (!$row) {
+        return [
+            'ok' => false,
+            'message' => 'Product does not exist.',
+        ];
+    }
+
+    $normalizedExpectedName = cart_api_normalize_product_name($expectedName);
+    $normalizedExpectedCode = cart_api_normalize_product_code($expectedCode);
+    $normalizedActualName = cart_api_normalize_product_name((string)($row['name'] ?? ''));
+    $normalizedActualCode = cart_api_normalize_product_code((string)($row['product_code'] ?? ''));
+
+    if ($normalizedExpectedName !== '' && $normalizedExpectedName !== $normalizedActualName) {
+        return [
+            'ok' => false,
+            'message' => 'Product verification failed. Please refresh and try again.',
+        ];
+    }
+
+    if ($normalizedExpectedCode !== '' && $normalizedExpectedCode !== $normalizedActualCode) {
+        return [
+            'ok' => false,
+            'message' => 'Product code mismatch. Please refresh and try again.',
+        ];
+    }
+
+    return [
+        'ok' => true,
+        'name' => (string)($row['name'] ?? ''),
+        'product_code' => (string)($row['product_code'] ?? ''),
+    ];
+}
+
+function cart_api_get_product_stock(mysqli $con, int $productId): ?int
+{
+    $stmt = $con->prepare('SELECT stock FROM products WHERE id = ? LIMIT 1');
+    if (!$stmt) {
+        return null;
+    }
+
+    $stmt->bind_param('i', $productId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    if (!$row) {
+        return null;
+    }
+
+    return max(0, (int)($row['stock'] ?? 0));
 }
 
 function cart_api_lock_name(int $cartId): string
@@ -217,6 +294,16 @@ if ($action === 'add') {
 
     $productId = (int)($_POST['product_id'] ?? 0);
     $quantityToAdd = (int)($_POST['quantity'] ?? 1);
+    $postedProductName = trim((string)($_POST['product_name'] ?? ''));
+    $postedProductCode = trim((string)($_POST['product_code'] ?? ''));
+
+    if (strlen($postedProductName) > 255) {
+        $postedProductName = substr($postedProductName, 0, 255);
+    }
+
+    if (strlen($postedProductCode) > 80) {
+        $postedProductCode = substr($postedProductCode, 0, 80);
+    }
 
     if ($productId <= 0 || $quantityToAdd <= 0) {
         cart_api_json(['ok' => false, 'message' => 'Invalid cart payload.'], 422);
@@ -226,8 +313,18 @@ if ($action === 'add') {
         cart_api_json(['ok' => false, 'message' => 'Quantity is too high.'], 422);
     }
 
-    if (!cart_api_validate_product($con, $productId)) {
-        cart_api_json(['ok' => false, 'message' => 'Product does not exist.'], 404);
+    $identityCheck = cart_api_validate_product_identity(
+        $con,
+        $productId,
+        $postedProductName,
+        $postedProductCode
+    );
+
+    if (!(bool)($identityCheck['ok'] ?? false)) {
+        cart_api_json([
+            'ok' => false,
+            'message' => (string)($identityCheck['message'] ?? 'Product verification failed.'),
+        ], 409);
     }
 
     $cartId = commerza_get_cart_id($con, true);
@@ -250,6 +347,23 @@ if ($action === 'add') {
         if ($existingRow) {
             $existingQty = (int)$existingRow['quantity'];
         }
+    }
+
+    $availableStock = cart_api_get_product_stock($con, $productId);
+    if ($availableStock === null) {
+        cart_api_json(['ok' => false, 'message' => 'Product does not exist.'], 409);
+    }
+
+    if ($availableStock <= 0) {
+        cart_api_json(['ok' => false, 'message' => 'Product is out of stock.'], 422);
+    }
+
+    $requestedQty = $existingQty + $quantityToAdd;
+    if ($requestedQty > $availableStock) {
+        cart_api_json([
+            'ok' => false,
+            'message' => 'Only ' . $availableStock . ' item(s) are currently available for this product.',
+        ], 422);
     }
 
     $currentTotal = commerza_get_cart_total_qty($con, $cartId);
@@ -367,6 +481,11 @@ if ($action === 'set_qty') {
         cart_api_json(['ok' => false, 'message' => 'Item not found in cart.'], 404);
     }
 
+    $availableStock = cart_api_get_product_stock($con, $productId);
+    if ($availableStock === null) {
+        cart_api_json(['ok' => false, 'message' => 'Product does not exist.'], 409);
+    }
+
     if ($quantity <= 0) {
         $deleteStmt = $con->prepare('DELETE FROM cart_items WHERE cart_id = ? AND product_id = ? LIMIT 1');
         if (!$deleteStmt) {
@@ -384,6 +503,13 @@ if ($action === 'set_qty') {
 
     if ($quantity > 10) {
         cart_api_json(['ok' => false, 'message' => 'Quantity is too high.'], 422);
+    }
+
+    if ($quantity > $availableStock) {
+        cart_api_json([
+            'ok' => false,
+            'message' => 'Only ' . $availableStock . ' item(s) are currently available for this product.',
+        ], 422);
     }
 
     $currentTotal = commerza_get_cart_total_qty($con, $cartId);

@@ -133,7 +133,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $csrfToken = admin_generate_csrf_token();
-$forgotEmailCanonicalUrl = admin_public_url('/admin/frontend/admin-forgot-email.php');
+$adminFrontendBaseHref = rtrim(admin_public_url('/admin/frontend/'), '/') . '/';
+$forgotEmailCanonicalUrl = admin_public_url('/admin-forgot-email');
 $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.webp');
 ?>
 <!DOCTYPE html>
@@ -141,6 +142,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
 
 <head>
   <meta charset="UTF-8" />
+  <base href="<?= htmlspecialchars($adminFrontendBaseHref, ENT_QUOTES, 'UTF-8') ?>">
   <meta name="robots" content="noindex, nofollow">
   <meta name="author" content="Syed Ahmer Shah">
   <meta name="referrer" content="no-referrer">
@@ -389,10 +391,11 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
     </form>
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <?= commerza_captcha_script_tag($con) ?>
+    <?= commerza_captcha_script_tag($con) ?>
     <script src="assets/js/pages/admin-auth-common.js"></script>
     <script src="assets/js/pages/admin-forgot-email.js"></script>
 
   </main>
 </body>
+
 </html>

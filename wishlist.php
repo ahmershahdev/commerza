@@ -4,6 +4,20 @@ require_once __DIR__ . '/backend/products_schema_helpers.php';
 
 commerza_products_ensure_schema($con);
 
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+  $requestUri = (string)($_SERVER['REQUEST_URI'] ?? '');
+  $requestPath = (string)(parse_url($requestUri, PHP_URL_PATH) ?? '');
+  if (preg_match('#/wishlist\.php$#i', str_replace('\\', '/', $requestPath)) === 1) {
+    $queryString = (string)(parse_url($requestUri, PHP_URL_QUERY) ?? '');
+    $targetUrl = commerza_absolute_url('/wishlist');
+    if ($queryString !== '') {
+      $targetUrl .= '?' . $queryString;
+    }
+    header('Location: ' . $targetUrl, true, 301);
+    exit;
+  }
+}
+
 if (!isset($_SESSION['user_id']) || !is_numeric($_SESSION['user_id'])) {
   header('Location: login.php?redirect=wishlist.php');
   exit;

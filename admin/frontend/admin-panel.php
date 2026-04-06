@@ -11,7 +11,8 @@ $adminUser = admin_require_login($con);
 $adminCsrfToken = admin_generate_csrf_token();
 $adminCssVersion = @filemtime(__DIR__ . '/assets/css/style.css') ?: time();
 $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
-$adminPanelCanonicalUrl = admin_public_url('/admin/frontend/admin-panel.php');
+$adminFrontendBaseHref = rtrim(admin_public_url('/admin/frontend/'), '/') . '/';
+$adminPanelCanonicalUrl = admin_public_url('/admin-panel');
 $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.webp');
 ?>
 <!DOCTYPE html>
@@ -20,6 +21,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="<?= htmlspecialchars($adminFrontendBaseHref, ENT_QUOTES, 'UTF-8') ?>">
     <meta name="robots" content="noindex, nofollow">
     <meta name="admin-csrf-token" content="<?= htmlspecialchars($adminCsrfToken) ?>">
     <link rel="canonical" href="<?= htmlspecialchars($adminPanelCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>">
@@ -409,7 +411,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                 </div>
                             </div>
 
-                            
+
                         </div>
                     </div>
 
@@ -422,6 +424,29 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                         <p class="mb-0 text-secondary">Step 1: Create a section. Step 2: Add products. Step 3: Set Product Code, Warranty, and Dispatch info for each product.</p>
                                     </div>
                                     <span class="step-chip">Tip: Use unique product codes and clear service details so support teams can resolve issues faster.</span>
+                                </div>
+                                <div class="card admin-card border-0 shadow-sm mb-4">
+                                    <div class="card-header bg-dark border-bottom border-secondary py-3">
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Bulk Product Upload (CSV / JSON)</h3>
+                                    </div>
+                                    <div class="card-body p-4">
+                                        <p class="text-secondary mb-3">Simple steps for non-technical admins: download sample CSV, fill each row (one product), then click import. Import replaces current catalog data.</p>
+                                        <div class="row g-3">
+                                            <div class="col-12 col-lg-7">
+                                                <label for="bulkProductsFile" class="form-label text-light">Upload Product File</label>
+                                                <input type="file" class="form-control bg-secondary border-0 text-light" id="bulkProductsFile" accept=".csv,.json,text/csv,application/json">
+                                                <small class="field-hint d-block mt-2">CSV columns: section_id, section_name, page, category, subcategory, name, description, image, video, product_code, warranty_info, dispatch_info, price, sale_price, stock, movement.</small>
+                                            </div>
+                                            <div class="col-12 col-lg-5 d-flex align-items-end gap-2 flex-wrap">
+                                                <button class="btn btn-orange" id="bulkProductsImportBtn" type="button">
+                                                    <i class="bi bi-upload me-1"></i>Import Products
+                                                </button>
+                                                <button class="btn btn-outline-orange" id="downloadSampleProductsCsvBtn" type="button">
+                                                    <i class="bi bi-file-earmark-spreadsheet me-1"></i>Download Sample CSV
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="mb-3 d-flex gap-2 align-items-start">
                                     <div style="flex: 1;">
@@ -509,7 +534,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                               
+
                                                 </tbody>
                                             </table>
                                         </div>
@@ -601,7 +626,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                         <div class="helper-banner mb-4">
                             <div>
                                 <h2 class="h5 mb-2 text-light">Customer list</h2>
-                                <p class="mb-0 text-secondary">These are customers who placed orders. Use this list to confirm contact details.</p>
+                                <p class="mb-0 text-secondary">These are customers who placed orders. Search by name, email, or username and remove full profiles when required.</p>
                             </div>
                             <span class="step-chip">Tip: If an email looks wrong, update the order details.</span>
                         </div>
@@ -615,6 +640,12 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                         </button>
                                     </div>
                                     <div class="card-body p-0">
+                                        <div class="p-3 border-bottom border-secondary">
+                                            <label for="customersSearchInput" class="form-label text-light mb-2">Search Customers</label>
+                                            <input type="text" class="form-control bg-secondary border-0 text-light" id="customersSearchInput" list="customersSearchSuggestions" placeholder="Type name, email, or username">
+                                            <datalist id="customersSearchSuggestions"></datalist>
+                                            <small class="field-hint d-block mt-2">Suggestions appear as you type. You can search by full name, email, username, or phone.</small>
+                                        </div>
                                         <div class="table-responsive">
                                             <table class="table table-dark table-hover align-middle mb-0" id="customersTable">
                                                 <thead class="border-bottom border-secondary">
@@ -622,15 +653,17 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                                         <th class="py-3 ps-4 text-orange fw-semibold"><input class="form-check-input" type="checkbox" id="customersSelectAll"></th>
                                                         <th class="py-3 ps-4 text-orange fw-semibold">Avatar</th>
                                                         <th class="py-3 text-orange fw-semibold">Name</th>
+                                                        <th class="py-3 text-orange fw-semibold">Username</th>
                                                         <th class="py-3 text-orange fw-semibold">Email</th>
                                                         <th class="py-3 text-orange fw-semibold">Phone</th>
                                                         <th class="py-3 text-orange fw-semibold">Orders</th>
-                                                        <th class="py-3 pe-4 text-orange fw-semibold">Total Spent</th>
+                                                        <th class="py-3 text-orange fw-semibold">Total Spent</th>
+                                                        <th class="py-3 pe-4 text-orange fw-semibold">Actions</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     <tr class="border-bottom border-secondary">
-                                                        <td colspan="7" class="text-center py-4 text-secondary">No customers found</td>
+                                                        <td colspan="9" class="text-center py-4 text-secondary">No customers found</td>
                                                     </tr>
                                                 </tbody>
                                             </table>
@@ -852,16 +885,16 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                             <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                                 <h3 class="h5 mb-0 fw-bold text-orange">All Product Reviews</h3>
                                 <div class="d-flex align-items-center gap-2">
-                                    <select class="form-select bg-secondary border-0 text-light form-select-sm" 
-        id="reviewVisibilityFilter" 
-        style="min-width: 120px; width: auto;">
-    <option value="all">All Reviews</option>
-    <option value="visible">Visible</option>
-    <option value="hidden">Hidden</option>
-</select>
+                                    <select class="form-select bg-secondary border-0 text-light form-select-sm"
+                                        id="reviewVisibilityFilter"
+                                        style="min-width: 120px; width: auto;">
+                                        <option value="all">All Reviews</option>
+                                        <option value="visible">Visible</option>
+                                        <option value="hidden">Hidden</option>
+                                    </select>
                                     <button class="btn btn-sm btn-orange" id="addReviewBtn" type="button">
                                         <i class="bi bi-plus-circle me-1"></i>Add Review
-                                    </button> 
+                                    </button>
                                     <button class="btn btn-sm btn-outline-orange" id="refreshReviewsBtn" type="button">
                                         <i class="bi bi-arrow-clockwise me-1"></i>Refresh
                                     </button>
@@ -1170,7 +1203,9 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                                     </button>
                                                     <ul class="dropdown-menu dropdown-menu-start bg-dark border-secondary w-100" id="emailSourceMenu">
                                                         <li><a class="dropdown-item text-light" href="#" data-source="all">All sources</a></li>
-                                                        <li><hr class="dropdown-divider border-secondary"></li>
+                                                        <li>
+                                                            <hr class="dropdown-divider border-secondary">
+                                                        </li>
                                                         <li><a class="dropdown-item text-light" href="#" data-source="newsletter">Newsletter</a></li>
                                                         <li><a class="dropdown-item text-light" href="#" data-source="customers">Customers</a></li>
                                                     </ul>
@@ -1465,9 +1500,10 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                                 <label for="socialIcon" class="form-label text-light">Icon</label>
                                                 <input type="text" class="form-control bg-secondary border-0 text-light" id="socialIcon" placeholder="bi bi-facebook or frontend/assets/images/social/icon.png">
                                                 <div class="d-flex gap-2 mt-2">
-                                                    <input type="file" class="form-control bg-secondary border-0 text-light" id="socialIconFile" accept="image/*,.ico">
+                                                    <input type="file" class="form-control bg-secondary border-0 text-light" id="socialIconFile" accept="image/*,.ico" multiple>
                                                     <button class="btn btn-outline-orange" id="uploadSocialIconBtn" type="button"><i class="bi bi-upload"></i></button>
                                                 </div>
+                                                <small class="field-hint">Select one or more icons. Images are parsed and compressed to WebP; ICO files stay ICO.</small>
                                             </div>
                                         </div>
                                         <div class="d-flex gap-2 mt-3">
@@ -1635,7 +1671,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                                 <label for="homeFeatureVideo" class="form-label text-light">Homepage Feature Video</label>
                                                 <input type="text" class="form-control bg-secondary border-0 text-light" id="homeFeatureVideo" placeholder="frontend/assets/videos/slider/...mp4">
                                                 <div class="d-flex gap-2 mt-2">
-                                                    <input type="file" class="form-control bg-secondary border-0 text-light" id="homeFeatureVideoFile" accept="video/mp4,video/webm,video/ogg">
+                                                    <input type="file" class="form-control bg-secondary border-0 text-light" id="homeFeatureVideoFile" accept="video/mp4,video/webm,video/ogg" multiple>
                                                     <button class="btn btn-outline-orange" id="uploadHomeFeatureVideoBtn" type="button"><i class="bi bi-upload"></i></button>
                                                 </div>
                                                 <small class="field-hint">This video appears on the homepage showcase section.</small>
@@ -1644,7 +1680,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                                 <label for="categoryAFeatureVideo" class="form-label text-light">Shop Category A Feature Video</label>
                                                 <input type="text" class="form-control bg-secondary border-0 text-light" id="categoryAFeatureVideo" placeholder="frontend/assets/videos/products/...mp4">
                                                 <div class="d-flex gap-2 mt-2">
-                                                    <input type="file" class="form-control bg-secondary border-0 text-light" id="categoryAFeatureVideoFile" accept="video/mp4,video/webm,video/ogg">
+                                                    <input type="file" class="form-control bg-secondary border-0 text-light" id="categoryAFeatureVideoFile" accept="video/mp4,video/webm,video/ogg" multiple>
                                                     <button class="btn btn-outline-orange" id="uploadCategoryAFeatureVideoBtn" type="button"><i class="bi bi-upload"></i></button>
                                                 </div>
                                                 <small class="field-hint">This video appears in Shop Category A above products.</small>
@@ -1673,9 +1709,10 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                                 <label for="sliderImage" class="form-label text-light">Image Path</label>
                                                 <input type="text" class="form-control bg-secondary border-0 text-light" id="sliderImage" placeholder="frontend/assets/images/slider/...">
                                                 <div class="d-flex gap-2 mt-2">
-                                                    <input type="file" class="form-control bg-secondary border-0 text-light" id="sliderImageFile" accept="image/*">
+                                                    <input type="file" class="form-control bg-secondary border-0 text-light" id="sliderImageFile" accept="image/*" multiple>
                                                     <button class="btn btn-outline-orange" id="uploadSliderImageBtn" type="button"><i class="bi bi-upload"></i></button>
                                                 </div>
+                                                <small class="field-hint">Bulk select images to parse/compress to WebP and upload in a queue.</small>
                                             </div>
                                             <div class="col-12 col-lg-4">
                                                 <label for="sliderAlt" class="form-label text-light">Alt Text</label>
@@ -1705,9 +1742,10 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                                 <label for="sliderVideo" class="form-label text-light">Optional Video Path</label>
                                                 <input type="text" class="form-control bg-secondary border-0 text-light" id="sliderVideo" placeholder="frontend/assets/videos/slider/...mp4">
                                                 <div class="d-flex gap-2 mt-2">
-                                                    <input type="file" class="form-control bg-secondary border-0 text-light" id="sliderVideoFile" accept="video/mp4,video/webm,video/ogg">
+                                                    <input type="file" class="form-control bg-secondary border-0 text-light" id="sliderVideoFile" accept="video/mp4,video/webm,video/ogg" multiple>
                                                     <button class="btn btn-outline-orange" id="uploadSliderVideoBtn" type="button"><i class="bi bi-upload"></i></button>
                                                 </div>
+                                                <small class="field-hint">Bulk video parsing is queued to avoid stuck uploads.</small>
                                             </div>
                                         </div>
                                         <div class="d-flex gap-2 mt-3">
@@ -1827,17 +1865,19 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                             <label for="productImage" class="form-label text-light">Image Path</label>
                             <input type="text" class="form-control bg-secondary border-0 text-light" id="productImage" placeholder="frontend/assets/images/products/..." required>
                             <div class="d-flex gap-2 mt-2">
-                                <input type="file" class="form-control bg-secondary border-0 text-light" id="productImageFile" accept="image/*">
+                                <input type="file" class="form-control bg-secondary border-0 text-light" id="productImageFile" accept="image/*" multiple>
                                 <button class="btn btn-outline-orange" id="uploadProductImageBtn" type="button"><i class="bi bi-upload"></i></button>
                             </div>
+                            <small class="field-hint">Supports bulk image uploads with visual parser/compressor progress.</small>
                         </div>
                         <div class="mb-3">
                             <label for="productVideo" class="form-label text-light">Optional Video Path</label>
                             <input type="text" class="form-control bg-secondary border-0 text-light" id="productVideo" placeholder="frontend/assets/videos/products/...mp4">
                             <div class="d-flex gap-2 mt-2">
-                                <input type="file" class="form-control bg-secondary border-0 text-light" id="productVideoFile" accept="video/mp4,video/webm,video/ogg">
+                                <input type="file" class="form-control bg-secondary border-0 text-light" id="productVideoFile" accept="video/mp4,video/webm,video/ogg" multiple>
                                 <button class="btn btn-outline-orange" id="uploadProductVideoBtn" type="button"><i class="bi bi-upload"></i></button>
                             </div>
+                            <small class="field-hint">Supports bulk video uploads with queued processing status.</small>
                         </div>
                         <div class="mb-3">
                             <label for="productDescription" class="form-label text-light">Description</label>
@@ -1892,4 +1932,5 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
     </script>
     <script <?= commerza_csp_nonce_attr() ?> src="assets/js/script.js?v=<?= (int)$adminJsVersion ?>"></script>
 </body>
+
 </html>

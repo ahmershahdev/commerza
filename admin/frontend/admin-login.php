@@ -140,7 +140,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $csrfToken = admin_generate_csrf_token();
-$adminLoginCanonicalUrl = admin_public_url('/admin/frontend/admin-login.php');
+$adminFrontendBaseHref = rtrim(admin_public_url('/admin/frontend/'), '/') . '/';
+$adminLoginCanonicalUrl = admin_public_url('/admin-login');
 $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.webp');
 ?>
 <!DOCTYPE html>
@@ -149,6 +150,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <base href="<?= htmlspecialchars($adminFrontendBaseHref, ENT_QUOTES, 'UTF-8') ?>">
   <meta name="robots" content="noindex, nofollow">
   <meta name="author" content="Syed Ahmer Shah">
   <meta name="referrer" content="no-referrer">
@@ -454,10 +456,11 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
     </form>
   </main>
 
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <?= commerza_captcha_script_tag($con) ?>
-    <script src="assets/js/pages/admin-auth-common.js"></script>
-    <script src="assets/js/pages/admin-login.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <?= commerza_captcha_script_tag($con) ?>
+  <script src="assets/js/pages/admin-auth-common.js"></script>
+  <script src="assets/js/pages/admin-login.js"></script>
 
 </body>
+
 </html>

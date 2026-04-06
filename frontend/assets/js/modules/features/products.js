@@ -23,6 +23,189 @@ function productsSanitizeAssetUrl(value) {
   return raw.replace(/[\u0000-\u001F\u007F]/g, "");
 }
 
+function productsNormalizeSlug(value) {
+  return (value || "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function productsResolveSlug(product) {
+  const explicitSlug = productsNormalizeSlug(product?.slug);
+  if (explicitSlug) {
+    return explicitSlug;
+  }
+
+  const fromName = productsNormalizeSlug(product?.name || "");
+  return fromName || "product";
+}
+
+function productsResolveBasePath() {
+  const normalizeBase = (value) => {
+    const raw = (value || "").toString().trim().replace(/\\/g, "/");
+    if (!raw) {
+      return "";
+    }
+
+    const normalized = `/${raw.replace(/^\/+|\/+$/g, "")}/`;
+    return normalized === "//" ? "/" : normalized;
+  };
+
+  const globalBase = normalizeBase(window.CommerzaAppBasePath || "");
+  if (globalBase) {
+    return globalBase;
+  }
+
+  const marker = "/frontend/assets/js/script.js";
+  const scripts = document.getElementsByTagName("script");
+  for (let index = scripts.length - 1; index >= 0; index -= 1) {
+    const src = (scripts[index].getAttribute("src") || scripts[index].src || "")
+      .toString()
+      .trim();
+    if (!src) {
+      continue;
+    }
+
+    let parsed = null;
+    try {
+      parsed = new URL(src, window.location.href);
+    } catch (error) {
+      parsed = null;
+    }
+
+    if (!parsed) {
+      continue;
+    }
+
+    const pathname = parsed.pathname.replace(/\\/g, "/");
+    const markerIndex = pathname.toLowerCase().lastIndexOf(marker);
+    if (markerIndex >= 0) {
+      return normalizeBase(pathname.slice(0, markerIndex + 1)) || "/";
+    }
+  }
+
+  return "/";
+}
+
+function productsBuildDetailPath(product) {
+  const slug = productsResolveSlug(product);
+  if (!slug) {
+    return "products.php";
+  }
+
+  const numericProductId = Number.parseInt(product?.id, 10);
+  const idQuery =
+    Number.isInteger(numericProductId) && numericProductId > 0
+      ? `?id=${encodeURIComponent(String(numericProductId))}`
+      : "";
+
+  return `${productsResolveBasePath()}products/${encodeURIComponent(slug)}${idQuery}`;
+}
+
+function productsBuildRatingMarkup(product) {
+  const ratingCount = Math.max(0, parseInt(product?.ratingCount, 10) || 0);
+  const rawAverage = Number(product?.ratingAverage);
+  const ratingAverage =
+    ratingCount > 0 && Number.isFinite(rawAverage)
+      ? Math.max(0, Math.min(5, rawAverage))
+      : 0;
+  const ratingPercent = (ratingAverage / 5) * 100;
+  const ratingStateClass = ratingCount > 0 ? "has-reviews" : "no-reviews";
+  const ratingLabel =
+    ratingCount > 0
+      ? `${ratingAverage.toFixed(1)} out of 5 stars from ${ratingCount} reviews`
+      : "No reviews yet";
+  const reviewWord = ratingCount === 1 ? "review" : "reviews";
+  const ratingScore = ratingCount > 0 ? ratingAverage.toFixed(1) : "New";
+  const ratingMeta =
+    ratingCount > 0 ? `${ratingCount} ${reviewWord}` : "Be first to review";
+
+  return `
+    <div class="product-card-rating ${ratingStateClass}" aria-label="${productsEscapeHtml(ratingLabel)}">
+      <span class="rating-stars" aria-hidden="true">
+        <span class="rating-stars-base">★★★★★</span>
+        <span class="rating-stars-fill" style="width:${ratingPercent.toFixed(2)}%">★★★★★</span>
+      </span>
+      <span class="rating-score">${productsEscapeHtml(ratingScore)}</span>
+      <span class="rating-meta">${productsEscapeHtml(ratingMeta)}</span>
+    </div>
+  `;
+}
+
+function productsSetCardMotion(card, pointerX, pointerY) {
+  const rect = card.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) {
+    return;
+  }
+
+  const relativeX = (pointerX - rect.left) / rect.width;
+  const relativeY = (pointerY - rect.top) / rect.height;
+  const rotateY = (relativeX - 0.5) * 10;
+  const rotateX = (0.5 - relativeY) * 8;
+  const shiftX = (relativeX - 0.5) * 8;
+  const shiftY = (relativeY - 0.5) * 2;
+
+  card.style.setProperty("--pc-rotate-x", `${rotateX.toFixed(2)}deg`);
+  card.style.setProperty("--pc-rotate-y", `${rotateY.toFixed(2)}deg`);
+  card.style.setProperty("--pc-shift-x", `${shiftX.toFixed(2)}px`);
+  card.style.setProperty("--pc-shift-y", `${shiftY.toFixed(2)}px`);
+}
+
+function productsResetCardMotion(card) {
+  card.style.setProperty("--pc-rotate-x", "0deg");
+  card.style.setProperty("--pc-rotate-y", "0deg");
+  card.style.setProperty("--pc-shift-x", "0px");
+  card.style.setProperty("--pc-shift-y", "0px");
+}
+
+function productsBindCardMotion(container) {
+  const host = container?.get?.(0) || null;
+  if (!host || host.dataset.productMotionBound === "1") {
+    return;
+  }
+
+  host.dataset.productMotionBound = "1";
+
+  if (
+    window.matchMedia &&
+    !window.matchMedia("(hover: hover) and (pointer: fine)").matches
+  ) {
+    return;
+  }
+
+  host.addEventListener("mousemove", (event) => {
+    const card = event.target.closest(".product-card");
+    if (!card || !host.contains(card)) {
+      return;
+    }
+
+    productsSetCardMotion(card, event.clientX, event.clientY);
+  });
+
+  host.addEventListener("mouseout", (event) => {
+    const card = event.target.closest(".product-card");
+    if (!card || !host.contains(card)) {
+      return;
+    }
+
+    const nextTarget = event.relatedTarget;
+    if (nextTarget && card.contains(nextTarget)) {
+      return;
+    }
+
+    productsResetCardMotion(card);
+  });
+
+  host.addEventListener("mouseleave", () => {
+    host.querySelectorAll(".product-card").forEach((card) => {
+      productsResetCardMotion(card);
+    });
+  });
+}
+
 function fetchProductsPayload() {
   if (commerzaProductsPayloadPromise) {
     return commerzaProductsPayloadPromise;
@@ -84,189 +267,6 @@ function formatProductPrice(value) {
   return Math.round(numeric).toLocaleString();
 }
 
-function normalizeProductCardSlug(value) {
-  return (value || "")
-    .toString()
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function resolveProductCardSlug(product) {
-  const explicitSlug = normalizeProductCardSlug(product?.slug || "");
-  if (explicitSlug) {
-    return explicitSlug;
-  }
-
-  const fromName = normalizeProductCardSlug(product?.name || "");
-  return fromName || "product";
-}
-
-function resolveProductCardBasePath() {
-  const normalizeBase = (value) => {
-    const raw = (value || "").toString().trim().replace(/\\/g, "/");
-    if (!raw) {
-      return "";
-    }
-
-    const normalized = `/${raw.replace(/^\/+|\/+$/g, "")}/`;
-    return normalized === "//" ? "/" : normalized;
-  };
-
-  const globalBase = normalizeBase(window.CommerzaAppBasePath || "");
-  if (globalBase) {
-    return globalBase;
-  }
-
-  const marker = "/frontend/assets/js/script.js";
-  const scripts = document.getElementsByTagName("script");
-  for (let index = scripts.length - 1; index >= 0; index -= 1) {
-    const src = (scripts[index].getAttribute("src") || scripts[index].src || "")
-      .toString()
-      .trim();
-    if (!src) {
-      continue;
-    }
-
-    let parsed = null;
-    try {
-      parsed = new URL(src, window.location.href);
-    } catch (error) {
-      parsed = null;
-    }
-
-    if (!parsed) {
-      continue;
-    }
-
-    const pathname = parsed.pathname.replace(/\\/g, "/");
-    const markerIndex = pathname.toLowerCase().lastIndexOf(marker);
-    if (markerIndex >= 0) {
-      return normalizeBase(pathname.slice(0, markerIndex + 1)) || "/";
-    }
-  }
-
-  return "/";
-}
-
-function buildProductDetailPath(product) {
-  const slug = resolveProductCardSlug(product);
-  if (!slug) {
-    return "products.php";
-  }
-
-  const numericProductId = Number.parseInt(product?.id, 10);
-  const idQuery =
-    Number.isInteger(numericProductId) && numericProductId > 0
-      ? `?id=${encodeURIComponent(String(numericProductId))}`
-      : "";
-
-  return `${resolveProductCardBasePath()}products/${encodeURIComponent(slug)}${idQuery}`;
-}
-
-function buildProductRatingMarkup(product) {
-  const ratingCount = Math.max(0, parseInt(product?.ratingCount, 10) || 0);
-  const rawAverage = Number(product?.ratingAverage);
-  const ratingAverage =
-    ratingCount > 0 && Number.isFinite(rawAverage)
-      ? Math.max(0, Math.min(5, rawAverage))
-      : 0;
-  const ratingPercent = (ratingAverage / 5) * 100;
-  const ratingStateClass = ratingCount > 0 ? "has-reviews" : "no-reviews";
-  const ratingLabel =
-    ratingCount > 0
-      ? `${ratingAverage.toFixed(1)} out of 5 stars from ${ratingCount} reviews`
-      : "No reviews yet";
-  const reviewWord = ratingCount === 1 ? "review" : "reviews";
-  const ratingScore = ratingCount > 0 ? ratingAverage.toFixed(1) : "New";
-  const ratingMeta =
-    ratingCount > 0 ? `${ratingCount} ${reviewWord}` : "Be first to review";
-
-  return `
-    <div class="product-card-rating ${ratingStateClass}" aria-label="${productsEscapeHtml(ratingLabel)}">
-      <span class="rating-stars" aria-hidden="true">
-        <span class="rating-stars-base">★★★★★</span>
-        <span class="rating-stars-fill" style="width:${ratingPercent.toFixed(2)}%">★★★★★</span>
-      </span>
-      <span class="rating-score">${productsEscapeHtml(ratingScore)}</span>
-      <span class="rating-meta">${productsEscapeHtml(ratingMeta)}</span>
-    </div>
-  `;
-}
-
-function setProductCardMotion(card, pointerX, pointerY) {
-  const rect = card.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) {
-    return;
-  }
-
-  const relativeX = (pointerX - rect.left) / rect.width;
-  const relativeY = (pointerY - rect.top) / rect.height;
-  const rotateY = (relativeX - 0.5) * 10;
-  const rotateX = (0.5 - relativeY) * 8;
-  const shiftX = (relativeX - 0.5) * 8;
-  const shiftY = (relativeY - 0.5) * 2;
-
-  card.style.setProperty("--pc-rotate-x", `${rotateX.toFixed(2)}deg`);
-  card.style.setProperty("--pc-rotate-y", `${rotateY.toFixed(2)}deg`);
-  card.style.setProperty("--pc-shift-x", `${shiftX.toFixed(2)}px`);
-  card.style.setProperty("--pc-shift-y", `${shiftY.toFixed(2)}px`);
-}
-
-function resetProductCardMotion(card) {
-  card.style.setProperty("--pc-rotate-x", "0deg");
-  card.style.setProperty("--pc-rotate-y", "0deg");
-  card.style.setProperty("--pc-shift-x", "0px");
-  card.style.setProperty("--pc-shift-y", "0px");
-}
-
-function bindProductCardMotion(container) {
-  const host = container?.get?.(0) || null;
-  if (!host || host.dataset.productMotionBound === "1") {
-    return;
-  }
-
-  host.dataset.productMotionBound = "1";
-
-  if (
-    window.matchMedia &&
-    !window.matchMedia("(hover: hover) and (pointer: fine)").matches
-  ) {
-    return;
-  }
-
-  host.addEventListener("mousemove", (event) => {
-    const card = event.target.closest(".product-card");
-    if (!card || !host.contains(card)) {
-      return;
-    }
-
-    setProductCardMotion(card, event.clientX, event.clientY);
-  });
-
-  host.addEventListener("mouseout", (event) => {
-    const card = event.target.closest(".product-card");
-    if (!card || !host.contains(card)) {
-      return;
-    }
-
-    const nextTarget = event.relatedTarget;
-    if (nextTarget && card.contains(nextTarget)) {
-      return;
-    }
-
-    resetProductCardMotion(card);
-  });
-
-  host.addEventListener("mouseleave", () => {
-    host.querySelectorAll(".product-card").forEach((card) => {
-      resetProductCardMotion(card);
-    });
-  });
-}
-
 function renderProducts(products, containerId) {
   const container = $(`#${containerId}`);
   if (container.length === 0) return;
@@ -295,7 +295,7 @@ function renderProducts(products, containerId) {
     });
   }
 
-  bindProductCardMotion(container);
+  productsBindCardMotion(container);
 }
 
 function createProductCard(product) {
@@ -335,10 +335,10 @@ function createProductCard(product) {
     product.movement !== "smart"
       ? '<span class="sale-badge">PREMIUM SALE</span>'
       : "";
-  const detailUrl = productsEscapeHtml(buildProductDetailPath(product));
+  const detailUrl = productsEscapeHtml(productsBuildDetailPath(product));
   const wishlistActive = isInWishlist(product.id, product.name);
   const wishlistIcon = wishlistActive ? "bi-heart-fill" : "bi-heart";
-  const ratingMarkup = buildProductRatingMarkup(product);
+  const ratingMarkup = productsBuildRatingMarkup(product);
 
   return `
         <div class="col-12 col-sm-6 col-md-6 col-lg-3 mb-4 d-flex">
