@@ -1,3 +1,48 @@
-# Commerza base Apache rules
-# Serve the custom 404 page when a route or file is missing.
+# Commerza Apache rules
+
+Options -Indexes
 ErrorDocument 404 /404.php
+
+<IfModule mod_rewrite.c>
+RewriteEngine On
+
+# Protect environment, dumps, docs, and VCS metadata from direct access.
+RewriteRule (^|/)(?:\.env(?:\..*)?|composer\.(?:json|lock)|package(?:-lock)?\.json|phpunit\.xml|README\.md|SECURITY\.md|instructions\.md|llms\.txt|backend/database/.*\.sql|.*\.(?:sql|bak|log|ini|ps1|sh))$ - [F,L,NC]
+RewriteRule (^|/)\.(?:git|svn|hg)(?:/|$) - [F,L,NC]
+RewriteRule ^backend/(?:data|cart_helpers|coupon_helpers|payment_helpers|security_helpers|security_events|products_schema_helpers)\.php$ - [F,L,NC]
+RewriteRule ^admin/backend/auth\.php$ - [F,L,NC]
+
+# Legacy .php to clean-path redirects are handled in PHP entry pages to avoid
+# malformed Location headers on some Windows Apache setups.
+
+# Keep real files and folders untouched (including backend/admin APIs).
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Clean storefront routes.
+RewriteRule ^products/([a-z0-9-]+)/?$ products.php?slug=$1 [QSA,L,NC]
+RewriteRule ^prodcuts/([a-z0-9-]+)/?$ products.php?slug=$1 [QSA,L,NC]
+RewriteRule ^products/?$ products.php [QSA,L,NC]
+
+RewriteRule ^account/([a-z0-9_]+)/?$ account.php?u=$1 [QSA,L,NC]
+RewriteRule ^account/?$ account.php [QSA,L,NC]
+
+RewriteRule ^cart/?$ cart.php [QSA,L,NC]
+RewriteRule ^wishlist/?$ wishlist.php [QSA,L,NC]
+RewriteRule ^compare/?$ compare.php [QSA,L,NC]
+RewriteRule ^login/?$ login.php [QSA,L,NC]
+RewriteRule ^signup/?$ signup.php [QSA,L,NC]
+RewriteRule ^order-tracking/?$ order-tracking.php [QSA,L,NC]
+
+RewriteRule ^about/?$ about.php [QSA,L,NC]
+RewriteRule ^contact/?$ contact.php [QSA,L,NC]
+RewriteRule ^faq/?$ faq.php [QSA,L,NC]
+RewriteRule ^shipping/?$ shipping.php [QSA,L,NC]
+RewriteRule ^returns/?$ returns.php [QSA,L,NC]
+RewriteRule ^privacy-policy/?$ privacy-policy.php [QSA,L,NC]
+RewriteRule ^terms-of-service/?$ terms-of-service.php [QSA,L,NC]
+RewriteRule ^warranty/?$ warranty.php [QSA,L,NC]
+RewriteRule ^shop-category-a/?$ shop-category-a.php [QSA,L,NC]
+RewriteRule ^shop-category-b/?$ shop-category-b.php [QSA,L,NC]
+</IfModule>

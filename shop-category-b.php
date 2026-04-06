@@ -2,6 +2,27 @@
 include "backend/data.php";
 include_once "backend/nav_state.php";
 $nav_counts = commerza_get_nav_counts($con);
+
+$category_b_feature_video = 'frontend/assets/videos/products/sports/sports_watches_carousel.mp4';
+$categoryBVideoStmt = $con->prepare('SELECT setting_val FROM site_settings WHERE setting_key = ? LIMIT 1');
+if ($categoryBVideoStmt) {
+  $settingKey = 'category_b_feature_video';
+  $categoryBVideoStmt->bind_param('s', $settingKey);
+  $categoryBVideoStmt->execute();
+  $categoryBVideoResult = $categoryBVideoStmt->get_result();
+  $categoryBVideoRow = $categoryBVideoResult ? $categoryBVideoResult->fetch_assoc() : null;
+  $categoryBVideoStmt->close();
+
+  $savedVideo = trim((string)($categoryBVideoRow['setting_val'] ?? ''));
+  if (
+    $savedVideo !== '' &&
+    strpos($savedVideo, '..') === false &&
+    strpos($savedVideo, '\\') === false &&
+    preg_match('#^[a-zA-Z0-9/_\-.]+$#', $savedVideo) === 1
+  ) {
+    $category_b_feature_video = $savedVideo;
+  }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -44,14 +65,18 @@ $nav_counts = commerza_get_nav_counts($con);
       "url": "https://commerza.ahmershah.dev/shop-category-b.php",
       "about": ["Lifestyle Watches", "Minimalist Watches", "Sports Watches"],
       "keywords": "minimalist watches, sports watches, lifestyle timepieces",
-      "isPartOf": {"@type": "WebSite", "name": "Commerza", "url": "https://commerza.ahmershah.dev/"},
+      "isPartOf": {
+        "@type": "WebSite",
+        "name": "Commerza",
+        "url": "https://commerza.ahmershah.dev/"
+      },
       "publisher": {
         "@type": "Organization",
         "name": "Commerza",
         "logo": "https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp"
       }
     }
-    </script>
+  </script>
   <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -61,18 +86,29 @@ $nav_counts = commerza_get_nav_counts($con);
       "url": "https://commerza.ahmershah.dev/shop-category-b.php",
       "about": ["Lifestyle Watches", "Minimalist Watches", "Sports Watches"],
       "keywords": "minimalist watches, sports watches, lifestyle timepieces",
-      "isPartOf": {"@type": "WebSite", "name": "Commerza", "url": "https://commerza.ahmershah.dev/"},
+      "isPartOf": {
+        "@type": "WebSite",
+        "name": "Commerza",
+        "url": "https://commerza.ahmershah.dev/"
+      },
       "mainEntity": {
         "@type": "ItemList",
-        "itemListElement": [
-          {
+        "itemListElement": [{
             "@type": "Product",
             "position": 1,
             "name": "DENIM 3 - The Minimalist Watch",
             "description": "Understated elegance in denim tones, featuring clean design and timeless appeal for everyday sophistication.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/DENIM 3 - The Minimalist Watch.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "5500", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "5500",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -80,8 +116,16 @@ $nav_counts = commerza_get_nav_counts($con);
             "name": "DI-STAR - CHAIN WATCH WITH DATE TWO TONE",
             "description": "Sophisticated two-tone design with chain link style, date display, and refined aesthetic perfect for any occasion.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/DI-STAR - CHAIN WATCH WITH DATE TWO TONE.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "6500", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "6500",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -89,8 +133,16 @@ $nav_counts = commerza_get_nav_counts($con);
             "name": "Fued - Tomi Face Gear Dual Leather Straps Watch",
             "description": "Versatile watch with dual interchangeable leather straps for flexible styling, combining practicality with refined minimalist design.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/Fued - Tomi Face Gear Dual Leather Straps Watch.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "8000", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "8000",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -98,8 +150,16 @@ $nav_counts = commerza_get_nav_counts($con);
             "name": "Galcia - Round Minimalist Watch WITH DATE",
             "description": "Classic round dial with date window, embodying minimalist philosophy with excellent legibility and timeless appeal.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/Galcia - Round Minimalist Watch WITH DATE.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "9000", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "9000",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -107,8 +167,16 @@ $nav_counts = commerza_get_nav_counts($con);
             "name": "Square Tom - Minimalist Watch",
             "description": "Bold square dial minimalist timepiece featuring clean edges and refined minimalism for contemporary style.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/Square Tom - Minimalist Watch.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "8500", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "8500",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -116,8 +184,16 @@ $nav_counts = commerza_get_nav_counts($con);
             "name": "TOMI T 105 - Tomi Face Gear Black Dial",
             "description": "Professional timepiece with black dial and advanced gear mechanism, balancing sophistication with functional performance.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/TOMI T 105 - Tomi Face Gear Black Dial.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "9900", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "9900",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -125,8 +201,16 @@ $nav_counts = commerza_get_nav_counts($con);
             "name": "TOMI- Round Minimalist Watch WITH DATE",
             "description": "Elegant round minimalist watch with date function, perfect companion for both casual and formal occasions.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/TOMI- Round Minimalist Watch WITH DATE.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "11800", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "11800",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -134,8 +218,16 @@ $nav_counts = commerza_get_nav_counts($con);
             "name": "X - Round Minimalist Watch (Half Cut)",
             "description": "Unique minimalist watch with creative half-cut design, showcasing modern artistry and elegant simplicity.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/X - Round Minimalist Watch (Half Cut).webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "8200", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "8200",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -143,8 +235,16 @@ $nav_counts = commerza_get_nav_counts($con);
             "name": "Aura - Never Stop Minimal Watch with Date -N905",
             "description": "Sleek sports watch with minimalist design and date function, engineered for active lifestyle and daily durability.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/sports/Aura - Never Stop Minimal Watch with Date -N905.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "5500", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "5500",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -152,8 +252,16 @@ $nav_counts = commerza_get_nav_counts($con);
             "name": "Chrona - Never Stop Minimal Watch - N928",
             "description": "Performance-focused sports watch with chronograph functionality, perfect for timing and precision athletic activities.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/sports/Chrona - Never Stop Minimal Watch - N928.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "6500", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "6500",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -161,8 +269,16 @@ $nav_counts = commerza_get_nav_counts($con);
             "name": "Dagahra- Never Stop Casual sports Watch with date - N911",
             "description": "Casual sports watch with date display, combining comfort with functionality for everyday athletic pursuits.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/sports/Dagahra- Never Stop Casual sports Watch with date - N911.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "8000", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "8000",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -170,8 +286,16 @@ $nav_counts = commerza_get_nav_counts($con);
             "name": "Newmoon - Never Stop Chronograph sports Watch with date - N902",
             "description": "Advanced chronograph sports watch with date, featuring multiple timing functions and rugged design for serious athletes.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/sports/Newmoon - Never Stop Chronograph sports Watch with date - N902.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "9000", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "9000",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -179,8 +303,16 @@ $nav_counts = commerza_get_nav_counts($con);
             "name": "RECDIS - Skmei 3 Time Sports Watch With Stainless Steel",
             "description": "Professional sports watch with triple time zones, stainless steel construction, ideal for international travelers and athletes.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/sports/RECDIS - Skmei 3 Time Sports Watch With Stainless Steel.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "13400", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "13400",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -188,8 +320,16 @@ $nav_counts = commerza_get_nav_counts($con);
             "name": "TOKDIS - Dual Time Sports Watch With Stainless Steel",
             "description": "Robust dual-time sports watch with premium stainless steel build, featuring reliable timekeeping for active pursuits across time zones.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/sports/TOKDIS - Dual Time Sports Watch With Stainless Steel.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "12200", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "12200",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -197,13 +337,21 @@ $nav_counts = commerza_get_nav_counts($con);
             "name": "Yraz - Never Stop Casual sports Watch with date",
             "description": "Casual sports watch with date window, versatile design perfect for everyday activities and weekend adventures with reliable performance.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/sports/Yraz - Never Stop Casual sports Watch with date.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "15100", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "15100",
+              "availability": "https://schema.org/InStock"
+            }
           }
         ]
       }
     }
-    </script>
+  </script>
 </head>
 
 <body class="dark-theme premium-cards">
@@ -522,6 +670,16 @@ $nav_counts = commerza_get_nav_counts($con);
           </section>
 
           <section class="product-section-block" data-section-id="sports-sales-division">
+            <section class="container-fluid px-0 mb-5">
+              <div class="ratio ratio-16x9">
+                <video autoplay muted loop playsinline preload="metadata" loading="lazy" class="w-100 h-100"
+                  style="object-fit: cover;" aria-label="Sports watches showcase">
+                  <source src="<?= htmlspecialchars($category_b_feature_video) ?>" type="video/mp4">
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+            </section>
+
             <h2 class="text-center mt-5 mb-2" id="tactical">The Sports & Sales Division
             </h2>
             <p class="text-center text-secondary mb-4">High-performance designs built for durability and daily movement.
@@ -615,191 +773,188 @@ $nav_counts = commerza_get_nav_counts($con);
   </footer>
 
   <script <?= commerza_csp_nonce_attr() ?> type="application/json">
-{
-  "page": "shop-category-b",
-  "name": "The Signature Collection & Sports & Sales Division",
-  "category": "Lifestyle & Utility Watches",
-  "subcategory": "Minimalist & Sports Timepieces",
-  "section": "The Lifestyle & Utility Series",
-  "collections": [
     {
-      "collection": "The Signature Collection",
-      "products": [
-        {
-          "id": 1,
-          "name": "DENIM 3 - The Minimalist Watch",
-          "description": "Understated elegance in denim tones, featuring clean design and timeless appeal for everyday sophistication.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/DENIM 3 - The Minimalist Watch.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 7000,
-          "salePrice": 5500,
-          "availability": "InStock"
+      "page": "shop-category-b",
+      "name": "The Signature Collection & Sports & Sales Division",
+      "category": "Lifestyle & Utility Watches",
+      "subcategory": "Minimalist & Sports Timepieces",
+      "section": "The Lifestyle & Utility Series",
+      "collections": [{
+          "collection": "The Signature Collection",
+          "products": [{
+              "id": 1,
+              "name": "DENIM 3 - The Minimalist Watch",
+              "description": "Understated elegance in denim tones, featuring clean design and timeless appeal for everyday sophistication.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/DENIM 3 - The Minimalist Watch.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 7000,
+              "salePrice": 5500,
+              "availability": "InStock"
+            },
+            {
+              "id": 2,
+              "name": "DI-STAR - CHAIN WATCH WITH DATE TWO TONE",
+              "description": "Sophisticated two-tone design with chain link style, date display, and refined aesthetic perfect for any occasion.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/DI-STAR - CHAIN WATCH WITH DATE TWO TONE.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 7500,
+              "salePrice": 6500,
+              "availability": "InStock"
+            },
+            {
+              "id": 3,
+              "name": "Fued - Tomi Face Gear Dual Leather Straps Watch",
+              "description": "Versatile watch with dual interchangeable leather straps for flexible styling, combining practicality with refined minimalist design.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/Fued - Tomi Face Gear Dual Leather Straps Watch.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 9000,
+              "salePrice": 8000,
+              "availability": "InStock"
+            },
+            {
+              "id": 4,
+              "name": "Galcia - Round Minimalist Watch WITH DATE",
+              "description": "Classic round dial with date window, embodying minimalist philosophy with excellent legibility and timeless appeal.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/Galcia - Round Minimalist Watch WITH DATE.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 10000,
+              "salePrice": 9000,
+              "availability": "InStock"
+            },
+            {
+              "id": 5,
+              "name": "Square Tom - Minimalist Watch",
+              "description": "Bold square dial minimalist timepiece featuring clean edges and refined minimalism for contemporary style.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/Square Tom - Minimalist Watch.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 11200,
+              "salePrice": 8500,
+              "availability": "InStock"
+            },
+            {
+              "id": 6,
+              "name": "TOMI T 105 - Tomi Face Gear Black Dial",
+              "description": "Professional timepiece with black dial and advanced gear mechanism, balancing sophistication with functional performance.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/TOMI T 105 - Tomi Face Gear Black Dial.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 13200,
+              "salePrice": 9900,
+              "availability": "InStock"
+            },
+            {
+              "id": 7,
+              "name": "TOMI- Round Minimalist Watch WITH DATE",
+              "description": "Elegant round minimalist watch with date function, perfect companion for both casual and formal occasions.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/TOMI- Round Minimalist Watch WITH DATE.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 15800,
+              "salePrice": 11800,
+              "availability": "InStock"
+            },
+            {
+              "id": 8,
+              "name": "X - Round Minimalist Watch (Half Cut)",
+              "description": "Unique minimalist watch with creative half-cut design, showcasing modern artistry and elegant simplicity.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/X - Round Minimalist Watch (Half Cut).webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 10800,
+              "salePrice": 8200,
+              "availability": "InStock"
+            }
+          ]
         },
         {
-          "id": 2,
-          "name": "DI-STAR - CHAIN WATCH WITH DATE TWO TONE",
-          "description": "Sophisticated two-tone design with chain link style, date display, and refined aesthetic perfect for any occasion.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/DI-STAR - CHAIN WATCH WITH DATE TWO TONE.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 7500,
-          "salePrice": 6500,
-          "availability": "InStock"
-        },
-        {
-          "id": 3,
-          "name": "Fued - Tomi Face Gear Dual Leather Straps Watch",
-          "description": "Versatile watch with dual interchangeable leather straps for flexible styling, combining practicality with refined minimalist design.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/Fued - Tomi Face Gear Dual Leather Straps Watch.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 9000,
-          "salePrice": 8000,
-          "availability": "InStock"
-        },
-        {
-          "id": 4,
-          "name": "Galcia - Round Minimalist Watch WITH DATE",
-          "description": "Classic round dial with date window, embodying minimalist philosophy with excellent legibility and timeless appeal.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/Galcia - Round Minimalist Watch WITH DATE.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 10000,
-          "salePrice": 9000,
-          "availability": "InStock"
-        },
-        {
-          "id": 5,
-          "name": "Square Tom - Minimalist Watch",
-          "description": "Bold square dial minimalist timepiece featuring clean edges and refined minimalism for contemporary style.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/Square Tom - Minimalist Watch.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 11200,
-          "salePrice": 8500,
-          "availability": "InStock"
-        },
-        {
-          "id": 6,
-          "name": "TOMI T 105 - Tomi Face Gear Black Dial",
-          "description": "Professional timepiece with black dial and advanced gear mechanism, balancing sophistication with functional performance.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/TOMI T 105 - Tomi Face Gear Black Dial.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 13200,
-          "salePrice": 9900,
-          "availability": "InStock"
-        },
-        {
-          "id": 7,
-          "name": "TOMI- Round Minimalist Watch WITH DATE",
-          "description": "Elegant round minimalist watch with date function, perfect companion for both casual and formal occasions.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/TOMI- Round Minimalist Watch WITH DATE.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 15800,
-          "salePrice": 11800,
-          "availability": "InStock"
-        },
-        {
-          "id": 8,
-          "name": "X - Round Minimalist Watch (Half Cut)",
-          "description": "Unique minimalist watch with creative half-cut design, showcasing modern artistry and elegant simplicity.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/minimal/X - Round Minimalist Watch (Half Cut).webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 10800,
-          "salePrice": 8200,
-          "availability": "InStock"
-        }
-      ]
-    },
-    {
-      "collection": "The Sports & Sales Division",
-      "products": [
-        {
-          "id": 9,
-          "name": "Aura - Never Stop Minimal Watch with Date -N905",
-          "description": "Sleek sports watch with minimalist design and date function, engineered for active lifestyle and daily durability.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/sports/Aura - Never Stop Minimal Watch with Date -N905.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 7000,
-          "salePrice": 5500,
-          "availability": "InStock"
-        },
-        {
-          "id": 10,
-          "name": "Chrona - Never Stop Minimal Watch - N928",
-          "description": "Performance-focused sports watch with chronograph functionality, perfect for timing and precision athletic activities.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/sports/Chrona - Never Stop Minimal Watch - N928.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 7500,
-          "salePrice": 6500,
-          "availability": "InStock"
-        },
-        {
-          "id": 11,
-          "name": "Dagahra- Never Stop Casual sports Watch with date - N911",
-          "description": "Casual sports watch with date display, combining comfort with functionality for everyday athletic pursuits.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/sports/Dagahra- Never Stop Casual sports Watch with date - N911.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 9000,
-          "salePrice": 8000,
-          "availability": "InStock"
-        },
-        {
-          "id": 12,
-          "name": "Newmoon - Never Stop Chronograph sports Watch with date - N902",
-          "description": "Advanced chronograph sports watch with date, featuring multiple timing functions and rugged design for serious athletes.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/sports/Newmoon - Never Stop Chronograph sports Watch with date - N902.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 10000,
-          "salePrice": 9000,
-          "availability": "InStock"
-        },
-        {
-          "id": 13,
-          "name": "RECDIS - Skmei 3 Time Sports Watch With Stainless Steel",
-          "description": "Professional sports watch with triple time zones, stainless steel construction, ideal for international travelers and athletes.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/sports/RECDIS - Skmei 3 Time Sports Watch With Stainless Steel.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 17800,
-          "salePrice": 13400,
-          "availability": "InStock"
-        },
-        {
-          "id": 14,
-          "name": "TOKDIS - Dual Time Sports Watch With Stainless Steel",
-          "description": "Robust dual-time sports watch with premium stainless steel build, featuring reliable timekeeping for active pursuits across time zones.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/sports/TOKDIS - Dual Time Sports Watch With Stainless Steel.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 16200,
-          "salePrice": 12200,
-          "availability": "InStock"
-        },
-        {
-          "id": 15,
-          "name": "Yraz - Never Stop Casual sports Watch with date",
-          "description": "Casual sports watch with date window, versatile design perfect for everyday activities and weekend adventures with reliable performance.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/sports/Yraz - Never Stop Casual sports Watch with date.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 19800,
-          "salePrice": 15100,
-          "availability": "InStock"
+          "collection": "The Sports & Sales Division",
+          "products": [{
+              "id": 9,
+              "name": "Aura - Never Stop Minimal Watch with Date -N905",
+              "description": "Sleek sports watch with minimalist design and date function, engineered for active lifestyle and daily durability.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/sports/Aura - Never Stop Minimal Watch with Date -N905.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 7000,
+              "salePrice": 5500,
+              "availability": "InStock"
+            },
+            {
+              "id": 10,
+              "name": "Chrona - Never Stop Minimal Watch - N928",
+              "description": "Performance-focused sports watch with chronograph functionality, perfect for timing and precision athletic activities.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/sports/Chrona - Never Stop Minimal Watch - N928.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 7500,
+              "salePrice": 6500,
+              "availability": "InStock"
+            },
+            {
+              "id": 11,
+              "name": "Dagahra- Never Stop Casual sports Watch with date - N911",
+              "description": "Casual sports watch with date display, combining comfort with functionality for everyday athletic pursuits.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/sports/Dagahra- Never Stop Casual sports Watch with date - N911.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 9000,
+              "salePrice": 8000,
+              "availability": "InStock"
+            },
+            {
+              "id": 12,
+              "name": "Newmoon - Never Stop Chronograph sports Watch with date - N902",
+              "description": "Advanced chronograph sports watch with date, featuring multiple timing functions and rugged design for serious athletes.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/sports/Newmoon - Never Stop Chronograph sports Watch with date - N902.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 10000,
+              "salePrice": 9000,
+              "availability": "InStock"
+            },
+            {
+              "id": 13,
+              "name": "RECDIS - Skmei 3 Time Sports Watch With Stainless Steel",
+              "description": "Professional sports watch with triple time zones, stainless steel construction, ideal for international travelers and athletes.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/sports/RECDIS - Skmei 3 Time Sports Watch With Stainless Steel.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 17800,
+              "salePrice": 13400,
+              "availability": "InStock"
+            },
+            {
+              "id": 14,
+              "name": "TOKDIS - Dual Time Sports Watch With Stainless Steel",
+              "description": "Robust dual-time sports watch with premium stainless steel build, featuring reliable timekeeping for active pursuits across time zones.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/sports/TOKDIS - Dual Time Sports Watch With Stainless Steel.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 16200,
+              "salePrice": 12200,
+              "availability": "InStock"
+            },
+            {
+              "id": 15,
+              "name": "Yraz - Never Stop Casual sports Watch with date",
+              "description": "Casual sports watch with date window, versatile design perfect for everyday activities and weekend adventures with reliable performance.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/sports/Yraz - Never Stop Casual sports Watch with date.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 19800,
+              "salePrice": 15100,
+              "availability": "InStock"
+            }
+          ]
         }
       ]
     }
-  ]
-}
-</script>
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>
@@ -808,12 +963,12 @@ $nav_counts = commerza_get_nav_counts($con);
   <script src="frontend/assets/js/auth.js" defer></script>
   <script src="frontend/assets/js/script.js" defer></script>
   <script <?= commerza_csp_nonce_attr() ?>>
-    document.addEventListener("DOMContentLoaded", function () {
+    document.addEventListener("DOMContentLoaded", function() {
       if (typeof window.commerzaOnReady !== "function") {
         return;
       }
 
-      window.commerzaOnReady(function () {
+      window.commerzaOnReady(function() {
         loadProductsBySection("signature-collection", "signature-collection-products-container");
         loadProductsBySection("sports-sales-division", "sports-division-products-container");
       });

@@ -257,6 +257,33 @@ function commerza_apply_cache_headers(): void
     header('Vary: Accept-Encoding');
 }
 
+function commerza_optimize_stylesheet_links(string $buffer): string
+{
+    return preg_replace_callback(
+        '/<link\b[^>]*\brel\s*=\s*(["\'])stylesheet\1[^>]*>/i',
+        static function (array $matches): string {
+            $tag = (string)($matches[0] ?? '');
+            if ($tag === '') {
+                return $tag;
+            }
+
+            if (
+                preg_match('/\bmedia\s*=\s*(["\'])print\1/i', $tag) === 1
+                || preg_match('/\bonload\s*=\s*(["\'])[^"\']*this\.media\s*=\s*["\']all["\'][^"\']*\1/i', $tag) === 1
+            ) {
+                return $tag;
+            }
+
+            if (preg_match('/\bmedia\s*=\s*(["\']).*?\1/i', $tag) === 1) {
+                return $tag;
+            }
+
+            return preg_replace('/\s*\/?>$/', ' media="print" onload="this.media=\'all\'">', $tag, 1) ?? $tag;
+        },
+        $buffer
+    ) ?? $buffer;
+}
+
 function commerza_html_meta_normalize(string $buffer): string
 {
     if ($buffer === '') {
@@ -540,6 +567,155 @@ function commerza_username_slug(string $value): string
 function commerza_username_is_valid(string $username): bool
 {
     return preg_match('/^[a-z][a-z0-9_]{2,23}$/', trim($username)) === 1;
+}
+
+function commerza_username_blacklist_type_from_reason(string $reason, string $category = ''): string
+{
+    $normalizedReason = strtolower(trim($reason));
+    $normalizedCategory = strtoupper(trim($category));
+
+    if (
+        str_contains($normalizedReason, 'religious')
+        || str_contains($normalizedReason, 'religion')
+    ) {
+        return 'religious';
+    }
+
+    if (
+        str_contains($normalizedReason, 'explicit')
+        || str_contains($normalizedReason, 'sexual')
+        || str_contains($normalizedReason, 'adult')
+    ) {
+        return 'explicit';
+    }
+
+    if ($normalizedCategory === 'A' || $normalizedCategory === 'C') {
+        return 'system';
+    }
+
+    return 'harmful';
+}
+
+function commerza_username_blacklist_feedback_message(array $blocked): string
+{
+    $type = strtolower(trim((string)($blocked['type'] ?? 'harmful')));
+
+    if ($type === 'religious') {
+        return 'This username contains religious targeting terms. Please choose a neutral username.';
+    }
+
+    if ($type === 'explicit') {
+        return 'This username includes explicit sexual language. Please choose a cleaner username.';
+    }
+
+    if ($type === 'system') {
+        return 'This username is reserved for Commerza system use. Please choose another username.';
+    }
+
+    return 'This username contains harmful or offensive language. Please choose a respectful username.';
+}
+
+function commerza_username_blacklist_lookup(mysqli $con, string $username): ?array
+{
+    $slug = commerza_username_slug($username);
+    if ($slug === '') {
+        return null;
+    }
+
+    static $entries = null;
+
+    if (!is_array($entries)) {
+        $entries = [];
+
+        $hasTable = false;
+        $tableResult = $con->query("SHOW TABLES LIKE 'username_blacklist'");
+        if ($tableResult instanceof mysqli_result) {
+            $hasTable = $tableResult->num_rows > 0;
+            $tableResult->free();
+        }
+
+        if ($hasTable) {
+            $result = $con->query(
+                "SELECT term, category, reason
+                 FROM username_blacklist
+                 WHERE is_active = 1
+                 ORDER BY CHAR_LENGTH(term) DESC, id ASC"
+            );
+
+            if ($result instanceof mysqli_result) {
+                while ($row = $result->fetch_assoc()) {
+                    $term = commerza_username_slug((string)($row['term'] ?? ''));
+                    if ($term === '') {
+                        continue;
+                    }
+
+                    $reason = trim((string)($row['reason'] ?? ''));
+                    $category = trim((string)($row['category'] ?? ''));
+
+                    $entries[] = [
+                        'term' => $term,
+                        'reason' => $reason,
+                        'category' => $category,
+                        'type' => commerza_username_blacklist_type_from_reason($reason, $category),
+                    ];
+                }
+
+                $result->free();
+            }
+        }
+
+        if (empty($entries)) {
+            $entries = [
+                ['term' => 'admin', 'reason' => 'System role name', 'category' => 'A', 'type' => 'system'],
+                ['term' => 'root', 'reason' => 'System role name', 'category' => 'A', 'type' => 'system'],
+                ['term' => 'commerza', 'reason' => 'Brand reserved name', 'category' => 'A', 'type' => 'system'],
+                ['term' => 'products', 'reason' => 'Route-like reserved name', 'category' => 'C', 'type' => 'system'],
+                ['term' => 'account', 'reason' => 'Route-like reserved name', 'category' => 'C', 'type' => 'system'],
+                ['term' => 'wishlist', 'reason' => 'Route-like reserved name', 'category' => 'C', 'type' => 'system'],
+                ['term' => 'porn', 'reason' => 'Explicit sexual term', 'category' => 'B', 'type' => 'explicit'],
+                ['term' => 'sex', 'reason' => 'Explicit sexual term', 'category' => 'B', 'type' => 'explicit'],
+                ['term' => 'islam', 'reason' => 'Religious targeting term', 'category' => 'B', 'type' => 'religious'],
+                ['term' => 'christian', 'reason' => 'Religious targeting term', 'category' => 'B', 'type' => 'religious'],
+                ['term' => 'hindu', 'reason' => 'Religious targeting term', 'category' => 'B', 'type' => 'religious'],
+                ['term' => 'nazi', 'reason' => 'Hateful extremist term', 'category' => 'B', 'type' => 'harmful'],
+                ['term' => 'fuck', 'reason' => 'Offensive profanity term', 'category' => 'B', 'type' => 'harmful'],
+            ];
+        }
+    }
+
+    foreach ($entries as $entry) {
+        $term = (string)($entry['term'] ?? '');
+        if ($term === '') {
+            continue;
+        }
+
+        $isMatch = false;
+
+        if ($slug === $term) {
+            $isMatch = true;
+        } elseif (strlen($term) <= 3) {
+            if (
+                str_starts_with($slug, $term)
+                || str_ends_with($slug, $term)
+                || preg_match('/(^|_)' . preg_quote($term, '/') . '(_|$)/', $slug) === 1
+            ) {
+                $isMatch = true;
+            }
+        } elseif (str_contains($slug, $term)) {
+            $isMatch = true;
+        }
+
+        if ($isMatch) {
+            return [
+                'term' => $term,
+                'reason' => (string)($entry['reason'] ?? ''),
+                'category' => (string)($entry['category'] ?? ''),
+                'type' => (string)($entry['type'] ?? 'harmful'),
+            ];
+        }
+    }
+
+    return null;
 }
 
 function commerza_username_base_from_identity(string $fullName, string $email, int $fallbackId = 0): string

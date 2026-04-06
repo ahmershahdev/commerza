@@ -7,6 +7,8 @@ if (empty($_SESSION['csrf_token'])) {
   $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
+$appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
+
 $home_feature_video = 'frontend/assets/videos/slider/steel_watch_1.mp4';
 $homeVideoStmt = $con->prepare('SELECT setting_val FROM site_settings WHERE setting_key = ? LIMIT 1');
 if ($homeVideoStmt) {
@@ -34,6 +36,7 @@ if ($homeVideoStmt) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <base href="<?= htmlspecialchars($appBaseHref, ENT_QUOTES, 'UTF-8') ?>">
   <meta name="description"
     content="Commerza brings you premium automatic watches—crafted with elegant leather, gold dials, and modern design. Discover luxury timepieces for your unique lifestyle.">
   <meta name="robots" content="index, follow">
@@ -52,7 +55,7 @@ if ($homeVideoStmt) {
   <link rel="canonical" href="https://commerza.ahmershah.dev/" />
   <link rel="icon" href="frontend/assets/images/favicon/commerza-watches-icon.ico">
   <link rel="stylesheet" href="frontend/assets/css/style.css">
- 
+
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
     integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
@@ -61,11 +64,162 @@ if ($homeVideoStmt) {
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .app-coming-home {
+      border: 1px solid rgba(255, 128, 0, 0.32);
+      border-radius: 20px;
+      padding: 22px;
+      background:
+        radial-gradient(circle at 88% 18%, rgba(255, 128, 0, 0.24), transparent 44%),
+        linear-gradient(140deg, rgba(10, 10, 10, 0.98), rgba(20, 20, 20, 0.95));
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.46);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .app-coming-home::before {
+      content: "";
+      position: absolute;
+      inset: -30% auto auto -18%;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 153, 0, 0.16), rgba(255, 153, 0, 0));
+      pointer-events: none;
+    }
+
+    .app-coming-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+      gap: 18px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .app-coming-copy p {
+      color: #d3d3d3;
+      font-family: 'Inter', sans-serif;
+      margin-bottom: 8px;
+    }
+
+    .app-bullet-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .app-bullet {
+      border: 1px solid rgba(255, 170, 88, 0.35);
+      background: rgba(0, 0, 0, 0.32);
+      border-radius: 999px;
+      color: #ffd1a3;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.69rem;
+      letter-spacing: 0.07em;
+      padding: 6px 10px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .app-device-frame {
+      border: 1px solid rgba(255, 128, 0, 0.3);
+      border-radius: 18px;
+      background: rgba(0, 0, 0, 0.42);
+      padding: 14px;
+      backdrop-filter: blur(3px);
+    }
+
+    .app-device-head {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #ffb066;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 8px;
+    }
+
+    .app-feature-list {
+      display: grid;
+      gap: 6px;
+      margin: 0 0 12px;
+      padding: 0;
+      list-style: none;
+    }
+
+    .app-feature-list li {
+      color: #f0f0f0;
+      font-size: 0.87rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .app-feature-list i {
+      color: #ff8a2a;
+    }
+
+    .store-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .store-pill {
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 12px;
+      padding: 9px 10px;
+      background: rgba(8, 8, 8, 0.72);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .store-pill strong {
+      display: block;
+      color: #fff;
+      font-size: 0.88rem;
+    }
+
+    .store-pill small {
+      color: #b8b8b8;
+      display: block;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .store-pill i {
+      color: #ffcc80;
+      font-size: 1.1rem;
+      width: 22px;
+      text-align: center;
+    }
+
+    .store-pill span {
+      border: 1px solid rgba(255, 176, 103, 0.36);
+      color: #ffb067;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 0.67rem;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      font-family: 'JetBrains Mono', monospace;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 991.98px) {
+      .app-coming-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
   <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@graph": [
-        {
+      "@graph": [{
           "@type": "Organization",
           "@id": "https://commerza.ahmershah.dev/#organization",
           "name": "Commerza",
@@ -125,7 +279,7 @@ if ($homeVideoStmt) {
         }
       ]
     }
-    </script>
+  </script>
 </head>
 
 <body class="dark-theme home-premium premium-cards">
@@ -501,186 +655,215 @@ if ($homeVideoStmt) {
       </section>
 
       <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "ItemList",
-      "category": "Premium Watches & Accessories",
-      "subcategory": "Luxury Timepieces",
-      "section": "Featured Collection",
-      "itemListElement": [
         {
-          "@type": "Product",
-          "position": 1,
-          "name": "White Gold Steel Watch",
-          "description": "Premium white dial with golden accents, stainless steel case with automatic movement mechanism.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/white-gold-steel.webp",
-          "brand": {"@type": "Brand", "name": "Commerza"},
-          "offers": {
-            "@type": "Offer",
-            "priceCurrency": "PKR",
-            "price": "6200",
-            "priceValidUntil": "2026-12-31",
-            "availability": "https://schema.org/InStock",
-            "url": "https://commerza.ahmershah.dev/product/white-gold-steel-watch",
-            "itemCondition": "https://schema.org/NewCondition"
-          }
-        },
-        {
-          "@type": "Product",
-          "position": 2,
-          "name": "Black White Gold Watch",
-          "description": "Premium black leather strap with white and golden dial, smooth automatic movement.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/black-white-gold.webp",
-          "brand": {"@type": "Brand", "name": "Commerza"},
-          "offers": {
-            "@type": "Offer",
-            "priceCurrency": "PKR",
-            "price": "7100",
-            "priceValidUntil": "2026-12-31",
-            "availability": "https://schema.org/InStock",
-            "url": "https://commerza.ahmershah.dev/product/black-white-gold-watch",
-            "itemCondition": "https://schema.org/NewCondition"
-          }
-        },
-        {
-          "@type": "Product",
-          "position": 3,
-          "name": "Skeleton Gold Steel Watch",
-          "description": "White and golden skeleton display with premium steel case, clear and clean design with automatic movement.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/skeleton-gold-steel.webp",
-          "brand": {"@type": "Brand", "name": "Commerza"},
-          "offers": {
-            "@type": "Offer",
-            "priceCurrency": "PKR",
-            "price": "8900",
-            "priceValidUntil": "2026-12-31",
-            "availability": "https://schema.org/InStock",
-            "url": "https://commerza.ahmershah.dev/product/skeleton-gold-steel-watch",
-            "itemCondition": "https://schema.org/NewCondition"
-          }
-        },
-        {
-          "@type": "Product",
-          "position": 4,
-          "name": "Brown White Gold Watch",
-          "description": "Rich brown leather strap with white and golden dial, premium automatic movement.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/brown-gold-dial.webp",
-          "brand": {"@type": "Brand", "name": "Commerza"},
-          "offers": {
-            "@type": "Offer",
-            "priceCurrency": "PKR",
-            "price": "9600",
-            "priceValidUntil": "2026-12-31",
-            "availability": "https://schema.org/InStock",
-            "url": "https://commerza.ahmershah.dev/product/brown-white-gold-watch",
-            "itemCondition": "https://schema.org/NewCondition"
-          }
-        },
-        {
-          "@type": "Product",
-          "position": 5,
-          "name": "Black Gold Dial Watch",
-          "description": "Elegant black leather strap with stunning golden dial, precision automatic movement mechanism.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/black-gold-dial.webp",
-          "brand": {"@type": "Brand", "name": "Commerza"},
-          "offers": {
-            "@type": "Offer",
-            "priceCurrency": "PKR",
-            "price": "7800",
-            "priceValidUntil": "2026-12-31",
-            "availability": "https://schema.org/InStock",
-            "url": "https://commerza.ahmershah.dev/product/black-gold-dial-watch",
-            "itemCondition": "https://schema.org/NewCondition"
-          }
-        },
-        {
-          "@type": "Product",
-          "position": 6,
-          "name": "Brown Gold Premium Watch",
-          "description": "Rich brown leather with premium gold accents and sophisticated dial design.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/brown-premium-watch.webp",
-          "brand": {"@type": "Brand", "name": "Commerza"},
-          "offers": {
-            "@type": "Offer",
-            "priceCurrency": "PKR",
-            "price": "10200",
-            "priceValidUntil": "2026-12-31",
-            "availability": "https://schema.org/InStock",
-            "url": "https://commerza.ahmershah.dev/product/brown-gold-premium-watch",
-            "itemCondition": "https://schema.org/NewCondition"
-          }
-        },
-        {
-          "@type": "Product",
-          "position": 7,
-          "name": "Premium Black Gold Watch",
-          "description": "Luxurious premium black watch with bold gold elements and superior craftsmanship.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/premium-black-gold.webp",
-          "brand": {"@type": "Brand", "name": "Commerza"},
-          "offers": {
-            "@type": "Offer",
-            "priceCurrency": "PKR",
-            "price": "12400",
-            "priceValidUntil": "2026-12-31",
-            "availability": "https://schema.org/InStock",
-            "url": "https://commerza.ahmershah.dev/product/premium-black-gold-watch",
-            "itemCondition": "https://schema.org/NewCondition"
-          }
-        },
-        {
-          "@type": "Product",
-          "position": 8,
-          "name": "Black Minimalist Watch",
-          "description": "Clean minimalist design with sleek black finish and timeless appeal.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/black-minimalist.webp",
-          "brand": {"@type": "Brand", "name": "Commerza"},
-          "offers": {
-            "@type": "Offer",
-            "priceCurrency": "PKR",
-            "price": "8300",
-            "priceValidUntil": "2026-12-31",
-            "availability": "https://schema.org/InStock",
-            "url": "https://commerza.ahmershah.dev/product/black-minimalist-watch",
-            "itemCondition": "https://schema.org/NewCondition"
-          }
-        },
-        {
-          "@type": "Product",
-          "position": 9,
-          "name": "Black Feather Watch",
-          "description": "Elegant black watch with subtle design details and lightweight comfort.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/black-feather.webp",
-          "brand": {"@type": "Brand", "name": "Commerza"},
-          "offers": {
-            "@type": "Offer",
-            "priceCurrency": "PKR",
-            "price": "14200",
-            "priceValidUntil": "2026-12-31",
-            "availability": "https://schema.org/InStock",
-            "url": "https://commerza.ahmershah.dev/product/black-feather-watch",
-            "itemCondition": "https://schema.org/NewCondition"
-          }
-        },
-        {
-          "@type": "Product",
-          "position": 10,
-          "name": "Luxury White Gold Watch",
-          "description": "Ultimate luxury timepiece with white gold accents and premium dial craftsmanship.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/luxury-white-gold.webp",
-          "brand": {"@type": "Brand", "name": "Commerza"},
-          "offers": {
-            "@type": "Offer",
-            "priceCurrency": "PKR",
-            "price": "16800",
-            "priceValidUntil": "2026-12-31",
-            "availability": "https://schema.org/InStock",
-            "url": "https://commerza.ahmershah.dev/product/luxury-white-gold-watch",
-            "itemCondition": "https://schema.org/NewCondition"
-          }
+          "@context": "https://schema.org",
+          "@type": "ItemList",
+          "category": "Premium Watches & Accessories",
+          "subcategory": "Luxury Timepieces",
+          "section": "Featured Collection",
+          "itemListElement": [{
+              "@type": "Product",
+              "position": 1,
+              "name": "White Gold Steel Watch",
+              "description": "Premium white dial with golden accents, stainless steel case with automatic movement mechanism.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/white-gold-steel.webp",
+              "brand": {
+                "@type": "Brand",
+                "name": "Commerza"
+              },
+              "offers": {
+                "@type": "Offer",
+                "priceCurrency": "PKR",
+                "price": "6200",
+                "priceValidUntil": "2026-12-31",
+                "availability": "https://schema.org/InStock",
+                "url": "https://commerza.ahmershah.dev/product/white-gold-steel-watch",
+                "itemCondition": "https://schema.org/NewCondition"
+              }
+            },
+            {
+              "@type": "Product",
+              "position": 2,
+              "name": "Black White Gold Watch",
+              "description": "Premium black leather strap with white and golden dial, smooth automatic movement.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/black-white-gold.webp",
+              "brand": {
+                "@type": "Brand",
+                "name": "Commerza"
+              },
+              "offers": {
+                "@type": "Offer",
+                "priceCurrency": "PKR",
+                "price": "7100",
+                "priceValidUntil": "2026-12-31",
+                "availability": "https://schema.org/InStock",
+                "url": "https://commerza.ahmershah.dev/product/black-white-gold-watch",
+                "itemCondition": "https://schema.org/NewCondition"
+              }
+            },
+            {
+              "@type": "Product",
+              "position": 3,
+              "name": "Skeleton Gold Steel Watch",
+              "description": "White and golden skeleton display with premium steel case, clear and clean design with automatic movement.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/skeleton-gold-steel.webp",
+              "brand": {
+                "@type": "Brand",
+                "name": "Commerza"
+              },
+              "offers": {
+                "@type": "Offer",
+                "priceCurrency": "PKR",
+                "price": "8900",
+                "priceValidUntil": "2026-12-31",
+                "availability": "https://schema.org/InStock",
+                "url": "https://commerza.ahmershah.dev/product/skeleton-gold-steel-watch",
+                "itemCondition": "https://schema.org/NewCondition"
+              }
+            },
+            {
+              "@type": "Product",
+              "position": 4,
+              "name": "Brown White Gold Watch",
+              "description": "Rich brown leather strap with white and golden dial, premium automatic movement.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/brown-gold-dial.webp",
+              "brand": {
+                "@type": "Brand",
+                "name": "Commerza"
+              },
+              "offers": {
+                "@type": "Offer",
+                "priceCurrency": "PKR",
+                "price": "9600",
+                "priceValidUntil": "2026-12-31",
+                "availability": "https://schema.org/InStock",
+                "url": "https://commerza.ahmershah.dev/product/brown-white-gold-watch",
+                "itemCondition": "https://schema.org/NewCondition"
+              }
+            },
+            {
+              "@type": "Product",
+              "position": 5,
+              "name": "Black Gold Dial Watch",
+              "description": "Elegant black leather strap with stunning golden dial, precision automatic movement mechanism.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/black-gold-dial.webp",
+              "brand": {
+                "@type": "Brand",
+                "name": "Commerza"
+              },
+              "offers": {
+                "@type": "Offer",
+                "priceCurrency": "PKR",
+                "price": "7800",
+                "priceValidUntil": "2026-12-31",
+                "availability": "https://schema.org/InStock",
+                "url": "https://commerza.ahmershah.dev/product/black-gold-dial-watch",
+                "itemCondition": "https://schema.org/NewCondition"
+              }
+            },
+            {
+              "@type": "Product",
+              "position": 6,
+              "name": "Brown Gold Premium Watch",
+              "description": "Rich brown leather with premium gold accents and sophisticated dial design.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/brown-premium-watch.webp",
+              "brand": {
+                "@type": "Brand",
+                "name": "Commerza"
+              },
+              "offers": {
+                "@type": "Offer",
+                "priceCurrency": "PKR",
+                "price": "10200",
+                "priceValidUntil": "2026-12-31",
+                "availability": "https://schema.org/InStock",
+                "url": "https://commerza.ahmershah.dev/product/brown-gold-premium-watch",
+                "itemCondition": "https://schema.org/NewCondition"
+              }
+            },
+            {
+              "@type": "Product",
+              "position": 7,
+              "name": "Premium Black Gold Watch",
+              "description": "Luxurious premium black watch with bold gold elements and superior craftsmanship.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/premium-black-gold.webp",
+              "brand": {
+                "@type": "Brand",
+                "name": "Commerza"
+              },
+              "offers": {
+                "@type": "Offer",
+                "priceCurrency": "PKR",
+                "price": "12400",
+                "priceValidUntil": "2026-12-31",
+                "availability": "https://schema.org/InStock",
+                "url": "https://commerza.ahmershah.dev/product/premium-black-gold-watch",
+                "itemCondition": "https://schema.org/NewCondition"
+              }
+            },
+            {
+              "@type": "Product",
+              "position": 8,
+              "name": "Black Minimalist Watch",
+              "description": "Clean minimalist design with sleek black finish and timeless appeal.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/black-minimalist.webp",
+              "brand": {
+                "@type": "Brand",
+                "name": "Commerza"
+              },
+              "offers": {
+                "@type": "Offer",
+                "priceCurrency": "PKR",
+                "price": "8300",
+                "priceValidUntil": "2026-12-31",
+                "availability": "https://schema.org/InStock",
+                "url": "https://commerza.ahmershah.dev/product/black-minimalist-watch",
+                "itemCondition": "https://schema.org/NewCondition"
+              }
+            },
+            {
+              "@type": "Product",
+              "position": 9,
+              "name": "Black Feather Watch",
+              "description": "Elegant black watch with subtle design details and lightweight comfort.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/black-feather.webp",
+              "brand": {
+                "@type": "Brand",
+                "name": "Commerza"
+              },
+              "offers": {
+                "@type": "Offer",
+                "priceCurrency": "PKR",
+                "price": "14200",
+                "priceValidUntil": "2026-12-31",
+                "availability": "https://schema.org/InStock",
+                "url": "https://commerza.ahmershah.dev/product/black-feather-watch",
+                "itemCondition": "https://schema.org/NewCondition"
+              }
+            },
+            {
+              "@type": "Product",
+              "position": 10,
+              "name": "Luxury White Gold Watch",
+              "description": "Ultimate luxury timepiece with white gold accents and premium dial craftsmanship.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/luxury-white-gold.webp",
+              "brand": {
+                "@type": "Brand",
+                "name": "Commerza"
+              },
+              "offers": {
+                "@type": "Offer",
+                "priceCurrency": "PKR",
+                "price": "16800",
+                "priceValidUntil": "2026-12-31",
+                "availability": "https://schema.org/InStock",
+                "url": "https://commerza.ahmershah.dev/product/luxury-white-gold-watch",
+                "itemCondition": "https://schema.org/NewCondition"
+              }
+            }
+          ]
         }
-      ]
-    }
-    </script>
+      </script>
 
       <div id="featured-products-container" class="row mt-4">
       </div>
@@ -825,6 +1008,48 @@ if ($homeVideoStmt) {
         </div>
       </section>
 
+      <section class="app-coming-home mt-5" aria-labelledby="homeAppSoonTitle">
+        <div class="app-coming-grid">
+          <div class="app-coming-copy">
+            <p class="section-kicker">Mobile First Release</p>
+            <h2 id="homeAppSoonTitle" class="section-title">Commerza App Coming Soon</h2>
+            <p>We are preparing a dedicated mobile app to make watch discovery faster and shopping smoother. The app will include personalized picks, synced wishlist, and real-time order updates.</p>
+            <p>Early rollout notifications will begin soon for both major app stores.</p>
+            <div class="app-bullet-row" aria-hidden="true">
+              <span class="app-bullet">Wishlist Sync</span>
+              <span class="app-bullet">Order Tracking</span>
+              <span class="app-bullet">Fast Checkout</span>
+            </div>
+          </div>
+          <div class="app-device-frame">
+            <div class="app-device-head">Commerza Mobile Preview</div>
+            <ul class="app-feature-list">
+              <li><i class="bi bi-stars"></i><span>Personalized watch recommendations</span></li>
+              <li><i class="bi bi-shield-lock"></i><span>Secure and simplified checkout flow</span></li>
+              <li><i class="bi bi-bell"></i><span>Drop alerts and exclusive launch reminders</span></li>
+            </ul>
+            <div class="store-row">
+              <div class="store-pill" aria-label="Coming soon on Google Play Store">
+                <i class="bi bi-play-circle-fill"></i>
+                <div>
+                  <small>Coming Soon On</small>
+                  <strong>Google Play Store</strong>
+                </div>
+                <span>Soon</span>
+              </div>
+              <div class="store-pill" aria-label="Coming soon on Apple App Store">
+                <i class="bi bi-apple"></i>
+                <div>
+                  <small>Coming Soon On</small>
+                  <strong>Apple App Store</strong>
+                </div>
+                <span>Soon</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <div class="modal fade" id="newsletterModal" tabindex="-1" aria-labelledby="newsletterModalLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -955,12 +1180,12 @@ if ($homeVideoStmt) {
   <script <?= commerza_csp_nonce_attr() ?>>
     window.CommerzaCsrfToken = "<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>";
 
-    document.addEventListener("DOMContentLoaded", function () {
+    document.addEventListener("DOMContentLoaded", function() {
       if (typeof window.commerzaOnReady !== "function") {
         return;
       }
 
-      window.commerzaOnReady(function () {
+      window.commerzaOnReady(function() {
         loadProductsBySection("featured-collection", "featured-products-container");
       });
     });

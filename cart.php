@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 include "backend/data.php";
@@ -8,7 +9,21 @@ require_once "backend/notifications.php";
 require_once "backend/coupon_helpers.php";
 
 if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+  $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+  $requestUri = (string)($_SERVER['REQUEST_URI'] ?? '');
+  $requestPath = (string)(parse_url($requestUri, PHP_URL_PATH) ?? '');
+  if (preg_match('#/cart\.php$#i', str_replace('\\', '/', $requestPath)) === 1) {
+    $queryString = (string)(parse_url($requestUri, PHP_URL_QUERY) ?? '');
+    $targetUrl = commerza_absolute_url('/cart');
+    if ($queryString !== '') {
+      $targetUrl .= '?' . $queryString;
+    }
+    header('Location: ' . $targetUrl, true, 301);
+    exit;
+  }
 }
 
 try {
@@ -20,26 +35,26 @@ try {
 $errors = [];
 $success = '';
 $current_user = [
-    'full_name' => '',
-    'email' => '',
-    'phone' => '',
-    'address' => '',
+  'full_name' => '',
+  'email' => '',
+  'phone' => '',
+  'address' => '',
 ];
 
 $is_logged_in = isset($_SESSION['user_id']) && is_numeric($_SESSION['user_id']);
 
 if ($is_logged_in) {
-    $user_id = (int)$_SESSION['user_id'];
-    $userStmt = $con->prepare("SELECT full_name, email, phone, address FROM users WHERE id = ? LIMIT 1");
-    if ($userStmt) {
-        $userStmt->bind_param("i", $user_id);
-        $userStmt->execute();
-        $userResult = $userStmt->get_result();
-        if ($userResult && $userResult->num_rows === 1) {
-            $current_user = $userResult->fetch_assoc();
-        }
-        $userStmt->close();
+  $user_id = (int)$_SESSION['user_id'];
+  $userStmt = $con->prepare("SELECT full_name, email, phone, address FROM users WHERE id = ? LIMIT 1");
+  if ($userStmt) {
+    $userStmt->bind_param("i", $user_id);
+    $userStmt->execute();
+    $userResult = $userStmt->get_result();
+    if ($userResult && $userResult->num_rows === 1) {
+      $current_user = $userResult->fetch_assoc();
     }
+    $userStmt->close();
+  }
 }
 
 $stripe_publishable_key = commerza_get_stripe_publishable_key($con);
@@ -50,461 +65,461 @@ commerza_ensure_coupon_schema($con);
 
 function generate_order_number(mysqli $con): string
 {
-    for ($i = 0; $i < 20; $i++) {
-        $candidate = '#ORD-' . str_pad((string)random_int(0, 9999), 4, '0', STR_PAD_LEFT);
-        $checkStmt = $con->prepare("SELECT id FROM orders WHERE order_number = ? LIMIT 1");
-        if (!$checkStmt) {
-            return '#ORD-' . (string)time();
-        }
-
-        $checkStmt->bind_param("s", $candidate);
-        $checkStmt->execute();
-        $checkStmt->store_result();
-        $exists = $checkStmt->num_rows > 0;
-        $checkStmt->close();
-
-        if (!$exists) {
-            return $candidate;
-        }
+  for ($i = 0; $i < 20; $i++) {
+    $candidate = '#ORD-' . str_pad((string)random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+    $checkStmt = $con->prepare("SELECT id FROM orders WHERE order_number = ? LIMIT 1");
+    if (!$checkStmt) {
+      return '#ORD-' . (string)time();
     }
 
-    return '#ORD-' . (string)time();
+    $checkStmt->bind_param("s", $candidate);
+    $checkStmt->execute();
+    $checkStmt->store_result();
+    $exists = $checkStmt->num_rows > 0;
+    $checkStmt->close();
+
+    if (!$exists) {
+      return $candidate;
+    }
+  }
+
+  return '#ORD-' . (string)time();
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') === 'place_order') {
-    if (
-        empty($_POST['csrf_token']) ||
-        empty($_SESSION['csrf_token']) ||
-        !hash_equals($_SESSION['csrf_token'], (string)$_POST['csrf_token'])
-    ) {
-        http_response_code(403);
-        exit('Forbidden.');
+  if (
+    empty($_POST['csrf_token']) ||
+    empty($_SESSION['csrf_token']) ||
+    !hash_equals($_SESSION['csrf_token'], (string)$_POST['csrf_token'])
+  ) {
+    http_response_code(403);
+    exit('Forbidden.');
+  }
+
+  if (!$is_logged_in) {
+    $errors[] = 'Please login before placing an order.';
+  }
+
+  $requestId = commerza_request_id_from_server($_POST);
+  $idempotency = commerza_idempotency_consume($con, 'checkout_place_order', $requestId, 86400);
+  if (!(bool)($idempotency['ok'] ?? false)) {
+    $errors[] = (bool)($idempotency['duplicate'] ?? false)
+      ? 'Duplicate checkout request was ignored. Please wait or refresh before trying again.'
+      : (string)($idempotency['message'] ?? 'Unable to verify checkout request integrity.');
+  }
+
+  $captchaCheck = commerza_captcha_verify_submission($con, $_POST, 'checkout_place_order');
+  if (!(bool)$captchaCheck['ok']) {
+    $errors[] = (string)$captchaCheck['message'];
+  }
+
+  $customer_name = trim((string)($_POST['customer_name'] ?? ''));
+  $customer_email = strtolower(trim((string)($_POST['customer_email'] ?? '')));
+  $customer_phone = preg_replace('/\s+/', '', trim((string)($_POST['customer_phone'] ?? '')));
+  $customer_phone = (string)($customer_phone ?? '');
+  $customer_address = trim((string)($_POST['customer_address'] ?? ''));
+  $payment_method = strtolower(trim((string)($_POST['payment_method'] ?? 'cod')));
+
+  $payment_methods = [
+    'cod' => 'Cash on Delivery (COD)',
+    'stripe' => 'Stripe Card',
+  ];
+
+  $payment_method_label = $payment_methods[$payment_method] ?? '';
+  $payment_status = 'unpaid';
+  $payment_notes = [];
+  $stripe_payment_intent_id = trim((string)($_POST['stripe_payment_intent_id'] ?? ''));
+  $stripe_payment_status = trim((string)($_POST['stripe_payment_status'] ?? ''));
+
+  if (strlen($customer_name) < 3 || strlen($customer_name) > 100) {
+    $errors[] = 'Full name must be 3-100 characters.';
+  }
+
+  if (!filter_var($customer_email, FILTER_VALIDATE_EMAIL) || strlen($customer_email) > 150) {
+    $errors[] = 'Invalid email address.';
+  }
+
+  if (!preg_match('/^\d{11,15}$/', $customer_phone)) {
+    $errors[] = 'Invalid phone number.';
+  }
+
+  if (strlen($customer_address) < 10 || strlen($customer_address) > 500) {
+    $errors[] = 'Address must be 10-500 characters.';
+  }
+
+  if ($payment_method_label === '') {
+    $errors[] = 'Please select a valid payment method.';
+  }
+
+  if ($payment_method === 'stripe') {
+    if (!preg_match('/^pi_[A-Za-z0-9]+$/', $stripe_payment_intent_id)) {
+      $errors[] = 'Invalid Stripe payment intent.';
     }
 
-    if (!$is_logged_in) {
-        $errors[] = 'Please login before placing an order.';
+    if ($stripe_payment_status !== 'succeeded') {
+      $errors[] = 'Stripe payment was not completed.';
+    }
+  }
+
+  $normalized_items = [];
+  $subtotal = 0.00;
+
+  $cart_id = commerza_get_cart_id($con, false);
+  $cart_snapshot = [
+    'count' => 0,
+    'subtotal' => 0,
+    'items' => [],
+  ];
+
+  if (!$cart_id) {
+    $errors[] = 'Your cart is empty.';
+  } else {
+    $cart_snapshot = commerza_fetch_cart_snapshot($con, $cart_id);
+    if ((int)$cart_snapshot['count'] <= 0 || empty($cart_snapshot['items'])) {
+      $errors[] = 'Your cart is empty.';
     }
 
-    $requestId = commerza_request_id_from_server($_POST);
-    $idempotency = commerza_idempotency_consume($con, 'checkout_place_order', $requestId, 86400);
-    if (!(bool)($idempotency['ok'] ?? false)) {
-      $errors[] = (bool)($idempotency['duplicate'] ?? false)
-        ? 'Duplicate checkout request was ignored. Please wait or refresh before trying again.'
-        : (string)($idempotency['message'] ?? 'Unable to verify checkout request integrity.');
+    if ((int)$cart_snapshot['count'] > 10) {
+      $errors[] = 'Cart item limit exceeded.';
+    }
+  }
+
+  if (empty($errors)) {
+    foreach ($cart_snapshot['items'] as $item) {
+      if (!is_array($item)) {
+        continue;
+      }
+
+      $item_name = trim((string)($item['name'] ?? ''));
+      $quantity = (int)($item['quantity'] ?? 1);
+      $product_image = trim((string)($item['image'] ?? ''));
+      $product_id = isset($item['id']) ? (int)$item['id'] : null;
+      $sale_price = isset($item['salePrice']) ? (float)$item['salePrice'] : 0.0;
+      $price = isset($item['price']) ? (float)$item['price'] : 0.0;
+      $unit_price = $sale_price > 0 ? $sale_price : $price;
+
+      if ($item_name === '' || strlen($item_name) > 255) {
+        $errors[] = 'Invalid item name found in cart.';
+        break;
+      }
+
+      if ($quantity < 1 || $quantity > 10) {
+        $errors[] = 'Invalid item quantity found in cart.';
+        break;
+      }
+
+      if ($unit_price <= 0) {
+        $errors[] = 'Invalid item price found in cart.';
+        break;
+      }
+
+      if (strlen($product_image) > 255) {
+        $product_image = '';
+      }
+
+      $line_total = round($unit_price * $quantity, 2);
+      $subtotal += $line_total;
+
+      $normalized_items[] = [
+        'product_id' => $product_id,
+        'name' => $item_name,
+        'image' => $product_image,
+        'unit_price' => $unit_price,
+        'quantity' => $quantity,
+        'line_total' => $line_total,
+      ];
     }
 
-    $captchaCheck = commerza_captcha_verify_submission($con, $_POST, 'checkout_place_order');
-    if (!(bool)$captchaCheck['ok']) {
-      $errors[] = (string)$captchaCheck['message'];
+    if (count($normalized_items) === 0) {
+      $errors[] = 'Your cart is empty.';
+    }
+  }
+
+  if (empty($errors) && $subtotal > 0) {
+    $user_id = (int)$_SESSION['user_id'];
+    $shipping_cost = 0.00;
+    $discount_total = 0.00;
+    $coupon_code = '';
+    $coupon_id = 0;
+    $coupon_code_input = commerza_coupon_normalize_code((string)($_POST['coupon_code'] ?? ''));
+
+    $coupon_state = commerza_coupon_resolve_checkout_coupon($con, $subtotal, $user_id, $coupon_code_input);
+
+    if ($coupon_code_input !== '' && !(bool)($coupon_state['ok'] ?? false)) {
+      $errors[] = (string)($coupon_state['message'] ?? 'Invalid coupon code.');
     }
 
-    $customer_name = trim((string)($_POST['customer_name'] ?? ''));
-    $customer_email = strtolower(trim((string)($_POST['customer_email'] ?? '')));
-    $customer_phone = preg_replace('/\s+/', '', trim((string)($_POST['customer_phone'] ?? '')));
-    $customer_phone = (string)($customer_phone ?? '');
-    $customer_address = trim((string)($_POST['customer_address'] ?? ''));
-    $payment_method = strtolower(trim((string)($_POST['payment_method'] ?? 'cod')));
-
-    $payment_methods = [
-      'cod' => 'Cash on Delivery (COD)',
-      'stripe' => 'Stripe Card',
-    ];
-
-    $payment_method_label = $payment_methods[$payment_method] ?? '';
-    $payment_status = 'unpaid';
-    $payment_notes = [];
-    $stripe_payment_intent_id = trim((string)($_POST['stripe_payment_intent_id'] ?? ''));
-    $stripe_payment_status = trim((string)($_POST['stripe_payment_status'] ?? ''));
-
-    if (strlen($customer_name) < 3 || strlen($customer_name) > 100) {
-        $errors[] = 'Full name must be 3-100 characters.';
+    if ((bool)($coupon_state['ok'] ?? false)) {
+      $discount_total = (float)($coupon_state['discount'] ?? 0);
+      $coupon_code = (string)($coupon_state['code'] ?? '');
+      $coupon_id = (int)($coupon_state['coupon_id'] ?? 0);
     }
 
-    if (!filter_var($customer_email, FILTER_VALIDATE_EMAIL) || strlen($customer_email) > 150) {
-        $errors[] = 'Invalid email address.';
-    }
-
-    if (!preg_match('/^\d{11,15}$/', $customer_phone)) {
-        $errors[] = 'Invalid phone number.';
-    }
-
-    if (strlen($customer_address) < 10 || strlen($customer_address) > 500) {
-        $errors[] = 'Address must be 10-500 characters.';
-    }
-
-    if ($payment_method_label === '') {
-      $errors[] = 'Please select a valid payment method.';
-    }
+    $grand_total = round(max(0, $subtotal + $shipping_cost - $discount_total), 2);
+    $order_number = generate_order_number($con);
 
     if ($payment_method === 'stripe') {
-      if (!preg_match('/^pi_[A-Za-z0-9]+$/', $stripe_payment_intent_id)) {
-        $errors[] = 'Invalid Stripe payment intent.';
-      }
+      $stripe_secret_key = commerza_get_stripe_secret_key($con);
 
-      if ($stripe_payment_status !== 'succeeded') {
-        $errors[] = 'Stripe payment was not completed.';
+      if ($stripe_secret_key === '') {
+        $errors[] = 'Stripe is not configured yet. Please choose another payment method.';
+      } else {
+        $intentResponse = commerza_fetch_stripe_payment_intent($stripe_secret_key, $stripe_payment_intent_id);
+
+        if (!$intentResponse['ok']) {
+          $errors[] = $intentResponse['error'] !== ''
+            ? $intentResponse['error']
+            : 'Unable to verify Stripe payment.';
+        } else {
+          $intent = $intentResponse['data'];
+          $intentStatus = (string)($intent['status'] ?? '');
+          $intentCurrency = strtolower((string)($intent['currency'] ?? ''));
+          $intentAmount = (int)($intent['amount_received'] ?? $intent['amount'] ?? 0);
+          $expectedAmount = (int)round($grand_total * 100);
+
+          if ($intentStatus !== 'succeeded') {
+            $errors[] = 'Stripe payment is not successful yet.';
+          }
+
+          if ($intentCurrency !== 'pkr') {
+            $errors[] = 'Stripe payment currency mismatch.';
+          }
+
+          if ($intentAmount !== $expectedAmount) {
+            $errors[] = 'Stripe payment amount mismatch.';
+          }
+
+          if (empty($errors)) {
+            $payment_status = 'paid';
+            $payment_notes[] = 'Stripe Intent: ' . $stripe_payment_intent_id;
+          }
+        }
       }
     }
 
-    $normalized_items = [];
-    $subtotal = 0.00;
+    $order_notes_text = implode("\n", array_filter($payment_notes));
 
-    $cart_id = commerza_get_cart_id($con, false);
-    $cart_snapshot = [
-      'count' => 0,
-      'subtotal' => 0,
-      'items' => [],
-    ];
-
-    if (!$cart_id) {
-      $errors[] = 'Your cart is empty.';
-    } else {
-      $cart_snapshot = commerza_fetch_cart_snapshot($con, $cart_id);
-      if ((int)$cart_snapshot['count'] <= 0 || empty($cart_snapshot['items'])) {
-        $errors[] = 'Your cart is empty.';
-      }
-
-      if ((int)$cart_snapshot['count'] > 10) {
-        $errors[] = 'Cart item limit exceeded.';
-      }
+    if (!empty($errors)) {
+      $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     }
 
     if (empty($errors)) {
-      foreach ($cart_snapshot['items'] as $item) {
-        if (!is_array($item)) {
-          continue;
-        }
 
-        $item_name = trim((string)($item['name'] ?? ''));
-        $quantity = (int)($item['quantity'] ?? 1);
-        $product_image = trim((string)($item['image'] ?? ''));
-        $product_id = isset($item['id']) ? (int)$item['id'] : null;
-        $sale_price = isset($item['salePrice']) ? (float)$item['salePrice'] : 0.0;
-        $price = isset($item['price']) ? (float)$item['price'] : 0.0;
-        $unit_price = $sale_price > 0 ? $sale_price : $price;
+      try {
+        $con->begin_transaction();
 
-            if ($item_name === '' || strlen($item_name) > 255) {
-                $errors[] = 'Invalid item name found in cart.';
-                break;
-            }
+        $items_for_stock_check = $normalized_items;
+        usort($items_for_stock_check, static function (array $left, array $right): int {
+          return ((int)($left['product_id'] ?? 0)) <=> ((int)($right['product_id'] ?? 0));
+        });
 
-            if ($quantity < 1 || $quantity > 10) {
-                $errors[] = 'Invalid item quantity found in cart.';
-                break;
-            }
+        $stockSelectStmt = $con->prepare('SELECT stock FROM products WHERE id = ? LIMIT 1 FOR UPDATE');
+        $stockUpdateStmt = $con->prepare('UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?');
 
-            if ($unit_price <= 0) {
-                $errors[] = 'Invalid item price found in cart.';
-                break;
-            }
-
-            if (strlen($product_image) > 255) {
-                $product_image = '';
-            }
-
-            $line_total = round($unit_price * $quantity, 2);
-            $subtotal += $line_total;
-
-            $normalized_items[] = [
-                'product_id' => $product_id,
-                'name' => $item_name,
-                'image' => $product_image,
-                'unit_price' => $unit_price,
-                'quantity' => $quantity,
-                'line_total' => $line_total,
-            ];
-        }
-
-        if (count($normalized_items) === 0) {
-            $errors[] = 'Your cart is empty.';
-        }
-    }
-
-    if (empty($errors) && $subtotal > 0) {
-      $user_id = (int)$_SESSION['user_id'];
-        $shipping_cost = 0.00;
-      $discount_total = 0.00;
-      $coupon_code = '';
-      $coupon_id = 0;
-      $coupon_code_input = commerza_coupon_normalize_code((string)($_POST['coupon_code'] ?? ''));
-
-      $coupon_state = commerza_coupon_resolve_checkout_coupon($con, $subtotal, $user_id, $coupon_code_input);
-
-      if ($coupon_code_input !== '' && !(bool)($coupon_state['ok'] ?? false)) {
-        $errors[] = (string)($coupon_state['message'] ?? 'Invalid coupon code.');
-      }
-
-      if ((bool)($coupon_state['ok'] ?? false)) {
-        $discount_total = (float)($coupon_state['discount'] ?? 0);
-        $coupon_code = (string)($coupon_state['code'] ?? '');
-        $coupon_id = (int)($coupon_state['coupon_id'] ?? 0);
-      }
-
-      $grand_total = round(max(0, $subtotal + $shipping_cost - $discount_total), 2);
-        $order_number = generate_order_number($con);
-
-      if ($payment_method === 'stripe') {
-        $stripe_secret_key = commerza_get_stripe_secret_key($con);
-
-        if ($stripe_secret_key === '') {
-          $errors[] = 'Stripe is not configured yet. Please choose another payment method.';
-        } else {
-          $intentResponse = commerza_fetch_stripe_payment_intent($stripe_secret_key, $stripe_payment_intent_id);
-
-          if (!$intentResponse['ok']) {
-            $errors[] = $intentResponse['error'] !== ''
-              ? $intentResponse['error']
-              : 'Unable to verify Stripe payment.';
-          } else {
-            $intent = $intentResponse['data'];
-            $intentStatus = (string)($intent['status'] ?? '');
-            $intentCurrency = strtolower((string)($intent['currency'] ?? ''));
-            $intentAmount = (int)($intent['amount_received'] ?? $intent['amount'] ?? 0);
-            $expectedAmount = (int)round($grand_total * 100);
-
-            if ($intentStatus !== 'succeeded') {
-              $errors[] = 'Stripe payment is not successful yet.';
-            }
-
-            if ($intentCurrency !== 'pkr') {
-              $errors[] = 'Stripe payment currency mismatch.';
-            }
-
-            if ($intentAmount !== $expectedAmount) {
-              $errors[] = 'Stripe payment amount mismatch.';
-            }
-
-            if (empty($errors)) {
-              $payment_status = 'paid';
-              $payment_notes[] = 'Stripe Intent: ' . $stripe_payment_intent_id;
-            }
+        if (!$stockSelectStmt || !$stockUpdateStmt) {
+          if ($stockSelectStmt) {
+            $stockSelectStmt->close();
           }
+          if ($stockUpdateStmt) {
+            $stockUpdateStmt->close();
+          }
+          throw new RuntimeException('Unable to validate product stock.');
         }
-      }
 
-      $order_notes_text = implode("\n", array_filter($payment_notes));
+        foreach ($items_for_stock_check as $row) {
+          $stock_product_id = (int)($row['product_id'] ?? 0);
+          $stock_quantity = (int)($row['quantity'] ?? 0);
+          $stock_name = trim((string)($row['name'] ?? 'This product'));
 
-      if (!empty($errors)) {
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-      }
-
-      if (empty($errors)) {
-
-        try {
-          $con->begin_transaction();
-
-          $items_for_stock_check = $normalized_items;
-          usort($items_for_stock_check, static function (array $left, array $right): int {
-            return ((int)($left['product_id'] ?? 0)) <=> ((int)($right['product_id'] ?? 0));
-          });
-
-          $stockSelectStmt = $con->prepare('SELECT stock FROM products WHERE id = ? LIMIT 1 FOR UPDATE');
-          $stockUpdateStmt = $con->prepare('UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?');
-
-          if (!$stockSelectStmt || !$stockUpdateStmt) {
-            if ($stockSelectStmt) {
-              $stockSelectStmt->close();
-            }
-            if ($stockUpdateStmt) {
-              $stockUpdateStmt->close();
-            }
-            throw new RuntimeException('Unable to validate product stock.');
+          if ($stock_product_id <= 0 || $stock_quantity <= 0) {
+            throw new RuntimeException('STOCK_ERROR: One product in your cart is invalid. Please refresh your cart and try again.');
           }
 
-          foreach ($items_for_stock_check as $row) {
-            $stock_product_id = (int)($row['product_id'] ?? 0);
-            $stock_quantity = (int)($row['quantity'] ?? 0);
-            $stock_name = trim((string)($row['name'] ?? 'This product'));
+          $stockSelectStmt->bind_param('i', $stock_product_id);
+          $stockSelectStmt->execute();
+          $stockResult = $stockSelectStmt->get_result();
+          $productRow = $stockResult ? $stockResult->fetch_assoc() : null;
 
-            if ($stock_product_id <= 0 || $stock_quantity <= 0) {
-              throw new RuntimeException('STOCK_ERROR: One product in your cart is invalid. Please refresh your cart and try again.');
-            }
-
-            $stockSelectStmt->bind_param('i', $stock_product_id);
-            $stockSelectStmt->execute();
-            $stockResult = $stockSelectStmt->get_result();
-            $productRow = $stockResult ? $stockResult->fetch_assoc() : null;
-
-            if (!$productRow) {
-              throw new RuntimeException('STOCK_ERROR: One product in your cart is no longer available.');
-            }
-
-            $availableStock = (int)($productRow['stock'] ?? 0);
-            if ($availableStock < $stock_quantity) {
-              $itemLabel = $stock_name !== '' ? $stock_name : 'This product';
-              throw new RuntimeException('STOCK_ERROR: ' . $itemLabel . ' has only ' . max($availableStock, 0) . ' item(s) left.');
-            }
-
-            $stockUpdateStmt->bind_param('iii', $stock_quantity, $stock_product_id, $stock_quantity);
-            $stockUpdateStmt->execute();
-
-            if ($stockUpdateStmt->affected_rows !== 1) {
-              throw new RuntimeException('STOCK_ERROR: Stock changed while placing your order. Please review your cart and try again.');
-            }
+          if (!$productRow) {
+            throw new RuntimeException('STOCK_ERROR: One product in your cart is no longer available.');
           }
 
-          $stockSelectStmt->close();
-          $stockUpdateStmt->close();
+          $availableStock = (int)($productRow['stock'] ?? 0);
+          if ($availableStock < $stock_quantity) {
+            $itemLabel = $stock_name !== '' ? $stock_name : 'This product';
+            throw new RuntimeException('STOCK_ERROR: ' . $itemLabel . ' has only ' . max($availableStock, 0) . ' item(s) left.');
+          }
 
-          $orderStmt = $con->prepare(
-            "INSERT INTO orders (order_number, user_id, customer_name, customer_email, customer_phone, address, subtotal, shipping_cost, discount_total, coupon_code, grand_total, status, payment_status, payment_method, notes)
+          $stockUpdateStmt->bind_param('iii', $stock_quantity, $stock_product_id, $stock_quantity);
+          $stockUpdateStmt->execute();
+
+          if ($stockUpdateStmt->affected_rows !== 1) {
+            throw new RuntimeException('STOCK_ERROR: Stock changed while placing your order. Please review your cart and try again.');
+          }
+        }
+
+        $stockSelectStmt->close();
+        $stockUpdateStmt->close();
+
+        $orderStmt = $con->prepare(
+          "INSERT INTO orders (order_number, user_id, customer_name, customer_email, customer_phone, address, subtotal, shipping_cost, discount_total, coupon_code, grand_total, status, payment_status, payment_method, notes)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?)"
-          );
+        );
 
-          if (!$orderStmt) {
-            throw new RuntimeException('Unable to create order.');
-          }
+        if (!$orderStmt) {
+          throw new RuntimeException('Unable to create order.');
+        }
 
-          $orderStmt->bind_param(
-            "sissssdddsdsss",
-            $order_number,
-            $user_id,
-            $customer_name,
-            $customer_email,
-            $customer_phone,
-            $customer_address,
-            $subtotal,
-            $shipping_cost,
-            $discount_total,
-            $coupon_code,
-            $grand_total,
-            $payment_status,
-            $payment_method_label,
-            $order_notes_text
-          );
+        $orderStmt->bind_param(
+          "sissssdddsdsss",
+          $order_number,
+          $user_id,
+          $customer_name,
+          $customer_email,
+          $customer_phone,
+          $customer_address,
+          $subtotal,
+          $shipping_cost,
+          $discount_total,
+          $coupon_code,
+          $grand_total,
+          $payment_status,
+          $payment_method_label,
+          $order_notes_text
+        );
 
-          if (!$orderStmt->execute()) {
-            throw new RuntimeException('Unable to save order.');
-          }
+        if (!$orderStmt->execute()) {
+          throw new RuntimeException('Unable to save order.');
+        }
 
-          $order_id = (int)$con->insert_id;
-          $orderStmt->close();
+        $order_id = (int)$con->insert_id;
+        $orderStmt->close();
 
-          $itemStmt = $con->prepare(
-            "INSERT INTO order_items (order_id, product_id, product_name, product_img, unit_price, quantity, line_total)
+        $itemStmt = $con->prepare(
+          "INSERT INTO order_items (order_id, product_id, product_name, product_img, unit_price, quantity, line_total)
              VALUES (?, ?, ?, ?, ?, ?, ?)"
+        );
+
+        if (!$itemStmt) {
+          throw new RuntimeException('Unable to save order items.');
+        }
+
+        foreach ($normalized_items as $row) {
+          $product_id = $row['product_id'];
+          $product_name = $row['name'];
+          $product_img = $row['image'];
+          $unit_price = $row['unit_price'];
+          $quantity = $row['quantity'];
+          $line_total = $row['line_total'];
+
+          $itemStmt->bind_param(
+            "iissdid",
+            $order_id,
+            $product_id,
+            $product_name,
+            $product_img,
+            $unit_price,
+            $quantity,
+            $line_total
           );
 
-          if (!$itemStmt) {
-            throw new RuntimeException('Unable to save order items.');
+          if (!$itemStmt->execute()) {
+            throw new RuntimeException('Unable to save an order item.');
           }
+        }
 
-          foreach ($normalized_items as $row) {
-            $product_id = $row['product_id'];
-            $product_name = $row['name'];
-            $product_img = $row['image'];
-            $unit_price = $row['unit_price'];
-            $quantity = $row['quantity'];
-            $line_total = $row['line_total'];
+        $itemStmt->close();
 
-            $itemStmt->bind_param(
-              "iissdid",
-              $order_id,
-              $product_id,
-              $product_name,
-              $product_img,
-              $unit_price,
-              $quantity,
-              $line_total
-            );
-
-            if (!$itemStmt->execute()) {
-              throw new RuntimeException('Unable to save an order item.');
-            }
-                }
-
-          $itemStmt->close();
-
-          if ($coupon_id > 0 && $discount_total > 0) {
-            $couponApplied = commerza_coupon_register_redemption(
-              $con,
-              $coupon_id,
-              $user_id,
-              $order_id,
-              $discount_total
-            );
-
-            if (!$couponApplied) {
-              commerza_security_log_event($con, [
-                'event_type' => 'coupon_redemption_failed_checkout',
-                'severity' => 'warning',
-                'actor_type' => 'user',
-                'actor_identifier' => (string)$customer_email,
-                'user_id' => $user_id,
-                'ip_address' => commerza_client_ip(),
-                'details' => [
-                  'coupon_id' => $coupon_id,
-                  'order_id' => $order_id,
-                  'reason' => 'coupon_limit_or_state_changed',
-                ],
-              ]);
-              throw new RuntimeException('COUPON_ERROR: Coupon is no longer available. Please remove it and try again.');
-            }
-          }
-
-          $clearCartStmt = $con->prepare('DELETE FROM cart_items WHERE cart_id = ?');
-          if ($clearCartStmt) {
-            $clearCartStmt->bind_param('i', $cart_id);
-            $clearCartStmt->execute();
-            $clearCartStmt->close();
-          }
-
-          commerza_remove_cart_if_empty($con, $cart_id);
-          if ($coupon_id > 0) {
-            commerza_coupon_clear_session_code();
-          }
-          $con->commit();
-
-          commerza_notify_order_placed(
+        if ($coupon_id > 0 && $discount_total > 0) {
+          $couponApplied = commerza_coupon_register_redemption(
             $con,
-            [
-              'order_number' => $order_number,
-              'customer_name' => $customer_name,
-              'customer_email' => $customer_email,
-              'customer_phone' => $customer_phone,
-              'address' => $customer_address,
-              'subtotal' => $subtotal,
-              'shipping_cost' => $shipping_cost,
-              'discount_total' => $discount_total,
-              'coupon_code' => $coupon_code,
-              'grand_total' => $grand_total,
-              'status' => 'Pending',
-              'payment_method' => $payment_method_label,
-              'created_at' => date('Y-m-d H:i:s'),
-            ],
-            $normalized_items
+            $coupon_id,
+            $user_id,
+            $order_id,
+            $discount_total
           );
 
-          $success = 'Order placed successfully via ' . $payment_method_label . '. Your order number is ' . $order_number . '.';
-          $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-        } catch (Throwable $e) {
-          $con->rollback();
-          $errorMessage = (string)$e->getMessage();
-          $dbErrorCode = (int)$con->errno;
-
-          if ($dbErrorCode === 1213 || $dbErrorCode === 1205) {
+          if (!$couponApplied) {
             commerza_security_log_event($con, [
-              'event_type' => 'checkout_transaction_contention',
+              'event_type' => 'coupon_redemption_failed_checkout',
               'severity' => 'warning',
               'actor_type' => 'user',
-              'actor_identifier' => (string)($customer_email ?? ''),
-              'user_id' => isset($user_id) ? (int)$user_id : 0,
+              'actor_identifier' => (string)$customer_email,
+              'user_id' => $user_id,
               'ip_address' => commerza_client_ip(),
               'details' => [
-                'db_error_code' => $dbErrorCode,
+                'coupon_id' => $coupon_id,
+                'order_id' => $order_id,
+                'reason' => 'coupon_limit_or_state_changed',
               ],
             ]);
-            $errors[] = 'Checkout is temporarily busy due to high concurrent activity. Please try placing your order again.';
-          } elseif (str_starts_with($errorMessage, 'STOCK_ERROR:')) {
-            $errors[] = trim(substr($errorMessage, strlen('STOCK_ERROR:')));
-          } elseif (str_starts_with($errorMessage, 'COUPON_ERROR:')) {
-            $errors[] = trim(substr($errorMessage, strlen('COUPON_ERROR:')));
-          } else {
-            $errors[] = 'Something went wrong while placing the order. Please try again.';
+            throw new RuntimeException('COUPON_ERROR: Coupon is no longer available. Please remove it and try again.');
           }
         }
+
+        $clearCartStmt = $con->prepare('DELETE FROM cart_items WHERE cart_id = ?');
+        if ($clearCartStmt) {
+          $clearCartStmt->bind_param('i', $cart_id);
+          $clearCartStmt->execute();
+          $clearCartStmt->close();
         }
+
+        commerza_remove_cart_if_empty($con, $cart_id);
+        if ($coupon_id > 0) {
+          commerza_coupon_clear_session_code();
+        }
+        $con->commit();
+
+        commerza_notify_order_placed(
+          $con,
+          [
+            'order_number' => $order_number,
+            'customer_name' => $customer_name,
+            'customer_email' => $customer_email,
+            'customer_phone' => $customer_phone,
+            'address' => $customer_address,
+            'subtotal' => $subtotal,
+            'shipping_cost' => $shipping_cost,
+            'discount_total' => $discount_total,
+            'coupon_code' => $coupon_code,
+            'grand_total' => $grand_total,
+            'status' => 'Pending',
+            'payment_method' => $payment_method_label,
+            'created_at' => date('Y-m-d H:i:s'),
+          ],
+          $normalized_items
+        );
+
+        $success = 'Order placed successfully via ' . $payment_method_label . '. Your order number is ' . $order_number . '.';
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+      } catch (Throwable $e) {
+        $con->rollback();
+        $errorMessage = (string)$e->getMessage();
+        $dbErrorCode = (int)$con->errno;
+
+        if ($dbErrorCode === 1213 || $dbErrorCode === 1205) {
+          commerza_security_log_event($con, [
+            'event_type' => 'checkout_transaction_contention',
+            'severity' => 'warning',
+            'actor_type' => 'user',
+            'actor_identifier' => (string)($customer_email ?? ''),
+            'user_id' => isset($user_id) ? (int)$user_id : 0,
+            'ip_address' => commerza_client_ip(),
+            'details' => [
+              'db_error_code' => $dbErrorCode,
+            ],
+          ]);
+          $errors[] = 'Checkout is temporarily busy due to high concurrent activity. Please try placing your order again.';
+        } elseif (str_starts_with($errorMessage, 'STOCK_ERROR:')) {
+          $errors[] = trim(substr($errorMessage, strlen('STOCK_ERROR:')));
+        } elseif (str_starts_with($errorMessage, 'COUPON_ERROR:')) {
+          $errors[] = trim(substr($errorMessage, strlen('COUPON_ERROR:')));
+        } else {
+          $errors[] = 'Something went wrong while placing the order. Please try again.';
+        }
+      }
     }
+  }
 }
 ?>
 <!DOCTYPE html>
@@ -858,9 +873,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       0% {
         box-shadow: 0 0 0 rgba(255, 122, 26, 0.55);
       }
+
       50% {
         box-shadow: 0 0 0 2px rgba(255, 122, 26, 0.24);
       }
+
       100% {
         box-shadow: 0 0 0 rgba(255, 122, 26, 0);
       }
@@ -870,9 +887,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       0% {
         transform: scale(0.9);
       }
+
       55% {
         transform: scale(1.08);
       }
+
       100% {
         transform: scale(1);
       }
@@ -1141,7 +1160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
         </div>
       </div>
     </div>
-  </main> 
+  </main>
 
   <div class="modal fade" id="checkoutModal" tabindex="-1" aria-labelledby="checkoutModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -1293,7 +1312,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
   </script>
   <script src="frontend/assets/js/script.js"></script>
   <script <?= commerza_csp_nonce_attr() ?>>
-    $(function () {
+    $(function() {
       const isLoggedIn = <?= $is_logged_in ? 'true' : 'false' ?>;
       const csrfToken = <?= json_encode((string)$_SESSION['csrf_token']) ?>;
       const stripePublishableKey = <?= json_encode($stripe_publishable_key) ?>;
@@ -1399,9 +1418,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
         }
       }
 
-      $("#serverAlert, #successAlert").each(function () {
+      $("#serverAlert, #successAlert").each(function() {
         const element = $(this);
-        setTimeout(function () {
+        setTimeout(function() {
           element.fadeOut(400);
         }, 3500);
       });
@@ -1428,7 +1447,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
         $('#checkoutCaptchaError').text((message || '').toString());
       }
 
-      $('#checkoutModal').on('show.bs.modal', function (event) {
+      $('#checkoutModal').on('show.bs.modal', function(event) {
         const totalItems = parseInt($('#total-items-qty').text(), 10) || 0;
 
         if (totalItems <= 0) {
@@ -1461,7 +1480,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
 
       $('#paymentMethod').on('change', togglePaymentFields);
 
-      $('#checkoutForm').on('submit', async function (event) {
+      $('#checkoutForm').on('submit', async function(event) {
         if (stripeSubmitReady) {
           return;
         }

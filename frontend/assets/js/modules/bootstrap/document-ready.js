@@ -315,6 +315,8 @@ $(document).ready(function () {
     }
 
     const productId = parseInt(btn.data("productId"), 10);
+    const productName = (btn.data("productName") || "").toString().trim();
+    const productCode = (btn.data("productCode") || "").toString().trim();
     if (!Number.isInteger(productId) || productId <= 0) {
       showNotif("Unable to add this product. Invalid product id.", "warning");
       return;
@@ -323,10 +325,20 @@ $(document).ready(function () {
     const img = getProductImageElement(btn);
     const cartIcon = $("#cart-icon");
 
-    const addResult = await postCartAction("add", {
+    const addPayload = {
       product_id: productId,
       quantity: 1,
-    });
+    };
+
+    if (productName !== "") {
+      addPayload.product_name = productName;
+    }
+
+    if (productCode !== "") {
+      addPayload.product_code = productCode;
+    }
+
+    const addResult = await postCartAction("add", addPayload);
 
     if (!addResult.ok) {
       showNotif(addResult.message, "warning");
@@ -1438,7 +1450,7 @@ $(document).ready(function () {
       return "products.php";
     }
 
-    return `products.php?slug=${encodeURIComponent(normalizedSlug)}`;
+    return `products/${encodeURIComponent(normalizedSlug)}`;
   }
 
   function getProductDetailAbsoluteUrl(slug) {
@@ -1524,6 +1536,14 @@ $(document).ready(function () {
     $('meta[property="og:url"]').attr("content", canonicalUrl);
     if (imageUrl) $('meta[property="og:image"]').attr("content", imageUrl);
     $('link[rel="canonical"]').attr("href", canonicalUrl);
+
+    const currentUrl = `${window.location.origin}${window.location.pathname}${window.location.search}`;
+    if (
+      typeof window.history.replaceState === "function" &&
+      currentUrl !== canonicalUrl
+    ) {
+      window.history.replaceState({}, "", canonicalUrl);
+    }
   }
 
   function findProduct(data, params) {

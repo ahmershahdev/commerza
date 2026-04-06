@@ -47,12 +47,6 @@ html {
   scroll-behavior: smooth;
 }
 
-html,
-body {
-  scrollbar-width: thin;
-  scrollbar-color: orangered #000000;
-}
-
 body.dark-theme {
   background-color: #050505;
   color: #f0f0f0;

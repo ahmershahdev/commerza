@@ -56,6 +56,18 @@ if ($field === 'email') {
         echo json_encode(['error' => 'Invalid username']);
         exit;
     }
+
+    $blocked = commerza_username_blacklist_lookup($con, $value);
+    if (is_array($blocked)) {
+        echo json_encode([
+            'exists' => true,
+            'blocked' => true,
+            'block_type' => (string)($blocked['type'] ?? 'harmful'),
+            'message' => commerza_username_blacklist_feedback_message($blocked),
+        ]);
+        exit;
+    }
+
     $sql = 'SELECT 1 FROM users WHERE username_slug = ?';
 }
 

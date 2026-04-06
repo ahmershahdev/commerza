@@ -101,6 +101,38 @@ function commerza_normalize_page_name(string $page): string
     return $file;
 }
 
+function commerza_products_slugify(string $value): string
+{
+    $slug = strtolower(trim($value));
+    $slug = preg_replace('/[^a-z0-9]+/', '-', $slug);
+    if (!is_string($slug)) {
+        return 'product';
+    }
+
+    $slug = trim($slug, '-');
+    $slug = preg_replace('/-+/', '-', $slug);
+    if (!is_string($slug) || $slug === '') {
+        return 'product';
+    }
+
+    return $slug;
+}
+
+function commerza_products_has_table(mysqli $con, string $table): bool
+{
+    $safeTable = $con->real_escape_string($table);
+    $result = $con->query("SHOW TABLES LIKE '{$safeTable}'");
+    return $result instanceof mysqli_result && $result->num_rows > 0;
+}
+
+function commerza_products_table_has_column(mysqli $con, string $table, string $column): bool
+{
+    $safeTable = $con->real_escape_string($table);
+    $safeColumn = $con->real_escape_string($column);
+    $result = $con->query("SHOW COLUMNS FROM `{$safeTable}` LIKE '{$safeColumn}'");
+    return $result instanceof mysqli_result && $result->num_rows > 0;
+}
+
 $action = strtolower(trim((string)($_GET['action'] ?? 'sections')));
 if ($action === '') {
     $action = 'sections';
@@ -186,11 +218,50 @@ if ($sectionResult) {
     }
 }
 
-$productResult = $con->query(
-    'SELECT id, sectionId, name, description, image, price, salePrice, stock, movement, product_code, warranty_info, dispatch_info
-     FROM products
-     ORDER BY id ASC'
-);
+$hasReviewsTable = commerza_products_has_table($con, 'product_reviews');
+$reviewVisibilityClause = '1 = 1';
+if ($hasReviewsTable && commerza_products_table_has_column($con, 'product_reviews', 'is_visible')) {
+    $reviewVisibilityClause = 'is_visible = 1';
+}
+
+$productSql =
+    'SELECT
+        p.id,
+        p.sectionId,
+        p.name,
+        p.description,
+        p.image,
+        p.price,
+        p.salePrice,
+        p.stock,
+        p.movement,
+        p.product_code,
+        p.warranty_info,
+        p.dispatch_info';
+
+if ($hasReviewsTable) {
+    $productSql .=
+        ',
+        COALESCE(rv.review_count, 0) AS rating_count,
+        COALESCE(rv.average_rating, 0) AS rating_average
+     FROM products p
+     LEFT JOIN (
+        SELECT product_id, COUNT(*) AS review_count, AVG(rating) AS average_rating
+        FROM product_reviews
+        WHERE ' . $reviewVisibilityClause . '
+        GROUP BY product_id
+     ) rv ON rv.product_id = p.id';
+} else {
+    $productSql .=
+        ',
+        0 AS rating_count,
+        0 AS rating_average
+     FROM products p';
+}
+
+$productSql .= ' ORDER BY p.id ASC';
+
+$productResult = $con->query($productSql);
 
 if ($productResult) {
     while ($row = $productResult->fetch_assoc()) {
@@ -214,6 +285,7 @@ if ($productResult) {
         $sections[$sectionId]['products'][] = [
             'id' => (int)$row['id'],
             'name' => (string)($row['name'] ?? ''),
+            'slug' => commerza_products_slugify((string)($row['name'] ?? '')),
             'description' => (string)($row['description'] ?? ''),
             'image' => (string)($row['image'] ?? ''),
             'price' => (float)$row['price'],
@@ -223,6 +295,8 @@ if ($productResult) {
             'productCode' => (string)($row['product_code'] ?? ''),
             'warrantyInfo' => (string)($row['warranty_info'] ?? ''),
             'dispatchInfo' => (string)($row['dispatch_info'] ?? ''),
+            'ratingCount' => max(0, (int)($row['rating_count'] ?? 0)),
+            'ratingAverage' => round((float)($row['rating_average'] ?? 0), 2),
         ];
     }
 }
