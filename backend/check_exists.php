@@ -21,8 +21,14 @@ if (
 
 $field = (string)($_POST['field'] ?? '');
 $value = trim((string)($_POST['value'] ?? ''));
+$excludeCurrent = !empty($_POST['exclude_current']);
+$excludeUserId = 0;
 
-if (!in_array($field, ['email', 'phone'], true) || $value === '') {
+if ($excludeCurrent && isset($_SESSION['user_id']) && is_numeric($_SESSION['user_id'])) {
+    $excludeUserId = (int)$_SESSION['user_id'];
+}
+
+if (!in_array($field, ['email', 'phone', 'username'], true) || $value === '') {
     http_response_code(400);
     echo json_encode(['error' => 'Invalid request']);
     exit;
@@ -35,15 +41,41 @@ if ($field === 'email') {
         echo json_encode(['error' => 'Invalid email']);
         exit;
     }
-    $sql = 'SELECT 1 FROM users WHERE email = ? LIMIT 1';
-} else {
+    $sql = 'SELECT 1 FROM users WHERE email = ?';
+} elseif ($field === 'phone') {
     if (!preg_match('/^\d{11,15}$/', $value)) {
         http_response_code(400);
         echo json_encode(['error' => 'Invalid phone']);
         exit;
     }
-    $sql = 'SELECT 1 FROM users WHERE phone = ? LIMIT 1';
+    $sql = 'SELECT 1 FROM users WHERE phone = ?';
+} else {
+    $value = commerza_username_slug($value);
+    if (!commerza_username_is_valid($value)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid username']);
+        exit;
+    }
+
+    $blocked = commerza_username_blacklist_lookup($con, $value);
+    if (is_array($blocked)) {
+        echo json_encode([
+            'exists' => true,
+            'blocked' => true,
+            'block_type' => (string)($blocked['type'] ?? 'harmful'),
+            'message' => commerza_username_blacklist_feedback_message($blocked),
+        ]);
+        exit;
+    }
+
+    $sql = 'SELECT 1 FROM users WHERE username_slug = ?';
 }
+
+if ($excludeUserId > 0) {
+    $sql .= ' AND id <> ?';
+}
+
+$sql .= ' LIMIT 1';
 
 $stmt = $con->prepare($sql);
 
@@ -53,7 +85,12 @@ if (!$stmt) {
     exit;
 }
 
-$stmt->bind_param('s', $value);
+if ($excludeUserId > 0) {
+    $stmt->bind_param('si', $value, $excludeUserId);
+} else {
+    $stmt->bind_param('s', $value);
+}
+
 $stmt->execute();
 $stmt->store_result();
 

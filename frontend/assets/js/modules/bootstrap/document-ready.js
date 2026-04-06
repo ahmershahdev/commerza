@@ -1404,15 +1404,7 @@ $(document).ready(function () {
     });
   }
 
-  function normalizeProductIdentityName(value) {
-    return (value || "").toString().trim().replace(/\s+/g, " ").toLowerCase();
-  }
-
-  function normalizeProductIdentityCode(value) {
-    return (value || "").toString().trim().replace(/\s+/g, "").toUpperCase();
-  }
-
-  function normalizeProductIdentitySlug(value) {
+  function normalizeProductSlug(value) {
     return (value || "")
       .toString()
       .trim()
@@ -1422,13 +1414,13 @@ $(document).ready(function () {
       .replace(/^-+|-+$/g, "");
   }
 
-  function resolveProductIdentitySlug(product) {
-    const explicitSlug = normalizeProductIdentitySlug(product?.slug || "");
+  function resolveProductSlug(product) {
+    const explicitSlug = normalizeProductSlug(product?.slug || "");
     if (explicitSlug) {
       return explicitSlug;
     }
 
-    const fromName = normalizeProductIdentitySlug(product?.name || "");
+    const fromName = normalizeProductSlug(product?.name || "");
     return fromName || "product";
   }
 
@@ -1452,8 +1444,8 @@ $(document).ready(function () {
     return "/";
   }
 
-  function buildProductDetailPathFromSlug(slug) {
-    const normalizedSlug = normalizeProductIdentitySlug(slug);
+  function getProductDetailPath(slug) {
+    const normalizedSlug = normalizeProductSlug(slug);
     if (!normalizedSlug) {
       return "products.php";
     }
@@ -1461,12 +1453,10 @@ $(document).ready(function () {
     return `products/${encodeURIComponent(normalizedSlug)}`;
   }
 
-  function buildProductDetailAbsoluteUrl(product) {
+  function getProductDetailAbsoluteUrl(slug, productId = null) {
     const basePath = getProductAppBasePath();
-    const detailPath = buildProductDetailPathFromSlug(
-      resolveProductIdentitySlug(product),
-    );
-    const numericProductId = Number.parseInt(product?.id, 10);
+    const detailPath = getProductDetailPath(slug);
+    const numericProductId = Number.parseInt(productId, 10);
     const idQuery =
       Number.isInteger(numericProductId) && numericProductId > 0
         ? `?id=${encodeURIComponent(String(numericProductId))}`
@@ -1487,9 +1477,9 @@ $(document).ready(function () {
     }
 
     try {
-      return normalizeProductIdentitySlug(decodeURIComponent(match[1]));
+      return normalizeProductSlug(decodeURIComponent(match[1]));
     } catch (error) {
-      return normalizeProductIdentitySlug(match[1]);
+      return normalizeProductSlug(match[1]);
     }
   }
 
@@ -1501,7 +1491,7 @@ $(document).ready(function () {
         ? window.CommerzaProductRequest
         : {};
 
-    const slug = normalizeProductIdentitySlug(
+    const slug = normalizeProductSlug(
       preload.slug || urlParams.get("slug") || extractProductSlugFromPath(),
     );
     const id =
@@ -1512,16 +1502,11 @@ $(document).ready(function () {
       preload.name != null && preload.name !== ""
         ? String(preload.name)
         : urlParams.get("name");
-    const code =
-      preload.code != null && preload.code !== ""
-        ? String(preload.code)
-        : urlParams.get("code");
 
     return {
       slug,
       id,
       name,
-      code,
     };
   }
 
@@ -1531,7 +1516,10 @@ $(document).ready(function () {
     const description =
       product.description ||
       "Discover premium Commerza watches and accessories.";
-    const canonicalUrl = buildProductDetailAbsoluteUrl(product);
+    const canonicalUrl = getProductDetailAbsoluteUrl(
+      resolveProductSlug(product),
+      product?.id,
+    );
     const normalizedImage = sanitizeClientAssetUrl(product.image);
     const imageUrl = (() => {
       if (!normalizedImage) {
@@ -1568,41 +1556,32 @@ $(document).ready(function () {
 
   function findProduct(data, params) {
     if (!data?.sections) return null;
-    const id = (params?.id || "").toString().trim();
-    const normalizedName = normalizeProductIdentityName(params?.name || "");
-    const normalizedCode = normalizeProductIdentityCode(params?.code || "");
-    const normalizedSlug = normalizeProductIdentitySlug(params?.slug || "");
-
-    if (
-      id === "" &&
-      normalizedName === "" &&
-      normalizedCode === "" &&
-      normalizedSlug === ""
-    ) {
-      return null;
-    }
-
+    const slug = normalizeProductSlug(params?.slug || "");
+    const id = params?.id;
+    const name = params?.name;
     for (const section of data.sections) {
       const products = section.products || [];
       for (const product of products) {
-        const productId = (product.id ?? "").toString().trim();
-        const productName = normalizeProductIdentityName(product.name || "");
-        const productCode = normalizeProductIdentityCode(
-          product.productCode || "",
-        );
-        const productSlug = normalizeProductIdentitySlug(
-          product.slug || product.name || "",
-        );
-
-        const idMatches = id === "" ? true : productId === id;
-        const nameMatches =
-          normalizedName === "" ? true : productName === normalizedName;
-        const codeMatches =
-          normalizedCode === "" ? true : productCode === normalizedCode;
-        const slugMatches =
-          normalizedSlug === "" ? true : productSlug === normalizedSlug;
-
-        if (idMatches && nameMatches && codeMatches && slugMatches) {
+        const productSlug = resolveProductSlug(product);
+        if (slug && productSlug === slug) {
+          return {
+            ...product,
+            sectionName: section.sectionName,
+            sectionId: section.sectionId,
+          };
+        }
+        if (id != null && String(product.id) === String(id)) {
+          return {
+            ...product,
+            sectionName: section.sectionName,
+            sectionId: section.sectionId,
+          };
+        }
+        if (
+          name &&
+          (product.name || "").toLowerCase().trim() ===
+            name.toLowerCase().trim()
+        ) {
           return {
             ...product,
             sectionName: section.sectionName,
@@ -1765,12 +1744,12 @@ $(document).ready(function () {
                           <span class="assurance-chip"><i class="bi bi-truck"></i> Reliable delivery updates</span>
                         </div>
                         <div class="product-actions">
-                        <a href="#" class="btn product-btn-buy product-btn-cart" data-product-id="${safeProductId}" data-product-name="${safeName}" data-product-code="${safeProductCode}" data-product-image="${safeImage}" data-product-price="${safePriceValue}" data-product-sale-price="${safeSalePriceValue}">Buy Now</a>
-                        <a href="#" class="btn product-btn-cart" data-product-id="${safeProductId}" data-product-name="${safeName}" data-product-code="${safeProductCode}" data-product-image="${safeImage}" data-product-price="${safePriceValue}" data-product-sale-price="${safeSalePriceValue}">Add to Cart</a>
-                        <button class="btn product-btn-buy wishlist-btn ${wishlistActive ? "active" : ""}" data-product-id="${safeProductId}" data-product-name="${safeName}" data-product-code="${safeProductCode}" data-product-image="${safeImage}" data-product-price="${safePriceValue}" data-product-sale-price="${safeSalePriceValue}" type="button">
+                      <a href="#" class="btn product-btn-buy product-btn-cart" data-product-id="${safeProductId}" data-product-name="${safeName}" data-product-image="${safeImage}" data-product-price="${safePriceValue}" data-product-sale-price="${safeSalePriceValue}">Buy Now</a>
+                      <a href="#" class="btn product-btn-cart" data-product-id="${safeProductId}" data-product-name="${safeName}" data-product-image="${safeImage}" data-product-price="${safePriceValue}" data-product-sale-price="${safeSalePriceValue}">Add to Cart</a>
+                      <button class="btn product-btn-buy wishlist-btn ${wishlistActive ? "active" : ""}" data-product-id="${safeProductId}" data-product-name="${safeName}" data-product-image="${safeImage}" data-product-price="${safePriceValue}" data-product-sale-price="${safeSalePriceValue}" type="button">
                                 ${wishlistActive ? "In Wishlist" : "Add to Wishlist"}
                             </button>
-                        <button class="btn product-btn-buy compare-btn" data-product-id="${safeProductId}" data-product-name="${safeName}" data-product-code="${safeProductCode}" data-product-image="${safeImage}" data-product-price="${safePriceValue}" data-product-sale-price="${safeSalePriceValue}" data-product-stock="${safeStockValue}" data-product-movement="${safeMovementValue}" type="button">
+                      <button class="btn product-btn-buy compare-btn" data-product-id="${safeProductId}" data-product-name="${safeName}" data-product-image="${safeImage}" data-product-price="${safePriceValue}" data-product-sale-price="${safeSalePriceValue}" data-product-stock="${safeStockValue}" data-product-movement="${safeMovementValue}" type="button">
                                 <i class="bi ${compareIcon}"></i> Compare
                             </button>
                             <a href="compare.php" class="btn product-btn-cart compare-link">View Compare</a>
@@ -1795,7 +1774,10 @@ $(document).ready(function () {
       .slice(0, 120)
       .replace(/\s+/g, " ")
       .trim();
-    const url = buildProductDetailAbsoluteUrl(product);
+    const url = getProductDetailAbsoluteUrl(
+      resolveProductSlug(product),
+      product?.id,
+    );
     const shareText = `Check out ${shareName} on Commerza.`;
     const text = encodeURIComponent(shareText);
     const encodedUrl = encodeURIComponent(url);
@@ -2405,8 +2387,7 @@ $(document).ready(function () {
           !product &&
           !productRequest.slug &&
           !productRequest.id &&
-          !productRequest.name &&
-          !productRequest.code
+          !productRequest.name
         ) {
           const fallbackProducts = uniqueProducts(getAllProducts(data));
           product = fallbackProducts.length > 0 ? fallbackProducts[0] : null;

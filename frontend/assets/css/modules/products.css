@@ -117,6 +117,10 @@
 }
 
 .product-card {
+  --pc-rotate-x: 0deg;
+  --pc-rotate-y: 0deg;
+  --pc-shift-x: 0px;
+  --pc-shift-y: 0px;
   animation: fadeInUp 0.65s ease-out forwards;
   background: linear-gradient(145deg, #1a1a1a 0%, #0a0a0a 100%);
   border: 1px solid rgba(255, 69, 0, 0.2);
@@ -124,7 +128,15 @@
   height: 100%;
   overflow: hidden;
   position: relative;
-  transition: all 0.32s ease-out;
+  transition:
+    transform 0.14s ease-out,
+    box-shadow 0.32s ease-out,
+    border-color 0.32s ease-out,
+    background 0.32s ease-out;
+  transform: perspective(960px) translate3d(0, 0, 0) rotateX(var(--pc-rotate-x))
+    rotateY(var(--pc-rotate-y));
+  transform-style: preserve-3d;
+  will-change: transform;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
@@ -153,7 +165,9 @@
 }
 
 .product-card:hover {
-  transform: translateY(-8px);
+  transform: perspective(960px)
+    translate3d(var(--pc-shift-x), calc(-8px + var(--pc-shift-y)), 0)
+    rotateX(var(--pc-rotate-x)) rotateY(var(--pc-rotate-y));
   background: #111111;
   box-shadow:
     0 20px 50px rgba(0, 0, 0, 0.8),
@@ -187,7 +201,7 @@
   border-radius: 18px;
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.65);
   transition:
-    transform 0.45s ease,
+    transform 0.16s ease-out,
     box-shadow 0.45s ease,
     border-color 0.45s ease;
 }
@@ -203,7 +217,9 @@
 }
 
 .premium-cards .product-card:hover {
-  transform: translateY(-10px) scale(1.01);
+  transform: perspective(960px)
+    translate3d(var(--pc-shift-x), calc(-10px + var(--pc-shift-y)), 0)
+    rotateX(var(--pc-rotate-x)) rotateY(var(--pc-rotate-y)) scale(1.01);
   border-color: rgba(255, 153, 0, 0.6);
   box-shadow:
     0 26px 60px rgba(0, 0, 0, 0.8),
@@ -339,11 +355,6 @@
 }
 
 @media (hover: none) {
-  html {
-    scrollbar-color: orangered transparent;
-    scrollbar-width: thin;
-    scroll-behavior: smooth;
-  }
   .p-image:hover {
     transform: none;
     filter: brightness(0.75) saturate(0.8) contrast(1.1);
@@ -432,6 +443,77 @@
   background-clip: text;
   -webkit-text-fill-color: transparent;
   display: inline-block;
+}
+
+.product-card-rating {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 12px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 102, 0, 0.2);
+  background: linear-gradient(
+    120deg,
+    rgba(255, 102, 0, 0.12),
+    rgba(0, 0, 0, 0.35)
+  );
+}
+
+.product-card-rating.no-reviews {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: linear-gradient(
+    120deg,
+    rgba(255, 255, 255, 0.08),
+    rgba(0, 0, 0, 0.24)
+  );
+}
+
+.product-card-rating .rating-stars {
+  position: relative;
+  display: inline-block;
+  font-size: 0.86rem;
+  line-height: 1;
+  letter-spacing: 1.6px;
+}
+
+.product-card-rating .rating-stars-base {
+  color: rgba(255, 255, 255, 0.24);
+}
+
+.product-card-rating .rating-stars-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  color: #ffcc00;
+  text-shadow: 0 0 8px rgba(255, 204, 0, 0.24);
+}
+
+.product-card-rating .rating-score {
+  color: #ffe6a6;
+  font-family: "Montserrat", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.product-card-rating.no-reviews .rating-score {
+  color: #d5d5d5;
+}
+
+.product-card-rating .rating-meta {
+  color: #bfbfbf;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.73rem;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .original-price {

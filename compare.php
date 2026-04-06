@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 include "backend/data.php";
@@ -7,176 +8,190 @@ require_once __DIR__ . '/backend/nav_state.php';
 $nav_counts = commerza_get_nav_counts($con);
 
 if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+  $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+  $requestUri = (string)($_SERVER['REQUEST_URI'] ?? '');
+  $requestPath = (string)(parse_url($requestUri, PHP_URL_PATH) ?? '');
+  if (preg_match('#/compare\.php$#i', str_replace('\\', '/', $requestPath)) === 1) {
+    $queryString = (string)(parse_url($requestUri, PHP_URL_QUERY) ?? '');
+    $targetUrl = commerza_absolute_url('/compare');
+    if ($queryString !== '') {
+      $targetUrl .= '?' . $queryString;
+    }
+    header('Location: ' . $targetUrl, true, 301);
+    exit;
+  }
 }
 
 if (!isset($_SESSION['compare_product_ids']) || !is_array($_SESSION['compare_product_ids'])) {
-    $_SESSION['compare_product_ids'] = [];
+  $_SESSION['compare_product_ids'] = [];
 }
 
 function sanitize_compare_ids($raw): array
 {
-    if (is_array($raw)) {
-        $raw = implode(',', $raw);
-    }
-
-    $parts = explode(',', (string)$raw);
-    $clean = [];
-
-    foreach ($parts as $part) {
-        $value = (int)trim($part);
-        if ($value > 0) {
-            $clean[$value] = $value;
-        }
-    }
-
-    return array_slice(array_values($clean), 0, 4);
-}
-
-  function compare_image_path(string $value): string
-  {
-    $path = trim(str_replace('\\', '/', $value));
-    if ($path === '') {
-      return 'frontend/assets/images/logo/commerza-logo.webp';
-    }
-
-    if (preg_match('#^https?://#i', $path) === 1) {
-      return preg_replace('/[\x00-\x1F\x7F]/', '', $path) ?? $path;
-    }
-
-    if (str_starts_with($path, '/')) {
-      $path = ltrim($path, '/');
-    }
-
-    if (!str_starts_with($path, 'frontend/assets/')) {
-      $path = 'frontend/assets/images/products/' . ltrim($path, '/');
-    }
-
-    $sanitized = preg_replace('/[\x00-\x1F\x7F]/', '', $path);
-    return $sanitized !== null && $sanitized !== ''
-      ? $sanitized
-      : 'frontend/assets/images/logo/commerza-logo.webp';
+  if (is_array($raw)) {
+    $raw = implode(',', $raw);
   }
 
+  $parts = explode(',', (string)$raw);
+  $clean = [];
+
+  foreach ($parts as $part) {
+    $value = (int)trim($part);
+    if ($value > 0) {
+      $clean[$value] = $value;
+    }
+  }
+
+  return array_slice(array_values($clean), 0, 4);
+}
+
+function compare_image_path(string $value): string
+{
+  $path = trim(str_replace('\\', '/', $value));
+  if ($path === '') {
+    return 'frontend/assets/images/logo/commerza-logo.webp';
+  }
+
+  if (preg_match('#^https?://#i', $path) === 1) {
+    return preg_replace('/[\x00-\x1F\x7F]/', '', $path) ?? $path;
+  }
+
+  if (str_starts_with($path, '/')) {
+    $path = ltrim($path, '/');
+  }
+
+  if (!str_starts_with($path, 'frontend/assets/')) {
+    $path = 'frontend/assets/images/products/' . ltrim($path, '/');
+  }
+
+  $sanitized = preg_replace('/[\x00-\x1F\x7F]/', '', $path);
+  return $sanitized !== null && $sanitized !== ''
+    ? $sanitized
+    : 'frontend/assets/images/logo/commerza-logo.webp';
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (
-        empty($_POST['csrf_token']) ||
-        empty($_SESSION['csrf_token']) ||
-        !hash_equals($_SESSION['csrf_token'], (string)$_POST['csrf_token'])
-    ) {
-        http_response_code(403);
-        exit('Forbidden.');
-    }
+  if (
+    empty($_POST['csrf_token']) ||
+    empty($_SESSION['csrf_token']) ||
+    !hash_equals($_SESSION['csrf_token'], (string)$_POST['csrf_token'])
+  ) {
+    http_response_code(403);
+    exit('Forbidden.');
+  }
 
-    $action = (string)($_POST['action'] ?? '');
+  $action = (string)($_POST['action'] ?? '');
 
-    if ($action === 'sync_compare') {
-        $_SESSION['compare_product_ids'] = sanitize_compare_ids($_POST['compare_ids'] ?? '');
-        header('Location: compare.php');
-        exit;
-    }
+  if ($action === 'sync_compare') {
+    $_SESSION['compare_product_ids'] = sanitize_compare_ids($_POST['compare_ids'] ?? '');
+    header('Location: ' . commerza_absolute_url('/compare'));
+    exit;
+  }
 
-    if ($action === 'remove_compare') {
-        $remove_id = (int)($_POST['product_id'] ?? 0);
-        $_SESSION['compare_product_ids'] = array_values(array_filter(
-            $_SESSION['compare_product_ids'],
-            static fn($id): bool => (int)$id !== $remove_id
-        ));
-        header('Location: compare.php');
-        exit;
-    }
+  if ($action === 'remove_compare') {
+    $remove_id = (int)($_POST['product_id'] ?? 0);
+    $_SESSION['compare_product_ids'] = array_values(array_filter(
+      $_SESSION['compare_product_ids'],
+      static fn($id): bool => (int)$id !== $remove_id
+    ));
+    header('Location: ' . commerza_absolute_url('/compare'));
+    exit;
+  }
 
-    if ($action === 'clear_compare') {
-        $_SESSION['compare_product_ids'] = [];
-        header('Location: compare.php');
-        exit;
-    }
+  if ($action === 'clear_compare') {
+    $_SESSION['compare_product_ids'] = [];
+    header('Location: ' . commerza_absolute_url('/compare'));
+    exit;
+  }
 }
 
 if (!empty($_GET['ids'])) {
-    $_SESSION['compare_product_ids'] = sanitize_compare_ids($_GET['ids']);
+  $_SESSION['compare_product_ids'] = sanitize_compare_ids($_GET['ids']);
 }
 
 $compare_ids = array_values(array_filter(
-    $_SESSION['compare_product_ids'],
-    static fn($id): bool => is_numeric($id) && (int)$id > 0
+  $_SESSION['compare_product_ids'],
+  static fn($id): bool => is_numeric($id) && (int)$id > 0
 ));
 
 $compare_products = [];
 
 if (!empty($compare_ids)) {
-    $placeholders = implode(',', array_fill(0, count($compare_ids), '?'));
-    $sql = "SELECT id, name, image, price, salePrice, stock, movement FROM products WHERE id IN ($placeholders)";
+  $placeholders = implode(',', array_fill(0, count($compare_ids), '?'));
+  $sql = "SELECT id, name, image, price, salePrice, stock, movement FROM products WHERE id IN ($placeholders)";
 
-    $stmt = $con->prepare($sql);
-    if ($stmt) {
-        $types = str_repeat('i', count($compare_ids));
-        $params = [$types];
-        foreach ($compare_ids as $index => $value) {
-            $params[] = &$compare_ids[$index];
-        }
-
-        call_user_func_array([$stmt, 'bind_param'], $params);
-        $stmt->execute();
-        $result = $stmt->get_result();
-
-        $products_map = [];
-        while ($row = $result->fetch_assoc()) {
-          $row['image'] = compare_image_path((string)($row['image'] ?? ''));
-            $products_map[(int)$row['id']] = $row;
-        }
-
-        foreach ($compare_ids as $id) {
-            if (isset($products_map[(int)$id])) {
-                $compare_products[] = $products_map[(int)$id];
-            }
-        }
-
-        $stmt->close();
+  $stmt = $con->prepare($sql);
+  if ($stmt) {
+    $types = str_repeat('i', count($compare_ids));
+    $params = [$types];
+    foreach ($compare_ids as $index => $value) {
+      $params[] = &$compare_ids[$index];
     }
+
+    call_user_func_array([$stmt, 'bind_param'], $params);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $products_map = [];
+    while ($row = $result->fetch_assoc()) {
+      $row['image'] = compare_image_path((string)($row['image'] ?? ''));
+      $products_map[(int)$row['id']] = $row;
+    }
+
+    foreach ($compare_ids as $id) {
+      if (isset($products_map[(int)$id])) {
+        $compare_products[] = $products_map[(int)$id];
+      }
+    }
+
+    $stmt->close();
+  }
 }
 
-  function compare_effective_price(array $item): float
-  {
-    $price = (float)($item['price'] ?? 0);
-    $sale = (float)($item['salePrice'] ?? 0);
+function compare_effective_price(array $item): float
+{
+  $price = (float)($item['price'] ?? 0);
+  $sale = (float)($item['salePrice'] ?? 0);
 
-    if ($sale > 0 && $sale < $price) {
-      return $sale;
-    }
-
-    return $price;
+  if ($sale > 0 && $sale < $price) {
+    return $sale;
   }
 
-  function compare_savings_amount(array $item): float
-  {
-    $price = (float)($item['price'] ?? 0);
-    $effective = compare_effective_price($item);
-    return max(0, $price - $effective);
+  return $price;
+}
+
+function compare_savings_amount(array $item): float
+{
+  $price = (float)($item['price'] ?? 0);
+  $effective = compare_effective_price($item);
+  return max(0, $price - $effective);
+}
+
+function compare_savings_percent(array $item): int
+{
+  $price = (float)($item['price'] ?? 0);
+  $savings = compare_savings_amount($item);
+
+  if ($price <= 0 || $savings <= 0) {
+    return 0;
   }
 
-  function compare_savings_percent(array $item): int
-  {
-    $price = (float)($item['price'] ?? 0);
-    $savings = compare_savings_amount($item);
+  return (int)round(($savings / $price) * 100);
+}
 
-    if ($price <= 0 || $savings <= 0) {
-      return 0;
-    }
+$effectivePrices = [];
+$stockValues = [];
 
-    return (int)round(($savings / $price) * 100);
-  }
+foreach ($compare_products as $item) {
+  $effectivePrices[] = compare_effective_price($item);
+  $stockValues[] = (int)($item['stock'] ?? 0);
+}
 
-  $effectivePrices = [];
-  $stockValues = [];
-
-  foreach ($compare_products as $item) {
-    $effectivePrices[] = compare_effective_price($item);
-    $stockValues[] = (int)($item['stock'] ?? 0);
-  }
-
-  $lowestEffectivePrice = !empty($effectivePrices) ? min($effectivePrices) : 0;
-  $highestStock = !empty($stockValues) ? max($stockValues) : 0;
+$lowestEffectivePrice = !empty($effectivePrices) ? min($effectivePrices) : 0;
+$highestStock = !empty($stockValues) ? max($stockValues) : 0;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -506,9 +521,9 @@ if (!empty($compare_ids)) {
           <div class="compare-product-grid">
             <?php foreach ($compare_products as $item): ?>
               <?php
-                $effective = compare_effective_price($item);
-                $savingsPercent = compare_savings_percent($item);
-                $savingsAmount = compare_savings_amount($item);
+              $effective = compare_effective_price($item);
+              $savingsPercent = compare_savings_percent($item);
+              $savingsAmount = compare_savings_amount($item);
               ?>
               <article class="compare-product-card">
                 <img src="<?= htmlspecialchars((string)$item['image']) ?>" alt="<?= htmlspecialchars((string)$item['name']) ?>" class="compare-product-image" />
@@ -549,8 +564,7 @@ if (!empty($compare_ids)) {
                         src="<?= htmlspecialchars((string)$item['image']) ?>"
                         alt="<?= htmlspecialchars((string)$item['name']) ?>"
                         class="compare-table-product-image"
-                        loading="lazy"
-                      />
+                        loading="lazy" />
                     </td>
                   <?php endforeach; ?>
                 </tr>
@@ -577,8 +591,8 @@ if (!empty($compare_ids)) {
                   <th scope="row" class="feature-col">Savings</th>
                   <?php foreach ($compare_products as $item): ?>
                     <?php
-                      $savingsAmount = compare_savings_amount($item);
-                      $savingsPercent = compare_savings_percent($item);
+                    $savingsAmount = compare_savings_amount($item);
+                    $savingsPercent = compare_savings_percent($item);
                     ?>
                     <td>
                       <?php if ($savingsAmount > 0): ?>
@@ -679,7 +693,7 @@ if (!empty($compare_ids)) {
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>
   <script <?= commerza_csp_nonce_attr() ?>>
-    $(function () {
+    $(function() {
       const compareStorageKey = 'commerza_compare';
 
       const readCompareStorage = () => {
@@ -698,16 +712,16 @@ if (!empty($compare_ids)) {
 
       const toIds = (items) => [...new Set(
         items
-          .map((item) => parseInt(item?.id, 10))
-          .filter((value) => Number.isInteger(value) && value > 0)
+        .map((item) => parseInt(item?.id, 10))
+        .filter((value) => Number.isInteger(value) && value > 0)
       )].slice(0, 4);
 
       const clearForm = $('form input[name="action"][value="clear_compare"]').closest('form');
-      clearForm.on('submit', function () {
+      clearForm.on('submit', function() {
         writeCompareStorage([]);
       });
 
-      $('form input[name="action"][value="remove_compare"]').closest('form').on('submit', function () {
+      $('form input[name="action"][value="remove_compare"]').closest('form').on('submit', function() {
         const productId = parseInt($(this).find('input[name="product_id"]').val(), 10);
         if (!Number.isInteger(productId) || productId <= 0) {
           return;
@@ -750,7 +764,9 @@ if (!empty($compare_ids)) {
           }
         });
 
-        const merged = sessionIds.map((id) => localMap.get(id) || { id });
+        const merged = sessionIds.map((id) => localMap.get(id) || {
+          id
+        });
         writeCompareStorage(merged);
       }
     });

@@ -4,6 +4,71 @@ require_once __DIR__ . '/backend/data.php';
 if (empty($_SESSION['csrf_token'])) {
   $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
+
+$appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+  $requestUri = (string)($_SERVER['REQUEST_URI'] ?? '');
+  $requestPath = (string)(parse_url($requestUri, PHP_URL_PATH) ?? '');
+  $normalizedRequestPath = str_replace('\\', '/', $requestPath);
+  $normalizeSlug = static function (string $raw): string {
+    $slug = strtolower(trim($raw));
+    $slug = preg_replace('/[^a-z0-9]+/', '-', $slug);
+    if (!is_string($slug)) {
+      return '';
+    }
+    return trim($slug, '-');
+  };
+
+  if (preg_match('#/(?:prodcuts|product)/([^/?#]+)/?$#i', $normalizedRequestPath, $legacyMatch) === 1) {
+    $legacySlug = $normalizeSlug(rawurldecode((string)($legacyMatch[1] ?? '')));
+    if ($legacySlug !== '') {
+      $queryString = (string)(parse_url($requestUri, PHP_URL_QUERY) ?? '');
+      $targetUrl = commerza_absolute_url('/products/' . rawurlencode($legacySlug));
+      if ($queryString !== '') {
+        $targetUrl .= '?' . $queryString;
+      }
+      header('Location: ' . $targetUrl, true, 301);
+      exit;
+    }
+  }
+
+  if (preg_match('#/products\.php$#i', $normalizedRequestPath) === 1) {
+    $queryParams = $_GET;
+    $targetPath = '/products';
+
+    if (isset($queryParams['slug'])) {
+      $slug = $normalizeSlug((string)$queryParams['slug']);
+
+      if ($slug !== '') {
+        $targetPath .= '/' . rawurlencode($slug);
+        unset($queryParams['slug']);
+      }
+    }
+
+    $targetUrl = commerza_absolute_url($targetPath);
+    $query = http_build_query($queryParams);
+    if ($query !== '') {
+      $targetUrl .= '?' . $query;
+    }
+
+    header('Location: ' . $targetUrl, true, 301);
+    exit;
+  }
+}
+
+$productsCanonicalPath = '/products';
+if (isset($_GET['slug'])) {
+  $canonicalSlug = strtolower(trim((string)$_GET['slug']));
+  $canonicalSlug = preg_replace('/[^a-z0-9]+/', '-', $canonicalSlug);
+  $canonicalSlug = is_string($canonicalSlug) ? trim($canonicalSlug, '-') : '';
+  if ($canonicalSlug !== '') {
+    $productsCanonicalPath .= '/' . rawurlencode($canonicalSlug);
+  }
+}
+
+$productsPageUrl = commerza_absolute_url($productsCanonicalPath);
+$productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.webp');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -11,26 +76,27 @@ if (empty($_SESSION['csrf_token'])) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <base href="<?= htmlspecialchars($appBaseHref, ENT_QUOTES, 'UTF-8') ?>">
   <meta name="description" content="Explore premium Commerza watches and accessories.">
   <meta name="robots" content="index, follow">
   <meta name="author" content="Syed Ahmer Shah">
   <meta property="og:title" content="Product | Commerza">
   <meta property="og:description" content="Explore premium Commerza watches and accessories.">
-  <meta property="og:url" content="https://commerza.ahmershah.dev/products.php">
+  <meta property="og:url" content="<?= htmlspecialchars($productsPageUrl, ENT_QUOTES, 'UTF-8') ?>">
   <meta property="og:type" content="product">
-  <meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
+  <meta property="og:image" content="<?= htmlspecialchars($productsImageUrl, ENT_QUOTES, 'UTF-8') ?>">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Product | Commerza">
   <meta name="twitter:description" content="Explore premium Commerza watches and accessories.">
-  <meta name="twitter:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
+  <meta name="twitter:image" content="<?= htmlspecialchars($productsImageUrl, ENT_QUOTES, 'UTF-8') ?>">
   <title>Product | Commerza</title>
-  <link rel="canonical" href="https://commerza.ahmershah.dev/products.php" />
+  <link rel="canonical" href="<?= htmlspecialchars($productsPageUrl, ENT_QUOTES, 'UTF-8') ?>" />
   <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebPage",
       "name": "Product | Commerza",
-      "url": "https://commerza.ahmershah.dev/products.php",
+      "url": "<?= htmlspecialchars($productsPageUrl, ENT_QUOTES, 'UTF-8') ?>",
       "description": "Commerza product detail page for premium watches."
     }
   </script>
@@ -229,6 +295,43 @@ if (empty($_SESSION['csrf_token'])) {
       box-shadow: 0 0 0 0.15rem rgba(255, 204, 0, 0.2);
     }
 
+    .review-file-input {
+      border: 1px dashed rgba(255, 153, 61, 0.55) !important;
+      background: linear-gradient(145deg, rgba(255, 102, 0, 0.08), rgba(17, 17, 17, 0.85)) !important;
+      color: #ffe7d0 !important;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .review-file-input::file-selector-button {
+      border: 1px solid rgba(255, 102, 0, 0.6);
+      background: linear-gradient(90deg, #ff6600, #ff9e2a);
+      color: #140b03;
+      border-radius: 999px;
+      padding: 6px 12px;
+      margin-right: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .review-file-input:hover::file-selector-button,
+    .review-file-input:focus-visible::file-selector-button {
+      background: linear-gradient(90deg, #ffcc00, #ff8a1f);
+      color: #201300;
+    }
+
+    .review-file-selection {
+      margin-top: 8px;
+      color: #c6b49f;
+      font-size: 0.78rem;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.03em;
+      min-height: 18px;
+    }
+
     .review-stars-input {
       display: flex;
       flex-wrap: wrap;
@@ -402,6 +505,7 @@ if (empty($_SESSION['csrf_token'])) {
     }
 
     @media (max-width: 575px) {
+
       .product-info-grid,
       .detail-highlights {
         grid-template-columns: 1fr;
@@ -588,7 +692,8 @@ if (empty($_SESSION['csrf_token'])) {
           </div>
           <div class="col-12">
             <label for="reviewImages" class="form-label text-light">Upload Images (Optional)</label>
-            <input type="file" id="reviewImages" class="form-control" accept="image/png,image/jpeg" multiple>
+            <input type="file" id="reviewImages" class="form-control review-file-input" accept="image/png,image/jpeg" multiple>
+            <div id="reviewFileSelection" class="review-file-selection">No images selected yet.</div>
             <small class="text-secondary d-block mt-1">PNG/JPG only, max 2 images, each less than 6 MB.</small>
           </div>
           <div class="col-12">
@@ -664,6 +769,29 @@ if (empty($_SESSION['csrf_token'])) {
   <script src="frontend/assets/js/auth.js"></script>
   <script <?= commerza_csp_nonce_attr() ?>>
     window.CommerzaCsrfToken = <?= json_encode((string)$_SESSION['csrf_token']) ?>;
+
+    document.addEventListener("DOMContentLoaded", function() {
+      const reviewInput = document.getElementById("reviewImages");
+      const reviewSelection = document.getElementById("reviewFileSelection");
+
+      if (!reviewInput || !reviewSelection) {
+        return;
+      }
+
+      const refreshSelectionLabel = function() {
+        const files = Array.from(reviewInput.files || []);
+        if (files.length === 0) {
+          reviewSelection.textContent = "No images selected yet.";
+          return;
+        }
+
+        const names = files.map((file) => (file && file.name ? file.name : "image"));
+        reviewSelection.textContent = names.join(" | ");
+      };
+
+      reviewInput.addEventListener("change", refreshSelectionLabel);
+      refreshSelectionLabel();
+    });
   </script>
   <script src="frontend/assets/js/script.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer

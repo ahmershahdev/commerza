@@ -73,6 +73,59 @@ function commerza_bootstrap_env(): void
 
 commerza_bootstrap_env();
 
+function commerza_request_is_browser_navigation(): bool
+{
+    if (PHP_SAPI === 'cli' || PHP_SAPI === 'phpdbg') {
+        return false;
+    }
+
+    $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    if (!in_array($method, ['GET', 'HEAD'], true)) {
+        return false;
+    }
+
+    $fetchDest = strtolower(trim((string)($_SERVER['HTTP_SEC_FETCH_DEST'] ?? '')));
+    $fetchMode = strtolower(trim((string)($_SERVER['HTTP_SEC_FETCH_MODE'] ?? '')));
+    if ($fetchDest === 'document' || $fetchMode === 'navigate') {
+        return true;
+    }
+
+    $accept = strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? ''));
+    if ($accept !== '' && str_contains($accept, 'text/html')) {
+        return true;
+    }
+
+    return false;
+}
+
+function commerza_request_targets_system_backend_php(): bool
+{
+    $scriptName = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? ''));
+    if ($scriptName === '') {
+        return false;
+    }
+
+    return preg_match('#/(?:admin/)?backend/[^/]+\.php$#i', $scriptName) === 1;
+}
+
+function commerza_block_direct_system_backend_navigation(): void
+{
+    if (!commerza_request_targets_system_backend_php()) {
+        return;
+    }
+
+    if (!commerza_request_is_browser_navigation()) {
+        return;
+    }
+
+    http_response_code(404);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo 'Not found.';
+    exit;
+}
+
+commerza_block_direct_system_backend_navigation();
+
 function commerza_request_is_https(): bool
 {
     $https = strtolower(trim((string)($_SERVER['HTTPS'] ?? '')));
@@ -180,12 +233,30 @@ function commerza_public_base_url(): string
         $host = 'localhost';
     }
 
-    $scriptName = trim((string)($_SERVER['SCRIPT_NAME'] ?? ''), '/');
-    $segments = $scriptName === '' ? [] : explode('/', $scriptName);
     $prefix = '';
 
-    if (count($segments) >= 2 && !str_ends_with((string)$segments[0], '.php')) {
-        $prefix = '/' . trim((string)$segments[0]);
+    $docRoot = realpath((string)($_SERVER['DOCUMENT_ROOT'] ?? ''));
+    $projectRoot = realpath(dirname(__DIR__));
+
+    if (is_string($docRoot) && $docRoot !== '' && is_string($projectRoot) && $projectRoot !== '') {
+        $normalizedDocRoot = strtolower(str_replace('\\', '/', rtrim($docRoot, DIRECTORY_SEPARATOR)));
+        $normalizedProjectRoot = strtolower(str_replace('\\', '/', rtrim($projectRoot, DIRECTORY_SEPARATOR)));
+
+        if ($normalizedDocRoot !== '' && str_starts_with($normalizedProjectRoot, $normalizedDocRoot)) {
+            $relative = trim(substr($projectRoot, strlen($docRoot)), "\\/");
+            if ($relative !== '') {
+                $prefix = '/' . str_replace('\\', '/', $relative);
+            }
+        }
+    }
+
+    if ($prefix === '') {
+        $scriptName = trim((string)($_SERVER['SCRIPT_NAME'] ?? ''), '/');
+        $segments = $scriptName === '' ? [] : explode('/', $scriptName);
+
+        if (count($segments) >= 2 && !str_ends_with((string)$segments[0], '.php')) {
+            $prefix = '/' . trim((string)$segments[0]);
+        }
     }
 
     $cached = $scheme . '://' . $host . $prefix;
@@ -206,6 +277,103 @@ function commerza_is_backend_request(): bool
 {
     $script = strtolower(str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? '')));
     return str_contains($script, '/backend/') || str_contains($script, '/admin/backend/');
+}
+
+function commerza_clean_route_map(): array
+{
+    static $map = null;
+
+    if (is_array($map)) {
+        return $map;
+    }
+
+    $map = [
+        'index.php' => '/home',
+        'about.php' => '/about',
+        'contact.php' => '/contact',
+        'faq.php' => '/faq',
+        'shipping.php' => '/shipping',
+        'returns.php' => '/returns',
+        'privacy-policy.php' => '/privacy-policy',
+        'terms-of-service.php' => '/terms-of-service',
+        'warranty.php' => '/warranty',
+        'shop-category-a.php' => '/shop-category-a',
+        'shop-category-b.php' => '/shop-category-b',
+        'products.php' => '/products',
+        'cart.php' => '/cart',
+        'wishlist.php' => '/wishlist',
+        'compare.php' => '/compare',
+        'login.php' => '/login',
+        'signup.php' => '/signup',
+        'forgot-password.php' => '/forgot-password',
+        'reset-password.php' => '/reset-password',
+        'order-tracking.php' => '/order-tracking',
+        'account.php' => '/account',
+        'invoice.php' => '/invoice',
+        'oauth.php' => '/oauth',
+        'admin-login.php' => '/admin-login',
+        'admin-panel.php' => '/admin-panel',
+        'admin-forgot-password.php' => '/admin-forgot-password',
+        'admin-forgot-email.php' => '/admin-forgot-email',
+        'admin-verify-2fa.php' => '/admin-verify-2fa',
+    ];
+
+    return $map;
+}
+
+function commerza_maybe_redirect_clean_route(): void
+{
+    if (PHP_SAPI === 'cli' || headers_sent() || commerza_is_backend_request()) {
+        return;
+    }
+
+    $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    if (!in_array($method, ['GET', 'HEAD'], true)) {
+        return;
+    }
+
+    $requestUri = (string)($_SERVER['REQUEST_URI'] ?? '');
+    $requestPath = (string)(parse_url($requestUri, PHP_URL_PATH) ?? '');
+    if ($requestPath === '' || !str_ends_with(strtolower($requestPath), '.php')) {
+        return;
+    }
+
+    $filename = strtolower(basename($requestPath));
+    $routeMap = commerza_clean_route_map();
+    if (!isset($routeMap[$filename])) {
+        return;
+    }
+
+    if ($filename === 'products.php') {
+        $hasSlugQuery = isset($_GET['slug']) && trim((string)$_GET['slug']) !== '';
+        if ($hasSlugQuery) {
+            return;
+        }
+    }
+
+    if ($filename === 'account.php' && isset($_GET['u']) && trim((string)$_GET['u']) !== '') {
+        return;
+    }
+
+    $targetUrl = commerza_absolute_url($routeMap[$filename]);
+    $queryString = (string)(parse_url($requestUri, PHP_URL_QUERY) ?? '');
+    if ($queryString !== '') {
+        $targetUrl .= '?' . $queryString;
+    }
+
+    $normalizePath = static function (string $path): string {
+        $normalized = '/' . trim(str_replace('\\', '/', $path), '/');
+        $normalized = preg_replace('#/+#', '/', $normalized) ?: $normalized;
+        return strtolower(rtrim($normalized, '/'));
+    };
+
+    $targetPath = (string)(parse_url($targetUrl, PHP_URL_PATH) ?? '');
+    if ($normalizePath($requestPath) === $normalizePath($targetPath)) {
+        return;
+    }
+
+    header('Location: ' . $targetUrl, true, 301);
+    exit;
 }
 
 function commerza_is_sensitive_cache_page(): bool
@@ -255,6 +423,33 @@ function commerza_apply_cache_headers(): void
 
     header('Cache-Control: public, max-age=300, stale-while-revalidate=600');
     header('Vary: Accept-Encoding');
+}
+
+function commerza_optimize_stylesheet_links(string $buffer): string
+{
+    return preg_replace_callback(
+        '/<link\b[^>]*\brel\s*=\s*(["\'])stylesheet\1[^>]*>/i',
+        static function (array $matches): string {
+            $tag = (string)($matches[0] ?? '');
+            if ($tag === '') {
+                return $tag;
+            }
+
+            if (
+                preg_match('/\bmedia\s*=\s*(["\'])print\1/i', $tag) === 1
+                || preg_match('/\bonload\s*=\s*(["\'])[^"\']*this\.media\s*=\s*["\']all["\'][^"\']*\1/i', $tag) === 1
+            ) {
+                return $tag;
+            }
+
+            if (preg_match('/\bmedia\s*=\s*(["\']).*?\1/i', $tag) === 1) {
+                return $tag;
+            }
+
+            return preg_replace('/\s*\/?>$/', ' media="print" onload="this.media=\'all\'">', $tag, 1) ?? $tag;
+        },
+        $buffer
+    ) ?? $buffer;
 }
 
 function commerza_html_meta_normalize(string $buffer): string
@@ -436,6 +631,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+commerza_maybe_redirect_clean_route();
+
 if (!headers_sent()) {
     header('X-Frame-Options: SAMEORIGIN');
     header('X-Content-Type-Options: nosniff');
@@ -474,6 +671,454 @@ if (!$con) {
 }
 
 mysqli_set_charset($con, "utf8mb4");
+
+function commerza_users_table_exists(mysqli $con): bool
+{
+    $result = $con->query("SHOW TABLES LIKE 'users'");
+    return $result instanceof mysqli_result && $result->num_rows > 0;
+}
+
+function commerza_users_has_column(mysqli $con, string $column): bool
+{
+    $safeColumn = $con->real_escape_string($column);
+    $result = $con->query("SHOW COLUMNS FROM users LIKE '{$safeColumn}'");
+    return $result instanceof mysqli_result && $result->num_rows > 0;
+}
+
+function commerza_users_has_unique_index_for_column(mysqli $con, string $column): bool
+{
+    $safeColumn = $con->real_escape_string($column);
+    $result = $con->query("SHOW INDEX FROM users WHERE Column_name = '{$safeColumn}' AND Non_unique = 0");
+    return $result instanceof mysqli_result && $result->num_rows > 0;
+}
+
+function commerza_users_column_is_nullable(mysqli $con, string $column): ?bool
+{
+    $safeColumn = $con->real_escape_string($column);
+    $result = $con->query("SHOW COLUMNS FROM users LIKE '{$safeColumn}'");
+    if (!($result instanceof mysqli_result) || $result->num_rows === 0) {
+        return null;
+    }
+
+    $row = $result->fetch_assoc();
+    $nullable = strtoupper((string)($row['Null'] ?? 'YES')) === 'YES';
+    return $nullable;
+}
+
+function commerza_username_slug(string $value): string
+{
+    $normalized = strtolower(trim($value));
+    $normalized = str_replace([' ', '-'], '_', $normalized);
+    $normalized = preg_replace('/[^a-z0-9_]+/', '', $normalized);
+
+    if (!is_string($normalized)) {
+        return '';
+    }
+
+    $normalized = preg_replace('/_+/', '_', $normalized);
+    if (!is_string($normalized)) {
+        return '';
+    }
+
+    $normalized = trim($normalized, '_');
+
+    if ($normalized !== '' && preg_match('/^[a-z]/', $normalized) !== 1) {
+        $normalized = 'u_' . $normalized;
+    }
+
+    if (strlen($normalized) > 24) {
+        $normalized = substr($normalized, 0, 24);
+        $normalized = rtrim($normalized, '_');
+    }
+
+    return $normalized;
+}
+
+function commerza_username_is_valid(string $username): bool
+{
+    return preg_match('/^[a-z][a-z0-9_]{2,23}$/', trim($username)) === 1;
+}
+
+function commerza_username_blacklist_type_from_reason(string $reason, string $category = ''): string
+{
+    $normalizedReason = strtolower(trim($reason));
+    $normalizedCategory = strtoupper(trim($category));
+
+    if (
+        str_contains($normalizedReason, 'religious')
+        || str_contains($normalizedReason, 'religion')
+    ) {
+        return 'religious';
+    }
+
+    if (
+        str_contains($normalizedReason, 'explicit')
+        || str_contains($normalizedReason, 'sexual')
+        || str_contains($normalizedReason, 'adult')
+    ) {
+        return 'explicit';
+    }
+
+    if ($normalizedCategory === 'A' || $normalizedCategory === 'C') {
+        return 'system';
+    }
+
+    return 'harmful';
+}
+
+function commerza_username_blacklist_feedback_message(array $blocked): string
+{
+    $type = strtolower(trim((string)($blocked['type'] ?? 'harmful')));
+
+    if ($type === 'religious') {
+        return 'This username contains religious targeting terms. Please choose a neutral username.';
+    }
+
+    if ($type === 'explicit') {
+        return 'This username includes explicit sexual language. Please choose a cleaner username.';
+    }
+
+    if ($type === 'system') {
+        return 'This username is reserved for Commerza system use. Please choose another username.';
+    }
+
+    return 'This username contains harmful or offensive language. Please choose a respectful username.';
+}
+
+function commerza_username_blacklist_lookup(mysqli $con, string $username): ?array
+{
+    $slug = commerza_username_slug($username);
+    if ($slug === '') {
+        return null;
+    }
+
+    static $entries = null;
+
+    if (!is_array($entries)) {
+        $entries = [];
+
+        $hasTable = false;
+        $tableResult = $con->query("SHOW TABLES LIKE 'username_blacklist'");
+        if ($tableResult instanceof mysqli_result) {
+            $hasTable = $tableResult->num_rows > 0;
+            $tableResult->free();
+        }
+
+        if ($hasTable) {
+            $result = $con->query(
+                "SELECT term, category, reason
+                 FROM username_blacklist
+                 WHERE is_active = 1
+                 ORDER BY CHAR_LENGTH(term) DESC, id ASC"
+            );
+
+            if ($result instanceof mysqli_result) {
+                while ($row = $result->fetch_assoc()) {
+                    $term = commerza_username_slug((string)($row['term'] ?? ''));
+                    if ($term === '') {
+                        continue;
+                    }
+
+                    $reason = trim((string)($row['reason'] ?? ''));
+                    $category = trim((string)($row['category'] ?? ''));
+
+                    $entries[] = [
+                        'term' => $term,
+                        'reason' => $reason,
+                        'category' => $category,
+                        'type' => commerza_username_blacklist_type_from_reason($reason, $category),
+                    ];
+                }
+
+                $result->free();
+            }
+        }
+
+        if (empty($entries)) {
+            $entries = [
+                ['term' => 'admin', 'reason' => 'System role name', 'category' => 'A', 'type' => 'system'],
+                ['term' => 'root', 'reason' => 'System role name', 'category' => 'A', 'type' => 'system'],
+                ['term' => 'commerza', 'reason' => 'Brand reserved name', 'category' => 'A', 'type' => 'system'],
+                ['term' => 'products', 'reason' => 'Route-like reserved name', 'category' => 'C', 'type' => 'system'],
+                ['term' => 'account', 'reason' => 'Route-like reserved name', 'category' => 'C', 'type' => 'system'],
+                ['term' => 'wishlist', 'reason' => 'Route-like reserved name', 'category' => 'C', 'type' => 'system'],
+                ['term' => 'porn', 'reason' => 'Explicit sexual term', 'category' => 'B', 'type' => 'explicit'],
+                ['term' => 'sex', 'reason' => 'Explicit sexual term', 'category' => 'B', 'type' => 'explicit'],
+                ['term' => 'islam', 'reason' => 'Religious targeting term', 'category' => 'B', 'type' => 'religious'],
+                ['term' => 'christian', 'reason' => 'Religious targeting term', 'category' => 'B', 'type' => 'religious'],
+                ['term' => 'hindu', 'reason' => 'Religious targeting term', 'category' => 'B', 'type' => 'religious'],
+                ['term' => 'nazi', 'reason' => 'Hateful extremist term', 'category' => 'B', 'type' => 'harmful'],
+                ['term' => 'fuck', 'reason' => 'Offensive profanity term', 'category' => 'B', 'type' => 'harmful'],
+            ];
+        }
+    }
+
+    foreach ($entries as $entry) {
+        $term = (string)($entry['term'] ?? '');
+        if ($term === '') {
+            continue;
+        }
+
+        $isMatch = false;
+
+        if ($slug === $term) {
+            $isMatch = true;
+        } elseif (strlen($term) <= 3) {
+            if (
+                str_starts_with($slug, $term)
+                || str_ends_with($slug, $term)
+                || preg_match('/(^|_)' . preg_quote($term, '/') . '(_|$)/', $slug) === 1
+            ) {
+                $isMatch = true;
+            }
+        } elseif (str_contains($slug, $term)) {
+            $isMatch = true;
+        }
+
+        if ($isMatch) {
+            return [
+                'term' => $term,
+                'reason' => (string)($entry['reason'] ?? ''),
+                'category' => (string)($entry['category'] ?? ''),
+                'type' => (string)($entry['type'] ?? 'harmful'),
+            ];
+        }
+    }
+
+    return null;
+}
+
+function commerza_username_base_from_identity(string $fullName, string $email, int $fallbackId = 0): string
+{
+    $emailLocal = '';
+    if ($email !== '') {
+        $parts = explode('@', $email, 2);
+        $emailLocal = (string)($parts[0] ?? '');
+    }
+
+    $candidates = [
+        $fullName,
+        $emailLocal,
+        'user' . max(1, $fallbackId),
+    ];
+
+    foreach ($candidates as $candidate) {
+        $slug = commerza_username_slug((string)$candidate);
+        if ($slug !== '') {
+            if (strlen($slug) < 3) {
+                $slug = str_pad($slug, 3, '0');
+            }
+            return substr($slug, 0, 24);
+        }
+    }
+
+    try {
+        $random = 'user_' . substr(bin2hex(random_bytes(4)), 0, 6);
+    } catch (Throwable $exception) {
+        $random = 'user_' . str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+    }
+
+    return substr(commerza_username_slug($random), 0, 24);
+}
+
+function commerza_username_slug_exists(mysqli $con, string $slug, int $excludeUserId = 0): bool
+{
+    if ($slug === '') {
+        return false;
+    }
+
+    $sql = 'SELECT id FROM users WHERE username_slug = ?';
+    if ($excludeUserId > 0) {
+        $sql .= ' AND id <> ?';
+    }
+    $sql .= ' LIMIT 1';
+
+    $stmt = $con->prepare($sql);
+    if (!$stmt) {
+        return true;
+    }
+
+    if ($excludeUserId > 0) {
+        $stmt->bind_param('si', $slug, $excludeUserId);
+    } else {
+        $stmt->bind_param('s', $slug);
+    }
+
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    return is_array($row);
+}
+
+function commerza_username_resolve_unique(
+    mysqli $con,
+    string $preferred,
+    string $fullName = '',
+    string $email = '',
+    int $excludeUserId = 0
+): array {
+    $base = commerza_username_slug($preferred);
+
+    if (!commerza_username_is_valid($base)) {
+        $base = commerza_username_base_from_identity($fullName, $email, $excludeUserId);
+    }
+
+    if (!commerza_username_is_valid($base)) {
+        $base = commerza_username_slug('user_' . max(1, $excludeUserId));
+    }
+
+    if (!commerza_username_is_valid($base)) {
+        $base = 'user001';
+    }
+
+    $candidate = $base;
+
+    for ($attempt = 0; $attempt < 500; $attempt++) {
+        if ($attempt > 0) {
+            $suffix = (string)$attempt;
+            $maxPrefixLength = max(1, 24 - strlen($suffix) - 1);
+            $prefix = substr($base, 0, $maxPrefixLength);
+            $candidate = rtrim($prefix, '_') . '_' . $suffix;
+        }
+
+        $slug = commerza_username_slug($candidate);
+        if (!commerza_username_is_valid($slug)) {
+            continue;
+        }
+
+        if (!commerza_username_slug_exists($con, $slug, $excludeUserId)) {
+            return [
+                'username' => $slug,
+                'slug' => $slug,
+            ];
+        }
+    }
+
+    $fallbackBase = commerza_username_base_from_identity($fullName, $email, $excludeUserId);
+    $fallback = commerza_username_slug($fallbackBase . '_' . substr((string)time(), -4));
+    if (!commerza_username_is_valid($fallback)) {
+        $fallback = 'user_' . str_pad((string)random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+    }
+
+    return [
+        'username' => $fallback,
+        'slug' => $fallback,
+    ];
+}
+
+function commerza_ensure_users_identity_schema(mysqli $con): void
+{
+    static $ready = false;
+
+    if ($ready) {
+        return;
+    }
+
+    if (!commerza_users_table_exists($con)) {
+        $ready = true;
+        return;
+    }
+
+    $requiredColumns = [
+        'username' => 'ALTER TABLE users ADD COLUMN username VARCHAR(24) DEFAULT NULL AFTER full_name',
+        'username_slug' => 'ALTER TABLE users ADD COLUMN username_slug VARCHAR(48) DEFAULT NULL AFTER username',
+        'profile_visibility' => "ALTER TABLE users ADD COLUMN profile_visibility ENUM('private','public') NOT NULL DEFAULT 'private' AFTER profile_picture",
+        'username_changed_at' => 'ALTER TABLE users ADD COLUMN username_changed_at DATETIME DEFAULT NULL AFTER profile_visibility',
+    ];
+
+    foreach ($requiredColumns as $column => $sql) {
+        if (!commerza_users_has_column($con, $column)) {
+            $con->query($sql);
+        }
+    }
+
+    $result = $con->query(
+        "SELECT id, full_name, email, username, username_slug, profile_visibility
+         FROM users
+         WHERE username IS NULL
+            OR TRIM(username) = ''
+            OR username_slug IS NULL
+            OR TRIM(username_slug) = ''
+            OR profile_visibility IS NULL
+            OR TRIM(profile_visibility) = ''
+            OR username NOT REGEXP '^[a-z][a-z0-9_]{2,23}$'
+            OR username_slug NOT REGEXP '^[a-z][a-z0-9_]{2,23}$'
+         ORDER BY id ASC"
+    );
+    if ($result instanceof mysqli_result) {
+        $updateStmt = $con->prepare(
+            'UPDATE users
+             SET username = ?, username_slug = ?, profile_visibility = ?
+             WHERE id = ?
+             LIMIT 1'
+        );
+
+        if ($updateStmt) {
+            while ($row = $result->fetch_assoc()) {
+                $id = (int)($row['id'] ?? 0);
+                if ($id <= 0) {
+                    continue;
+                }
+
+                $currentUsername = trim((string)($row['username'] ?? ''));
+                $currentSlug = trim((string)($row['username_slug'] ?? ''));
+                $fullName = (string)($row['full_name'] ?? '');
+                $email = (string)($row['email'] ?? '');
+                $visibility = strtolower(trim((string)($row['profile_visibility'] ?? 'private')));
+
+                if (!in_array($visibility, ['private', 'public'], true)) {
+                    $visibility = 'private';
+                }
+
+                $preferred = $currentUsername !== '' ? $currentUsername : $currentSlug;
+                $resolved = commerza_username_resolve_unique($con, $preferred, $fullName, $email, $id);
+                $normalizedUsername = (string)($resolved['username'] ?? '');
+                $normalizedSlug = (string)($resolved['slug'] ?? $normalizedUsername);
+
+                $usernameChanged = strcasecmp($currentUsername, $normalizedUsername) !== 0;
+                $slugChanged = strcasecmp($currentSlug, $normalizedSlug) !== 0;
+                $visibilityChanged = strtolower(trim((string)($row['profile_visibility'] ?? ''))) !== $visibility;
+
+                if (!$usernameChanged && !$slugChanged && !$visibilityChanged) {
+                    continue;
+                }
+
+                $updateStmt->bind_param('sssi', $normalizedUsername, $normalizedSlug, $visibility, $id);
+                $updateStmt->execute();
+            }
+
+            $updateStmt->close();
+        }
+
+        $result->free();
+    }
+
+    if (commerza_users_has_column($con, 'profile_visibility')) {
+        $con->query("UPDATE users SET profile_visibility = 'private' WHERE profile_visibility IS NULL OR TRIM(profile_visibility) = ''");
+    }
+
+    if (commerza_users_has_column($con, 'username') && commerza_users_column_is_nullable($con, 'username') === true) {
+        $con->query('ALTER TABLE users MODIFY username VARCHAR(24) NOT NULL');
+    }
+
+    if (commerza_users_has_column($con, 'username_slug') && commerza_users_column_is_nullable($con, 'username_slug') === true) {
+        $con->query('ALTER TABLE users MODIFY username_slug VARCHAR(48) NOT NULL');
+    }
+
+    if (!commerza_users_has_unique_index_for_column($con, 'username')) {
+        $con->query('ALTER TABLE users ADD UNIQUE INDEX uq_users_username (username)');
+    }
+
+    if (!commerza_users_has_unique_index_for_column($con, 'username_slug')) {
+        $con->query('ALTER TABLE users ADD UNIQUE INDEX uq_users_username_slug (username_slug)');
+    }
+
+    $ready = true;
+}
+
+commerza_ensure_users_identity_schema($con);
 
 require_once __DIR__ . '/expiry_cleanup.php';
 require_once __DIR__ . '/rate_limit.php';
@@ -748,4 +1393,3 @@ function commerza_try_restore_session_from_cookie(mysqli $con): void
 }
 
 commerza_try_restore_session_from_cookie($con);
-?>

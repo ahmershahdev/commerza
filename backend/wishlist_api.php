@@ -81,6 +81,85 @@ function fetch_wishlist_state(mysqli $con, int $wishlistId): array
     ];
 }
 
+function wishlist_normalize_product_name(string $value): string
+{
+    $normalized = preg_replace('/\s+/', ' ', trim($value));
+    if (!is_string($normalized)) {
+        return '';
+    }
+
+    return strtolower($normalized);
+}
+
+function wishlist_normalize_product_code(string $value): string
+{
+    $normalized = preg_replace('/\s+/', '', trim($value));
+    if (!is_string($normalized)) {
+        return '';
+    }
+
+    return strtoupper($normalized);
+}
+
+function wishlist_validate_product_identity(
+    mysqli $con,
+    int $productId,
+    string $expectedName,
+    string $expectedCode
+): array {
+    $normalizedExpectedName = wishlist_normalize_product_name($expectedName);
+    $normalizedExpectedCode = wishlist_normalize_product_code($expectedCode);
+
+    if ($normalizedExpectedName === '' || $normalizedExpectedCode === '') {
+        return [
+            'ok' => false,
+            'message' => 'Product verification data is missing. Refresh and try again.',
+        ];
+    }
+
+    $stmt = $con->prepare('SELECT id, name, product_code FROM products WHERE id = ? LIMIT 1');
+    if (!$stmt) {
+        return [
+            'ok' => false,
+            'message' => 'Unable to verify product right now.',
+        ];
+    }
+
+    $stmt->bind_param('i', $productId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    if (!$row) {
+        return [
+            'ok' => false,
+            'message' => 'Product does not exist.',
+        ];
+    }
+
+    $normalizedActualName = wishlist_normalize_product_name((string)($row['name'] ?? ''));
+    $normalizedActualCode = wishlist_normalize_product_code((string)($row['product_code'] ?? ''));
+
+    if ($normalizedExpectedName !== $normalizedActualName) {
+        return [
+            'ok' => false,
+            'message' => 'Product verification failed. Please refresh and try again.',
+        ];
+    }
+
+    if ($normalizedExpectedCode !== $normalizedActualCode) {
+        return [
+            'ok' => false,
+            'message' => 'Product code mismatch. Please refresh and try again.',
+        ];
+    }
+
+    return [
+        'ok' => true,
+    ];
+}
+
 function wishlist_item_lock_name(int $wishlistId, int $productId): string
 {
     return 'commerza_wishlist_' . max(0, $wishlistId) . '_' . max(0, $productId);
@@ -246,23 +325,33 @@ if ($action === 'toggle') {
     wishlist_rate_limit_guard($con, 'wishlist_toggle', 24, 60, 120, 360);
 
     $productId = (int)($_POST['product_id'] ?? 0);
+    $postedProductName = trim((string)($_POST['product_name'] ?? ''));
+    $postedProductCode = trim((string)($_POST['product_code'] ?? ''));
+
+    if (strlen($postedProductName) > 255) {
+        $postedProductName = substr($postedProductName, 0, 255);
+    }
+
+    if (strlen($postedProductCode) > 80) {
+        $postedProductCode = substr($postedProductCode, 0, 80);
+    }
+
     if ($productId <= 0) {
         wishlist_json(['ok' => false, 'message' => 'Invalid product id.'], 422);
     }
 
-    $productStmt = $con->prepare('SELECT id FROM products WHERE id = ? LIMIT 1');
-    if (!$productStmt) {
-        wishlist_json(['ok' => false, 'message' => 'Unable to verify product.'], 500);
-    }
+    $identityCheck = wishlist_validate_product_identity(
+        $con,
+        $productId,
+        $postedProductName,
+        $postedProductCode
+    );
 
-    $productStmt->bind_param('i', $productId);
-    $productStmt->execute();
-    $productStmt->store_result();
-    $exists = $productStmt->num_rows > 0;
-    $productStmt->close();
-
-    if (!$exists) {
-        wishlist_json(['ok' => false, 'message' => 'Product does not exist.'], 404);
+    if (!(bool)($identityCheck['ok'] ?? false)) {
+        wishlist_json([
+            'ok' => false,
+            'message' => (string)($identityCheck['message'] ?? 'Product verification failed.'),
+        ], 409);
     }
 
     $userId = (int)$_SESSION['user_id'];

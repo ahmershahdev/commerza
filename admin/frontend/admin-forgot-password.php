@@ -193,7 +193,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $csrfToken = admin_generate_csrf_token();
-$forgotPasswordCanonicalUrl = admin_public_url('/admin/frontend/admin-forgot-password.php');
+$adminFrontendBaseHref = rtrim(admin_public_url('/admin/frontend/'), '/') . '/';
+$forgotPasswordCanonicalUrl = admin_public_url('/admin-forgot-password');
 $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.webp');
 ?>
 <!DOCTYPE html>
@@ -201,6 +202,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
 
 <head>
   <meta charset="UTF-8" />
+  <base href="<?= htmlspecialchars($adminFrontendBaseHref, ENT_QUOTES, 'UTF-8') ?>">
   <meta name="robots" content="noindex, nofollow">
   <meta name="author" content="Syed Ahmer Shah">
   <meta name="referrer" content="no-referrer">

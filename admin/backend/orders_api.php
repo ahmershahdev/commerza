@@ -354,6 +354,7 @@ function orders_api_fetch_customers(mysqli $con): array
         'SELECT
             u.id,
             u.full_name,
+            u.username,
             u.email,
             u.phone,
             u.created_at,
@@ -361,7 +362,7 @@ function orders_api_fetch_customers(mysqli $con): array
             COALESCE(SUM(o.grand_total), 0) AS total_spent
          FROM users u
          LEFT JOIN orders o ON o.user_id = u.id
-         GROUP BY u.id, u.full_name, u.email, u.phone, u.created_at
+         GROUP BY u.id, u.full_name, u.username, u.email, u.phone, u.created_at
          ORDER BY u.created_at DESC'
     );
 
@@ -376,6 +377,7 @@ function orders_api_fetch_customers(mysqli $con): array
                 'id' => (int)($row['id'] ?? 0),
                 'userId' => (int)($row['id'] ?? 0),
                 'name' => (string)($row['full_name'] ?? 'Customer'),
+                'username' => (string)($row['username'] ?? ''),
                 'email' => (string)($row['email'] ?? ''),
                 'phone' => (string)($row['phone'] ?? ''),
                 'orderCount' => (int)($row['order_count'] ?? 0),
@@ -411,6 +413,7 @@ function orders_api_fetch_customers(mysqli $con): array
                     'id' => 0,
                     'userId' => 0,
                     'name' => (string)($row['customer_name'] ?? 'Customer'),
+                    'username' => '',
                     'email' => (string)($row['customer_email'] ?? ''),
                     'phone' => (string)($row['customer_phone'] ?? ''),
                     'orderCount' => (int)($row['order_count'] ?? 0),
