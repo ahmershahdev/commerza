@@ -15,27 +15,42 @@ video {
   touch-action: manipulation;
 }
 
-::-webkit-scrollbar {
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
-::-webkit-scrollbar-track {
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track {
   background: #000000;
 }
 
-::-webkit-scrollbar-thumb {
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, #ff4500 0%, #ffcc00 100%);
   border-radius: 10px;
   box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2);
   cursor: grab;
 }
 
-::-webkit-scrollbar-thumb:hover {
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+*::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #ffcc00 0%, #ff4500 100%);
 }
 
 html {
   scroll-behavior: smooth;
+}
+
+html,
+body {
+  scrollbar-width: thin;
+  scrollbar-color: orangered #000000;
 }
 
 body.dark-theme {
