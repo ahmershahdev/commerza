@@ -30,9 +30,22 @@ async function toggleWishlist(item, options = {}) {
   }
 
   const productId = parseInt(item?.id, 10);
+  const productName = (item?.name || "").toString().trim();
+  const productCode = (item?.productCode || item?.code || "").toString().trim();
+
   if (!Number.isInteger(productId) || productId <= 0) {
     if (!silent) {
       showNotif("Unable to update wishlist for this product.", "warning");
+    }
+    return { ok: false, added: false };
+  }
+
+  if (productName === "" || productCode === "") {
+    if (!silent) {
+      showNotif(
+        "Product verification data is missing. Refresh and try again.",
+        "warning",
+      );
     }
     return { ok: false, added: false };
   }
@@ -45,6 +58,8 @@ async function toggleWishlist(item, options = {}) {
     const payload = new URLSearchParams();
     payload.set("action", "toggle");
     payload.set("product_id", String(productId));
+    payload.set("product_name", productName);
+    payload.set("product_code", productCode);
     payload.set("csrf_token", wishlistState.csrfToken || "");
 
     const response = await fetch(WISHLIST_API_URL, {

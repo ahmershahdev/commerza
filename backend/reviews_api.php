@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 header('Content-Type: application/json; charset=utf-8');
@@ -563,7 +564,9 @@ function reviews_api_public_reviews(mysqli $con, int $productId): array
             r.review_text,
             r.created_at,
             r.updated_at,
-            u.full_name
+                        u.full_name,
+                        u.username,
+                        u.profile_visibility
          FROM product_reviews r
          INNER JOIN users u ON u.id = r.user_id
          WHERE r.product_id = ?
@@ -578,7 +581,16 @@ function reviews_api_public_reviews(mysqli $con, int $productId): array
         $result = $stmt->get_result();
 
         while ($result && ($row = $result->fetch_assoc())) {
-            $name = trim((string)($row['full_name'] ?? 'Customer'));
+            $visibility = strtolower(trim((string)($row['profile_visibility'] ?? 'private')));
+            if ($visibility === 'public') {
+                $name = trim((string)($row['username'] ?? ''));
+                if ($name === '') {
+                    $name = trim((string)($row['full_name'] ?? 'Customer'));
+                }
+            } else {
+                $name = 'Customer';
+            }
+
             if ($name === '') {
                 $name = 'Customer';
             }

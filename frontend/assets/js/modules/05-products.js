@@ -150,9 +150,12 @@ function createProductCard(product) {
   );
   const safeDescription = productsEscapeHtml(product.description || "");
   const safeImage = productsEscapeHtml(productsSanitizeAssetUrl(product.image));
-  const safeProductCode = productsEscapeHtml(
-    (product.productCode || "").toString().trim(),
-  );
+  const resolvedProductCode =
+    (product.productCode || "").toString().trim() ||
+    (safeProductId !== ""
+      ? `CMRZ-${safeProductId.padStart(5, "0")}`
+      : "CMRZ-NA");
+  const safeProductCode = productsEscapeHtml(resolvedProductCode);
   const safePriceValue = Number.isFinite(Number(product.price))
     ? String(Number(product.price))
     : "0";

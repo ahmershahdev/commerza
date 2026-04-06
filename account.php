@@ -3,12 +3,12 @@ include "backend/data.php";
 require_once __DIR__ . '/backend/notifications.php';
 
 if (!isset($_SESSION['user_id']) || !is_numeric($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit;
+  header("Location: login.php");
+  exit;
 }
 
 if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+  $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
 $user_id = (int)$_SESSION['user_id'];
@@ -17,19 +17,19 @@ $success = [];
 
 function fetchUser(mysqli $con, int $user_id): ?array
 {
-    $stmt = $con->prepare("SELECT id, full_name, email, phone, address, profile_picture, password_hash FROM users WHERE id = ? LIMIT 1");
+  $stmt = $con->prepare("SELECT id, full_name, username, username_slug, profile_visibility, email, phone, address, profile_picture, password_hash FROM users WHERE id = ? LIMIT 1");
 
-    if (!$stmt) {
-        return null;
-    }
+  if (!$stmt) {
+    return null;
+  }
 
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $user = $result ? $result->fetch_assoc() : null;
-    $stmt->close();
+  $stmt->bind_param("i", $user_id);
+  $stmt->execute();
+  $result = $stmt->get_result();
+  $user = $result ? $result->fetch_assoc() : null;
+  $stmt->close();
 
-    return $user ?: null;
+  return $user ?: null;
 }
 
 function account_delete_session_key(): string
@@ -303,415 +303,437 @@ function account_store_refund_evidence($file, int $userId, int $orderId, array &
 $user = fetchUser($con, $user_id);
 
 if (!$user) {
+  session_unset();
+  session_destroy();
+  header("Location: login.php");
+  exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  if (
+    empty($_POST['csrf_token']) ||
+    empty($_SESSION['csrf_token']) ||
+    !hash_equals($_SESSION['csrf_token'], (string)$_POST['csrf_token'])
+  ) {
+    http_response_code(403);
+    exit("Forbidden.");
+  }
+
+  $action = (string)($_POST['action'] ?? '');
+
+  $captchaContexts = [
+    'update_profile' => 'user_account_profile',
+    'update_password' => 'user_account_password',
+    'request_delete_account_code' => 'user_account_delete_request',
+    'delete_account_permanently' => 'user_account_delete_confirm',
+  ];
+
+  if (isset($captchaContexts[$action])) {
+    $captchaCheck = commerza_captcha_verify_submission($con, $_POST, (string)$captchaContexts[$action]);
+    if (!(bool)$captchaCheck['ok']) {
+      $errors[] = (string)$captchaCheck['message'];
+    }
+  }
+
+  $clientIp = commerza_client_ip();
+  $rateIdentifier = (string)$user_id;
+  $rateScopeUsed = '';
+  $ratePolicies = [
+    'update_profile' => ['scope' => 'user_account_update_profile', 'max' => 8, 'window' => 3600, 'block' => 1800],
+    'update_password' => ['scope' => 'user_account_update_password', 'max' => 6, 'window' => 3600, 'block' => 2400],
+    'update_profile_picture' => ['scope' => 'user_account_update_picture', 'max' => 8, 'window' => 3600, 'block' => 1800],
+    'request_refund' => ['scope' => 'user_account_request_refund', 'max' => 4, 'window' => 3600, 'block' => 3600],
+    'request_delete_account_code' => ['scope' => 'user_account_delete_code', 'max' => 3, 'window' => 3600, 'block' => 3600],
+    'delete_account_permanently' => ['scope' => 'user_account_delete_confirm', 'max' => 6, 'window' => 3600, 'block' => 3600],
+  ];
+
+  if (isset($ratePolicies[$action]) && empty($errors)) {
+    $policy = $ratePolicies[$action];
+    $rateScopeUsed = (string)$policy['scope'];
+
+    $rate = commerza_rate_limit_check(
+      $con,
+      $rateScopeUsed,
+      $rateIdentifier,
+      $clientIp,
+      (int)$policy['max'],
+      (int)$policy['window'],
+      (int)$policy['block'],
+      max((int)$policy['block'], 7200),
+      86400
+    );
+
+    if (!(bool)($rate['allowed'] ?? false)) {
+      $retrySeconds = max(1, (int)($rate['retry_after'] ?? 1));
+      $retryMinutes = (int)ceil($retrySeconds / 60);
+      commerza_security_log_rate_limit_block(
+        $con,
+        $rateScopeUsed,
+        'user',
+        $rateIdentifier,
+        $clientIp,
+        $retrySeconds
+      );
+      $errors[] = 'Too many requests for this action. Try again in ' . $retryMinutes . ' minute(s) (' . $retrySeconds . ' seconds).';
+    }
+  }
+
+  if ($action === 'logout') {
+    commerza_forget_current_remember_token($con);
     session_unset();
     session_destroy();
     header("Location: login.php");
     exit;
-}
+  }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  if ($action === 'update_profile') {
+    $full_name = trim((string)($_POST['full_name'] ?? ''));
+    $username = commerza_username_slug((string)($_POST['username'] ?? ''));
+    $profile_visibility = strtolower(trim((string)($_POST['profile_visibility'] ?? 'private')));
+    $email = strtolower(trim((string)($_POST['email'] ?? '')));
+    $phone = preg_replace('/\s+/', '', trim((string)($_POST['phone'] ?? '')));
+    $phone = $phone ?? '';
+    $address = trim((string)($_POST['address'] ?? ''));
+
     if (
-        empty($_POST['csrf_token']) ||
-        empty($_SESSION['csrf_token']) ||
-        !hash_equals($_SESSION['csrf_token'], (string)$_POST['csrf_token'])
+      strlen($full_name) < 3 ||
+      strlen($full_name) > 40 ||
+      !preg_match("/^[A-Za-z][A-Za-z\\s\\.\\'\\-]{2,39}$/", $full_name)
     ) {
-        http_response_code(403);
-        exit("Forbidden.");
+      $errors[] = "Full name must be 3-40 valid letters.";
     }
 
-    $action = (string)($_POST['action'] ?? '');
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 150) {
+      $errors[] = "Invalid email address.";
+    }
 
-    $captchaContexts = [
-      'update_profile' => 'user_account_profile',
-      'update_password' => 'user_account_password',
-      'request_delete_account_code' => 'user_account_delete_request',
-      'delete_account_permanently' => 'user_account_delete_confirm',
-    ];
+    if (!commerza_username_is_valid($username)) {
+      $errors[] = "Username must be 3-24 chars and use lowercase letters, numbers, or underscores.";
+    }
 
-    if (isset($captchaContexts[$action])) {
-      $captchaCheck = commerza_captcha_verify_submission($con, $_POST, (string)$captchaContexts[$action]);
-      if (!(bool)$captchaCheck['ok']) {
-        $errors[] = (string)$captchaCheck['message'];
+    if (!in_array($profile_visibility, ['private', 'public'], true)) {
+      $errors[] = "Invalid profile visibility option.";
+    }
+
+    if (!preg_match('/^\d{11,15}$/', $phone)) {
+      $errors[] = "Invalid phone number.";
+    }
+
+    if ($address !== '' && strlen($address) < 8) {
+      $errors[] = "Address must be at least 8 characters.";
+    }
+
+    if (strlen($address) > 255) {
+      $errors[] = "Address is too long.";
+    }
+
+    if (empty($errors)) {
+      $emailCheck = $con->prepare("SELECT id FROM users WHERE email = ? AND id <> ? LIMIT 1");
+      $phoneCheck = $con->prepare("SELECT id FROM users WHERE phone = ? AND id <> ? LIMIT 1");
+      $usernameCheck = $con->prepare("SELECT id FROM users WHERE username_slug = ? AND id <> ? LIMIT 1");
+
+      if (!$emailCheck || !$phoneCheck || !$usernameCheck) {
+        $errors[] = "Something went wrong. Please try again.";
+      } else {
+        $emailCheck->bind_param("si", $email, $user_id);
+        $emailCheck->execute();
+        $emailResult = $emailCheck->get_result();
+        $emailExists = ($emailResult && $emailResult->num_rows > 0);
+
+        $phoneCheck->bind_param("si", $phone, $user_id);
+        $phoneCheck->execute();
+        $phoneResult = $phoneCheck->get_result();
+        $phoneExists = ($phoneResult && $phoneResult->num_rows > 0);
+
+        $usernameCheck->bind_param("si", $username, $user_id);
+        $usernameCheck->execute();
+        $usernameResult = $usernameCheck->get_result();
+        $usernameExists = ($usernameResult && $usernameResult->num_rows > 0);
+
+        $emailCheck->close();
+        $phoneCheck->close();
+        $usernameCheck->close();
+
+        if ($emailExists) {
+          $errors[] = "Email is already in use.";
+        }
+
+        if ($phoneExists) {
+          $errors[] = "Phone is already in use.";
+        }
+
+        if ($usernameExists) {
+          $errors[] = "Username is already in use.";
+        }
       }
     }
 
-    $clientIp = commerza_client_ip();
-    $rateIdentifier = (string)$user_id;
-    $rateScopeUsed = '';
-    $ratePolicies = [
-      'update_profile' => ['scope' => 'user_account_update_profile', 'max' => 8, 'window' => 3600, 'block' => 1800],
-      'update_password' => ['scope' => 'user_account_update_password', 'max' => 6, 'window' => 3600, 'block' => 2400],
-      'update_profile_picture' => ['scope' => 'user_account_update_picture', 'max' => 8, 'window' => 3600, 'block' => 1800],
-      'request_refund' => ['scope' => 'user_account_request_refund', 'max' => 4, 'window' => 3600, 'block' => 3600],
-      'request_delete_account_code' => ['scope' => 'user_account_delete_code', 'max' => 3, 'window' => 3600, 'block' => 3600],
-      'delete_account_permanently' => ['scope' => 'user_account_delete_confirm', 'max' => 6, 'window' => 3600, 'block' => 3600],
-    ];
+    if (empty($errors)) {
+      $address_value = $address !== '' ? $address : null;
+      $usernameChangedFlag = strcasecmp((string)($user['username_slug'] ?? ''), $username) !== 0 ? 1 : 0;
+      $stmt = $con->prepare("UPDATE users SET full_name = ?, username = ?, username_slug = ?, profile_visibility = ?, email = ?, phone = ?, address = ?, username_changed_at = CASE WHEN ? = 1 THEN NOW() ELSE username_changed_at END WHERE id = ? LIMIT 1");
 
-    if (isset($ratePolicies[$action]) && empty($errors)) {
-      $policy = $ratePolicies[$action];
-      $rateScopeUsed = (string)$policy['scope'];
+      if (!$stmt) {
+        $errors[] = "Something went wrong. Please try again.";
+      } else {
+        $stmt->bind_param("sssssssii", $full_name, $username, $username, $profile_visibility, $email, $phone, $address_value, $usernameChangedFlag, $user_id);
 
-      $rate = commerza_rate_limit_check(
-        $con,
-        $rateScopeUsed,
-        $rateIdentifier,
-        $clientIp,
-        (int)$policy['max'],
-        (int)$policy['window'],
-        (int)$policy['block'],
-        max((int)$policy['block'], 7200),
-        86400
-      );
+        if ($stmt->execute()) {
+          $success[] = "Profile updated successfully.";
+        } else {
+          if ((int)$stmt->errno === 1062 || (int)$con->errno === 1062) {
+            $errors[] = "Email, phone, or username is already in use.";
+          } else {
+            $errors[] = "Something went wrong. Please try again.";
+          }
+        }
 
-      if (!(bool)($rate['allowed'] ?? false)) {
-        $retrySeconds = max(1, (int)($rate['retry_after'] ?? 1));
-        $retryMinutes = (int)ceil($retrySeconds / 60);
-        commerza_security_log_rate_limit_block(
-          $con,
-          $rateScopeUsed,
-          'user',
-          $rateIdentifier,
-          $clientIp,
-          $retrySeconds
-        );
-        $errors[] = 'Too many requests for this action. Try again in ' . $retryMinutes . ' minute(s) (' . $retrySeconds . ' seconds).';
+        $stmt->close();
       }
     }
+  } elseif ($action === 'update_password') {
+    $current_password = (string)($_POST['current_password'] ?? '');
+    $new_password = (string)($_POST['new_password'] ?? '');
+    $confirm_password = (string)($_POST['confirm_password'] ?? '');
 
-    if ($action === 'logout') {
-      commerza_forget_current_remember_token($con);
-        session_unset();
-        session_destroy();
-        header("Location: login.php");
-        exit;
+    if ($new_password !== $confirm_password) {
+      $errors[] = "New passwords do not match.";
     }
 
-    if ($action === 'update_profile') {
-        $full_name = trim((string)($_POST['full_name'] ?? ''));
-        $email = strtolower(trim((string)($_POST['email'] ?? '')));
-        $phone = preg_replace('/\s+/', '', trim((string)($_POST['phone'] ?? '')));
-        $phone = $phone ?? '';
-        $address = trim((string)($_POST['address'] ?? ''));
+    $passwordPolicyError = null;
+    if (!commerza_password_validate($new_password, $passwordPolicyError)) {
+      $errors[] = $passwordPolicyError !== null ? $passwordPolicyError : commerza_password_policy_description();
+    }
 
-        if (
-          strlen($full_name) < 3 ||
-          strlen($full_name) > 40 ||
-          !preg_match("/^[A-Za-z][A-Za-z\\s\\.\\'\\-]{2,39}$/", $full_name)
-        ) {
-          $errors[] = "Full name must be 3-40 valid letters.";
+    $freshUser = fetchUser($con, $user_id);
+
+    if (!$freshUser) {
+      $errors[] = "User not found.";
+    } elseif (!commerza_password_verify($current_password, (string)$freshUser['password_hash'])) {
+      $errors[] = "Current password is incorrect.";
+    } elseif (commerza_password_verify($new_password, (string)$freshUser['password_hash'])) {
+      $errors[] = "New password must be different from current password.";
+    }
+
+    if (empty($errors)) {
+      $new_hash = commerza_password_hash($new_password);
+      $stmt = $con->prepare("UPDATE users SET password_hash = ? WHERE id = ? LIMIT 1");
+
+      if (!$stmt) {
+        $errors[] = "Something went wrong. Please try again.";
+      } else {
+        $stmt->bind_param("si", $new_hash, $user_id);
+
+        if ($stmt->execute()) {
+          $success[] = "Password updated successfully.";
+        } else {
+          $errors[] = "Something went wrong. Please try again.";
         }
 
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 150) {
-            $errors[] = "Invalid email address.";
-        }
+        $stmt->close();
+      }
+    }
+  } elseif ($action === 'update_profile_picture') {
+    if (!isset($_FILES['profile_picture']) || !is_array($_FILES['profile_picture'])) {
+      $errors[] = "Invalid upload request.";
+    } else {
+      $file = $_FILES['profile_picture'];
 
-        if (!preg_match('/^\d{11,15}$/', $phone)) {
-            $errors[] = "Invalid phone number.";
-        }
+      if ($file['error'] === UPLOAD_ERR_NO_FILE) {
+        $errors[] = "Please choose an image first.";
+      } elseif ($file['error'] !== UPLOAD_ERR_OK) {
+        $errors[] = "Failed to upload image.";
+      } elseif ((int)$file['size'] > 2 * 1024 * 1024) {
+        $errors[] = "Image must be 2MB or smaller.";
+      } else {
+        $tmp_path = (string)$file['tmp_name'];
 
-        if ($address !== '' && strlen($address) < 8) {
-          $errors[] = "Address must be at least 8 characters.";
-        }
+        if (!is_uploaded_file($tmp_path)) {
+          $errors[] = "Invalid upload.";
+        } else {
+          $finfo = finfo_open(FILEINFO_MIME_TYPE);
+          $mime = $finfo ? finfo_file($finfo, $tmp_path) : '';
 
-        if (strlen($address) > 255) {
-            $errors[] = "Address is too long.";
-        }
+          if ($finfo) {
+            finfo_close($finfo);
+          }
 
-        if (empty($errors)) {
-            $emailCheck = $con->prepare("SELECT id FROM users WHERE email = ? AND id <> ? LIMIT 1");
-            $phoneCheck = $con->prepare("SELECT id FROM users WHERE phone = ? AND id <> ? LIMIT 1");
+          $allowed = [
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            'image/gif' => 'gif'
+          ];
 
-            if (!$emailCheck || !$phoneCheck) {
-                $errors[] = "Something went wrong. Please try again.";
+          if (!isset($allowed[$mime])) {
+            $errors[] = "Only JPG, PNG, WEBP, and GIF are allowed.";
+          } else {
+            $uploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'images' . DIRECTORY_SEPARATOR . 'users';
+
+            if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
+              $errors[] = "Failed to create upload directory.";
             } else {
-                $emailCheck->bind_param("si", $email, $user_id);
-                $emailCheck->execute();
-              $emailResult = $emailCheck->get_result();
-              $emailExists = ($emailResult && $emailResult->num_rows > 0);
+              $ext = $allowed[$mime];
+              $filename = 'user_' . $user_id . '_' . bin2hex(random_bytes(12)) . '.' . $ext;
+              $destination = $uploadDir . DIRECTORY_SEPARATOR . $filename;
+              $publicPath = 'frontend/assets/images/users/' . $filename;
 
-                $phoneCheck->bind_param("si", $phone, $user_id);
-                $phoneCheck->execute();
-              $phoneResult = $phoneCheck->get_result();
-              $phoneExists = ($phoneResult && $phoneResult->num_rows > 0);
+              if (!move_uploaded_file($tmp_path, $destination)) {
+                $errors[] = "Failed to save uploaded image.";
+              } else {
+                $updateStmt = $con->prepare("UPDATE users SET profile_picture = ? WHERE id = ? LIMIT 1");
 
-                $emailCheck->close();
-                $phoneCheck->close();
-
-                if ($emailExists) {
-                    $errors[] = "Email is already in use.";
-                }
-
-                if ($phoneExists) {
-                    $errors[] = "Phone is already in use.";
-                }
-            }
-        }
-
-        if (empty($errors)) {
-            $address_value = $address !== '' ? $address : null;
-            $stmt = $con->prepare("UPDATE users SET full_name = ?, email = ?, phone = ?, address = ? WHERE id = ? LIMIT 1");
-
-            if (!$stmt) {
-                $errors[] = "Something went wrong. Please try again.";
-            } else {
-                $stmt->bind_param("ssssi", $full_name, $email, $phone, $address_value, $user_id);
-
-                if ($stmt->execute()) {
-                    $success[] = "Profile updated successfully.";
+                if (!$updateStmt) {
+                  $errors[] = "Something went wrong. Please try again.";
                 } else {
-                    if ((int)$stmt->errno === 1062 || (int)$con->errno === 1062) {
-                        $errors[] = "Email or phone is already in use.";
-                    } else {
-                        $errors[] = "Something went wrong. Please try again.";
+                  $updateStmt->bind_param("si", $publicPath, $user_id);
+
+                  if ($updateStmt->execute()) {
+                    if (!empty($user['profile_picture']) && strpos((string)$user['profile_picture'], 'frontend/assets/images/users/') === 0) {
+                      $oldPath = __DIR__ . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string)$user['profile_picture']);
+
+                      if (is_file($oldPath)) {
+                        @unlink($oldPath);
+                      }
                     }
-                }
 
-                $stmt->close();
-            }
-        }
-    } elseif ($action === 'update_password') {
-        $current_password = (string)($_POST['current_password'] ?? '');
-        $new_password = (string)($_POST['new_password'] ?? '');
-        $confirm_password = (string)($_POST['confirm_password'] ?? '');
-
-        if ($new_password !== $confirm_password) {
-            $errors[] = "New passwords do not match.";
-        }
-
-        $passwordPolicyError = null;
-        if (!commerza_password_validate($new_password, $passwordPolicyError)) {
-          $errors[] = $passwordPolicyError !== null ? $passwordPolicyError : commerza_password_policy_description();
-        }
-
-        $freshUser = fetchUser($con, $user_id);
-
-        if (!$freshUser) {
-            $errors[] = "User not found.";
-        } elseif (!commerza_password_verify($current_password, (string)$freshUser['password_hash'])) {
-            $errors[] = "Current password is incorrect.";
-        } elseif (commerza_password_verify($new_password, (string)$freshUser['password_hash'])) {
-            $errors[] = "New password must be different from current password.";
-        }
-
-        if (empty($errors)) {
-          $new_hash = commerza_password_hash($new_password);
-            $stmt = $con->prepare("UPDATE users SET password_hash = ? WHERE id = ? LIMIT 1");
-
-            if (!$stmt) {
-                $errors[] = "Something went wrong. Please try again.";
-            } else {
-                $stmt->bind_param("si", $new_hash, $user_id);
-
-                if ($stmt->execute()) {
-                    $success[] = "Password updated successfully.";
-                } else {
+                    $success[] = "Profile picture updated successfully.";
+                  } else {
                     $errors[] = "Something went wrong. Please try again.";
+                  }
+
+                  $updateStmt->close();
                 }
-
-                $stmt->close();
+              }
             }
-        }
-    } elseif ($action === 'update_profile_picture') {
-        if (!isset($_FILES['profile_picture']) || !is_array($_FILES['profile_picture'])) {
-            $errors[] = "Invalid upload request.";
-        } else {
-            $file = $_FILES['profile_picture'];
-
-            if ($file['error'] === UPLOAD_ERR_NO_FILE) {
-                $errors[] = "Please choose an image first.";
-            } elseif ($file['error'] !== UPLOAD_ERR_OK) {
-                $errors[] = "Failed to upload image.";
-            } elseif ((int)$file['size'] > 2 * 1024 * 1024) {
-                $errors[] = "Image must be 2MB or smaller.";
-            } else {
-                $tmp_path = (string)$file['tmp_name'];
-
-                if (!is_uploaded_file($tmp_path)) {
-                    $errors[] = "Invalid upload.";
-                } else {
-                    $finfo = finfo_open(FILEINFO_MIME_TYPE);
-                    $mime = $finfo ? finfo_file($finfo, $tmp_path) : '';
-
-                    if ($finfo) {
-                        finfo_close($finfo);
-                    }
-
-                    $allowed = [
-                        'image/jpeg' => 'jpg',
-                        'image/png' => 'png',
-                        'image/webp' => 'webp',
-                        'image/gif' => 'gif'
-                    ];
-
-                    if (!isset($allowed[$mime])) {
-                        $errors[] = "Only JPG, PNG, WEBP, and GIF are allowed.";
-                    } else {
-                        $uploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'images' . DIRECTORY_SEPARATOR . 'users';
-
-                        if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
-                            $errors[] = "Failed to create upload directory.";
-                        } else {
-                            $ext = $allowed[$mime];
-                            $filename = 'user_' . $user_id . '_' . bin2hex(random_bytes(12)) . '.' . $ext;
-                            $destination = $uploadDir . DIRECTORY_SEPARATOR . $filename;
-                            $publicPath = 'frontend/assets/images/users/' . $filename;
-
-                            if (!move_uploaded_file($tmp_path, $destination)) {
-                                $errors[] = "Failed to save uploaded image.";
-                            } else {
-                                $updateStmt = $con->prepare("UPDATE users SET profile_picture = ? WHERE id = ? LIMIT 1");
-
-                                if (!$updateStmt) {
-                                    $errors[] = "Something went wrong. Please try again.";
-                                } else {
-                                    $updateStmt->bind_param("si", $publicPath, $user_id);
-
-                                    if ($updateStmt->execute()) {
-                                        if (!empty($user['profile_picture']) && strpos((string)$user['profile_picture'], 'frontend/assets/images/users/') === 0) {
-                                            $oldPath = __DIR__ . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string)$user['profile_picture']);
-
-                                            if (is_file($oldPath)) {
-                                                @unlink($oldPath);
-                                            }
-                                        }
-
-                                        $success[] = "Profile picture updated successfully.";
-                                    } else {
-                                        $errors[] = "Something went wrong. Please try again.";
-                                    }
-
-                                    $updateStmt->close();
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    } elseif ($action === 'request_refund') {
-      account_ensure_refund_table($con);
-
-      $orderId = (int)($_POST['order_id'] ?? 0);
-      $refundReason = trim((string)($_POST['refund_reason'] ?? ''));
-
-      if ($orderId <= 0) {
-        $errors[] = 'Invalid refund request.';
-      }
-
-      if ($refundReason === '' || strlen($refundReason) < 8) {
-        $errors[] = 'Please provide a brief reason (at least 8 characters).';
-      }
-
-      if (strlen($refundReason) > 500) {
-        $refundReason = substr($refundReason, 0, 500);
-      }
-
-      $orderRow = null;
-      if (empty($errors)) {
-        $orderStmt = $con->prepare(
-          'SELECT id, order_number, customer_name, customer_email, status, created_at, updated_at
-           FROM orders
-           WHERE id = ? AND user_id = ?
-           LIMIT 1'
-        );
-
-        if (!$orderStmt) {
-          $errors[] = 'Unable to validate refund request right now.';
-        } else {
-          $orderStmt->bind_param('ii', $orderId, $user_id);
-          $orderStmt->execute();
-          $result = $orderStmt->get_result();
-          $orderRow = $result ? $result->fetch_assoc() : null;
-          $orderStmt->close();
-        }
-      }
-
-      if (empty($errors) && !$orderRow) {
-        $errors[] = 'Order not found for this account.';
-      }
-
-      if (empty($errors)) {
-        $orderStatus = strtolower((string)($orderRow['status'] ?? ''));
-        if ($orderStatus !== 'delivered') {
-          $errors[] = 'Only delivered orders can be refunded.';
-        }
-      }
-
-      $deadlineTimestamp = null;
-      if (empty($errors) && $orderRow) {
-        $anchor = trim((string)($orderRow['updated_at'] ?? ''));
-        if ($anchor === '') {
-          $anchor = trim((string)($orderRow['created_at'] ?? ''));
-        }
-
-        $anchorTs = strtotime($anchor);
-        if ($anchorTs === false) {
-          $errors[] = 'Could not verify refund window for this order.';
-        } else {
-          $deadlineTimestamp = strtotime('+7 days', $anchorTs);
-          if ($deadlineTimestamp === false || $deadlineTimestamp < time()) {
-            $errors[] = 'Refund window has expired for this order.';
           }
         }
       }
+    }
+  } elseif ($action === 'request_refund') {
+    account_ensure_refund_table($con);
 
-      $existingRefund = null;
-      $uploadedEvidence = null;
-      if (empty($errors)) {
-        $existingStmt = $con->prepare(
-          'SELECT id, status, evidence_path, evidence_name, evidence_size
+    $orderId = (int)($_POST['order_id'] ?? 0);
+    $refundReason = trim((string)($_POST['refund_reason'] ?? ''));
+
+    if ($orderId <= 0) {
+      $errors[] = 'Invalid refund request.';
+    }
+
+    if ($refundReason === '' || strlen($refundReason) < 8) {
+      $errors[] = 'Please provide a brief reason (at least 8 characters).';
+    }
+
+    if (strlen($refundReason) > 500) {
+      $refundReason = substr($refundReason, 0, 500);
+    }
+
+    $orderRow = null;
+    if (empty($errors)) {
+      $orderStmt = $con->prepare(
+        'SELECT id, order_number, customer_name, customer_email, status, created_at, updated_at
+           FROM orders
+           WHERE id = ? AND user_id = ?
+           LIMIT 1'
+      );
+
+      if (!$orderStmt) {
+        $errors[] = 'Unable to validate refund request right now.';
+      } else {
+        $orderStmt->bind_param('ii', $orderId, $user_id);
+        $orderStmt->execute();
+        $result = $orderStmt->get_result();
+        $orderRow = $result ? $result->fetch_assoc() : null;
+        $orderStmt->close();
+      }
+    }
+
+    if (empty($errors) && !$orderRow) {
+      $errors[] = 'Order not found for this account.';
+    }
+
+    if (empty($errors)) {
+      $orderStatus = strtolower((string)($orderRow['status'] ?? ''));
+      if ($orderStatus !== 'delivered') {
+        $errors[] = 'Only delivered orders can be refunded.';
+      }
+    }
+
+    $deadlineTimestamp = null;
+    if (empty($errors) && $orderRow) {
+      $anchor = trim((string)($orderRow['updated_at'] ?? ''));
+      if ($anchor === '') {
+        $anchor = trim((string)($orderRow['created_at'] ?? ''));
+      }
+
+      $anchorTs = strtotime($anchor);
+      if ($anchorTs === false) {
+        $errors[] = 'Could not verify refund window for this order.';
+      } else {
+        $deadlineTimestamp = strtotime('+7 days', $anchorTs);
+        if ($deadlineTimestamp === false || $deadlineTimestamp < time()) {
+          $errors[] = 'Refund window has expired for this order.';
+        }
+      }
+    }
+
+    $existingRefund = null;
+    $uploadedEvidence = null;
+    if (empty($errors)) {
+      $existingStmt = $con->prepare(
+        'SELECT id, status, evidence_path, evidence_name, evidence_size
            FROM refund_requests
            WHERE order_id = ?
            LIMIT 1'
-        );
+      );
 
-        if (!$existingStmt) {
-          $errors[] = 'Unable to verify previous refund requests.';
-        } else {
-          $existingStmt->bind_param('i', $orderId);
-          $existingStmt->execute();
-          $existingResult = $existingStmt->get_result();
-          $existingRefund = $existingResult ? $existingResult->fetch_assoc() : null;
-          $existingStmt->close();
-        }
+      if (!$existingStmt) {
+        $errors[] = 'Unable to verify previous refund requests.';
+      } else {
+        $existingStmt->bind_param('i', $orderId);
+        $existingStmt->execute();
+        $existingResult = $existingStmt->get_result();
+        $existingRefund = $existingResult ? $existingResult->fetch_assoc() : null;
+        $existingStmt->close();
       }
+    }
 
-      if (empty($errors) && $existingRefund) {
-        $existingStatus = strtolower((string)($existingRefund['status'] ?? 'pending'));
-        if ($existingStatus === 'pending') {
-          $errors[] = 'Refund request already submitted and pending review.';
-        } elseif ($existingStatus === 'accepted') {
-          $errors[] = 'Refund has already been accepted for this order.';
-        } elseif ($existingStatus === 'rejected') {
-          $errors[] = 'A refund request was already reviewed for this order. You cannot submit another request.';
-        } else {
-          $errors[] = 'A refund request already exists for this order.';
-        }
+    if (empty($errors) && $existingRefund) {
+      $existingStatus = strtolower((string)($existingRefund['status'] ?? 'pending'));
+      if ($existingStatus === 'pending') {
+        $errors[] = 'Refund request already submitted and pending review.';
+      } elseif ($existingStatus === 'accepted') {
+        $errors[] = 'Refund has already been accepted for this order.';
+      } elseif ($existingStatus === 'rejected') {
+        $errors[] = 'A refund request was already reviewed for this order. You cannot submit another request.';
+      } else {
+        $errors[] = 'A refund request already exists for this order.';
       }
+    }
 
-      if (empty($errors)) {
-        $uploadedEvidence = account_store_refund_evidence(
-          $_FILES['refund_evidence'] ?? null,
-          $user_id,
-          $orderId,
-          $errors
-        );
-      }
+    if (empty($errors)) {
+      $uploadedEvidence = account_store_refund_evidence(
+        $_FILES['refund_evidence'] ?? null,
+        $user_id,
+        $orderId,
+        $errors
+      );
+    }
 
-      if (empty($errors)) {
-        $persisted = false;
-        $previousEvidencePath = trim((string)($existingRefund['evidence_path'] ?? ''));
-        $previousEvidenceName = trim((string)($existingRefund['evidence_name'] ?? ''));
-        $previousEvidenceSize = (int)($existingRefund['evidence_size'] ?? 0);
+    if (empty($errors)) {
+      $persisted = false;
+      $previousEvidencePath = trim((string)($existingRefund['evidence_path'] ?? ''));
+      $previousEvidenceName = trim((string)($existingRefund['evidence_name'] ?? ''));
+      $previousEvidenceSize = (int)($existingRefund['evidence_size'] ?? 0);
 
-        $evidencePath = $uploadedEvidence['path'] ?? ($previousEvidencePath !== '' ? $previousEvidencePath : '');
-        $evidenceName = $uploadedEvidence['name'] ?? ($previousEvidenceName !== '' ? $previousEvidenceName : '');
-        $evidenceSize = (int)($uploadedEvidence['size'] ?? $previousEvidenceSize);
+      $evidencePath = $uploadedEvidence['path'] ?? ($previousEvidencePath !== '' ? $previousEvidencePath : '');
+      $evidenceName = $uploadedEvidence['name'] ?? ($previousEvidenceName !== '' ? $previousEvidenceName : '');
+      $evidenceSize = (int)($uploadedEvidence['size'] ?? $previousEvidenceSize);
 
-        if ($existingRefund) {
-          $refundId = (int)($existingRefund['id'] ?? 0);
-          $updateRefund = $con->prepare(
-            'UPDATE refund_requests
+      if ($existingRefund) {
+        $refundId = (int)($existingRefund['id'] ?? 0);
+        $updateRefund = $con->prepare(
+          'UPDATE refund_requests
              SET reason = ?,
                  status = "pending",
                  admin_note = NULL,
@@ -721,196 +743,196 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                  requested_at = NOW()
              WHERE id = ?
              LIMIT 1'
-          );
-
-          if (!$updateRefund) {
-            $errors[] = 'Unable to submit refund request right now.';
-          } else {
-            $updateRefund->bind_param('sssii', $refundReason, $evidencePath, $evidenceName, $evidenceSize, $refundId);
-            $persisted = $updateRefund->execute();
-            $updateRefund->close();
-
-            if (!$persisted) {
-              $errors[] = 'Unable to submit refund request right now.';
-            }
-          }
-        } else {
-          $insertRefund = $con->prepare(
-            'INSERT INTO refund_requests (order_id, user_id, reason, status, evidence_path, evidence_name, evidence_size)
-             VALUES (?, ?, ?, "pending", NULLIF(?, ""), NULLIF(?, ""), ?)'
-          );
-
-          if (!$insertRefund) {
-            $errors[] = 'Unable to submit refund request right now.';
-          } else {
-            $insertRefund->bind_param('iisssi', $orderId, $user_id, $refundReason, $evidencePath, $evidenceName, $evidenceSize);
-            $persisted = $insertRefund->execute();
-            $insertRefund->close();
-
-            if (!$persisted) {
-              $errors[] = 'Unable to submit refund request right now.';
-            }
-          }
-        }
-
-        if (!$persisted && $uploadedEvidence && !empty($uploadedEvidence['path'])) {
-          account_delete_refund_evidence_file((string)$uploadedEvidence['path']);
-        }
-
-        if (
-          $persisted &&
-          $uploadedEvidence &&
-          !empty($uploadedEvidence['path']) &&
-          $previousEvidencePath !== '' &&
-          $previousEvidencePath !== (string)$uploadedEvidence['path']
-        ) {
-          account_delete_refund_evidence_file($previousEvidencePath);
-        }
-      }
-
-      if (empty($errors) && $orderRow) {
-        commerza_notify_admin_refund_request(
-          $con,
-          [
-            'order_number' => (string)($orderRow['order_number'] ?? ''),
-            'customer_name' => (string)($orderRow['customer_name'] ?? ''),
-            'customer_email' => (string)($orderRow['customer_email'] ?? ''),
-            'refund_reason' => $refundReason,
-            'refund_deadline' => $deadlineTimestamp ? date('Y-m-d H:i:s', $deadlineTimestamp) : '',
-          ],
-          $refundReason
         );
 
-        $success[] = 'Refund request sent. Our team will review and email you updates.';
-      }
-    } elseif ($action === 'request_delete_account_code') {
-      if (empty($errors)) {
-        $freshUser = fetchUser($con, $user_id);
-        if (!$freshUser) {
-          $errors[] = 'Unable to verify your account right now.';
+        if (!$updateRefund) {
+          $errors[] = 'Unable to submit refund request right now.';
         } else {
-          $pending = account_delete_pending_get();
-          $lastSentAt = (int)($pending['last_sent_at'] ?? 0);
-          if ($lastSentAt > 0 && (time() - $lastSentAt) < 60) {
-            $waitSeconds = max(1, 60 - (time() - $lastSentAt));
-            $errors[] = 'Please wait ' . $waitSeconds . ' second(s) before requesting another delete code.';
-          } else {
-            $email = strtolower(trim((string)($freshUser['email'] ?? '')));
-            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-              $errors[] = 'Your account email is invalid. Update your profile email first.';
-            } else {
-              $code = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-              $mailError = null;
-              $mailSent = commerza_notify_account_deletion_code(
-                $con,
-                $email,
-                (string)($freshUser['full_name'] ?? 'Customer'),
-                $code,
-                $mailError
-              );
+          $updateRefund->bind_param('sssii', $refundReason, $evidencePath, $evidenceName, $evidenceSize, $refundId);
+          $persisted = $updateRefund->execute();
+          $updateRefund->close();
 
-              if (!$mailSent) {
-                $errors[] = $mailError ?: 'Unable to send deletion code. Please try another method or retry later.';
-              } else {
-                account_delete_pending_set([
-                  'user_id' => $user_id,
-                  'email' => $email,
-                  'code_hash' => hash('sha256', $code),
-                  'attempts' => 0,
-                  'expires_at' => time() + 600,
-                  'last_sent_at' => time(),
-                ]);
+          if (!$persisted) {
+            $errors[] = 'Unable to submit refund request right now.';
+          }
+        }
+      } else {
+        $insertRefund = $con->prepare(
+          'INSERT INTO refund_requests (order_id, user_id, reason, status, evidence_path, evidence_name, evidence_size)
+             VALUES (?, ?, ?, "pending", NULLIF(?, ""), NULLIF(?, ""), ?)'
+        );
 
-                $success[] = 'Deletion code sent to your email. Enter the code to permanently delete your account.';
-              }
-            }
+        if (!$insertRefund) {
+          $errors[] = 'Unable to submit refund request right now.';
+        } else {
+          $insertRefund->bind_param('iisssi', $orderId, $user_id, $refundReason, $evidencePath, $evidenceName, $evidenceSize);
+          $persisted = $insertRefund->execute();
+          $insertRefund->close();
+
+          if (!$persisted) {
+            $errors[] = 'Unable to submit refund request right now.';
           }
         }
       }
-    } elseif ($action === 'delete_account_permanently') {
-      if (empty($errors)) {
+
+      if (!$persisted && $uploadedEvidence && !empty($uploadedEvidence['path'])) {
+        account_delete_refund_evidence_file((string)$uploadedEvidence['path']);
+      }
+
+      if (
+        $persisted &&
+        $uploadedEvidence &&
+        !empty($uploadedEvidence['path']) &&
+        $previousEvidencePath !== '' &&
+        $previousEvidencePath !== (string)$uploadedEvidence['path']
+      ) {
+        account_delete_refund_evidence_file($previousEvidencePath);
+      }
+    }
+
+    if (empty($errors) && $orderRow) {
+      commerza_notify_admin_refund_request(
+        $con,
+        [
+          'order_number' => (string)($orderRow['order_number'] ?? ''),
+          'customer_name' => (string)($orderRow['customer_name'] ?? ''),
+          'customer_email' => (string)($orderRow['customer_email'] ?? ''),
+          'refund_reason' => $refundReason,
+          'refund_deadline' => $deadlineTimestamp ? date('Y-m-d H:i:s', $deadlineTimestamp) : '',
+        ],
+        $refundReason
+      );
+
+      $success[] = 'Refund request sent. Our team will review and email you updates.';
+    }
+  } elseif ($action === 'request_delete_account_code') {
+    if (empty($errors)) {
+      $freshUser = fetchUser($con, $user_id);
+      if (!$freshUser) {
+        $errors[] = 'Unable to verify your account right now.';
+      } else {
         $pending = account_delete_pending_get();
-        $freshUser = fetchUser($con, $user_id);
-        $currentPasswordInput = (string)($_POST['delete_account_password'] ?? '');
-
-        if (!$freshUser) {
-          $errors[] = 'Unable to verify your account right now.';
-        } elseif (!is_array($pending)) {
-          $errors[] = 'Request an account deletion code first.';
-        } elseif (!commerza_password_verify($currentPasswordInput, (string)($freshUser['password_hash'] ?? ''))) {
-          $errors[] = 'Enter your current password to confirm account deletion.';
+        $lastSentAt = (int)($pending['last_sent_at'] ?? 0);
+        if ($lastSentAt > 0 && (time() - $lastSentAt) < 60) {
+          $waitSeconds = max(1, 60 - (time() - $lastSentAt));
+          $errors[] = 'Please wait ' . $waitSeconds . ' second(s) before requesting another delete code.';
         } else {
-          $pendingUserId = (int)($pending['user_id'] ?? 0);
-          $pendingEmail = strtolower(trim((string)($pending['email'] ?? '')));
-          $currentEmail = strtolower(trim((string)($freshUser['email'] ?? '')));
-          $expiresAt = (int)($pending['expires_at'] ?? 0);
-
-          if ($pendingUserId !== $user_id || $pendingEmail === '' || $currentEmail !== $pendingEmail) {
-            account_delete_pending_clear();
-            $errors[] = 'Deletion code session is invalid. Request a new code.';
-          } elseif ($expiresAt <= 0 || $expiresAt < time()) {
-            account_delete_pending_clear();
-            $errors[] = 'Deletion code expired. Request a new code.';
+          $email = strtolower(trim((string)($freshUser['email'] ?? '')));
+          if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $errors[] = 'Your account email is invalid. Update your profile email first.';
           } else {
-            $enteredCode = trim((string)($_POST['delete_account_code'] ?? ''));
-            if (!preg_match('/^\d{6}$/', $enteredCode)) {
-              $errors[] = 'Enter the 6-digit account deletion code.';
+            $code = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $mailError = null;
+            $mailSent = commerza_notify_account_deletion_code(
+              $con,
+              $email,
+              (string)($freshUser['full_name'] ?? 'Customer'),
+              $code,
+              $mailError
+            );
+
+            if (!$mailSent) {
+              $errors[] = $mailError ?: 'Unable to send deletion code. Please try another method or retry later.';
             } else {
-              $expectedHash = (string)($pending['code_hash'] ?? '');
-              $enteredHash = hash('sha256', $enteredCode);
+              account_delete_pending_set([
+                'user_id' => $user_id,
+                'email' => $email,
+                'code_hash' => hash('sha256', $code),
+                'attempts' => 0,
+                'expires_at' => time() + 600,
+                'last_sent_at' => time(),
+              ]);
 
-              if ($expectedHash === '' || !hash_equals($expectedHash, $enteredHash)) {
-                $attempts = max(0, (int)($pending['attempts'] ?? 0)) + 1;
-                $pending['attempts'] = $attempts;
+              $success[] = 'Deletion code sent to your email. Enter the code to permanently delete your account.';
+            }
+          }
+        }
+      }
+    }
+  } elseif ($action === 'delete_account_permanently') {
+    if (empty($errors)) {
+      $pending = account_delete_pending_get();
+      $freshUser = fetchUser($con, $user_id);
+      $currentPasswordInput = (string)($_POST['delete_account_password'] ?? '');
 
-                if ($attempts >= 6) {
-                  account_delete_pending_clear();
-                  $errors[] = 'Too many invalid deletion code attempts. Request a new code.';
-                } else {
-                  account_delete_pending_set($pending);
-                  $remaining = max(0, 6 - $attempts);
-                  $errors[] = 'Invalid deletion code. Remaining attempts: ' . $remaining . '.';
-                }
+      if (!$freshUser) {
+        $errors[] = 'Unable to verify your account right now.';
+      } elseif (!is_array($pending)) {
+        $errors[] = 'Request an account deletion code first.';
+      } elseif (!commerza_password_verify($currentPasswordInput, (string)($freshUser['password_hash'] ?? ''))) {
+        $errors[] = 'Enter your current password to confirm account deletion.';
+      } else {
+        $pendingUserId = (int)($pending['user_id'] ?? 0);
+        $pendingEmail = strtolower(trim((string)($pending['email'] ?? '')));
+        $currentEmail = strtolower(trim((string)($freshUser['email'] ?? '')));
+        $expiresAt = (int)($pending['expires_at'] ?? 0);
+
+        if ($pendingUserId !== $user_id || $pendingEmail === '' || $currentEmail !== $pendingEmail) {
+          account_delete_pending_clear();
+          $errors[] = 'Deletion code session is invalid. Request a new code.';
+        } elseif ($expiresAt <= 0 || $expiresAt < time()) {
+          account_delete_pending_clear();
+          $errors[] = 'Deletion code expired. Request a new code.';
+        } else {
+          $enteredCode = trim((string)($_POST['delete_account_code'] ?? ''));
+          if (!preg_match('/^\d{6}$/', $enteredCode)) {
+            $errors[] = 'Enter the 6-digit account deletion code.';
+          } else {
+            $expectedHash = (string)($pending['code_hash'] ?? '');
+            $enteredHash = hash('sha256', $enteredCode);
+
+            if ($expectedHash === '' || !hash_equals($expectedHash, $enteredHash)) {
+              $attempts = max(0, (int)($pending['attempts'] ?? 0)) + 1;
+              $pending['attempts'] = $attempts;
+
+              if ($attempts >= 6) {
+                account_delete_pending_clear();
+                $errors[] = 'Too many invalid deletion code attempts. Request a new code.';
               } else {
-                $profilePicture = (string)($freshUser['profile_picture'] ?? '');
-                $deleted = account_delete_user_permanently($con, $user_id);
+                account_delete_pending_set($pending);
+                $remaining = max(0, 6 - $attempts);
+                $errors[] = 'Invalid deletion code. Remaining attempts: ' . $remaining . '.';
+              }
+            } else {
+              $profilePicture = (string)($freshUser['profile_picture'] ?? '');
+              $deleted = account_delete_user_permanently($con, $user_id);
 
-                if (!$deleted) {
-                  $errors[] = 'Unable to delete your account right now. Please contact support.';
-                } else {
-                  account_delete_pending_clear();
-                  account_delete_profile_picture_file($profilePicture);
-                  commerza_forget_current_remember_token($con);
-                  session_unset();
-                  session_destroy();
-                  header('Location: login.php?account_deleted=1');
-                  exit;
-                }
+              if (!$deleted) {
+                $errors[] = 'Unable to delete your account right now. Please contact support.';
+              } else {
+                account_delete_pending_clear();
+                account_delete_profile_picture_file($profilePicture);
+                commerza_forget_current_remember_token($con);
+                session_unset();
+                session_destroy();
+                header('Location: login.php?account_deleted=1');
+                exit;
               }
             }
           }
         }
       }
-    } else {
-        $errors[] = "Invalid request.";
     }
+  } else {
+    $errors[] = "Invalid request.";
+  }
 
-    if (empty($errors) && $rateScopeUsed !== '') {
-      commerza_rate_limit_reset($con, $rateScopeUsed, $rateIdentifier, $clientIp);
-    }
+  if (empty($errors) && $rateScopeUsed !== '') {
+    commerza_rate_limit_reset($con, $rateScopeUsed, $rateIdentifier, $clientIp);
+  }
 
-    if (empty($errors) && $action !== 'logout') {
-      $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-    }
+  if (empty($errors) && $action !== 'logout') {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+  }
 
-    $user = fetchUser($con, $user_id);
+  $user = fetchUser($con, $user_id);
 
-    if (!$user) {
-        session_unset();
-        session_destroy();
-        header("Location: login.php");
-        exit;
-    }
+  if (!$user) {
+    session_unset();
+    session_destroy();
+    header("Location: login.php");
+    exit;
+  }
 }
 
 $orders = [];
@@ -918,58 +940,77 @@ account_ensure_orders_logistics_columns($con);
 $orderStmt = $con->prepare("SELECT o.id, o.order_number, o.grand_total, o.status, o.created_at, o.updated_at, o.notes, o.delivery_estimate, o.admin_note, COALESCE(GROUP_CONCAT(CONCAT(oi.product_name, ' x', oi.quantity) SEPARATOR '||'), '') AS order_items FROM orders o LEFT JOIN order_items oi ON oi.order_id = o.id WHERE o.user_id = ? GROUP BY o.id, o.order_number, o.grand_total, o.status, o.created_at, o.updated_at, o.notes, o.delivery_estimate, o.admin_note ORDER BY o.created_at DESC");
 
 if ($orderStmt) {
-    $orderStmt->bind_param("i", $user_id);
-    $orderStmt->execute();
-    $orderResult = $orderStmt->get_result();
+  $orderStmt->bind_param("i", $user_id);
+  $orderStmt->execute();
+  $orderResult = $orderStmt->get_result();
 
-    if ($orderResult) {
-        while ($row = $orderResult->fetch_assoc()) {
-            $orders[] = $row;
-        }
+  if ($orderResult) {
+    while ($row = $orderResult->fetch_assoc()) {
+      $orders[] = $row;
     }
+  }
 
-    $orderStmt->close();
+  $orderStmt->close();
 }
 
-  account_ensure_refund_table($con);
+account_ensure_refund_table($con);
 
-  $refundRequestsByOrder = [];
-  $refundStmt = $con->prepare(
-    'SELECT order_id, status, reason, admin_note, evidence_path, evidence_name, evidence_size, requested_at, updated_at
+$refundRequestsByOrder = [];
+$refundStmt = $con->prepare(
+  'SELECT order_id, status, reason, admin_note, evidence_path, evidence_name, evidence_size, requested_at, updated_at
      FROM refund_requests
      WHERE user_id = ?
      ORDER BY updated_at DESC, id DESC'
-  );
+);
 
-  if ($refundStmt) {
-    $refundStmt->bind_param('i', $user_id);
-    $refundStmt->execute();
-    $refundResult = $refundStmt->get_result();
+if ($refundStmt) {
+  $refundStmt->bind_param('i', $user_id);
+  $refundStmt->execute();
+  $refundResult = $refundStmt->get_result();
 
-    if ($refundResult) {
-      while ($row = $refundResult->fetch_assoc()) {
-        $orderId = (int)($row['order_id'] ?? 0);
-        if ($orderId <= 0 || isset($refundRequestsByOrder[$orderId])) {
-          continue;
-        }
-
-        $refundRequestsByOrder[$orderId] = [
-          'status' => strtolower((string)($row['status'] ?? 'pending')),
-          'reason' => (string)($row['reason'] ?? ''),
-          'admin_note' => (string)($row['admin_note'] ?? ''),
-          'evidence_path' => (string)($row['evidence_path'] ?? ''),
-          'evidence_name' => (string)($row['evidence_name'] ?? ''),
-          'evidence_size' => (int)($row['evidence_size'] ?? 0),
-          'requested_at' => (string)($row['requested_at'] ?? ''),
-          'updated_at' => (string)($row['updated_at'] ?? ''),
-        ];
+  if ($refundResult) {
+    while ($row = $refundResult->fetch_assoc()) {
+      $orderId = (int)($row['order_id'] ?? 0);
+      if ($orderId <= 0 || isset($refundRequestsByOrder[$orderId])) {
+        continue;
       }
-    }
 
-    $refundStmt->close();
+      $refundRequestsByOrder[$orderId] = [
+        'status' => strtolower((string)($row['status'] ?? 'pending')),
+        'reason' => (string)($row['reason'] ?? ''),
+        'admin_note' => (string)($row['admin_note'] ?? ''),
+        'evidence_path' => (string)($row['evidence_path'] ?? ''),
+        'evidence_name' => (string)($row['evidence_name'] ?? ''),
+        'evidence_size' => (int)($row['evidence_size'] ?? 0),
+        'requested_at' => (string)($row['requested_at'] ?? ''),
+        'updated_at' => (string)($row['updated_at'] ?? ''),
+      ];
+    }
   }
 
+  $refundStmt->close();
+}
+
 $profile_picture = !empty($user['profile_picture']) ? (string)$user['profile_picture'] : 'frontend/assets/images/logo/commerza-logo.webp';
+$username_value = commerza_username_slug((string)($user['username'] ?? ''));
+if (!commerza_username_is_valid($username_value)) {
+  $username_value = commerza_username_base_from_identity(
+    (string)($user['full_name'] ?? ''),
+    (string)($user['email'] ?? ''),
+    $user_id
+  );
+
+  if (!commerza_username_is_valid($username_value)) {
+    $username_value = 'user' . max(1, $user_id);
+  }
+}
+
+$profile_visibility_value = strtolower(trim((string)($user['profile_visibility'] ?? 'private')));
+if (!in_array($profile_visibility_value, ['private', 'public'], true)) {
+  $profile_visibility_value = 'private';
+}
+
+$profile_visibility_label = $profile_visibility_value === 'public' ? 'Public Profile' : 'Private Profile';
 
 $accountDeletePending = account_delete_pending_get();
 $accountDeleteCodeExpiresIn = 0;
@@ -1080,6 +1121,27 @@ if (is_array($accountDeletePending)) {
 
     #serverSuccess {
       background-color: #198754;
+    }
+
+    #usernameLiveFeedback {
+      min-height: 16px;
+      margin-top: 6px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .profile-visibility-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(255, 102, 0, 0.45);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 11px;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+      color: #ffd8b8;
+      background: rgba(255, 102, 0, 0.1);
     }
   </style>
 </head>
@@ -1196,7 +1258,14 @@ if (is_array($accountDeletePending)) {
             <img src="<?= htmlspecialchars($profile_picture) ?>" class="profile-img mb-3" alt="Profile picture"
               loading="lazy" style="user-select: none" id="accountProfileImage" />
             <h3 class="product-name" id="accountProfileName"><?= htmlspecialchars((string)$user['full_name']) ?></h3>
+            <p class="product-desc mb-1" id="accountProfileUsername">@<?= htmlspecialchars($username_value) ?></p>
             <p class="product-desc" id="accountProfileEmail"><?= htmlspecialchars((string)$user['email']) ?></p>
+            <p class="mb-2">
+              <span class="profile-visibility-pill" id="accountProfileVisibility">
+                <i class="bi <?= $profile_visibility_value === 'public' ? 'bi-globe2' : 'bi-shield-lock' ?>"></i>
+                <?= htmlspecialchars($profile_visibility_label) ?>
+              </span>
+            </p>
 
             <form action="account.php" method="POST" enctype="multipart/form-data" id="updateProfilePictureForm">
               <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
@@ -1350,10 +1419,29 @@ if (is_array($accountDeletePending)) {
                 </div>
 
                 <div class="col-md-6 mb-3">
+                  <label for="username" class="form-label">Username</label>
+                  <input type="text" id="username" name="username" class="form-control search-input"
+                    value="<?= htmlspecialchars($username_value) ?>" required
+                    autocomplete="username" minlength="3" maxlength="24"
+                    pattern="[a-zA-Z][a-zA-Z0-9_]{2,23}"
+                    title="Use 3-24 characters: letters, numbers, underscore." />
+                  <div id="usernameLiveFeedback" aria-live="polite"></div>
+                </div>
+
+                <div class="col-md-6 mb-3">
                   <label for="email" class="form-label">Email Address</label>
                   <input type="email" id="email" name="email" class="form-control search-input"
                     value="<?= htmlspecialchars((string)$user['email']) ?>" required
                     autocomplete="email" maxlength="150" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                  <label for="profile-visibility" class="form-label">Profile Visibility</label>
+                  <select id="profile-visibility" name="profile_visibility" class="form-control search-input" required>
+                    <option value="private" <?= $profile_visibility_value === 'private' ? 'selected' : '' ?>>Private Profile</option>
+                    <option value="public" <?= $profile_visibility_value === 'public' ? 'selected' : '' ?>>Public Profile</option>
+                  </select>
+                  <small class="text-secondary">Public profile shows your username in public-facing areas (like reviews). Private keeps identity generic.</small>
                 </div>
 
                 <div class="col-md-6 mb-3">
@@ -1408,55 +1496,55 @@ if (is_array($accountDeletePending)) {
               <?php else: ?>
                 <?php foreach ($orders as $order): ?>
                   <?php
-                    $orderId = (int)($order['id'] ?? 0);
-                    $status = (string)$order['status'];
-                    $orderUserNote = trim((string)($order['notes'] ?? ''));
-                    $orderAdminNote = trim((string)($order['admin_note'] ?? ''));
-                    $deliveryEstimateRaw = trim((string)($order['delivery_estimate'] ?? ''));
-                    $deliveryEstimateTs = $deliveryEstimateRaw !== '' ? strtotime($deliveryEstimateRaw) : false;
-                    $deliveryEstimateLabel = $deliveryEstimateTs !== false
-                      ? date('d M Y, h:i A', $deliveryEstimateTs)
-                      : '';
-                    $statusClass = 'warning';
+                  $orderId = (int)($order['id'] ?? 0);
+                  $status = (string)$order['status'];
+                  $orderUserNote = trim((string)($order['notes'] ?? ''));
+                  $orderAdminNote = trim((string)($order['admin_note'] ?? ''));
+                  $deliveryEstimateRaw = trim((string)($order['delivery_estimate'] ?? ''));
+                  $deliveryEstimateTs = $deliveryEstimateRaw !== '' ? strtotime($deliveryEstimateRaw) : false;
+                  $deliveryEstimateLabel = $deliveryEstimateTs !== false
+                    ? date('d M Y, h:i A', $deliveryEstimateTs)
+                    : '';
+                  $statusClass = 'warning';
 
-                    if ($status === 'Delivered') {
-                        $statusClass = 'success';
-                    } elseif ($status === 'Cancelled' || $status === 'Refunded') {
-                        $statusClass = 'danger';
-                    } elseif ($status === 'Confirmed' || $status === 'Processing' || $status === 'Shipped') {
-                        $statusClass = 'info';
-                    }
+                  if ($status === 'Delivered') {
+                    $statusClass = 'success';
+                  } elseif ($status === 'Cancelled' || $status === 'Refunded') {
+                    $statusClass = 'danger';
+                  } elseif ($status === 'Confirmed' || $status === 'Processing' || $status === 'Shipped') {
+                    $statusClass = 'info';
+                  }
 
-                    $items = [];
-                    if (!empty($order['order_items'])) {
-                        $items = array_filter(array_map('trim', explode('||', (string)$order['order_items'])));
-                    }
+                  $items = [];
+                  if (!empty($order['order_items'])) {
+                    $items = array_filter(array_map('trim', explode('||', (string)$order['order_items'])));
+                  }
 
-                    $refundState = $refundRequestsByOrder[$orderId] ?? null;
-                    $refundStatus = strtolower((string)($refundState['status'] ?? ''));
-                    $refundAnchor = trim((string)($order['updated_at'] ?? ''));
-                    if ($refundAnchor === '') {
-                      $refundAnchor = trim((string)($order['created_at'] ?? ''));
-                    }
+                  $refundState = $refundRequestsByOrder[$orderId] ?? null;
+                  $refundStatus = strtolower((string)($refundState['status'] ?? ''));
+                  $refundAnchor = trim((string)($order['updated_at'] ?? ''));
+                  if ($refundAnchor === '') {
+                    $refundAnchor = trim((string)($order['created_at'] ?? ''));
+                  }
 
-                    $refundAnchorTs = strtotime($refundAnchor);
-                    $refundDeadlineTs = $refundAnchorTs !== false ? strtotime('+7 days', $refundAnchorTs) : false;
-                    $isWithinRefundWindow = $refundDeadlineTs !== false && $refundDeadlineTs >= time();
-                    $isDelivered = strtolower($status) === 'delivered';
-                    $canRequestRefund = $isDelivered && $isWithinRefundWindow && !$refundState;
+                  $refundAnchorTs = strtotime($refundAnchor);
+                  $refundDeadlineTs = $refundAnchorTs !== false ? strtotime('+7 days', $refundAnchorTs) : false;
+                  $isWithinRefundWindow = $refundDeadlineTs !== false && $refundDeadlineTs >= time();
+                  $isDelivered = strtolower($status) === 'delivered';
+                  $canRequestRefund = $isDelivered && $isWithinRefundWindow && !$refundState;
 
-                    $refundBadgeClass = 'warning';
-                    if ($refundStatus === 'accepted') {
-                      $refundBadgeClass = 'success';
-                    } elseif ($refundStatus === 'rejected') {
-                      $refundBadgeClass = 'danger';
-                    }
+                  $refundBadgeClass = 'warning';
+                  if ($refundStatus === 'accepted') {
+                    $refundBadgeClass = 'success';
+                  } elseif ($refundStatus === 'rejected') {
+                    $refundBadgeClass = 'danger';
+                  }
 
-                    $refundEvidencePath = trim((string)($refundState['evidence_path'] ?? ''));
-                    $refundEvidenceName = trim((string)($refundState['evidence_name'] ?? ''));
-                    if ($refundEvidenceName === '') {
-                      $refundEvidenceName = 'View refund evidence';
-                    }
+                  $refundEvidencePath = trim((string)($refundState['evidence_path'] ?? ''));
+                  $refundEvidenceName = trim((string)($refundState['evidence_name'] ?? ''));
+                  if ($refundEvidenceName === '') {
+                    $refundEvidenceName = 'View refund evidence';
+                  }
                   ?>
                   <div class="card product-card mb-3">
                     <div class="card-body">
@@ -1629,15 +1717,15 @@ if (is_array($accountDeletePending)) {
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>
   <script <?= commerza_csp_nonce_attr() ?>>
-    $(function () {
-      $("#serverError, #serverSuccess").each(function () {
+    $(function() {
+      $("#serverError, #serverSuccess").each(function() {
         const element = $(this);
-        setTimeout(function () {
+        setTimeout(function() {
           element.fadeOut(400);
         }, 3500);
       });
 
-      $(document).on("click keydown", ".account-toggle-password", function (event) {
+      $(document).on("click keydown", ".account-toggle-password", function(event) {
         if (event.type === "keydown" && event.key !== "Enter" && event.key !== " ") {
           return;
         }
@@ -1662,7 +1750,7 @@ if (is_array($accountDeletePending)) {
 
       const addressInput = $("#address");
       const mapFrame = $("#address-map-frame");
-      const refreshAddressMap = function () {
+      const refreshAddressMap = function() {
         if (!addressInput.length || !mapFrame.length) {
           return;
         }
@@ -1679,7 +1767,97 @@ if (is_array($accountDeletePending)) {
       addressInput.on("input", refreshAddressMap);
       refreshAddressMap();
 
-      $("form").on("submit", function () {
+      const profileForm = $("#updateProfileForm");
+      const usernameInput = $("#username");
+      const usernameFeedback = $("#usernameLiveFeedback");
+      const profileCsrf = profileForm.find('input[name="csrf_token"]').val() || "";
+      let usernameTaken = false;
+      let usernameTimer = null;
+
+      const normalizeUsername = function(value) {
+        return (value || "")
+          .toString()
+          .toLowerCase()
+          .replace(/\s+/g, "_")
+          .replace(/[^a-z0-9_]/g, "")
+          .replace(/_+/g, "_")
+          .replace(/^_+|_+$/g, "");
+      };
+
+      const setUsernameFeedback = function(message, color) {
+        if (!usernameFeedback.length) {
+          return;
+        }
+
+        usernameFeedback
+          .text(message)
+          .css("color", color || "#9ca3af");
+      };
+
+      if (usernameInput.length && profileForm.length && profileCsrf !== "") {
+        usernameInput.on("input", function() {
+          const input = $(this);
+          const normalized = normalizeUsername(input.val());
+          input.val(normalized);
+          usernameInput.css("border-color", "");
+          usernameTaken = false;
+          clearTimeout(usernameTimer);
+
+          if (normalized.length < 3) {
+            setUsernameFeedback("Use at least 3 characters.", "#9ca3af");
+            return;
+          }
+
+          usernameTimer = setTimeout(() => {
+            $.post("backend/check_exists.php", {
+                csrf_token: profileCsrf,
+                field: "username",
+                value: normalized,
+                exclude_current: 1,
+              })
+              .done(function(res) {
+                usernameTaken = !!res?.exists;
+                if (usernameTaken) {
+                  usernameInput.css("border-color", "#ef4444");
+                  setUsernameFeedback("Username already taken.", "#ef4444");
+                } else {
+                  usernameInput.css("border-color", "#22c55e");
+                  setUsernameFeedback("Username available.", "#22c55e");
+                }
+              })
+              .fail(function() {
+                usernameTaken = false;
+                usernameInput.css("border-color", "");
+                setUsernameFeedback("", "#9ca3af");
+              });
+          }, 420);
+        });
+
+        profileForm.on("submit", function(event) {
+          const normalized = normalizeUsername(usernameInput.val());
+          usernameInput.val(normalized);
+
+          if (usernameTaken) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            usernameInput.focus();
+            setUsernameFeedback("Choose another username before saving.", "#ef4444");
+            return false;
+          }
+
+          if (normalized.length < 3) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            usernameInput.focus();
+            setUsernameFeedback("Username must be 3-24 characters.", "#ef4444");
+            return false;
+          }
+
+          return true;
+        });
+      }
+
+      $("form").on("submit", function() {
         const btn = $(this).find("button[type='submit']").first();
         if (!btn.length || btn.prop("disabled")) {
           return;

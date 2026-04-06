@@ -1,0 +1,3 @@
+# Commerza base Apache rules
+# Serve the custom 404 page when a route or file is missing.
+ErrorDocument 404 /404.php

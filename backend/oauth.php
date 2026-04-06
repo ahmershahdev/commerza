@@ -266,9 +266,9 @@ if ($googleClientSecret === '') {
 }
 
 $googleRedirectUri = oauth_first_non_empty_env([
-        'COMMERZA_GOOGLE_REDIRECT_URI',
-        'GOOGLE_REDIRECT_URI',
-    ]);
+    'COMMERZA_GOOGLE_REDIRECT_URI',
+    'GOOGLE_REDIRECT_URI',
+]);
 if ($googleRedirectUri === '') {
     $googleRedirectUri = oauth_get_setting($con, 'google_oauth_redirect_uri', $appBase . '/oauth.php?provider=google');
 }
@@ -290,9 +290,9 @@ if ($facebookClientSecret === '') {
 }
 
 $facebookRedirectUri = oauth_first_non_empty_env([
-        'COMMERZA_FACEBOOK_REDIRECT_URI',
-        'FACEBOOK_REDIRECT_URI',
-    ]);
+    'COMMERZA_FACEBOOK_REDIRECT_URI',
+    'FACEBOOK_REDIRECT_URI',
+]);
 if ($facebookRedirectUri === '') {
     $facebookRedirectUri = oauth_get_setting($con, 'facebook_oauth_redirect_uri', $appBase . '/oauth.php?provider=facebook');
 }
@@ -492,7 +492,7 @@ if ($name === '') {
     $name = ucfirst(strtok($email, '@'));
 }
 
-$stmt = $con->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
+$stmt = $con->prepare('SELECT id, full_name, username, username_slug, profile_visibility FROM users WHERE email = ? LIMIT 1');
 if (!$stmt) {
     oauth_redirect_with_error('Server error. Please try again.', $stateMode);
 }
@@ -507,21 +507,64 @@ $userId = 0;
 
 if ($existingUser) {
     $userId = (int)$existingUser['id'];
+
+    $existingUsername = commerza_username_slug((string)($existingUser['username'] ?? ''));
+    $existingSlug = commerza_username_slug((string)($existingUser['username_slug'] ?? ''));
+    $existingVisibility = strtolower(trim((string)($existingUser['profile_visibility'] ?? 'private')));
+    $needsUsernameRepair = !commerza_username_is_valid($existingUsername) || !commerza_username_is_valid($existingSlug);
+    $needsVisibilityRepair = !in_array($existingVisibility, ['private', 'public'], true);
+
+    if ($needsUsernameRepair || $needsVisibilityRepair) {
+        $resolved = commerza_username_resolve_unique(
+            $con,
+            $existingUsername,
+            (string)($existingUser['full_name'] ?? $name),
+            $email,
+            $userId
+        );
+
+        $fixedUsername = (string)($resolved['username'] ?? '');
+        $fixedSlug = (string)($resolved['slug'] ?? $fixedUsername);
+        $fixedVisibility = $needsVisibilityRepair ? 'private' : $existingVisibility;
+
+        if (commerza_username_is_valid($fixedUsername) && commerza_username_is_valid($fixedSlug)) {
+            $repairStmt = $con->prepare(
+                'UPDATE users
+                 SET username = ?, username_slug = ?, profile_visibility = ?
+                 WHERE id = ?
+                 LIMIT 1'
+            );
+
+            if ($repairStmt) {
+                $repairStmt->bind_param('sssi', $fixedUsername, $fixedSlug, $fixedVisibility, $userId);
+                $repairStmt->execute();
+                $repairStmt->close();
+            }
+        }
+    }
 } else {
     $phone = oauth_generate_unique_phone($con);
     $passwordHash = commerza_password_hash(bin2hex(random_bytes(24)));
     $displayName = strlen($name) > 100 ? substr($name, 0, 100) : $name;
+    $resolved = commerza_username_resolve_unique($con, '', $displayName, $email);
+    $username = (string)($resolved['username'] ?? '');
+    $usernameSlug = (string)($resolved['slug'] ?? $username);
+
+    if (!commerza_username_is_valid($username) || !commerza_username_is_valid($usernameSlug)) {
+        oauth_redirect_with_error('Could not generate username for OAuth account.', $stateMode);
+    }
 
     $insertStmt = $con->prepare(
-        'INSERT INTO users (full_name, email, phone, password_hash)
-         VALUES (?, ?, ?, ?)'
+        'INSERT INTO users (full_name, username, username_slug, email, phone, password_hash, profile_visibility)
+         VALUES (?, ?, ?, ?, ?, ?, ?)'
     );
 
     if (!$insertStmt) {
         oauth_redirect_with_error('Server error. Please try again.', $stateMode);
     }
 
-    $insertStmt->bind_param('ssss', $displayName, $email, $phone, $passwordHash);
+    $profileVisibility = 'private';
+    $insertStmt->bind_param('sssssss', $displayName, $username, $usernameSlug, $email, $phone, $passwordHash, $profileVisibility);
     $ok = $insertStmt->execute();
     $newUserId = (int)$insertStmt->insert_id;
     $insertStmt->close();
