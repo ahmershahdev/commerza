@@ -251,12 +251,58 @@ function commerza_public_base_url(): string
     }
 
     if ($prefix === '') {
-        $scriptName = trim((string)($_SERVER['SCRIPT_NAME'] ?? ''), '/');
-        $segments = $scriptName === '' ? [] : explode('/', $scriptName);
+        $scriptName = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? ''));
+        $normalizedScript = preg_replace('#/+#', '/', $scriptName);
+        $normalizedScript = is_string($normalizedScript) ? trim($normalizedScript, '/') : trim($scriptName, '/');
+        $segments = $normalizedScript === ''
+            ? []
+            : array_values(array_filter(explode('/', $normalizedScript), static function ($segment): bool {
+                return $segment !== '';
+            }));
 
-        if (count($segments) >= 2 && !str_ends_with((string)$segments[0], '.php')) {
-            $prefix = '/' . trim((string)$segments[0]);
+        $isSafeSegment = static function (string $segment): bool {
+            if ($segment === '') {
+                return false;
+            }
+
+            if (preg_match('/^[a-z]:$/i', $segment) === 1) {
+                return false;
+            }
+
+            if (str_contains($segment, ':')) {
+                return false;
+            }
+
+            if (str_ends_with(strtolower($segment), '.php')) {
+                return false;
+            }
+
+            return preg_match('/^[a-z0-9._-]+$/i', $segment) === 1;
+        };
+
+        $projectRootPath = realpath(dirname(__DIR__));
+        $projectFolder = basename(is_string($projectRootPath) && $projectRootPath !== '' ? $projectRootPath : dirname(__DIR__));
+
+        if ($projectFolder !== '') {
+            foreach ($segments as $segment) {
+                $candidate = (string)$segment;
+                if ($isSafeSegment($candidate) && strcasecmp($candidate, $projectFolder) === 0) {
+                    $prefix = '/' . trim($candidate);
+                    break;
+                }
+            }
         }
+
+        if ($prefix === '' && count($segments) >= 2) {
+            $firstSegment = trim((string)$segments[0]);
+            if ($isSafeSegment($firstSegment)) {
+                $prefix = '/' . $firstSegment;
+            }
+        }
+    }
+
+    if ($prefix !== '' && str_contains($prefix, ':')) {
+        $prefix = '';
     }
 
     $cached = $scheme . '://' . $host . $prefix;

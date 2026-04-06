@@ -67,90 +67,67 @@ if ($homeVideoStmt) {
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
   <style>
     .app-coming-home {
-      border: 1px solid rgba(188, 52, 20, 0.45);
-      border-radius: 26px;
-      padding: 26px;
+      border: 1px solid rgba(255, 130, 64, 0.42);
+      border-radius: 28px;
+      padding: clamp(20px, 3vw, 32px);
       background:
-        radial-gradient(circle at 50% 6%, rgba(255, 190, 110, 0.22), transparent 42%),
-        linear-gradient(165deg, rgba(15, 6, 7, 0.98), rgba(35, 9, 11, 0.96));
-      box-shadow: 0 24px 54px rgba(0, 0, 0, 0.5);
+        radial-gradient(circle at 12% 4%, rgba(255, 184, 108, 0.24), transparent 35%),
+        radial-gradient(circle at 92% 98%, rgba(255, 120, 58, 0.18), transparent 44%),
+        linear-gradient(155deg, rgba(12, 12, 13, 0.98), rgba(26, 16, 14, 0.96));
+      box-shadow: 0 26px 58px rgba(0, 0, 0, 0.44);
       overflow: hidden;
       position: relative;
-    }
-
-    .app-coming-home::before,
-    .app-coming-home::after {
-      content: "";
-      position: absolute;
-      top: -90px;
-      bottom: -90px;
-      width: min(38vw, 360px);
-      border-radius: 0 26px 26px 0;
-      background:
-        linear-gradient(180deg, rgba(126, 14, 24, 0.94), rgba(64, 7, 16, 0.94)),
-        repeating-linear-gradient(90deg,
-          rgba(255, 255, 255, 0.08) 0,
-          rgba(255, 255, 255, 0.08) 2px,
-          transparent 2px,
-          transparent 16px);
-      box-shadow: inset -10px 0 20px rgba(0, 0, 0, 0.35);
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    .app-coming-home::before {
-      left: -20px;
-      transform-origin: left center;
-      animation: curtainOpenLeft 1.2s ease-out forwards;
-    }
-
-    .app-coming-home::after {
-      right: -20px;
-      transform-origin: right center;
-      border-radius: 26px 0 0 26px;
-      box-shadow: inset 10px 0 20px rgba(0, 0, 0, 0.35);
-      animation: curtainOpenRight 1.2s ease-out forwards;
     }
 
     .app-coming-stage-glow {
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(circle at 50% 0%, rgba(255, 214, 154, 0.26), transparent 34%),
-        radial-gradient(circle at 50% 100%, rgba(255, 104, 43, 0.14), transparent 48%);
+        radial-gradient(circle at 50% -6%, rgba(255, 217, 164, 0.24), transparent 34%),
+        radial-gradient(circle at 50% 108%, rgba(255, 122, 66, 0.16), transparent 44%);
       z-index: 1;
       pointer-events: none;
     }
 
     .app-coming-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-      gap: 20px;
+      grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+      gap: 22px;
       position: relative;
       z-index: 2;
       align-items: stretch;
     }
 
     .app-coming-copy {
-      border: 1px solid rgba(255, 163, 112, 0.24);
+      border: 1px solid rgba(255, 168, 116, 0.24);
       border-radius: 18px;
-      padding: 18px;
-      background: linear-gradient(180deg, rgba(16, 16, 16, 0.7), rgba(10, 10, 10, 0.62));
+      padding: 20px;
+      background: linear-gradient(180deg, rgba(16, 16, 16, 0.76), rgba(10, 10, 10, 0.64));
       box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    }
+
+    .app-coming-copy .section-kicker {
+      margin-bottom: 8px;
+      color: #ffc189;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
     }
 
     .app-coming-copy .section-title {
       font-family: 'Playfair Display', serif;
-      font-size: clamp(1.5rem, 2.6vw, 2.1rem);
-      letter-spacing: 0.02em;
+      font-size: clamp(1.55rem, 2.6vw, 2.15rem);
+      letter-spacing: 0.01em;
       margin-bottom: 10px;
-      color: #ffe5ca;
+      color: #ffe6cc;
     }
 
     .app-coming-copy p {
-      color: #e6d4c9;
+      color: #e8d6c9;
       font-family: 'Inter', sans-serif;
       margin-bottom: 10px;
+      line-height: 1.58;
     }
 
     .app-bullet-row {
@@ -162,7 +139,7 @@ if ($homeVideoStmt) {
 
     .app-bullet {
       border: 1px solid rgba(255, 177, 128, 0.36);
-      background: rgba(72, 22, 12, 0.5);
+      background: rgba(72, 22, 12, 0.46);
       border-radius: 999px;
       color: #ffd9b7;
       font-family: 'JetBrains Mono', monospace;
@@ -176,47 +153,51 @@ if ($homeVideoStmt) {
     .app-launch-timeline {
       margin-top: 16px;
       display: grid;
-      gap: 8px;
+      gap: 9px;
     }
 
     .app-launch-step {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 10px;
-      color: #f5e0ce;
-      font-size: 0.88rem;
+      color: #f5e4d4;
+      font-size: 0.89rem;
+      line-height: 1.44;
     }
 
     .app-launch-step span {
-      width: 22px;
-      height: 22px;
+      width: 24px;
+      height: 24px;
       border-radius: 50%;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      background: rgba(255, 131, 60, 0.26);
-      border: 1px solid rgba(255, 173, 105, 0.38);
+      background: rgba(255, 136, 66, 0.25);
+      border: 1px solid rgba(255, 179, 111, 0.38);
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.68rem;
       color: #ffd8b4;
       flex-shrink: 0;
+      margin-top: 1px;
     }
 
     .app-device-frame {
-      border: 1px solid rgba(255, 128, 76, 0.35);
+      border: 1px solid rgba(255, 138, 81, 0.36);
       border-radius: 18px;
-      background: rgba(12, 8, 8, 0.68);
-      padding: 14px;
+      background: rgba(12, 8, 8, 0.72);
+      padding: 15px;
       backdrop-filter: blur(4px);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
     }
 
     .app-device-head {
       font-size: 0.72rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: #ffbe82;
+      color: #ffc58c;
       font-family: 'JetBrains Mono', monospace;
-      margin-bottom: 8px;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -235,7 +216,6 @@ if ($homeVideoStmt) {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
-      margin-bottom: 12px;
     }
 
     .app-feature-col {
@@ -276,41 +256,51 @@ if ($homeVideoStmt) {
 
     .store-row {
       display: grid;
-      grid-template-columns: 1fr;
-      gap: 8px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
     }
 
     .store-pill {
-      border: 1px solid rgba(255, 172, 116, 0.3);
+      border: 1px solid rgba(255, 172, 116, 0.33);
       border-radius: 12px;
-      padding: 9px 10px;
-      background: rgba(25, 11, 9, 0.72);
+      padding: 10px 11px;
+      background: rgba(25, 11, 9, 0.74);
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 10px;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .store-pill:hover,
+    .store-pill:focus-within {
+      transform: translateY(-1px);
+      border-color: rgba(255, 197, 145, 0.56);
     }
 
     .store-pill strong {
       display: block;
       color: #fff;
       font-size: 0.88rem;
+      line-height: 1.25;
     }
 
     .store-pill small {
-      color: #ccb5a5;
+      color: #d5b8a7;
       display: block;
       font-size: 0.68rem;
       text-transform: uppercase;
       letter-spacing: 0.07em;
       font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 2px;
     }
 
     .store-pill i {
       color: #ffd19c;
-      font-size: 1.1rem;
+      font-size: 1.08rem;
       width: 22px;
       text-align: center;
+      flex-shrink: 0;
     }
 
     .store-pill span {
@@ -323,26 +313,7 @@ if ($homeVideoStmt) {
       text-transform: uppercase;
       font-family: 'JetBrains Mono', monospace;
       white-space: nowrap;
-    }
-
-    @keyframes curtainOpenLeft {
-      0% {
-        transform: translateX(0) scaleX(1);
-      }
-
-      100% {
-        transform: translateX(-74%) scaleX(0.82);
-      }
-    }
-
-    @keyframes curtainOpenRight {
-      0% {
-        transform: translateX(0) scaleX(1);
-      }
-
-      100% {
-        transform: translateX(74%) scaleX(0.82);
-      }
+      flex-shrink: 0;
     }
 
     @keyframes pulseLive {
@@ -364,9 +335,8 @@ if ($homeVideoStmt) {
         grid-template-columns: 1fr;
       }
 
-      .app-coming-home::before,
-      .app-coming-home::after {
-        width: min(44vw, 300px);
+      .store-row {
+        grid-template-columns: 1fr;
       }
     }
 
@@ -375,14 +345,16 @@ if ($homeVideoStmt) {
         padding: 18px;
       }
 
-      .app-feature-columns {
-        grid-template-columns: 1fr;
+      .app-coming-copy {
+        padding: 16px;
       }
 
-      .app-coming-home::before,
-      .app-coming-home::after {
-        top: -50px;
-        bottom: -50px;
+      .app-device-frame {
+        padding: 13px;
+      }
+
+      .app-feature-columns {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -698,7 +670,6 @@ if ($homeVideoStmt) {
             <p class="hero-subtitle">Discover hand finished timepieces crafted for modern life. Bold
               silhouettes, luminous dials, and movements engineered to last.</p>
             <div class="hero-actions">
-              <a href="shop-category-a.php" class="btn hero-btn-primary">Shop Automatic Vault</a>
               <a href="shop-category-b.php" class="btn hero-btn-outline text-white">Explore Signature Series</a>
             </div>
             <div class="hero-stats">
@@ -1182,10 +1153,10 @@ if ($homeVideoStmt) {
         <div class="app-coming-stage-glow" aria-hidden="true"></div>
         <div class="app-coming-grid">
           <div class="app-coming-copy">
-            <p class="section-kicker">Stage Lights On</p>
-            <h2 id="homeAppSoonTitle" class="section-title">Commerza Mobile App Arrives Behind The Curtain</h2>
-            <p>Our first mobile release is being crafted like a product premiere: faster browse flows, smarter watch discovery, and checkout optimized for one-handed speed.</p>
-            <p>As the curtains open, early access invites will roll out first, followed by a wider public launch in both major stores.</p>
+            <p class="section-kicker">Mobile App Update</p>
+            <h2 id="homeAppSoonTitle" class="section-title">Commerza Mobile App Is Coming Soon</h2>
+            <p>We are building the Commerza mobile app to make watch discovery, wishlist sync, and checkout much faster on mobile.</p>
+            <p>Launch announcements will be shared with our community first, followed by full availability on both major app stores.</p>
             <div class="app-bullet-row" aria-hidden="true">
               <span class="app-bullet">Wishlist Sync</span>
               <span class="app-bullet">Order Tracking</span>
@@ -1193,16 +1164,16 @@ if ($homeVideoStmt) {
               <span class="app-bullet">Drop Alerts</span>
             </div>
             <div class="app-launch-timeline" aria-label="Mobile app rollout timeline">
-              <div class="app-launch-step"><span>1</span>Private beta for loyal Commerza shoppers</div>
-              <div class="app-launch-step"><span>2</span>Feature wave: reviews, support chat, reorder shortcuts</div>
-              <div class="app-launch-step"><span>3</span>Public store launch with launch-week rewards</div>
+              <div class="app-launch-step"><span>1</span>Closed beta testing and stability tuning</div>
+              <div class="app-launch-step"><span>2</span>Final polish for checkout, notifications, and support</div>
+              <div class="app-launch-step"><span>3</span>Public release on Google Play Store and Apple App Store</div>
             </div>
           </div>
           <div class="app-device-frame">
-            <div class="app-device-head"><span class="app-live-dot"></span>Commerza mobile preview</div>
+            <div class="app-device-head"><span class="app-live-dot"></span>Store launch status</div>
             <div class="app-feature-columns" aria-label="Commerza app feature roadmap">
               <div class="app-feature-col">
-                <h3>Discovery Engine</h3>
+                <h3>Shopping Features</h3>
                 <ul class="app-feature-list">
                   <li><i class="bi bi-stars"></i><span>Personalized watch recommendations</span></li>
                   <li><i class="bi bi-search"></i><span>Lightning filters for movement, dial, and finish</span></li>
@@ -1211,7 +1182,7 @@ if ($homeVideoStmt) {
                 </ul>
               </div>
               <div class="app-feature-col">
-                <h3>Checkout + Support</h3>
+                <h3>Checkout And Support</h3>
                 <ul class="app-feature-list">
                   <li><i class="bi bi-shield-lock"></i><span>Secure one-tap checkout with saved profiles</span></li>
                   <li><i class="bi bi-truck"></i><span>Live order timeline with courier checkpoints</span></li>
@@ -1224,18 +1195,18 @@ if ($homeVideoStmt) {
               <div class="store-pill" aria-label="Coming soon on Google Play Store">
                 <i class="bi bi-google-play"></i>
                 <div>
-                  <small>Curtain Call On</small>
+                  <small>Coming Soon On</small>
                   <strong>Google Play Store</strong>
                 </div>
-                <span>Pre-register</span>
+                <span>Android</span>
               </div>
               <div class="store-pill" aria-label="Coming soon on Apple App Store">
                 <i class="bi bi-apple"></i>
                 <div>
-                  <small>Curtain Call On</small>
+                  <small>Coming Soon On</small>
                   <strong>Apple App Store</strong>
                 </div>
-                <span>Waitlist</span>
+                <span>iOS</span>
               </div>
             </div>
           </div>
@@ -1244,20 +1215,31 @@ if ($homeVideoStmt) {
 
       <div class="modal fade" id="newsletterModal" tabindex="-1" aria-labelledby="newsletterModalLabel"
         aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-          <div class="modal-content" style="background:#121212; border:1px solid rgba(255,102,0,0.3);">
-            <div class="modal-header" style="border-bottom:1px solid rgba(255,102,0,0.2);">
-              <h5 class="modal-title" id="newsletterModalLabel" style="color:#ff6600;">Join the Commerza Circle</h5>
+        <div class="modal-dialog modal-dialog-centered newsletter-modal-dialog">
+          <div class="modal-content newsletter-modal-content">
+            <div class="modal-header newsletter-modal-header">
+              <div>
+                <p class="newsletter-modal-kicker mb-1">Commerza Insider</p>
+                <h5 class="modal-title newsletter-modal-title" id="newsletterModalLabel">Join the Commerza Circle</h5>
+              </div>
               <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                 aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-              <p class="text-secondary">Get early access to drops, offers, and updates.</p>
-              <form id="newsletterForm" class="mt-3">
-                <label for="newsletterEmail" class="form-label text-white">Email</label>
-                <input type="email" class="form-control search-input" id="newsletterEmail" placeholder="you@example.com"
-                  required maxlength="150">
-                <button type="submit" class="btn product-btn-buy w-100 mt-3">Subscribe</button>
+            <div class="modal-body newsletter-modal-body">
+              <p class="newsletter-modal-text">Get early access to limited drops, launch offers, and collector updates before public release.</p>
+              <form id="newsletterForm" class="newsletter-modal-form mt-3">
+                <label for="newsletterEmail" class="form-label newsletter-modal-label">Email Address</label>
+                <div class="newsletter-modal-input-wrap">
+                  <i class="bi bi-envelope"></i>
+                  <input type="email" class="form-control search-input newsletter-modal-input" id="newsletterEmail" placeholder="you@example.com"
+                    required maxlength="150">
+                </div>
+                <div class="newsletter-modal-points" aria-hidden="true">
+                  <span><i class="bi bi-bell"></i> Drop Alerts</span>
+                  <span><i class="bi bi-stars"></i> Insider Offers</span>
+                  <span><i class="bi bi-clock-history"></i> Early Access</span>
+                </div>
+                <button type="submit" class="btn product-btn-buy w-100 mt-3">Subscribe Now</button>
               </form>
             </div>
           </div>
@@ -1293,15 +1275,23 @@ if ($homeVideoStmt) {
           <div class="col-12 col-lg-7">
             <p class="section-kicker">Stay In Sync</p>
             <h2 class="section-title">Get first access to limited drops</h2>
-            <p class="newsletter-text">Join the Commerza list for early launches, exclusive offers, and
-              collector stories.</p>
+            <p class="newsletter-text">Join the Commerza list for early launches, exclusive offers, and collector stories.</p>
+            <div class="newsletter-points" aria-hidden="true">
+              <span class="newsletter-point"><i class="bi bi-lightning-charge"></i>Priority launch alerts</span>
+              <span class="newsletter-point"><i class="bi bi-gift"></i>Member-only offers</span>
+              <span class="newsletter-point"><i class="bi bi-shield-check"></i>No spam, easy unsubscribe</span>
+            </div>
           </div>
           <div class="col-12 col-lg-5">
-            <form class="newsletter-form">
-              <input type="email" class="newsletter-input" placeholder="Enter your email" aria-label="Email"
-                maxlength="150">
+            <form class="newsletter-form newsletter-form-upgraded">
+              <div class="newsletter-input-wrap">
+                <i class="bi bi-envelope"></i>
+                <input type="email" class="newsletter-input" placeholder="Enter your email" aria-label="Email"
+                  required maxlength="150">
+              </div>
               <button type="submit" class="btn hero-btn-primary">Notify Me</button>
             </form>
+            <p class="newsletter-footnote">Weekly highlights only. Unsubscribe anytime.</p>
           </div>
         </div>
       </section>
