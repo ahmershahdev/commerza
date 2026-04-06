@@ -2833,6 +2833,481 @@ function exportProductsAsCSV() {
   showNotification("CSV exported!", "success");
 }
 
+function downloadSampleProductsCSV() {
+  const headers = [
+    "section_id",
+    "section_name",
+    "page",
+    "category",
+    "subcategory",
+    "name",
+    "description",
+    "image",
+    "video",
+    "product_code",
+    "warranty_info",
+    "dispatch_info",
+    "price",
+    "sale_price",
+    "stock",
+    "movement",
+  ];
+
+  const rows = [
+    [
+      "featured-collection",
+      "Featured Collection",
+      "index.php",
+      "Premium Watches",
+      "Luxury",
+      "Aurora Black Steel",
+      "Elegant black steel watch with premium finish.",
+      "frontend/assets/images/products/featured/aurora-black-steel.webp",
+      "",
+      "CMRZ-00041",
+      "12-month seller warranty",
+      "Dispatch in 24-48 hours",
+      "12900",
+      "11499",
+      "17",
+      "quartz",
+    ],
+    [
+      "sports-division",
+      "Sports & Sales Division",
+      "shop-category-b.php",
+      "Sports Watches",
+      "Performance",
+      "Runner Tactical Pro",
+      "Durable sports watch built for active daily use.",
+      "frontend/assets/images/products/sports/runner-tactical-pro.webp",
+      "",
+      "CMRZ-00042",
+      "18-month seller warranty",
+      "Dispatch in 24-48 hours",
+      "9900",
+      "8500",
+      "22",
+      "smart",
+    ],
+  ];
+
+  const csv = [headers, ...rows]
+    .map((row) =>
+      row
+        .map((value) => `"${String(value || "").replace(/"/g, '""')}"`)
+        .join(","),
+    )
+    .join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "commerza-products-sample.csv";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  showNotification("Sample CSV downloaded.", "success");
+}
+
+function parseCsvRecords(csvText) {
+  const records = [];
+  let row = [];
+  let value = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < csvText.length; i += 1) {
+    const char = csvText[i];
+    const next = csvText[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        value += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      row.push(value);
+      value = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && next === "\n") {
+        i += 1;
+      }
+
+      row.push(value);
+      if (row.some((cell) => String(cell || "").trim() !== "")) {
+        records.push(row);
+      }
+      row = [];
+      value = "";
+      continue;
+    }
+
+    value += char;
+  }
+
+  row.push(value);
+  if (row.some((cell) => String(cell || "").trim() !== "")) {
+    records.push(row);
+  }
+
+  return records;
+}
+
+function normalizeImportKey(value) {
+  return (value || "")
+    .toString()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function parseCsvObjects(csvText) {
+  const records = parseCsvRecords(csvText || "");
+  if (records.length < 2) {
+    return [];
+  }
+
+  const headers = records[0].map((header) => normalizeImportKey(header));
+  const rows = [];
+
+  for (let i = 1; i < records.length; i += 1) {
+    const record = records[i];
+    const row = {};
+    headers.forEach((header, index) => {
+      if (!header) {
+        return;
+      }
+
+      row[header] = (record[index] || "").toString().trim();
+    });
+
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+function readImportField(row, aliases) {
+  for (const alias of aliases) {
+    const key = normalizeImportKey(alias);
+    const value = (row?.[key] || "").toString().trim();
+    if (value !== "") {
+      return value;
+    }
+  }
+
+  return "";
+}
+
+function normalizeImportMovement(value) {
+  const normalized = (value || "").toString().trim().toLowerCase();
+  if (normalized === "auto" || normalized === "automatic") {
+    return "auto";
+  }
+  if (normalized === "smart" || normalized === "digital") {
+    return "smart";
+  }
+  return "quartz";
+}
+
+function buildCatalogFromCsvRows(rows) {
+  const sectionMap = new Map();
+  const usedSectionIds = new Set();
+  const products = [];
+  let productIdSeed = 1;
+
+  rows.forEach((row) => {
+    const productName = readImportField(row, ["name", "product_name"]);
+    if (!productName) {
+      return;
+    }
+
+    const rawSectionName = readImportField(row, ["section_name", "section"]);
+    const rawSectionId = readImportField(row, ["section_id", "sectionid"]);
+    const sectionName = rawSectionName || "Imported Section";
+    const sectionIdBase = slugifySection(
+      rawSectionId || sectionName || "imported",
+    );
+    let sectionId = sectionIdBase || "imported";
+    let suffix = 2;
+
+    while (!sectionMap.has(sectionId) && usedSectionIds.has(sectionId)) {
+      sectionId = `${sectionIdBase || "imported"}-${suffix++}`;
+    }
+
+    if (!sectionMap.has(sectionId)) {
+      sectionMap.set(sectionId, {
+        sectionId,
+        sectionName,
+        page: readImportField(row, ["page"]) || "index.php",
+        category: readImportField(row, ["category"]) || "Imported Products",
+        subcategory: readImportField(row, ["subcategory"]),
+      });
+      usedSectionIds.add(sectionId);
+    }
+
+    const stock = Math.max(
+      0,
+      parseInt(readImportField(row, ["stock"]), 10) || 0,
+    );
+    const productId = productIdSeed++;
+    const basePrice = Number.parseFloat(readImportField(row, ["price"])) || 0;
+    const salePriceRaw = Number.parseFloat(
+      readImportField(row, ["sale_price", "saleprice"]),
+    );
+    const salePrice = Number.isFinite(salePriceRaw) ? salePriceRaw : basePrice;
+
+    products.push({
+      id: productId,
+      sectionId,
+      sectionName: sectionMap.get(sectionId)?.sectionName || sectionName,
+      page: sectionMap.get(sectionId)?.page || "index.php",
+      category: sectionMap.get(sectionId)?.category || "Imported Products",
+      subcategory: sectionMap.get(sectionId)?.subcategory || "",
+      name: productName,
+      description: readImportField(row, ["description"]) || "Imported product",
+      image:
+        readImportField(row, ["image", "image_url"]) ||
+        "frontend/assets/images/products/placeholder.webp",
+      video: readImportField(row, ["video", "video_url"]),
+      productCode: normalizeProductCodeInput(
+        readImportField(row, ["product_code", "productcode", "code"]),
+        productId,
+      ),
+      warrantyInfo: normalizeProductMetaInput(
+        readImportField(row, ["warranty_info", "warranty"]),
+        "12-month seller warranty",
+        120,
+      ),
+      dispatchInfo: normalizeProductMetaInput(
+        readImportField(row, ["dispatch_info", "dispatch"]),
+        stock > 0 ? "Dispatch in 24-48 hours" : "Pre-order availability",
+        120,
+      ),
+      price: Math.max(0, basePrice),
+      salePrice: Math.max(0, salePrice),
+      stock,
+      movement: normalizeImportMovement(readImportField(row, ["movement"])),
+      createdAt: new Date().toISOString().slice(0, 10),
+    });
+  });
+
+  if (!products.length) {
+    throw new Error("The uploaded CSV has no valid product rows.");
+  }
+
+  return {
+    sections: Array.from(sectionMap.values()),
+    products,
+  };
+}
+
+function buildCatalogFromJsonPayload(rawData) {
+  const inputSections = Array.isArray(rawData?.sections)
+    ? rawData.sections
+    : Array.isArray(rawData)
+      ? rawData
+      : [];
+
+  if (!inputSections.length) {
+    throw new Error("JSON must contain a sections array with products.");
+  }
+
+  const sectionMap = new Map();
+  const usedSectionIds = new Set();
+  const products = [];
+  let productIdSeed = 1;
+  const usedProductIds = new Set();
+
+  inputSections.forEach((section) => {
+    const sectionName = (
+      section?.sectionName ||
+      section?.name ||
+      "Imported Section"
+    )
+      .toString()
+      .trim();
+    const sectionIdBase = slugifySection(
+      (section?.sectionId || section?.id || sectionName || "imported")
+        .toString()
+        .trim(),
+    );
+
+    let sectionId = sectionIdBase || "imported";
+    let suffix = 2;
+    while (!sectionMap.has(sectionId) && usedSectionIds.has(sectionId)) {
+      sectionId = `${sectionIdBase || "imported"}-${suffix++}`;
+    }
+
+    sectionMap.set(sectionId, {
+      sectionId,
+      sectionName: sectionName || "Imported Section",
+      page: (section?.page || "index.php").toString().trim() || "index.php",
+      category: (section?.category || "Imported Products").toString().trim(),
+      subcategory: (section?.subcategory || "").toString().trim(),
+    });
+    usedSectionIds.add(sectionId);
+
+    const sectionProducts = Array.isArray(section?.products)
+      ? section.products
+      : [];
+
+    sectionProducts.forEach((product) => {
+      const name = (product?.name || "").toString().trim();
+      if (!name) {
+        return;
+      }
+
+      const providedId = parseInt(product?.id, 10);
+      let productId =
+        Number.isInteger(providedId) && providedId > 0
+          ? providedId
+          : productIdSeed;
+
+      while (usedProductIds.has(productId)) {
+        productId += 1;
+      }
+
+      usedProductIds.add(productId);
+      productIdSeed = Math.max(productIdSeed + 1, productId + 1);
+
+      const stock = Math.max(0, parseInt(product?.stock, 10) || 0);
+      const rawPrice = Number.parseFloat(product?.price);
+      const basePrice = Number.isFinite(rawPrice) ? Math.max(0, rawPrice) : 0;
+      const rawSale = Number.parseFloat(product?.salePrice);
+      const salePrice = Number.isFinite(rawSale)
+        ? Math.max(0, rawSale)
+        : basePrice;
+
+      products.push({
+        id: productId,
+        sectionId,
+        sectionName:
+          sectionMap.get(sectionId)?.sectionName || "Imported Section",
+        page: sectionMap.get(sectionId)?.page || "index.php",
+        category: sectionMap.get(sectionId)?.category || "Imported Products",
+        subcategory: sectionMap.get(sectionId)?.subcategory || "",
+        name,
+        description: (product?.description || "Imported product").toString(),
+        image:
+          (product?.image || "").toString().trim() ||
+          "frontend/assets/images/products/placeholder.webp",
+        video: (product?.video || "").toString().trim(),
+        productCode: normalizeProductCodeInput(
+          (product?.productCode || product?.product_code || "").toString(),
+          productId,
+        ),
+        warrantyInfo: normalizeProductMetaInput(
+          (product?.warrantyInfo || product?.warranty_info || "").toString(),
+          "12-month seller warranty",
+          120,
+        ),
+        dispatchInfo: normalizeProductMetaInput(
+          (product?.dispatchInfo || product?.dispatch_info || "").toString(),
+          stock > 0 ? "Dispatch in 24-48 hours" : "Pre-order availability",
+          120,
+        ),
+        price: basePrice,
+        salePrice,
+        stock,
+        movement: normalizeImportMovement(product?.movement || "quartz"),
+        createdAt: new Date().toISOString().slice(0, 10),
+      });
+    });
+  });
+
+  if (!products.length) {
+    throw new Error("JSON import has no valid products.");
+  }
+
+  return {
+    sections: Array.from(sectionMap.values()),
+    products,
+  };
+}
+
+function applyImportedCatalogData(catalog) {
+  const importedSections = Array.isArray(catalog?.sections)
+    ? catalog.sections
+    : [];
+  const importedProducts = Array.isArray(catalog?.products)
+    ? catalog.products
+    : [];
+
+  if (!importedSections.length || !importedProducts.length) {
+    throw new Error("Imported file has no usable sections/products.");
+  }
+
+  allSections = importedSections;
+  productsData = importedProducts;
+  nextId = productsData.length
+    ? Math.max(...productsData.map((p) => parseInt(p?.id, 10) || 0)) + 1
+    : 1;
+  nextSectionId = allSections.length + 1;
+  window.currentSectionFilter = "";
+
+  renderSectionDropdowns();
+  renderSectionsTable();
+  renderProductsTable();
+  calculateDashboardMetrics();
+  updateNotifications();
+  saveProductsToJSON();
+}
+
+async function importProductsFromFileInput() {
+  const input = document.getElementById("bulkProductsFile");
+  if (!input || !input.files || input.files.length === 0) {
+    showNotification("Please choose a CSV or JSON file first.", "warning");
+    return;
+  }
+
+  const file = input.files[0];
+  const confirmed = await showCustomConfirmDialog(
+    "Import will replace current product sections and products. Continue?",
+    "Confirm Bulk Import",
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  const text = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result || "").toString());
+    reader.onerror = () => reject(new Error("Unable to read uploaded file."));
+    reader.readAsText(file);
+  });
+
+  try {
+    const fileName = (file?.name || "").toLowerCase();
+    const isJson = fileName.endsWith(".json") || file.type.includes("json");
+    let catalog = null;
+
+    if (isJson) {
+      const parsed = JSON.parse(text || "{}");
+      catalog = buildCatalogFromJsonPayload(parsed);
+    } else {
+      const rows = parseCsvObjects(text || "");
+      catalog = buildCatalogFromCsvRows(rows);
+    }
+
+    applyImportedCatalogData(catalog);
+    input.value = "";
+    showNotification("Bulk upload completed successfully.", "success");
+  } catch (error) {
+    showNotification(
+      error?.message || "Unable to import products file.",
+      "danger",
+    );
+  }
+}
+
 function showNotification(message, type) {
   const alertClass =
     type === "success"
@@ -3305,6 +3780,8 @@ $(document).ready(function () {
   applyButtonCooldown("#saveProductBtn");
   applyButtonCooldown("#saveSectionBtn");
   applyButtonCooldown("#resetSectionBtn");
+  applyButtonCooldown("#bulkProductsImportBtn");
+  applyButtonCooldown("#downloadSampleProductsCsvBtn");
   applyButtonCooldown("#saveContactBtn");
   applyButtonCooldown("#saveSocialBtn");
   applyButtonCooldown("#resetSocialBtn");
@@ -3421,13 +3898,41 @@ $(document).ready(function () {
   $(document)
     .off("change", ".customer-select-row")
     .on("change", ".customer-select-row", function () {
-      const total = $(".customer-select-row").length;
+      const total = $(".customer-select-row:not(:disabled)").length;
       const selected = $(".customer-select-row:checked").length;
       $("#customersSelectAll").prop("checked", total > 0 && total === selected);
     });
 
+  $("#customersSearchInput")
+    .off("input change")
+    .on("input change", function () {
+      displayAllCustomers();
+    });
+
+  $("#bulkProductsImportBtn")
+    .off("click")
+    .on("click", importProductsFromFileInput);
+
+  $("#downloadSampleProductsCsvBtn")
+    .off("click")
+    .on("click", downloadSampleProductsCSV);
+
   $("#bulkDeleteOrdersBtn").off("click").on("click", bulkDeleteOrders);
   $("#bulkDeleteCustomersBtn").off("click").on("click", bulkDeleteCustomers);
+
+  $(document)
+    .off("click", ".delete-customer-btn")
+    .on("click", ".delete-customer-btn", function () {
+      const customerId = parseInt($(this).data("customerId"), 10) || 0;
+      const customerName = ($(this).data("customerName") || "Customer")
+        .toString()
+        .trim();
+      if (customerId <= 0) {
+        showNotification("Customer id is invalid.", "warning");
+        return;
+      }
+      deleteSingleCustomer(customerId, customerName || "Customer");
+    });
 
   $(document)
     .off("click", ".refund-status-btn")
@@ -4754,28 +5259,106 @@ function displayAllOrders() {
   });
 }
 
+function normalizeCustomerSearchText(value) {
+  return (value || "").toString().trim().toLowerCase();
+}
+
+function customerMatchesSearch(customer, query) {
+  const searchValue = normalizeCustomerSearchText(query);
+  if (!searchValue) {
+    return true;
+  }
+
+  const haystack = [
+    customer?.name,
+    customer?.username,
+    customer?.email,
+    customer?.phone,
+  ]
+    .map((entry) => normalizeCustomerSearchText(entry))
+    .filter(Boolean);
+
+  return haystack.some((entry) => entry.includes(searchValue));
+}
+
+function updateCustomerSearchSuggestions(customers, query) {
+  const datalist = document.getElementById("customersSearchSuggestions");
+  if (!datalist) {
+    return;
+  }
+
+  datalist.innerHTML = "";
+  const searchValue = normalizeCustomerSearchText(query);
+  if (!searchValue) {
+    return;
+  }
+
+  const suggestionSet = new Set();
+
+  customers.forEach((customer) => {
+    const options = [
+      (customer?.name || "").toString().trim(),
+      (customer?.username || "").toString().trim(),
+      (customer?.email || "").toString().trim(),
+    ].filter(Boolean);
+
+    options.forEach((value) => {
+      const normalized = normalizeCustomerSearchText(value);
+      if (!normalized.includes(searchValue)) {
+        return;
+      }
+
+      if (suggestionSet.size >= 14 || suggestionSet.has(value)) {
+        return;
+      }
+
+      suggestionSet.add(value);
+      const option = document.createElement("option");
+      option.value = value;
+      datalist.appendChild(option);
+    });
+  });
+}
+
 function displayAllCustomers() {
-  let tbody = document.querySelector("#customersTable tbody");
+  const tbody = document.querySelector("#customersTable tbody");
   if (!tbody) return;
 
   tbody.innerHTML = "";
 
   const customers = getAdminCustomersData();
+  const searchInput = document.getElementById("customersSearchInput");
+  const searchQuery = searchInput ? searchInput.value : "";
+  const filteredCustomers = customers.filter((customer) =>
+    customerMatchesSearch(customer, searchQuery),
+  );
 
-  if (customers.length === 0) {
-    tbody.innerHTML =
-      '<tr><td colspan="7" class="text-center py-4 text-secondary">No customers found</td></tr>';
+  updateCustomerSearchSuggestions(customers, searchQuery);
+
+  if (filteredCustomers.length === 0) {
+    const noMatch = normalizeCustomerSearchText(searchQuery) !== "";
+    tbody.innerHTML = noMatch
+      ? '<tr><td colspan="9" class="text-center py-4 text-secondary">No customers match this search.</td></tr>'
+      : '<tr><td colspan="9" class="text-center py-4 text-secondary">No customers found</td></tr>';
+    $("#customersSelectAll").prop("checked", false);
     return;
   }
 
-  customers.forEach((customer) => {
+  filteredCustomers.forEach((customer) => {
     const customerId = Number(customer.id || customer.userId || 0);
     const canDelete = customerId > 0;
     const customerName = escapeHtml(customer.name || "Customer");
+    const customerUsernameRaw = (customer.username || "").toString().trim();
+    const customerUsername = customerUsernameRaw
+      ? `@${escapeHtml(customerUsernameRaw)}`
+      : '<span class="text-secondary small">Private / Not set</span>';
     const customerEmail = escapeHtml(customer.email || "N/A");
     const customerPhone = escapeHtml(customer.phone || "N/A");
     const ordersCount = Math.max(0, parseInt(customer.orderCount, 10) || 0);
     const totalSpent = Number(customer.totalSpent || 0);
+    const deleteButton = canDelete
+      ? `<button class="btn btn-sm btn-outline-danger delete-customer-btn" data-customer-id="${customerId}" data-customer-name="${customerName}"><i class="bi bi-person-x me-1"></i>Delete Profile</button>`
+      : '<span class="text-secondary small">Guest checkout</span>';
 
     const row = document.createElement("tr");
     row.className = "border-bottom border-secondary";
@@ -4787,10 +5370,12 @@ function displayAllCustomers() {
                 <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(customer.name || "Customer")}&background=ff6600&color=000" alt="Customer" class="rounded-circle" width="40" height="40">
             </td>
             <td class="py-3 text-light fw-semibold">${customerName}</td>
+            <td class="py-3 text-secondary">${customerUsername}</td>
             <td class="py-3 text-secondary">${customerEmail}</td>
             <td class="py-3 text-secondary">${customerPhone}</td>
             <td class="py-3 text-light">${ordersCount}</td>
-            <td class="pe-4 py-3 text-light fw-semibold">${formatPkr(totalSpent)}</td>
+            <td class="py-3 text-light fw-semibold">${formatPkr(totalSpent)}</td>
+            <td class="pe-4 py-3">${deleteButton}</td>
         `;
     tbody.appendChild(row);
   });
@@ -4836,6 +5421,46 @@ function selectedCustomerIds() {
     })
     .get()
     .filter((id) => id > 0);
+}
+
+async function deleteSingleCustomer(customerId, customerName = "Customer") {
+  const safeCustomerId = parseInt(customerId, 10) || 0;
+  if (safeCustomerId <= 0) {
+    showNotification("Invalid customer id.", "warning");
+    return;
+  }
+
+  const confirmed = await showCustomConfirmDialog(
+    `Delete profile for ${customerName}? This removes the account and linked records.`,
+    "Delete Customer Profile",
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const result = await adminPostJson(ADMIN_ORDERS_API, {
+      action: "delete-customers",
+      customer_ids: [safeCustomerId],
+    });
+
+    setAdminOrdersPayload(result?.payload || {});
+    displayRecentOrders();
+    displayAllOrders();
+    displayAllCustomers();
+    calculateDashboardMetrics();
+    renderAnalyticsSection();
+    renderRefundRequests();
+    updateNotifications();
+    $("#customersSelectAll").prop("checked", false);
+
+    showNotification(result?.message || "Customer profile deleted.", "success");
+  } catch (error) {
+    showNotification(
+      error?.message || "Unable to delete customer profile.",
+      "danger",
+    );
+  }
 }
 
 async function bulkDeleteOrders() {

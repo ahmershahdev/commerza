@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/backend/data.php';
+
+$appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -7,6 +9,7 @@ require_once __DIR__ . '/backend/data.php';
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <base href="<?= htmlspecialchars($appBaseHref, ENT_QUOTES, 'UTF-8') ?>">
   <meta name="description" content="Learn about Commerza - Your trusted source for premium automatic watches. Discover our commitment to quality, craftsmanship, and exceptional timepiece design.">
   <meta name="robots" content="index, follow">
   <meta name="author" content="Syed Ahmer Shah">
@@ -34,6 +37,136 @@ require_once __DIR__ . '/backend/data.php';
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .about-shell {
+      padding-top: 88px;
+    }
+
+    .about-story-card {
+      border: 1px solid rgba(255, 102, 0, 0.22);
+      border-radius: 16px;
+      background: linear-gradient(150deg, rgba(18, 18, 18, 0.96), rgba(8, 8, 8, 0.94));
+      box-shadow: 0 18px 36px rgba(0, 0, 0, 0.45);
+      padding: 20px;
+      height: 100%;
+    }
+
+    .about-story-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 14px;
+      color: #d0d0d0;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .about-step-dot {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      font-family: 'JetBrains Mono', monospace;
+      border: 1px solid rgba(255, 153, 0, 0.5);
+      color: #ffcc66;
+      background: rgba(255, 102, 0, 0.14);
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .about-highlight-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+
+    .about-highlight-card {
+      border: 1px solid rgba(255, 102, 0, 0.24);
+      border-radius: 14px;
+      background: rgba(12, 12, 12, 0.95);
+      padding: 14px;
+      min-height: 132px;
+    }
+
+    .about-highlight-card i {
+      color: #ff8a2a;
+      font-size: 1.2rem;
+      margin-bottom: 8px;
+      display: inline-block;
+    }
+
+    .about-highlight-card h3 {
+      color: #ffe6cc;
+      font-size: 0.95rem;
+      margin-bottom: 6px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .about-app-launch {
+      border: 1px solid rgba(255, 102, 0, 0.28);
+      border-radius: 18px;
+      background: radial-gradient(circle at 0% 0%, rgba(255, 102, 0, 0.22), rgba(10, 10, 10, 0.98) 56%);
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.55);
+      padding: 24px;
+    }
+
+    .store-chip-wrap {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .store-chip {
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(0, 0, 0, 0.42);
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .store-chip i {
+      color: #ffcc66;
+      font-size: 1.3rem;
+      width: 28px;
+      text-align: center;
+    }
+
+    .store-chip small {
+      display: block;
+      color: #b7b7b7;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .store-chip strong {
+      color: #fff;
+      display: block;
+      font-size: 0.92rem;
+      font-family: 'Montserrat', sans-serif;
+      letter-spacing: 0.02em;
+    }
+
+    .store-chip span {
+      margin-left: auto;
+      color: #ffb067;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-family: 'JetBrains Mono', monospace;
+      border: 1px solid rgba(255, 176, 103, 0.4);
+      border-radius: 999px;
+      padding: 4px 8px;
+      white-space: nowrap;
+    }
+  </style>
 </head>
 
 <body class="dark-theme">
@@ -117,16 +250,16 @@ require_once __DIR__ . '/backend/data.php';
     </div>
   </header>
 
-  <main class="container my-5">
+  <main class="container my-5 about-shell">
     <section class="page-hero mb-5">
       <div class="hero-content">
-        <span class="hero-badge"><i class="bi bi-gem"></i> Our Story</span>
-        <h1 class="mt-3" style="color: #ff6600">About Commerza</h1>
-        <p class="product-desc mt-2">A premium watch brand focused on craftsmanship, precision, and modern style.</p>
+        <span class="hero-badge"><i class="bi bi-gem"></i> About Commerza</span>
+        <h1 class="mt-3" style="color: #ff6600">Precision Craft, Built For Real Life</h1>
+        <p class="product-desc mt-2">Commerza started with a simple goal: build premium watches that look bold, wear comfortably, and stay reliable day after day. From the first sketch to final QC, every piece is selected for durability, clarity, and timeless style.</p>
         <div class="hero-actions d-flex flex-wrap gap-2 mt-3">
           <a href="index.php" class="btn product-btn-buy">Shop Collection</a>
           <a href="contact.php" class="btn product-btn-cart">Talk to Us</a>
-           </div>
+        </div>
       </div>
     </section>
 
@@ -147,88 +280,97 @@ require_once __DIR__ . '/backend/data.php';
         </div>
       </div>
     </section>
-    <div class="text-center mb-5">
-      <h2 style="color: #ff6600">About Commerza</h2>
-      <p class="product-desc mt-3">
-        Commerza is a premium watch store focused on craftsmanship, design,
-        and modern lifestyle essentials.
-      </p>
-    </div>
 
-    <div class="row mb-5">
-      <div class="col-md-6 mb-4">
-        <div class="card product-card h-100">
-          <div class="card-body">
-            <h3 class="product-name mb-3">Our Mission</h3>
-            <p class="product-desc">
-              Our mission is to deliver high-quality watches that combine
-              elegance, durability, and innovation. We believe a watch is more
-              than a timepiece — it’s a statement.
-            </p>
+    <section class="row g-4 mb-5">
+      <div class="col-12 col-lg-7">
+        <div class="about-story-card">
+          <h2 class="product-name mb-3">What Makes Commerza Different</h2>
+          <p class="product-desc">We design around real use, not just display photos. That means balanced case weight, straps you can wear all day, and dial readability that holds up in daylight and low-light conditions. Every collection goes through visual, fit, and movement checks before release.</p>
+          <p class="product-desc mb-0">Our catalogs blend classic silhouettes with modern finishes, so your watch looks right in formal settings, daily work, and weekend wear. We keep the process transparent, support responsive, and product guidance practical.</p>
+        </div>
+      </div>
+      <div class="col-12 col-lg-5">
+        <div class="about-story-card">
+          <h2 class="product-name mb-3">Our Journey</h2>
+          <div class="about-story-step">
+            <span class="about-step-dot">01</span>
+            <div>
+              <strong class="text-light">Design First</strong>
+              <p class="product-desc mb-0">Dial balance, case profile, and strap comfort are finalized before production.</p>
+            </div>
+          </div>
+          <div class="about-story-step">
+            <span class="about-step-dot">02</span>
+            <div>
+              <strong class="text-light">Material Curation</strong>
+              <p class="product-desc mb-0">Only tested combinations of steel, crystal, plating, and leather move forward.</p>
+            </div>
+          </div>
+          <div class="about-story-step mb-0">
+            <span class="about-step-dot">03</span>
+            <div>
+              <strong class="text-light">Final Verification</strong>
+              <p class="product-desc mb-0">Stock, presentation, and support-readiness are validated before launch.</p>
+            </div>
           </div>
         </div>
       </div>
+    </section>
 
-      <div class="col-md-6 mb-4">
-        <div class="card product-card h-100">
-          <div class="card-body">
-            <h3 class="product-name mb-3">Our Vision</h3>
-            <p class="product-desc">
-              To become a globally trusted brand for premium watches, offering
-              timeless designs that complement every lifestyle.
-            </p>
+    <section class="mb-5">
+      <h2 class="mb-3" style="color:#ff6600;">The Commerza Standard</h2>
+      <div class="about-highlight-grid">
+        <article class="about-highlight-card">
+          <i class="bi bi-shield-check"></i>
+          <h3>Quality Control</h3>
+          <p class="product-desc mb-0">Every SKU is reviewed for finish consistency, movement behavior, and dial clarity.</p>
+        </article>
+        <article class="about-highlight-card">
+          <i class="bi bi-watch"></i>
+          <h3>Wearability Focus</h3>
+          <p class="product-desc mb-0">Case dimensions and strap feel are selected for long daily comfort.</p>
+        </article>
+        <article class="about-highlight-card">
+          <i class="bi bi-truck"></i>
+          <h3>Reliable Fulfillment</h3>
+          <p class="product-desc mb-0">Dispatch timelines are kept practical, with secure packaging and clear support updates.</p>
+        </article>
+        <article class="about-highlight-card">
+          <i class="bi bi-headset"></i>
+          <h3>Human Support</h3>
+          <p class="product-desc mb-0">Our team helps with fit, movement type, and after-purchase guidance quickly.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="about-app-launch mb-5" aria-labelledby="aboutAppLaunchTitle">
+      <span class="hero-badge"><i class="bi bi-phone"></i> Mobile Roadmap</span>
+      <h2 id="aboutAppLaunchTitle" class="mt-3" style="color:#ff6600;">Commerza App Is Coming Soon</h2>
+      <p class="product-desc mb-0">We are building a faster mobile experience for watch discovery, personalized recommendations, wishlist sync, and order tracking. Early access starts soon.</p>
+
+      <div class="store-chip-wrap">
+        <div class="store-chip" aria-label="Google Play Store coming soon">
+          <i class="bi bi-play-circle-fill"></i>
+          <div>
+            <small>Coming Soon On</small>
+            <strong>Google Play Store</strong>
           </div>
+          <span>Soon</span>
+        </div>
+        <div class="store-chip" aria-label="Apple App Store coming soon">
+          <i class="bi bi-apple"></i>
+          <div>
+            <small>Coming Soon On</small>
+            <strong>Apple App Store</strong>
+          </div>
+          <span>Soon</span>
         </div>
       </div>
-    </div>
-
-    <div class="row text-center mb-5">
-      <h2 class="mb-4" style="color: #ff6600;">Why Choose Commerza?</h2>
-
-      <div class="col-md-4 mb-4">
-        <div class="card product-card h-100">
-          <div class="card-body">
-            <i class="bi bi-award fs-1 mb-3" style="color: #ff6600;"></i>
-            <h3 class="product-name">Premium Quality</h3>
-            <p class="product-desc">
-              Carefully selected materials and precision craftsmanship in
-              every watch.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-4 mb-4">
-        <div class="card product-card h-100">
-          <div class="card-body">
-            <i class="bi bi-truck fs-1 mb-3" style="color: #ff6600"></i>
-            <h3 class="product-name">Fast & Secure Shipping</h3>
-            <p class="product-desc">
-              Reliable delivery with safe packaging, ensuring your watch
-              arrives perfectly.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-4 mb-4">
-        <div class="card product-card h-100">
-          <div class="card-body">
-            <i class="bi bi-headset fs-1 mb-3" style="color: #ff6600"></i>
-            <h3 class="product-name">Customer Support</h3>
-            <p class="product-desc">
-              Dedicated support team ready to assist you anytime.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
+    </section>
 
     <div class="text-center">
       <h3 class="mb-3" style="color: #ff6600">Timeless Style Starts Here</h3>
-      <p class="product-desc mb-4">
-        Discover watches designed to match your ambition and lifestyle.
-      </p>
+      <p class="product-desc mb-4">Discover watches designed to match your ambition, routine, and signature look.</p>
       <a href="index.php" class="btn product-btn-buy px-5">Shop Now</a>
     </div>
   </main>

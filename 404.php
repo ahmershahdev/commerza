@@ -44,6 +44,11 @@ $logoUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.web
             box-sizing: border-box;
         }
 
+        ::selection {
+            background: #ff5a1f;
+            color: var(--bg);
+        }
+
         body {
             margin: 0;
             min-height: 100vh;
@@ -87,6 +92,36 @@ $logoUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.web
                 inset 0 1px 0 rgba(255, 255, 255, 0.08);
             backdrop-filter: blur(6px);
             animation: cardIn 700ms ease-out;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 220ms ease;
+        }
+
+        .card-404::before {
+            content: "";
+            position: absolute;
+            inset: -40% -20%;
+            background: linear-gradient(120deg, transparent 28%, rgba(255, 255, 255, 0.22) 48%, transparent 68%);
+            transform: translateX(-55%) rotate(8deg);
+            animation: panelShine 4.8s linear infinite;
+            pointer-events: none;
+            z-index: 2;
+            opacity: 0.45;
+        }
+
+        .card-404>* {
+            position: relative;
+            z-index: 3;
+        }
+
+        @keyframes panelShine {
+            from {
+                transform: translateX(-55%) rotate(8deg);
+            }
+
+            to {
+                transform: translateX(65%) rotate(8deg);
+            }
         }
 
         @keyframes cardIn {
@@ -115,21 +150,66 @@ $logoUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.web
         }
 
         .logo-badge {
-            width: 64px;
-            height: 64px;
+            width: 96px;
+            height: 96px;
             border-radius: 16px;
             border: 1px solid rgba(255, 255, 255, 0.18);
             background: rgba(0, 0, 0, 0.28);
             display: grid;
             place-items: center;
             margin-bottom: 18px;
+            box-shadow: 0 0 22px rgba(255, 90, 31, 0.26);
         }
 
         .logo-badge img {
-            width: 40px;
-            height: 40px;
+            width: 62px;
+            height: 62px;
             object-fit: contain;
             filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.4));
+        }
+
+        .corner-flare {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            border-radius: 999px;
+            background: orangered;
+            box-shadow:
+                0 0 18px rgba(255, 69, 0, 0.95),
+                0 0 36px rgba(255, 69, 0, 0.5),
+                0 0 56px rgba(255, 204, 0, 0.35);
+            top: 0;
+            left: 0;
+            z-index: 4;
+            pointer-events: none;
+            animation: flareOrbit 5.2s linear infinite;
+        }
+
+        @keyframes flareOrbit {
+            0% {
+                top: 8px;
+                left: 8px;
+            }
+
+            25% {
+                top: 8px;
+                left: calc(100% - 22px);
+            }
+
+            50% {
+                top: calc(100% - 22px);
+                left: calc(100% - 22px);
+            }
+
+            75% {
+                top: calc(100% - 22px);
+                left: 8px;
+            }
+
+            100% {
+                top: 8px;
+                left: 8px;
+            }
         }
 
         .code {
@@ -341,13 +421,14 @@ $logoUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.web
 
     <main class="scene">
         <section class="card-404" aria-labelledby="notFoundTitle">
+            <span class="corner-flare" aria-hidden="true"></span>
             <div class="grid">
                 <div class="left-pane">
                     <div class="logo-badge" aria-hidden="true">
                         <img src="frontend/assets/images/logo/commerza-logo.webp" alt="" loading="lazy" />
                     </div>
 
-                    <p class="code" aria-label="404">4<span class="code-glow">0</span>4</p>
+                    <p class="code" aria-label="404" style="user-select: none;">4<span class="code-glow">0</span>4</p>
                     <h1 class="lead-title" id="notFoundTitle">The link is broken, not your shopping mood.</h1>
                     <p class="lead-copy">
                         The page you requested moved, expired, or never existed. Jump back into Commerza and continue browsing premium pieces without losing momentum.
@@ -392,6 +473,32 @@ $logoUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.web
             </div>
         </section>
     </main>
+
+    <script <?= commerza_csp_nonce_attr() ?>>
+        (function() {
+            const card = document.querySelector('.card-404');
+            if (!card) {
+                return;
+            }
+
+            const setTransform = (x, y) => {
+                card.style.transform = `perspective(1200px) rotateX(${y}deg) rotateY(${x}deg)`;
+            };
+
+            card.addEventListener('mousemove', function(event) {
+                const rect = card.getBoundingClientRect();
+                const px = (event.clientX - rect.left) / rect.width;
+                const py = (event.clientY - rect.top) / rect.height;
+                const rotateY = (px - 0.5) * 7;
+                const rotateX = (0.5 - py) * 6;
+                setTransform(rotateY.toFixed(2), rotateX.toFixed(2));
+            });
+
+            card.addEventListener('mouseleave', function() {
+                setTransform(0, 0);
+            });
+        })();
+    </script>
 </body>
 
 </html>

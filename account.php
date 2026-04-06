@@ -411,6 +411,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $errors[] = "Username must be 3-24 chars and use lowercase letters, numbers, or underscores.";
     }
 
+    if (empty($errors)) {
+      $blockedUsername = commerza_username_blacklist_lookup($con, $username);
+      if (is_array($blockedUsername)) {
+        $errors[] = commerza_username_blacklist_feedback_message($blockedUsername);
+      }
+    }
+
     if (!in_array($profile_visibility, ['private', 'public'], true)) {
       $errors[] = "Invalid profile visibility option.";
     }
@@ -1012,6 +1019,29 @@ if (!in_array($profile_visibility_value, ['private', 'public'], true)) {
 
 $profile_visibility_label = $profile_visibility_value === 'public' ? 'Public Profile' : 'Private Profile';
 
+$appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
+$accountCleanPath = '/account/' . rawurlencode($username_value);
+$accountCanonicalUrl = commerza_absolute_url($accountCleanPath);
+$accountImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.webp');
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+  $requestPath = (string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?? '');
+  $targetPath = (string)(parse_url($accountCanonicalUrl, PHP_URL_PATH) ?? '');
+
+  $normalizePath = static function (string $path): string {
+    $normalized = '/' . trim(str_replace('\\', '/', $path), '/');
+    $normalized = preg_replace('#/+#', '/', $normalized) ?: $normalized;
+    return strtolower(rtrim($normalized, '/'));
+  };
+
+  if ($normalizePath($requestPath) !== $normalizePath($targetPath)) {
+    $queryString = (string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY) ?? '');
+    $redirectUrl = $accountCanonicalUrl . ($queryString !== '' ? '?' . $queryString : '');
+    header('Location: ' . $redirectUrl, true, 302);
+    exit;
+  }
+}
+
 $accountDeletePending = account_delete_pending_get();
 $accountDeleteCodeExpiresIn = 0;
 if (is_array($accountDeletePending)) {
@@ -1030,22 +1060,23 @@ if (is_array($accountDeletePending)) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <base href="<?= htmlspecialchars($appBaseHref, ENT_QUOTES, 'UTF-8') ?>">
   <meta name="robots" content="noindex, nofollow">
   <meta name="author" content="Syed Ahmer Shah">
   <meta name="description" content="Manage your Commerza account, update profile details, and review your order history securely.">
   <meta property="og:title" content="My Account | Commerza">
   <meta property="og:description" content="Manage your Commerza account, update profile details, and review your orders.">
-  <meta property="og:url" content="https://commerza.ahmershah.dev/account.php">
+  <meta property="og:url" content="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
+  <meta property="og:image" content="<?= htmlspecialchars($accountImageUrl, ENT_QUOTES, 'UTF-8') ?>">
   <title>My Account | Commerza</title>
-  <link rel="canonical" href="https://commerza.ahmershah.dev/account.php" />
+  <link rel="canonical" href="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" />
   <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebPage",
       "name": "My Account | Commerza",
-      "url": "https://commerza.ahmershah.dev/account.php",
+      "url": "<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>",
       "description": "Manage your Commerza account profile and order history."
     }
   </script>
@@ -1178,7 +1209,7 @@ if (is_array($accountDeletePending)) {
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link nav-icon-link" aria-current="page" href="account.php" aria-label="Account"><i
+              <a class="nav-link nav-icon-link" aria-current="page" href="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" aria-label="Account"><i
                   class="bi bi-person"></i></a>
             </li>
           </ul>
@@ -1226,7 +1257,7 @@ if (is_array($accountDeletePending)) {
             <span>Wishlist</span>
             <span class="offcanvas-badge" id="wishlist-count-mobile">0</span>
           </a>
-          <a href="account.php" class="offcanvas-action-btn" aria-current="page">
+          <a href="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" class="offcanvas-action-btn" aria-current="page">
             <i class="bi bi-person"></i>
             <span>Account</span>
           </a>
@@ -1267,7 +1298,7 @@ if (is_array($accountDeletePending)) {
               </span>
             </p>
 
-            <form action="account.php" method="POST" enctype="multipart/form-data" id="updateProfilePictureForm">
+            <form action="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" enctype="multipart/form-data" id="updateProfilePictureForm">
               <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
               <input type="hidden" name="action" value="update_profile_picture">
               <input type="file" name="profile_picture" id="profilePictureInput" class="form-control search-input mt-3"
@@ -1277,7 +1308,7 @@ if (is_array($accountDeletePending)) {
               </button>
             </form>
 
-            <form action="account.php" method="POST" id="logoutForm">
+            <form action="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" id="logoutForm">
               <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
               <input type="hidden" name="action" value="logout">
               <button type="submit" class="btn product-btn-cart w-100 mt-2" id="logoutBtn" data-loading-text="Logging Out...">Logout</button>
@@ -1289,7 +1320,7 @@ if (is_array($accountDeletePending)) {
           <div class="card-body">
             <h3 class="product-name mb-3">Change Password</h3>
 
-            <form action="account.php" method="POST" id="updatePasswordForm">
+            <form action="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" id="updatePasswordForm">
               <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
               <input type="hidden" name="action" value="update_password">
 
@@ -1341,7 +1372,7 @@ if (is_array($accountDeletePending)) {
             <h3 class="product-name mb-2 text-danger">Delete Account</h3>
             <p class="product-desc mb-3">This action permanently deletes your profile, saved lists, sessions, and linked account data. This cannot be undone.</p>
 
-            <form action="account.php" method="POST" class="mb-3">
+            <form action="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" class="mb-3">
               <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
               <input type="hidden" name="action" value="request_delete_account_code">
               <?= commerza_captcha_widget_html($con, 'user_account_delete_request') ?>
@@ -1354,7 +1385,7 @@ if (is_array($accountDeletePending)) {
               <?php if ($accountDeleteCodeExpiresIn > 0): ?>
                 <p class="text-warning small mb-2">Current deletion code expires in <?= (int)ceil($accountDeleteCodeExpiresIn / 60) ?> minute(s).</p>
               <?php endif; ?>
-              <form action="account.php" method="POST">
+              <form action="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
                 <input type="hidden" name="action" value="delete_account_permanently">
 
@@ -1404,7 +1435,7 @@ if (is_array($accountDeletePending)) {
           <div class="card-body">
             <h4 class="product-name mb-3">Personal Information</h4>
 
-            <form action="account.php" method="POST" id="updateProfileForm">
+            <form action="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" id="updateProfileForm">
               <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
               <input type="hidden" name="action" value="update_profile">
 
@@ -1603,7 +1634,7 @@ if (is_array($accountDeletePending)) {
                         <?php endif; ?>
 
                         <?php if ($canRequestRefund): ?>
-                          <form action="account.php" method="POST" enctype="multipart/form-data" class="mt-2">
+                          <form action="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" enctype="multipart/form-data" class="mt-2">
                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
                             <input type="hidden" name="action" value="request_refund">
                             <input type="hidden" name="order_id" value="<?= (int)$orderId ?>">
@@ -1816,10 +1847,17 @@ if (is_array($accountDeletePending)) {
                 exclude_current: 1,
               })
               .done(function(res) {
+                const blocked = !!res?.blocked;
                 usernameTaken = !!res?.exists;
                 if (usernameTaken) {
                   usernameInput.css("border-color", "#ef4444");
-                  setUsernameFeedback("Username already taken.", "#ef4444");
+                  const blockedMessage =
+                    typeof res?.message === "string" && res.message.trim() !== "" ?
+                    res.message :
+                    blocked ?
+                    "This username is not allowed." :
+                    "Username already taken.";
+                  setUsernameFeedback(blockedMessage, "#ef4444");
                 } else {
                   usernameInput.css("border-color", "#22c55e");
                   setUsernameFeedback("Username available.", "#22c55e");

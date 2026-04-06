@@ -17,7 +17,6 @@ $full_name = '';
 $username = '';
 $email = '';
 $phone = '';
-$profile_visibility = 'private';
 $pendingSignup = $_SESSION['signup_pending'] ?? null;
 
 if (isset($_GET['reset_pending']) && $_GET['reset_pending'] === '1') {
@@ -30,10 +29,6 @@ if (is_array($pendingSignup)) {
   $username = (string)($pendingSignup['username'] ?? '');
   $email = (string)($pendingSignup['email'] ?? '');
   $phone = (string)($pendingSignup['phone'] ?? '');
-  $profile_visibility = (string)($pendingSignup['profile_visibility'] ?? 'private');
-  if (!in_array($profile_visibility, ['private', 'public'], true)) {
-    $profile_visibility = 'private';
-  }
 }
 
 function signup_generate_verification_code(): string
@@ -76,10 +71,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       $username = (string)($pending['username'] ?? '');
       $email = strtolower(trim((string)($pending['email'] ?? '')));
       $phone = (string)($pending['phone'] ?? '');
-      $profile_visibility = (string)($pending['profile_visibility'] ?? 'private');
-      if (!in_array($profile_visibility, ['private', 'public'], true)) {
-        $profile_visibility = 'private';
-      }
+      $profile_visibility = 'private';
       $clientIp = commerza_client_ip();
 
       $verifyScope = $flowAction === 'resend_code' ? 'user_signup_resend' : 'user_signup_verify';
@@ -167,6 +159,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
               $errors[] = 'Username is invalid. Please restart signup.';
             }
 
+            if (empty($errors)) {
+              $blockedUsername = commerza_username_blacklist_lookup($con, $username_slug);
+              if (is_array($blockedUsername)) {
+                $errors[] = commerza_username_blacklist_feedback_message($blockedUsername);
+              }
+            }
+
             if ($password_hash === '') {
               $errors[] = 'Signup session invalid. Please start again.';
               unset($_SESSION['signup_pending']);
@@ -227,7 +226,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $email = strtolower(trim((string)($_POST['user_signup_email'] ?? '')));
     $phone = preg_replace('/\s+/', '', trim((string)($_POST['user_signup_phone'] ?? '')));
     $phone = $phone ?? '';
-    $profile_visibility = strtolower(trim((string)($_POST['profile_visibility'] ?? 'private')));
+    $profile_visibility = 'private';
     $password = (string)($_POST['signup_create_password'] ?? '');
     $confirm = (string)($_POST['signup_confirm_password'] ?? '');
 
@@ -247,12 +246,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       $errors[] = 'Username must be 3-24 chars and use lowercase letters, numbers, or underscores.';
     }
 
-    if (!preg_match('/^\d{11,15}$/', $phone)) {
-      $errors[] = 'Invalid phone number.';
+    if (empty($errors)) {
+      $blockedUsername = commerza_username_blacklist_lookup($con, $username);
+      if (is_array($blockedUsername)) {
+        $errors[] = commerza_username_blacklist_feedback_message($blockedUsername);
+      }
     }
 
-    if (!in_array($profile_visibility, ['private', 'public'], true)) {
-      $errors[] = 'Invalid profile visibility option.';
+    if (!preg_match('/^\d{11,15}$/', $phone)) {
+      $errors[] = 'Invalid phone number.';
     }
 
     if ($password !== $confirm) {
@@ -347,7 +349,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         'username' => $username,
         'email' => $email,
         'phone' => $phone,
-        'profile_visibility' => $profile_visibility,
         'password_hash' => commerza_password_hash($password),
         'code_hash' => hash('sha256', $verificationCode),
         'expires_at' => time() + 600,
@@ -927,14 +928,6 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
               </div>
             </div>
 
-            <div class="mb-3">
-              <label for="profile-visibility" class="form-label">Profile Visibility</label>
-              <select class="form-control" id="profile-visibility" name="profile_visibility" required>
-                <option value="private" <?= $profile_visibility === 'private' ? 'selected' : '' ?>>Private Profile</option>
-                <option value="public" <?= $profile_visibility === 'public' ? 'selected' : '' ?>>Public Profile</option>
-              </select>
-            </div>
-
             <div class="row">
               <div class="col-md-6 mb-3">
                 <label for="signup-password" class="form-label">Create Password</label>
@@ -1040,8 +1033,21 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
             value
           })
           .done(function(res) {
-            fieldState[field] = !!res.exists;
-            setFieldStatus(input, !!res.exists, message);
+            if (field === "username" && res?.blocked) {
+              fieldState[field] = true;
+              setFieldStatus(
+                input,
+                true,
+                (res?.message || "This username is not allowed.").toString(),
+              );
+              return;
+            }
+
+            fieldState[field] = !!res?.exists;
+            const takenMessage = !!res?.exists && typeof res?.message === "string" && res.message.trim() !== "" ?
+              res.message :
+              message;
+            setFieldStatus(input, !!res?.exists, takenMessage);
           })
           .fail(function() {
             clearFieldStatus(input);

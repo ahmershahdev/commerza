@@ -1422,33 +1422,100 @@ $(document).ready(function () {
       .replace(/^-+|-+$/g, "");
   }
 
-  function buildProductDetailQueryString(product) {
-    const params = new URLSearchParams();
-    const numericProductId = Number.parseInt(product?.id, 10);
-    const name = (product?.name || "").toString().trim();
-    const code = (product?.productCode || "").toString().trim();
-
-    if (Number.isInteger(numericProductId) && numericProductId > 0) {
-      params.set("id", String(numericProductId));
+  function resolveProductIdentitySlug(product) {
+    const explicitSlug = normalizeProductIdentitySlug(product?.slug || "");
+    if (explicitSlug) {
+      return explicitSlug;
     }
 
-    if (name !== "") {
-      params.set("name", name);
+    const fromName = normalizeProductIdentitySlug(product?.name || "");
+    return fromName || "product";
+  }
+
+  function getProductAppBasePath() {
+    const pathname = window.location.pathname.replace(/\\/g, "/");
+    const lowerPathname = pathname.toLowerCase();
+    const markers = ["/products.php", "/prodcuts/", "/products/"];
+
+    for (const marker of markers) {
+      const markerIndex = lowerPathname.indexOf(marker);
+      if (markerIndex >= 0) {
+        return pathname.slice(0, markerIndex + 1);
+      }
     }
 
-    if (code !== "") {
-      params.set("code", code);
+    const lastSlashIndex = pathname.lastIndexOf("/");
+    if (lastSlashIndex >= 0) {
+      return pathname.slice(0, lastSlashIndex + 1);
     }
 
-    return params.toString();
+    return "/";
+  }
+
+  function buildProductDetailPathFromSlug(slug) {
+    const normalizedSlug = normalizeProductIdentitySlug(slug);
+    if (!normalizedSlug) {
+      return "products.php";
+    }
+
+    return `products/${encodeURIComponent(normalizedSlug)}`;
   }
 
   function buildProductDetailAbsoluteUrl(product) {
-    const baseUrl = new URL("products.php", window.location.href);
-    const query = buildProductDetailQueryString(product);
-    return query
-      ? `${window.location.origin}${baseUrl.pathname}?${query}`
-      : `${window.location.origin}${baseUrl.pathname}`;
+    const basePath = getProductAppBasePath();
+    const detailPath = buildProductDetailPathFromSlug(
+      resolveProductIdentitySlug(product),
+    );
+    return `${window.location.origin}${basePath}${detailPath}`;
+  }
+
+  function extractProductSlugFromPath() {
+    const pathname = window.location.pathname.replace(/\\/g, "/");
+    const match =
+      pathname.match(/\/prodcuts\/([^/?#]+)/i) ||
+      pathname.match(/\/products\/([^/?#]+)/i);
+
+    if (!match || !match[1]) {
+      return "";
+    }
+
+    try {
+      return normalizeProductIdentitySlug(decodeURIComponent(match[1]));
+    } catch (error) {
+      return normalizeProductIdentitySlug(match[1]);
+    }
+  }
+
+  function getProductRequestParams() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const preload =
+      window.CommerzaProductRequest &&
+      typeof window.CommerzaProductRequest === "object"
+        ? window.CommerzaProductRequest
+        : {};
+
+    const slug = normalizeProductIdentitySlug(
+      preload.slug || urlParams.get("slug") || extractProductSlugFromPath(),
+    );
+    const id =
+      preload.id != null && preload.id !== ""
+        ? String(preload.id)
+        : urlParams.get("id");
+    const name =
+      preload.name != null && preload.name !== ""
+        ? String(preload.name)
+        : urlParams.get("name");
+    const code =
+      preload.code != null && preload.code !== ""
+        ? String(preload.code)
+        : urlParams.get("code");
+
+    return {
+      slug,
+      id,
+      name,
+      code,
+    };
   }
 
   function updateProductMeta(product) {
@@ -1459,11 +1526,21 @@ $(document).ready(function () {
       "Discover premium Commerza watches and accessories.";
     const canonicalUrl = buildProductDetailAbsoluteUrl(product);
     const normalizedImage = sanitizeClientAssetUrl(product.image);
-    const imageUrl = normalizedImage.startsWith("http")
-      ? normalizedImage
-      : normalizedImage
-        ? `${window.location.origin}/${normalizedImage.replace(/^\/+/, "")}`
-        : "";
+    const imageUrl = (() => {
+      if (!normalizedImage) {
+        return "";
+      }
+
+      if (normalizedImage.startsWith("http")) {
+        return normalizedImage;
+      }
+
+      if (normalizedImage.startsWith("/")) {
+        return `${window.location.origin}${normalizedImage}`;
+      }
+
+      return `${window.location.origin}${getProductAppBasePath()}${normalizedImage}`;
+    })();
 
     document.title = title;
     $('meta[name="description"]').attr("content", description);
@@ -1472,6 +1549,14 @@ $(document).ready(function () {
     $('meta[property="og:url"]').attr("content", canonicalUrl);
     if (imageUrl) $('meta[property="og:image"]').attr("content", imageUrl);
     $('link[rel="canonical"]').attr("href", canonicalUrl);
+
+    const currentUrl = `${window.location.origin}${window.location.pathname}${window.location.search}`;
+    if (
+      typeof window.history.replaceState === "function" &&
+      currentUrl !== canonicalUrl
+    ) {
+      window.history.replaceState({}, "", canonicalUrl);
+    }
   }
 
   function findProduct(data, params) {
@@ -2303,20 +2388,23 @@ $(document).ready(function () {
     const container = $("#product-detail-container");
     if (!container.length) return;
 
-    const params = new URLSearchParams(window.location.search);
-    const productId = params.get("id");
-    const productName = params.get("name");
-    const productCode = params.get("code");
-    const productSlug = params.get("slug");
+    const productRequest = getProductRequestParams();
 
     fetchProductsData()
       .done((data) => {
-        const product = findProduct(data, {
-          id: productId,
-          name: productName,
-          code: productCode,
-          slug: productSlug,
-        });
+        let product = findProduct(data, productRequest);
+
+        if (
+          !product &&
+          !productRequest.slug &&
+          !productRequest.id &&
+          !productRequest.name &&
+          !productRequest.code
+        ) {
+          const fallbackProducts = uniqueProducts(getAllProducts(data));
+          product = fallbackProducts.length > 0 ? fallbackProducts[0] : null;
+        }
+
         renderProductDetail(product);
         renderShareButtons(product);
         renderReviewsMarquee(product);
