@@ -11,7 +11,8 @@ $adminUser = admin_require_login($con);
 $adminCsrfToken = admin_generate_csrf_token();
 $adminCssVersion = @filemtime(__DIR__ . '/assets/css/style.css') ?: time();
 $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
-$adminPanelCanonicalUrl = admin_public_url('/admin/frontend/admin-panel.php');
+$adminFrontendBaseHref = rtrim(admin_public_url('/admin/frontend/'), '/') . '/';
+$adminPanelCanonicalUrl = admin_public_url('/admin-panel');
 $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.webp');
 ?>
 <!DOCTYPE html>
@@ -20,6 +21,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="<?= htmlspecialchars($adminFrontendBaseHref, ENT_QUOTES, 'UTF-8') ?>">
     <meta name="robots" content="noindex, nofollow">
     <meta name="admin-csrf-token" content="<?= htmlspecialchars($adminCsrfToken) ?>">
     <link rel="canonical" href="<?= htmlspecialchars($adminPanelCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>">

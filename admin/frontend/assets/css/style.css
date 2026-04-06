@@ -1,5 +1,5 @@
-﻿@import url("modules/01-base.css");
-@import url("modules/02-layout.css");
-@import url("modules/03-components.css");
-@import url("modules/04-utilities.css");
-@import url("modules/05-responsive.css");
+﻿@import url("modules/core/base.css");
+@import url("modules/layout/layout.css");
+@import url("modules/components/components.css");
+@import url("modules/utilities/utilities.css");
+@import url("modules/responsive/responsive.css");

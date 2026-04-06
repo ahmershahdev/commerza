@@ -113,6 +113,49 @@ $appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
       padding: 24px;
     }
 
+    .about-app-columns {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .about-app-col {
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(0, 0, 0, 0.4);
+      padding: 12px;
+    }
+
+    .about-app-col h3 {
+      color: #ffd3ad;
+      font-size: 0.76rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-family: 'JetBrains Mono', monospace;
+      margin: 0 0 8px;
+    }
+
+    .about-app-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 6px;
+    }
+
+    .about-app-list li {
+      color: #ececec;
+      font-size: 0.86rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .about-app-list i {
+      color: #ff9b42;
+    }
+
     .store-chip-wrap {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -165,6 +208,12 @@ $appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
       border-radius: 999px;
       padding: 4px 8px;
       white-space: nowrap;
+    }
+
+    @media (max-width: 767.98px) {
+      .about-app-columns {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -348,9 +397,34 @@ $appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
       <h2 id="aboutAppLaunchTitle" class="mt-3" style="color:#ff6600;">Commerza App Is Coming Soon</h2>
       <p class="product-desc mb-0">We are building a faster mobile experience for watch discovery, personalized recommendations, wishlist sync, and order tracking. Early access starts soon.</p>
 
+      <div class="about-app-columns" aria-label="Commerza app roadmap details">
+        <div class="about-app-col">
+          <h3>User Experience 6</h3>
+          <ul class="about-app-list">
+            <li><i class="bi bi-stars"></i><span>Personalized model suggestions</span></li>
+            <li><i class="bi bi-heart"></i><span>Wishlist sync across devices</span></li>
+            <li><i class="bi bi-truck"></i><span>Live order and dispatch updates</span></li>
+            <li><i class="bi bi-shield-lock"></i><span>Faster secure checkout</span></li>
+            <li><i class="bi bi-bell"></i><span>Drop and restock notifications</span></li>
+            <li><i class="bi bi-award"></i><span>Warranty and care reminders</span></li>
+          </ul>
+        </div>
+        <div class="about-app-col">
+          <h3>Launch Toolkit 6</h3>
+          <ul class="about-app-list">
+            <li><i class="bi bi-calendar-event"></i><span>Early access release calendar</span></li>
+            <li><i class="bi bi-search"></i><span>Quick search and smart filters</span></li>
+            <li><i class="bi bi-clock-history"></i><span>One-tap reorders from history</span></li>
+            <li><i class="bi bi-geo-alt"></i><span>Saved address and delivery slots</span></li>
+            <li><i class="bi bi-chat-square-dots"></i><span>In-app support conversation flow</span></li>
+            <li><i class="bi bi-camera"></i><span>Photo-backed product reviews</span></li>
+          </ul>
+        </div>
+      </div>
+
       <div class="store-chip-wrap">
         <div class="store-chip" aria-label="Google Play Store coming soon">
-          <i class="bi bi-play-circle-fill"></i>
+          <i class="bi bi-google-play"></i>
           <div>
             <small>Coming Soon On</small>
             <strong>Google Play Store</strong>
@@ -361,7 +435,7 @@ $appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
           <i class="bi bi-apple"></i>
           <div>
             <small>Coming Soon On</small>
-            <strong>Apple App Store</strong>
+            <strong>App Store</strong>
           </div>
           <span>Soon</span>
         </div>

@@ -130,6 +130,26 @@ function cart_api_validate_product_identity(
     ];
 }
 
+function cart_api_get_product_stock(mysqli $con, int $productId): ?int
+{
+    $stmt = $con->prepare('SELECT stock FROM products WHERE id = ? LIMIT 1');
+    if (!$stmt) {
+        return null;
+    }
+
+    $stmt->bind_param('i', $productId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    if (!$row) {
+        return null;
+    }
+
+    return max(0, (int)($row['stock'] ?? 0));
+}
+
 function cart_api_lock_name(int $cartId): string
 {
     return 'commerza_cart_' . max(0, $cartId);
@@ -329,6 +349,23 @@ if ($action === 'add') {
         }
     }
 
+    $availableStock = cart_api_get_product_stock($con, $productId);
+    if ($availableStock === null) {
+        cart_api_json(['ok' => false, 'message' => 'Product does not exist.'], 409);
+    }
+
+    if ($availableStock <= 0) {
+        cart_api_json(['ok' => false, 'message' => 'Product is out of stock.'], 422);
+    }
+
+    $requestedQty = $existingQty + $quantityToAdd;
+    if ($requestedQty > $availableStock) {
+        cart_api_json([
+            'ok' => false,
+            'message' => 'Only ' . $availableStock . ' item(s) are currently available for this product.',
+        ], 422);
+    }
+
     $currentTotal = commerza_get_cart_total_qty($con, $cartId);
     $newTotal = $currentTotal - $existingQty + ($existingQty + $quantityToAdd);
     if ($newTotal > 10) {
@@ -444,6 +481,11 @@ if ($action === 'set_qty') {
         cart_api_json(['ok' => false, 'message' => 'Item not found in cart.'], 404);
     }
 
+    $availableStock = cart_api_get_product_stock($con, $productId);
+    if ($availableStock === null) {
+        cart_api_json(['ok' => false, 'message' => 'Product does not exist.'], 409);
+    }
+
     if ($quantity <= 0) {
         $deleteStmt = $con->prepare('DELETE FROM cart_items WHERE cart_id = ? AND product_id = ? LIMIT 1');
         if (!$deleteStmt) {
@@ -461,6 +503,13 @@ if ($action === 'set_qty') {
 
     if ($quantity > 10) {
         cart_api_json(['ok' => false, 'message' => 'Quantity is too high.'], 422);
+    }
+
+    if ($quantity > $availableStock) {
+        cart_api_json([
+            'ok' => false,
+            'message' => 'Only ' . $availableStock . ' item(s) are currently available for this product.',
+        ], 422);
     }
 
     $currentTotal = commerza_get_cart_total_qty($con, $cartId);

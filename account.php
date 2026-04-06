@@ -1154,11 +1154,44 @@ if (is_array($accountDeletePending)) {
       background-color: #198754;
     }
 
-    #usernameLiveFeedback {
+    .account-live-feedback {
       min-height: 16px;
       margin-top: 6px;
       font-size: 11px;
       font-family: 'JetBrains Mono', monospace;
+    }
+
+    .account-visibility-dropdown .dropdown-toggle {
+      border: 1px solid rgba(255, 102, 0, 0.35);
+      color: #f4f4f4;
+      background: rgba(22, 22, 22, 0.95);
+      min-height: 42px;
+    }
+
+    .account-visibility-dropdown .dropdown-toggle:hover,
+    .account-visibility-dropdown .dropdown-toggle:focus {
+      border-color: #ff8a2a;
+      box-shadow: 0 0 0 0.15rem rgba(255, 102, 0, 0.18);
+    }
+
+    .account-visibility-dropdown .dropdown-menu {
+      background: #141414;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .account-visibility-dropdown .dropdown-item {
+      color: #f0f0f0;
+      font-size: 0.88rem;
+      padding: 9px 12px;
+    }
+
+    .account-visibility-dropdown .dropdown-item:hover,
+    .account-visibility-dropdown .dropdown-item:focus,
+    .account-visibility-dropdown .dropdown-item.active {
+      background: rgba(255, 102, 0, 0.18);
+      color: #fff;
     }
 
     .profile-visibility-pill {
@@ -1456,7 +1489,7 @@ if (is_array($accountDeletePending)) {
                     autocomplete="username" minlength="3" maxlength="24"
                     pattern="[a-zA-Z][a-zA-Z0-9_]{2,23}"
                     title="Use 3-24 characters: letters, numbers, underscore." />
-                  <div id="usernameLiveFeedback" aria-live="polite"></div>
+                  <div id="usernameLiveFeedback" class="account-live-feedback" aria-live="polite"></div>
                 </div>
 
                 <div class="col-md-6 mb-3">
@@ -1464,14 +1497,33 @@ if (is_array($accountDeletePending)) {
                   <input type="email" id="email" name="email" class="form-control search-input"
                     value="<?= htmlspecialchars((string)$user['email']) ?>" required
                     autocomplete="email" maxlength="150" />
+                  <div id="emailLiveFeedback" class="account-live-feedback" aria-live="polite"></div>
                 </div>
 
                 <div class="col-md-6 mb-3">
                   <label for="profile-visibility" class="form-label">Profile Visibility</label>
-                  <select id="profile-visibility" name="profile_visibility" class="form-control search-input" required>
-                    <option value="private" <?= $profile_visibility_value === 'private' ? 'selected' : '' ?>>Private Profile</option>
-                    <option value="public" <?= $profile_visibility_value === 'public' ? 'selected' : '' ?>>Public Profile</option>
-                  </select>
+                  <input type="hidden" id="profile-visibility" name="profile_visibility" value="<?= htmlspecialchars($profile_visibility_value) ?>" required>
+                  <div class="dropdown account-visibility-dropdown">
+                    <button class="btn dropdown-toggle w-100 text-start d-flex align-items-center justify-content-between"
+                      type="button" id="profileVisibilityMenu" data-bs-toggle="dropdown" aria-expanded="false">
+                      <span class="d-inline-flex align-items-center gap-2">
+                        <i class="bi <?= $profile_visibility_value === 'public' ? 'bi-globe2' : 'bi-shield-lock' ?>" id="profileVisibilityIcon"></i>
+                        <span id="profileVisibilityLabel"><?= htmlspecialchars($profile_visibility_label) ?></span>
+                      </span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-dark w-100 border-secondary" aria-labelledby="profileVisibilityMenu">
+                      <li>
+                        <button type="button" class="dropdown-item profile-visibility-option <?= $profile_visibility_value === 'private' ? 'active' : '' ?>" data-value="private" data-label="Private Profile" data-icon="bi-shield-lock">
+                          <i class="bi bi-shield-lock me-2"></i>Private Profile
+                        </button>
+                      </li>
+                      <li>
+                        <button type="button" class="dropdown-item profile-visibility-option <?= $profile_visibility_value === 'public' ? 'active' : '' ?>" data-value="public" data-label="Public Profile" data-icon="bi-globe2">
+                          <i class="bi bi-globe2 me-2"></i>Public Profile
+                        </button>
+                      </li>
+                    </ul>
+                  </div>
                   <small class="text-secondary">Public profile shows your username in public-facing areas (like reviews). Private keeps identity generic.</small>
                 </div>
 
@@ -1481,6 +1533,7 @@ if (is_array($accountDeletePending)) {
                     value="<?= htmlspecialchars((string)$user['phone']) ?>" required
                     autocomplete="tel" minlength="11" maxlength="15"
                     pattern="\d{11,15}" title="Enter 11 to 15 digits only." />
+                  <div id="phoneLiveFeedback" class="account-live-feedback" aria-live="polite"></div>
                 </div>
 
                 <div class="col-md-12 mb-3">
@@ -1800,10 +1853,23 @@ if (is_array($accountDeletePending)) {
 
       const profileForm = $("#updateProfileForm");
       const usernameInput = $("#username");
+      const emailInput = $("#email");
+      const phoneInput = $("#phone");
       const usernameFeedback = $("#usernameLiveFeedback");
+      const emailFeedback = $("#emailLiveFeedback");
+      const phoneFeedback = $("#phoneLiveFeedback");
+      const visibilityInput = $("#profile-visibility");
+      const visibilityLabel = $("#profileVisibilityLabel");
+      const visibilityIcon = $("#profileVisibilityIcon");
+      const visibilityOptions = $(".profile-visibility-option");
       const profileCsrf = profileForm.find('input[name="csrf_token"]').val() || "";
+
       let usernameTaken = false;
+      let emailTaken = false;
+      let phoneTaken = false;
       let usernameTimer = null;
+      let emailTimer = null;
+      let phoneTimer = null;
 
       const normalizeUsername = function(value) {
         return (value || "")
@@ -1815,71 +1881,213 @@ if (is_array($accountDeletePending)) {
           .replace(/^_+|_+$/g, "");
       };
 
-      const setUsernameFeedback = function(message, color) {
-        if (!usernameFeedback.length) {
+      const normalizeEmail = function(value) {
+        return (value || "").toString().trim().toLowerCase();
+      };
+
+      const normalizePhone = function(value) {
+        return (value || "")
+          .toString()
+          .replace(/\D+/g, "")
+          .slice(0, 15);
+      };
+
+      const isValidEmail = function(value) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 150;
+      };
+
+      const isValidPhone = function(value) {
+        return /^\d{11,15}$/.test(value);
+      };
+
+      const setLiveFeedback = function(target, message, color) {
+        if (!target.length) {
           return;
         }
 
-        usernameFeedback
-          .text(message)
-          .css("color", color || "#9ca3af");
+        target.text(message).css("color", color || "#9ca3af");
       };
+
+      const setFieldState = function(input, feedback, message, color, borderColor) {
+        if (input.length) {
+          input.css("border-color", borderColor || "");
+        }
+
+        setLiveFeedback(feedback, message, color);
+      };
+
+      const runExistsCheck = function(field, value, onDone, onFail) {
+        $.post("backend/check_exists.php", {
+            csrf_token: profileCsrf,
+            field,
+            value,
+            exclude_current: 1,
+          })
+          .done(function(res) {
+            onDone(res || {});
+          })
+          .fail(function() {
+            if (typeof onFail === "function") {
+              onFail();
+            }
+          });
+      };
+
+      const applyVisibilityOption = function(rawValue) {
+        const value = (rawValue || "").toString().toLowerCase() === "public" ? "public" : "private";
+        const option = visibilityOptions.filter(`[data-value="${value}"]`).first();
+        const label = (option.attr("data-label") || (value === "public" ? "Public Profile" : "Private Profile")).toString();
+        const iconClass = (option.attr("data-icon") || (value === "public" ? "bi-globe2" : "bi-shield-lock")).toString();
+
+        visibilityInput.val(value);
+        visibilityLabel.text(label);
+        visibilityIcon.attr("class", `bi ${iconClass}`);
+        visibilityOptions.removeClass("active");
+        option.addClass("active");
+      };
+
+      if (visibilityOptions.length && visibilityInput.length) {
+        visibilityOptions.on("click", function() {
+          applyVisibilityOption($(this).attr("data-value") || "private");
+        });
+
+        applyVisibilityOption(visibilityInput.val() || "private");
+      }
 
       if (usernameInput.length && profileForm.length && profileCsrf !== "") {
         usernameInput.on("input", function() {
-          const input = $(this);
-          const normalized = normalizeUsername(input.val());
-          input.val(normalized);
-          usernameInput.css("border-color", "");
+          const normalized = normalizeUsername(usernameInput.val());
+          usernameInput.val(normalized);
           usernameTaken = false;
           clearTimeout(usernameTimer);
+          setFieldState(usernameInput, usernameFeedback, "", "#9ca3af", "");
 
           if (normalized.length < 3) {
-            setUsernameFeedback("Use at least 3 characters.", "#9ca3af");
+            setLiveFeedback(usernameFeedback, "Use at least 3 characters.", "#9ca3af");
             return;
           }
 
           usernameTimer = setTimeout(() => {
-            $.post("backend/check_exists.php", {
-                csrf_token: profileCsrf,
-                field: "username",
-                value: normalized,
-                exclude_current: 1,
-              })
-              .done(function(res) {
+            runExistsCheck(
+              "username",
+              normalized,
+              function(res) {
                 const blocked = !!res?.blocked;
                 usernameTaken = !!res?.exists;
                 if (usernameTaken) {
-                  usernameInput.css("border-color", "#ef4444");
                   const blockedMessage =
                     typeof res?.message === "string" && res.message.trim() !== "" ?
                     res.message :
                     blocked ?
                     "This username is not allowed." :
                     "Username already taken.";
-                  setUsernameFeedback(blockedMessage, "#ef4444");
+                  setFieldState(usernameInput, usernameFeedback, blockedMessage, "#ef4444", "#ef4444");
                 } else {
-                  usernameInput.css("border-color", "#22c55e");
-                  setUsernameFeedback("Username available.", "#22c55e");
+                  setFieldState(usernameInput, usernameFeedback, "Username available.", "#22c55e", "#22c55e");
                 }
-              })
-              .fail(function() {
+              },
+              function() {
                 usernameTaken = false;
-                usernameInput.css("border-color", "");
-                setUsernameFeedback("", "#9ca3af");
-              });
+                setFieldState(usernameInput, usernameFeedback, "", "#9ca3af", "");
+              },
+            );
           }, 420);
         });
+      }
 
+      if (emailInput.length && profileForm.length && profileCsrf !== "") {
+        emailInput.on("input", function() {
+          const normalized = normalizeEmail(emailInput.val());
+          emailInput.val(normalized);
+          emailTaken = false;
+          clearTimeout(emailTimer);
+          setFieldState(emailInput, emailFeedback, "", "#9ca3af", "");
+
+          if (normalized === "") {
+            setLiveFeedback(emailFeedback, "Email is required.", "#9ca3af");
+            return;
+          }
+
+          if (!isValidEmail(normalized)) {
+            setFieldState(emailInput, emailFeedback, "Enter a valid email address.", "#9ca3af", "");
+            return;
+          }
+
+          emailTimer = setTimeout(() => {
+            runExistsCheck(
+              "email",
+              normalized,
+              function(res) {
+                emailTaken = !!res?.exists;
+                if (emailTaken) {
+                  setFieldState(emailInput, emailFeedback, "Email already in use.", "#ef4444", "#ef4444");
+                } else {
+                  setFieldState(emailInput, emailFeedback, "Email available.", "#22c55e", "#22c55e");
+                }
+              },
+              function() {
+                emailTaken = false;
+                setFieldState(emailInput, emailFeedback, "", "#9ca3af", "");
+              },
+            );
+          }, 420);
+        });
+      }
+
+      if (phoneInput.length && profileForm.length && profileCsrf !== "") {
+        phoneInput.on("input", function() {
+          const normalized = normalizePhone(phoneInput.val());
+          phoneInput.val(normalized);
+          phoneTaken = false;
+          clearTimeout(phoneTimer);
+          setFieldState(phoneInput, phoneFeedback, "", "#9ca3af", "");
+
+          if (normalized === "") {
+            setLiveFeedback(phoneFeedback, "Phone number is required.", "#9ca3af");
+            return;
+          }
+
+          if (!isValidPhone(normalized)) {
+            setFieldState(phoneInput, phoneFeedback, "Use 11 to 15 digits.", "#9ca3af", "");
+            return;
+          }
+
+          phoneTimer = setTimeout(() => {
+            runExistsCheck(
+              "phone",
+              normalized,
+              function(res) {
+                phoneTaken = !!res?.exists;
+                if (phoneTaken) {
+                  setFieldState(phoneInput, phoneFeedback, "Phone already in use.", "#ef4444", "#ef4444");
+                } else {
+                  setFieldState(phoneInput, phoneFeedback, "Phone available.", "#22c55e", "#22c55e");
+                }
+              },
+              function() {
+                phoneTaken = false;
+                setFieldState(phoneInput, phoneFeedback, "", "#9ca3af", "");
+              },
+            );
+          }, 420);
+        });
+      }
+
+      if (profileForm.length) {
         profileForm.on("submit", function(event) {
           const normalized = normalizeUsername(usernameInput.val());
+          const normalizedEmail = normalizeEmail(emailInput.val());
+          const normalizedPhone = normalizePhone(phoneInput.val());
+
           usernameInput.val(normalized);
+          emailInput.val(normalizedEmail);
+          phoneInput.val(normalizedPhone);
 
           if (usernameTaken) {
             event.preventDefault();
             event.stopImmediatePropagation();
             usernameInput.focus();
-            setUsernameFeedback("Choose another username before saving.", "#ef4444");
+            setFieldState(usernameInput, usernameFeedback, "Choose another username before saving.", "#ef4444", "#ef4444");
             return false;
           }
 
@@ -1887,7 +2095,39 @@ if (is_array($accountDeletePending)) {
             event.preventDefault();
             event.stopImmediatePropagation();
             usernameInput.focus();
-            setUsernameFeedback("Username must be 3-24 characters.", "#ef4444");
+            setFieldState(usernameInput, usernameFeedback, "Username must be 3-24 characters.", "#ef4444", "#ef4444");
+            return false;
+          }
+
+          if (!isValidEmail(normalizedEmail)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            emailInput.focus();
+            setFieldState(emailInput, emailFeedback, "Enter a valid email address.", "#ef4444", "#ef4444");
+            return false;
+          }
+
+          if (emailTaken) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            emailInput.focus();
+            setFieldState(emailInput, emailFeedback, "Choose another email before saving.", "#ef4444", "#ef4444");
+            return false;
+          }
+
+          if (!isValidPhone(normalizedPhone)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            phoneInput.focus();
+            setFieldState(phoneInput, phoneFeedback, "Use 11 to 15 digits.", "#ef4444", "#ef4444");
+            return false;
+          }
+
+          if (phoneTaken) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            phoneInput.focus();
+            setFieldState(phoneInput, phoneFeedback, "Choose another phone before saving.", "#ef4444", "#ef4444");
             return false;
           }
 

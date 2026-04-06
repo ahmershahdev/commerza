@@ -157,7 +157,13 @@ function buildProductDetailPath(product) {
     return "products.php";
   }
 
-  return `${resolveProductCardBasePath()}products/${encodeURIComponent(slug)}`;
+  const numericProductId = Number.parseInt(product?.id, 10);
+  const idQuery =
+    Number.isInteger(numericProductId) && numericProductId > 0
+      ? `?id=${encodeURIComponent(String(numericProductId))}`
+      : "";
+
+  return `${resolveProductCardBasePath()}products/${encodeURIComponent(slug)}${idQuery}`;
 }
 
 function buildProductRatingMarkup(product) {

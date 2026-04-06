@@ -139,10 +139,33 @@ if ($homeVideoStmt) {
       margin-bottom: 8px;
     }
 
+    .app-feature-columns {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .app-feature-col {
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      background: rgba(12, 12, 12, 0.65);
+      padding: 10px;
+    }
+
+    .app-feature-col h3 {
+      margin: 0 0 8px;
+      color: #ffd7b0;
+      font-size: 0.74rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
     .app-feature-list {
       display: grid;
       gap: 6px;
-      margin: 0 0 12px;
+      margin: 0;
       padding: 0;
       list-style: none;
     }
@@ -212,6 +235,12 @@ if ($homeVideoStmt) {
 
     @media (max-width: 991.98px) {
       .app-coming-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 575.98px) {
+      .app-feature-columns {
         grid-template-columns: 1fr;
       }
     }
@@ -1023,14 +1052,33 @@ if ($homeVideoStmt) {
           </div>
           <div class="app-device-frame">
             <div class="app-device-head">Commerza Mobile Preview</div>
-            <ul class="app-feature-list">
-              <li><i class="bi bi-stars"></i><span>Personalized watch recommendations</span></li>
-              <li><i class="bi bi-shield-lock"></i><span>Secure and simplified checkout flow</span></li>
-              <li><i class="bi bi-bell"></i><span>Drop alerts and exclusive launch reminders</span></li>
-            </ul>
+            <div class="app-feature-columns" aria-label="Commerza app feature roadmap">
+              <div class="app-feature-col">
+                <h3>User Experience 6</h3>
+                <ul class="app-feature-list">
+                  <li><i class="bi bi-stars"></i><span>Personalized watch recommendations</span></li>
+                  <li><i class="bi bi-heart"></i><span>Synced wishlist on every device</span></li>
+                  <li><i class="bi bi-truck"></i><span>Real-time order tracking updates</span></li>
+                  <li><i class="bi bi-shield-lock"></i><span>One-tap secure checkout flow</span></li>
+                  <li><i class="bi bi-bell"></i><span>Low-stock and launch drop alerts</span></li>
+                  <li><i class="bi bi-award"></i><span>Warranty reminders and support</span></li>
+                </ul>
+              </div>
+              <div class="app-feature-col">
+                <h3>Launch Toolkit 6</h3>
+                <ul class="app-feature-list">
+                  <li><i class="bi bi-calendar-event"></i><span>Early-access drop calendar</span></li>
+                  <li><i class="bi bi-search"></i><span>Faster watch discovery filters</span></li>
+                  <li><i class="bi bi-clock-history"></i><span>Quick reorder from order history</span></li>
+                  <li><i class="bi bi-geo-alt"></i><span>Saved shipping and delivery zones</span></li>
+                  <li><i class="bi bi-chat-square-dots"></i><span>In-app support conversation panel</span></li>
+                  <li><i class="bi bi-camera"></i><span>Photo-first review uploads</span></li>
+                </ul>
+              </div>
+            </div>
             <div class="store-row">
               <div class="store-pill" aria-label="Coming soon on Google Play Store">
-                <i class="bi bi-play-circle-fill"></i>
+                <i class="bi bi-google-play"></i>
                 <div>
                   <small>Coming Soon On</small>
                   <strong>Google Play Store</strong>
@@ -1041,7 +1089,7 @@ if ($homeVideoStmt) {
                 <i class="bi bi-apple"></i>
                 <div>
                   <small>Coming Soon On</small>
-                  <strong>Apple App Store</strong>
+                  <strong>App Store</strong>
                 </div>
                 <span>Soon</span>
               </div>

@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     return trim($slug, '-');
   };
 
-  if (preg_match('#/prodcuts/([^/?#]+)/?$#i', $normalizedRequestPath, $legacyMatch) === 1) {
+  if (preg_match('#/(?:prodcuts|product)/([^/?#]+)/?$#i', $normalizedRequestPath, $legacyMatch) === 1) {
     $legacySlug = $normalizeSlug(rawurldecode((string)($legacyMatch[1] ?? '')));
     if ($legacySlug !== '') {
       $queryString = (string)(parse_url($requestUri, PHP_URL_QUERY) ?? '');

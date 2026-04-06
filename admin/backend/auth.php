@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../backend/data.php';
@@ -45,8 +46,22 @@ function admin_ensure_schema(mysqli $con): void
         }
     }
 
-    $defaultEmail = 'commerza.ahmer@gmail.com';
-    $defaultPassword = 'Commerza@2026';
+    $configuredEmail = trim((string)getenv('COMMERZA_ADMIN_BOOTSTRAP_EMAIL'));
+    $defaultEmail = filter_var($configuredEmail, FILTER_VALIDATE_EMAIL)
+        ? strtolower($configuredEmail)
+        : 'commerza.ahmer@gmail.com';
+
+    $configuredPassword = trim((string)getenv('COMMERZA_ADMIN_BOOTSTRAP_PASSWORD'));
+    $host = strtolower(trim((string)($_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? ''))));
+    $isLocalHost = $host === ''
+        || $host === 'localhost'
+        || str_starts_with($host, 'localhost:')
+        || str_starts_with($host, '127.0.0.1')
+        || str_starts_with($host, '[::1]');
+
+    $defaultPassword = $configuredPassword !== ''
+        ? $configuredPassword
+        : ($isLocalHost ? 'Commerza@2026' : '');
 
     $countResult = $con->query('SELECT COUNT(*) AS total FROM admin_users');
     $total = 0;
@@ -56,6 +71,15 @@ function admin_ensure_schema(mysqli $con): void
     }
 
     if ($total > 0) {
+        return;
+    }
+
+    if (!filter_var($defaultEmail, FILTER_VALIDATE_EMAIL)) {
+        return;
+    }
+
+    $passwordPolicyError = null;
+    if ($defaultPassword === '' || !commerza_password_validate($defaultPassword, $passwordPolicyError)) {
         return;
     }
 
@@ -621,11 +645,11 @@ function admin_public_url(string $path = ''): string
         }
     }
 
-        if ($path === '') {
-                return $base;
-        }
+    if ($path === '') {
+        return $base;
+    }
 
-        return $base . '/' . ltrim($path, '/');
+    return $base . '/' . ltrim($path, '/');
 }
 
 function admin_email_layout(string $title, string $intro, string $bodyHtml): string
@@ -637,7 +661,7 @@ function admin_email_layout(string $title, string $intro, string $bodyHtml): str
     $safeSupportEmail = htmlspecialchars('support@ahmershah.dev', ENT_QUOTES, 'UTF-8');
     $socialLinks = '<a href="https://instagram.com/commerza" style="color:#ffb066;text-decoration:none;">Instagram</a> <span style="color:#666;">|</span> <a href="https://facebook.com/commerza" style="color:#ffb066;text-decoration:none;">Facebook</a> <span style="color:#666;">|</span> <a href="https://www.linkedin.com/in/syedahmershah" style="color:#ffb066;text-decoration:none;">LinkedIn</a> <span style="color:#666;">|</span> <a href="https://github.com/ahmershahdev" style="color:#ffb066;text-decoration:none;">GitHub</a>';
 
-        return '<!DOCTYPE html>
+    return '<!DOCTYPE html>
 <html>
     <body style="margin:0;padding:0;background:#080808;font-family:Segoe UI,Arial,sans-serif;color:#f5f5f5;">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#080808;padding:24px 0;">
@@ -691,21 +715,21 @@ function admin_send_password_reset_code_email(
 
     $subject = 'Commerza Admin Password Reset Code';
 
-        $body =
-                '<p style="margin:0 0 10px 0;">Hello ' . $safeName . ',</p>' .
-                '<p style="margin:0 0 14px 0;">Use this 6-digit code to reset your admin password. The code expires in <strong>30 minutes</strong>.</p>' .
-                '<div style="display:inline-block;padding:12px 18px;background:#1b1b1b;border:1px solid #ff6600;border-radius:8px;font-size:24px;letter-spacing:4px;font-weight:700;color:#ffcc00;">' . $safeCode . '</div>' .
-                '<p style="margin:16px 0 0 0;color:#cfcfcf;">For your security, do not share this code with anyone.</p>';
+    $body =
+        '<p style="margin:0 0 10px 0;">Hello ' . $safeName . ',</p>' .
+        '<p style="margin:0 0 14px 0;">Use this 6-digit code to reset your admin password. The code expires in <strong>30 minutes</strong>.</p>' .
+        '<div style="display:inline-block;padding:12px 18px;background:#1b1b1b;border:1px solid #ff6600;border-radius:8px;font-size:24px;letter-spacing:4px;font-weight:700;color:#ffcc00;">' . $safeCode . '</div>' .
+        '<p style="margin:16px 0 0 0;color:#cfcfcf;">For your security, do not share this code with anyone.</p>';
 
-        $html = admin_email_layout('Admin Password Reset', 'A secure verification step is required to continue.', $body);
+    $html = admin_email_layout('Admin Password Reset', 'A secure verification step is required to continue.', $body);
 
-        $fromEmail = trim((string)(getenv('COMMERZA_SUPPORT_EMAIL') ?: 'support@ahmershah.dev'));
+    $fromEmail = trim((string)(getenv('COMMERZA_SUPPORT_EMAIL') ?: 'support@ahmershah.dev'));
 
     return commerza_send_html_mail(
         $recipientEmail,
         $subject,
-                $html,
-                $fromEmail,
+        $html,
+        $fromEmail,
         'Commerza Admin',
         $errorMessage
     );
@@ -787,21 +811,21 @@ function admin_send_two_factor_code_email(
 
     $subject = 'Commerza Admin Login Verification Code';
 
-        $body =
-                '<p style="margin:0 0 10px 0;">Hello ' . $safeName . ',</p>' .
-                '<p style="margin:0 0 14px 0;">Use this 6-digit code to complete your admin login. The code expires in <strong>10 minutes</strong>.</p>' .
-                '<div style="display:inline-block;padding:12px 18px;background:#1b1b1b;border:1px solid #ff6600;border-radius:8px;font-size:24px;letter-spacing:4px;font-weight:700;color:#ffcc00;">' . $safeCode . '</div>' .
-                '<p style="margin:16px 0 0 0;color:#cfcfcf;">If this was not you, reset your admin password immediately.</p>';
+    $body =
+        '<p style="margin:0 0 10px 0;">Hello ' . $safeName . ',</p>' .
+        '<p style="margin:0 0 14px 0;">Use this 6-digit code to complete your admin login. The code expires in <strong>10 minutes</strong>.</p>' .
+        '<div style="display:inline-block;padding:12px 18px;background:#1b1b1b;border:1px solid #ff6600;border-radius:8px;font-size:24px;letter-spacing:4px;font-weight:700;color:#ffcc00;">' . $safeCode . '</div>' .
+        '<p style="margin:16px 0 0 0;color:#cfcfcf;">If this was not you, reset your admin password immediately.</p>';
 
-        $html = admin_email_layout('Two-Factor Login Verification', 'Enter this code to finish secure admin authentication.', $body);
+    $html = admin_email_layout('Two-Factor Login Verification', 'Enter this code to finish secure admin authentication.', $body);
 
-        $fromEmail = trim((string)(getenv('COMMERZA_SUPPORT_EMAIL') ?: 'support@ahmershah.dev'));
+    $fromEmail = trim((string)(getenv('COMMERZA_SUPPORT_EMAIL') ?: 'support@ahmershah.dev'));
 
     return commerza_send_html_mail(
         $recipientEmail,
         $subject,
-                $html,
-                $fromEmail,
+        $html,
+        $fromEmail,
         'Commerza Admin Security',
         $errorMessage
     );

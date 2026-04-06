@@ -9,18 +9,19 @@ RewriteEngine On
 # Protect environment, dumps, docs, and VCS metadata from direct access.
 RewriteRule (^|/)(?:\.env(?:\..*)?|composer\.(?:json|lock)|package(?:-lock)?\.json|phpunit\.xml|README\.md|SECURITY\.md|instructions\.md|llms\.txt|backend/database/.*\.sql|.*\.(?:sql|bak|log|ini|ps1|sh))$ - [F,L,NC]
 RewriteRule (^|/)\.(?:git|svn|hg)(?:/|$) - [F,L,NC]
-RewriteRule ^backend/(?:data|cart_helpers|coupon_helpers|payment_helpers|security_helpers|security_events|products_schema_helpers)\.php$ - [F,L,NC]
+RewriteRule ^backend/(?:data|mailer|nav_state|notifications|rate_limit|cart_helpers|coupon_helpers|payment_helpers|security_helpers|security_events|products_schema_helpers|expiry_cleanup|send_engagement_reminders|weekly_analytics_report|monthly_profit_report)\.php$ - [F,L,NC]
 RewriteRule ^admin/backend/auth\.php$ - [F,L,NC]
 
 # Legacy .php to clean-path redirects are handled in PHP entry pages to avoid
 # malformed Location headers on some Windows Apache setups.
 
-# Keep real files and folders untouched (including backend/admin APIs).
-RewriteCond %{REQUEST_FILENAME} -f [OR]
-RewriteCond %{REQUEST_FILENAME} -d
-RewriteRule ^ - [L]
-
 # Clean storefront routes.
+RewriteRule ^$ index.php [QSA,L,NC]
+RewriteRule ^home/?$ index.php [QSA,L,NC]
+RewriteRule ^index/?$ index.php [QSA,L,NC]
+
+RewriteRule ^product/([a-z0-9-]+)/?$ products.php?slug=$1 [QSA,L,NC]
+RewriteRule ^product/?$ products.php [QSA,L,NC]
 RewriteRule ^products/([a-z0-9-]+)/?$ products.php?slug=$1 [QSA,L,NC]
 RewriteRule ^prodcuts/([a-z0-9-]+)/?$ products.php?slug=$1 [QSA,L,NC]
 RewriteRule ^products/?$ products.php [QSA,L,NC]
@@ -33,7 +34,11 @@ RewriteRule ^wishlist/?$ wishlist.php [QSA,L,NC]
 RewriteRule ^compare/?$ compare.php [QSA,L,NC]
 RewriteRule ^login/?$ login.php [QSA,L,NC]
 RewriteRule ^signup/?$ signup.php [QSA,L,NC]
+RewriteRule ^forgot-password/?$ forgot-password.php [QSA,L,NC]
+RewriteRule ^reset-password/?$ reset-password.php [QSA,L,NC]
 RewriteRule ^order-tracking/?$ order-tracking.php [QSA,L,NC]
+RewriteRule ^invoice/?$ invoice.php [QSA,L,NC]
+RewriteRule ^oauth/?$ oauth.php [QSA,L,NC]
 
 RewriteRule ^about/?$ about.php [QSA,L,NC]
 RewriteRule ^contact/?$ contact.php [QSA,L,NC]
@@ -45,4 +50,22 @@ RewriteRule ^terms-of-service/?$ terms-of-service.php [QSA,L,NC]
 RewriteRule ^warranty/?$ warranty.php [QSA,L,NC]
 RewriteRule ^shop-category-a/?$ shop-category-a.php [QSA,L,NC]
 RewriteRule ^shop-category-b/?$ shop-category-b.php [QSA,L,NC]
+
+# Clean admin frontend routes.
+RewriteRule ^admin/?$ admin/frontend/admin-login.php [QSA,L,NC]
+RewriteRule ^admin-login/?$ admin/frontend/admin-login.php [QSA,L,NC]
+RewriteRule ^admin-panel/?$ admin/frontend/admin-panel.php [QSA,L,NC]
+RewriteRule ^admin-forgot-password/?$ admin/frontend/admin-forgot-password.php [QSA,L,NC]
+RewriteRule ^admin-forgot-email/?$ admin/frontend/admin-forgot-email.php [QSA,L,NC]
+RewriteRule ^admin-verify-2fa/?$ admin/frontend/admin-verify-2fa.php [QSA,L,NC]
+RewriteRule ^admin-login\.php$ admin/frontend/admin-login.php [QSA,L,NC]
+RewriteRule ^admin-panel\.php$ admin/frontend/admin-panel.php [QSA,L,NC]
+RewriteRule ^admin-forgot-password\.php$ admin/frontend/admin-forgot-password.php [QSA,L,NC]
+RewriteRule ^admin-forgot-email\.php$ admin/frontend/admin-forgot-email.php [QSA,L,NC]
+RewriteRule ^admin-verify-2fa\.php$ admin/frontend/admin-verify-2fa.php [QSA,L,NC]
+
+# Keep real files and folders untouched (including backend/admin APIs).
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
 </IfModule>

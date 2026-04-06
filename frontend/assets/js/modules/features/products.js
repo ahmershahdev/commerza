@@ -96,7 +96,13 @@ function productsBuildDetailPath(product) {
     return "products.php";
   }
 
-  return `${productsResolveBasePath()}products/${encodeURIComponent(slug)}`;
+  const numericProductId = Number.parseInt(product?.id, 10);
+  const idQuery =
+    Number.isInteger(numericProductId) && numericProductId > 0
+      ? `?id=${encodeURIComponent(String(numericProductId))}`
+      : "";
+
+  return `${productsResolveBasePath()}products/${encodeURIComponent(slug)}${idQuery}`;
 }
 
 function productsBuildRatingMarkup(product) {
