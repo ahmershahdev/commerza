@@ -234,3 +234,61 @@ function commerza_fetch_cart_snapshot(mysqli $con, ?int $cartId = null): array
         'items' => $items,
     ];
 }
+
+function commerza_cart_get_setting(mysqli $con, string $key, string $fallback = ''): string
+{
+    $stmt = $con->prepare(
+        'SELECT setting_val
+         FROM site_settings
+         WHERE setting_key = ?
+         LIMIT 1'
+    );
+
+    if (!$stmt) {
+        return $fallback;
+    }
+
+    $stmt->bind_param('s', $key);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    if (!$row) {
+        return $fallback;
+    }
+
+    $value = trim((string)($row['setting_val'] ?? ''));
+    return $value !== '' ? $value : $fallback;
+}
+
+function commerza_cart_shipping_config(mysqli $con): array
+{
+    $flatRaw = commerza_cart_get_setting($con, 'shipping_flat_fee', '1000');
+    $freeRaw = commerza_cart_get_setting($con, 'free_shipping_over', '500');
+
+    $flatFee = is_numeric($flatRaw) ? (float)$flatRaw : 1000.0;
+    $freeThreshold = is_numeric($freeRaw) ? (float)$freeRaw : 500.0;
+
+    return [
+        'flat_fee' => round(max(0, $flatFee), 2),
+        'free_shipping_over' => round(max(0, $freeThreshold), 2),
+    ];
+}
+
+function commerza_cart_shipping_cost(float $subtotal, array $config): float
+{
+    $safeSubtotal = max(0, $subtotal);
+    $flatFee = round(max(0, (float)($config['flat_fee'] ?? 0)), 2);
+    $freeThreshold = round(max(0, (float)($config['free_shipping_over'] ?? 0)), 2);
+
+    if ($flatFee <= 0) {
+        return 0.0;
+    }
+
+    if ($freeThreshold > 0 && $safeSubtotal >= $freeThreshold) {
+        return 0.0;
+    }
+
+    return $flatFee;
+}

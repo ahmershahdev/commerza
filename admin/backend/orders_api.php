@@ -199,6 +199,204 @@ function orders_api_ensure_refund_table(mysqli $con): void
     $initialized = true;
 }
 
+function orders_api_get_setting(mysqli $con, string $key, string $fallback = ''): string
+{
+    $stmt = $con->prepare(
+        'SELECT setting_val
+         FROM site_settings
+         WHERE setting_key = ?
+         LIMIT 1'
+    );
+
+    if (!$stmt) {
+        return $fallback;
+    }
+
+    $stmt->bind_param('s', $key);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    if (!$row) {
+        return $fallback;
+    }
+
+    $value = trim((string)($row['setting_val'] ?? ''));
+    return $value !== '' ? $value : $fallback;
+}
+
+function orders_api_upsert_setting(mysqli $con, string $key, string $value, string $label, string $group): bool
+{
+    $stmt = $con->prepare(
+        'INSERT INTO site_settings (setting_key, setting_val, label, setting_group)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+            setting_val = VALUES(setting_val),
+            label = VALUES(label),
+            setting_group = VALUES(setting_group)'
+    );
+
+    if (!$stmt) {
+        return false;
+    }
+
+    $stmt->bind_param('ssss', $key, $value, $label, $group);
+    $ok = $stmt->execute();
+    $stmt->close();
+
+    return $ok;
+}
+
+function orders_api_shipping_config(mysqli $con): array
+{
+    $flatRaw = orders_api_get_setting($con, 'shipping_flat_fee', '1000');
+    $freeRaw = orders_api_get_setting($con, 'free_shipping_over', '500');
+
+    $flatFee = is_numeric($flatRaw) ? (float)$flatRaw : 1000.0;
+    $freeShippingOver = is_numeric($freeRaw) ? (float)$freeRaw : 500.0;
+
+    return [
+        'flatFee' => round(max(0, $flatFee), 2),
+        'freeShippingOver' => round(max(0, $freeShippingOver), 2),
+    ];
+}
+
+function orders_api_ensure_blacklist_table(mysqli $con): void
+{
+    static $initialized = false;
+
+    if ($initialized) {
+        return;
+    }
+
+    $con->query(
+        'CREATE TABLE IF NOT EXISTS customer_blacklist (
+            id INT NOT NULL AUTO_INCREMENT,
+            email VARCHAR(150) DEFAULT NULL,
+            phone VARCHAR(20) DEFAULT NULL,
+            reason VARCHAR(255) DEFAULT NULL,
+            created_by_admin_id INT DEFAULT NULL,
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY idx_customer_blacklist_active (is_active, created_at),
+            KEY idx_customer_blacklist_email (email),
+            KEY idx_customer_blacklist_phone (phone)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci'
+    );
+
+    $initialized = true;
+}
+
+function orders_api_normalize_blacklist_email(string $email): string
+{
+    $normalized = strtolower(trim($email));
+    if (!filter_var($normalized, FILTER_VALIDATE_EMAIL) || strlen($normalized) > 150) {
+        return '';
+    }
+
+    return $normalized;
+}
+
+function orders_api_normalize_blacklist_phone(string $phone): string
+{
+    $normalized = preg_replace('/\s+/', '', trim($phone));
+    if (!is_string($normalized) || preg_match('/^\d{11,15}$/', $normalized) !== 1) {
+        return '';
+    }
+
+    return $normalized;
+}
+
+function orders_api_blacklist_rows(mysqli $con): array
+{
+    orders_api_ensure_blacklist_table($con);
+
+    $rows = [];
+    $result = $con->query(
+        'SELECT id, email, phone, reason, created_by_admin_id, created_at, updated_at
+         FROM customer_blacklist
+         WHERE is_active = 1
+         ORDER BY created_at DESC, id DESC'
+    );
+
+    if (!$result) {
+        return $rows;
+    }
+
+    while ($row = $result->fetch_assoc()) {
+        $rows[] = [
+            'id' => (int)($row['id'] ?? 0),
+            'email' => (string)($row['email'] ?? ''),
+            'phone' => (string)($row['phone'] ?? ''),
+            'reason' => (string)($row['reason'] ?? ''),
+            'createdByAdminId' => (int)($row['created_by_admin_id'] ?? 0),
+            'createdAt' => (string)($row['created_at'] ?? ''),
+            'updatedAt' => (string)($row['updated_at'] ?? ''),
+        ];
+    }
+
+    return $rows;
+}
+
+function orders_api_blacklist_lookup_active(mysqli $con, string $email = '', string $phone = ''): ?array
+{
+    orders_api_ensure_blacklist_table($con);
+
+    $normalizedEmail = orders_api_normalize_blacklist_email($email);
+    $normalizedPhone = orders_api_normalize_blacklist_phone($phone);
+
+    if ($normalizedEmail !== '') {
+        $stmt = $con->prepare(
+            'SELECT id, email, phone, reason
+             FROM customer_blacklist
+             WHERE is_active = 1
+               AND LOWER(TRIM(email)) = ?
+             ORDER BY id DESC
+             LIMIT 1'
+        );
+
+        if ($stmt) {
+            $stmt->bind_param('s', $normalizedEmail);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $row = $result ? $result->fetch_assoc() : null;
+            $stmt->close();
+
+            if ($row) {
+                return $row;
+            }
+        }
+    }
+
+    if ($normalizedPhone !== '') {
+        $stmt = $con->prepare(
+            'SELECT id, email, phone, reason
+             FROM customer_blacklist
+             WHERE is_active = 1
+               AND phone = ?
+             ORDER BY id DESC
+             LIMIT 1'
+        );
+
+        if ($stmt) {
+            $stmt->bind_param('s', $normalizedPhone);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $row = $result ? $result->fetch_assoc() : null;
+            $stmt->close();
+
+            if ($row) {
+                return $row;
+            }
+        }
+    }
+
+    return null;
+}
+
 function orders_api_fetch_refunds(mysqli $con): array
 {
     orders_api_ensure_refund_table($con);
@@ -468,6 +666,44 @@ function orders_api_fetch_customers(mysqli $con): array
 
     $customers = array_values($customerMap);
 
+    $blacklistRows = orders_api_blacklist_rows($con);
+    $blockedEmails = [];
+    $blockedPhones = [];
+
+    foreach ($blacklistRows as $entry) {
+        $entryEmail = orders_api_normalize_blacklist_email((string)($entry['email'] ?? ''));
+        $entryPhone = orders_api_normalize_blacklist_phone((string)($entry['phone'] ?? ''));
+
+        if ($entryEmail !== '') {
+            $blockedEmails[$entryEmail] = (string)($entry['reason'] ?? '');
+        }
+
+        if ($entryPhone !== '') {
+            $blockedPhones[$entryPhone] = (string)($entry['reason'] ?? '');
+        }
+    }
+
+    foreach ($customers as &$customer) {
+        $customerEmail = orders_api_normalize_blacklist_email((string)($customer['email'] ?? ''));
+        $customerPhone = orders_api_normalize_blacklist_phone((string)($customer['phone'] ?? ''));
+        $isBlacklisted = false;
+        $blacklistReason = '';
+
+        if ($customerEmail !== '' && isset($blockedEmails[$customerEmail])) {
+            $isBlacklisted = true;
+            $blacklistReason = (string)$blockedEmails[$customerEmail];
+        }
+
+        if (!$isBlacklisted && $customerPhone !== '' && isset($blockedPhones[$customerPhone])) {
+            $isBlacklisted = true;
+            $blacklistReason = (string)$blockedPhones[$customerPhone];
+        }
+
+        $customer['isBlacklisted'] = $isBlacklisted;
+        $customer['blacklistReason'] = $blacklistReason;
+    }
+    unset($customer);
+
     usort($customers, static function (array $a, array $b): int {
         $left = strtotime((string)($a['registeredAt'] ?? '')) ?: 0;
         $right = strtotime((string)($b['registeredAt'] ?? '')) ?: 0;
@@ -725,6 +961,8 @@ function orders_api_summary_payload(mysqli $con): array
         'customers' => orders_api_fetch_customers($con),
         'metrics' => orders_api_fetch_metrics($con),
         'refunds' => orders_api_fetch_refunds($con),
+        'blacklist' => orders_api_blacklist_rows($con),
+        'shippingConfig' => orders_api_shipping_config($con),
     ];
 }
 
@@ -767,6 +1005,203 @@ if ($action === 'refund-summary') {
         'payload' => [
             'refunds' => orders_api_fetch_refunds($con),
         ],
+    ]);
+}
+
+if ($action === 'save-shipping-settings') {
+    if ($method !== 'POST') {
+        orders_api_json(['ok' => false, 'message' => 'Method not allowed.'], 405);
+    }
+
+    $csrfToken = (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($_POST['csrf_token'] ?? ''));
+    if ($csrfToken === '') {
+        $csrfToken = (string)($requestBody['csrf_token'] ?? '');
+    }
+
+    if (!admin_validate_csrf_token($csrfToken)) {
+        orders_api_json(['ok' => false, 'message' => 'Forbidden.'], 403);
+    }
+
+    $flatFeeRaw = (string)($requestBody['flat_fee'] ?? ($_POST['flat_fee'] ?? '0'));
+    $freeOverRaw = (string)($requestBody['free_shipping_over'] ?? ($_POST['free_shipping_over'] ?? '0'));
+
+    if (!is_numeric($flatFeeRaw) || !is_numeric($freeOverRaw)) {
+        orders_api_json(['ok' => false, 'message' => 'Shipping values must be numeric.'], 422);
+    }
+
+    $flatFee = round(max(0, (float)$flatFeeRaw), 2);
+    $freeOver = round(max(0, (float)$freeOverRaw), 2);
+
+    $ok = true;
+    $ok = $ok && orders_api_upsert_setting($con, 'shipping_flat_fee', (string)$flatFee, 'Shipping Flat Fee', 'shipping');
+    $ok = $ok && orders_api_upsert_setting($con, 'free_shipping_over', (string)$freeOver, 'Free Shipping Threshold', 'shipping');
+
+    if (!$ok) {
+        orders_api_json(['ok' => false, 'message' => 'Unable to save shipping settings.'], 500);
+    }
+
+    admin_api_log_security_event($con, $admin, 'shipping.settings_updated', 'info', [
+        'shipping_flat_fee' => $flatFee,
+        'free_shipping_over' => $freeOver,
+    ]);
+
+    orders_api_json([
+        'ok' => true,
+        'message' => 'Shipping settings updated.',
+        'payload' => orders_api_summary_payload($con),
+    ]);
+}
+
+if ($action === 'add-blacklist') {
+    if ($method !== 'POST') {
+        orders_api_json(['ok' => false, 'message' => 'Method not allowed.'], 405);
+    }
+
+    $csrfToken = (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($_POST['csrf_token'] ?? ''));
+    if ($csrfToken === '') {
+        $csrfToken = (string)($requestBody['csrf_token'] ?? '');
+    }
+
+    if (!admin_validate_csrf_token($csrfToken)) {
+        orders_api_json(['ok' => false, 'message' => 'Forbidden.'], 403);
+    }
+
+    $customerId = (int)($requestBody['customer_id'] ?? ($_POST['customer_id'] ?? 0));
+    $email = orders_api_normalize_blacklist_email((string)($requestBody['email'] ?? ($_POST['email'] ?? '')));
+    $phone = orders_api_normalize_blacklist_phone((string)($requestBody['phone'] ?? ($_POST['phone'] ?? '')));
+    $reason = trim((string)($requestBody['reason'] ?? ($_POST['reason'] ?? '')));
+
+    if (strlen($reason) > 255) {
+        $reason = substr($reason, 0, 255);
+    }
+
+    if ($customerId > 0) {
+        $stmt = $con->prepare('SELECT email, phone FROM users WHERE id = ? LIMIT 1');
+        if ($stmt) {
+            $stmt->bind_param('i', $customerId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $row = $result ? $result->fetch_assoc() : null;
+            $stmt->close();
+
+            if ($row) {
+                if ($email === '') {
+                    $email = orders_api_normalize_blacklist_email((string)($row['email'] ?? ''));
+                }
+                if ($phone === '') {
+                    $phone = orders_api_normalize_blacklist_phone((string)($row['phone'] ?? ''));
+                }
+            }
+        }
+    }
+
+    if ($email === '' && $phone === '') {
+        orders_api_json(['ok' => false, 'message' => 'Provide a valid email or phone to blacklist.'], 422);
+    }
+
+    orders_api_ensure_blacklist_table($con);
+
+    $existing = orders_api_blacklist_lookup_active($con, $email, $phone);
+    $adminId = (int)($admin['id'] ?? 0);
+    $reasonValue = $reason !== '' ? $reason : null;
+
+    if (is_array($existing) && (int)($existing['id'] ?? 0) > 0) {
+        $existingId = (int)$existing['id'];
+        $updateStmt = $con->prepare(
+            'UPDATE customer_blacklist
+             SET email = ?, phone = ?, reason = ?, created_by_admin_id = ?, is_active = 1
+             WHERE id = ?
+             LIMIT 1'
+        );
+
+        if (!$updateStmt) {
+            orders_api_json(['ok' => false, 'message' => 'Unable to update blacklist entry.'], 500);
+        }
+
+        $updateStmt->bind_param('sssii', $email, $phone, $reasonValue, $adminId, $existingId);
+        $ok = $updateStmt->execute();
+        $updateStmt->close();
+
+        if (!$ok) {
+            orders_api_json(['ok' => false, 'message' => 'Unable to update blacklist entry.'], 500);
+        }
+    } else {
+        $insertStmt = $con->prepare(
+            'INSERT INTO customer_blacklist (email, phone, reason, created_by_admin_id, is_active)
+             VALUES (?, ?, ?, ?, 1)'
+        );
+
+        if (!$insertStmt) {
+            orders_api_json(['ok' => false, 'message' => 'Unable to create blacklist entry.'], 500);
+        }
+
+        $insertStmt->bind_param('sssi', $email, $phone, $reasonValue, $adminId);
+        $ok = $insertStmt->execute();
+        $insertStmt->close();
+
+        if (!$ok) {
+            orders_api_json(['ok' => false, 'message' => 'Unable to create blacklist entry.'], 500);
+        }
+    }
+
+    admin_api_log_security_event($con, $admin, 'customer.blacklisted', 'warning', [
+        'customer_id' => $customerId,
+        'email' => $email,
+        'phone' => $phone,
+        'reason' => $reason,
+    ]);
+
+    orders_api_json([
+        'ok' => true,
+        'message' => 'Customer contact blacklisted.',
+        'payload' => orders_api_summary_payload($con),
+    ]);
+}
+
+if ($action === 'remove-blacklist') {
+    if ($method !== 'POST') {
+        orders_api_json(['ok' => false, 'message' => 'Method not allowed.'], 405);
+    }
+
+    $csrfToken = (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($_POST['csrf_token'] ?? ''));
+    if ($csrfToken === '') {
+        $csrfToken = (string)($requestBody['csrf_token'] ?? '');
+    }
+
+    if (!admin_validate_csrf_token($csrfToken)) {
+        orders_api_json(['ok' => false, 'message' => 'Forbidden.'], 403);
+    }
+
+    $blacklistId = (int)($requestBody['blacklist_id'] ?? ($_POST['blacklist_id'] ?? 0));
+    if ($blacklistId <= 0) {
+        orders_api_json(['ok' => false, 'message' => 'Invalid blacklist id.'], 422);
+    }
+
+    orders_api_ensure_blacklist_table($con);
+
+    $stmt = $con->prepare('UPDATE customer_blacklist SET is_active = 0 WHERE id = ? LIMIT 1');
+    if (!$stmt) {
+        orders_api_json(['ok' => false, 'message' => 'Unable to update blacklist entry.'], 500);
+    }
+
+    $stmt->bind_param('i', $blacklistId);
+    $ok = $stmt->execute();
+    $affected = (int)$stmt->affected_rows;
+    $stmt->close();
+
+    if (!$ok) {
+        orders_api_json(['ok' => false, 'message' => 'Unable to update blacklist entry.'], 500);
+    }
+
+    admin_api_log_security_event($con, $admin, 'customer.blacklist_removed', 'info', [
+        'blacklist_id' => $blacklistId,
+        'affected_rows' => $affected,
+    ]);
+
+    orders_api_json([
+        'ok' => true,
+        'message' => $affected > 0 ? 'Blacklist entry removed.' : 'Blacklist entry was already inactive.',
+        'payload' => orders_api_summary_payload($con),
     ]);
 }
 

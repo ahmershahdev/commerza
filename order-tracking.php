@@ -450,6 +450,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   </header>
 
   <main class="container my-5">
+    <?php commerza_render_page_breadcrumb('Order Tracking'); ?>
     <section class="page-hero mb-5">
       <div class="hero-content">
         <span class="hero-badge"><i class="bi bi-search"></i> Track Order</span>
@@ -717,7 +718,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>
   <script <?= commerza_csp_nonce_attr() ?>>
-    (function () {
+    (function() {
       const form = document.getElementById("orderTrackingForm");
       const resultContainer = document.getElementById("orderTrackingResult");
       const submitBtn = document.getElementById("orderTrackingSubmitBtn");
@@ -737,11 +738,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
       const escapeHtml = (value) =>
         String(value || "")
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/\"/g, "&quot;")
-          .replace(/'/g, "&#039;");
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 
       const statusClass = (value) => {
         const key = String(value || "").trim().toLowerCase();
@@ -762,11 +763,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         const order = payload?.order || {};
         const items = Array.isArray(payload?.items) ? payload.items : [];
 
-        const itemsMarkup = items.length
-          ? items
-              .map((item) => {
-                const hasImage = String(item.product_img || "").trim() !== "";
-                return `
+        const itemsMarkup = items.length ?
+          items
+          .map((item) => {
+            const hasImage = String(item.product_img || "").trim() !== "";
+            return `
                   <div class="d-flex align-items-center gap-3 mb-2 p-2 rounded" style="background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.06);">
                     ${hasImage ? `<img src="${escapeHtml(item.product_img)}" alt="${escapeHtml(item.product_name)}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;">` : ""}
                     <div class="flex-grow-1">
@@ -776,9 +777,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <p class="mb-0 text-white fw-semibold">${toPkr(item.line_total)}</p>
                   </div>
                 `;
-              })
-              .join("")
-          : '<p class="text-secondary mb-0">No line items found for this order.</p>';
+          })
+          .join("") :
+          '<p class="text-secondary mb-0">No line items found for this order.</p>';
 
         resultContainer.innerHTML = `
           <div class="card product-card mb-4">
@@ -822,7 +823,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         `;
       };
 
-      form.addEventListener("submit", async function (event) {
+      form.addEventListener("submit", async function(event) {
         event.preventDefault();
 
         const formData = new FormData(form);

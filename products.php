@@ -713,6 +713,7 @@ $productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza
   </header>
 
   <main class="container product-hero">
+    <?php commerza_render_page_breadcrumb('Products'); ?>
     <div id="product-detail-container"></div>
 
     <section class="product-info-strip" aria-label="Product buying advantages">

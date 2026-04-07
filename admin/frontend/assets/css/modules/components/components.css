@@ -270,6 +270,10 @@ img {
   text-transform: uppercase;
 }
 
+.security-events-table tbody td {
+  vertical-align: top;
+}
+
 .security-event-row {
   border-left: 3px solid transparent;
 }
@@ -313,15 +317,45 @@ img {
   color: #8fefff;
 }
 
+.security-event-label {
+  color: #f6f6f6;
+  line-height: 1.3;
+}
+
+.security-event-code,
+.security-event-identifier-label,
+.security-event-ip-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 204, 163, 0.82);
+}
+
+.security-event-code {
+  margin-top: 2px;
+  opacity: 0.8;
+}
+
 .security-event-identifier,
 .security-event-ip {
-  font-family: "JetBrains Mono", monospace;
   word-break: break-word;
+  line-height: 1.35;
+}
+
+.security-event-identifier {
+  color: #f0f0f0;
+  margin-bottom: 4px;
+}
+
+.security-event-ip {
+  color: #ffd978;
+  font-family: "JetBrains Mono", monospace;
 }
 
 .security-event-details {
-  max-width: 320px;
-  white-space: nowrap;
+  max-width: 360px;
+  white-space: normal;
+  line-height: 1.45;
   overflow: hidden;
   text-overflow: ellipsis;
 }

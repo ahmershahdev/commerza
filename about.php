@@ -318,6 +318,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
   </header>
 
   <main class="container my-5 about-shell">
+    <?php commerza_render_page_breadcrumb('About'); ?>
     <section class="page-hero mb-5">
       <div class="hero-content">
         <span class="hero-badge"><i class="bi bi-gem"></i> About <?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?></span>

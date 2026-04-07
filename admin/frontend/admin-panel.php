@@ -85,8 +85,8 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                             <li class="nav-item mb-1">
                                 <button
                                     class="nav-link rounded-2 d-flex align-items-center py-2 px-3 w-100 text-start border-0"
-                                    id="product-trash-tab" data-bs-toggle="pill" data-bs-target="#productsSection"
-                                    type="button" aria-controls="productsSection" aria-selected="false">
+                                    id="product-trash-tab" data-bs-toggle="pill" data-bs-target="#productTrashSection"
+                                    type="button" aria-controls="productTrashSection" aria-selected="false">
                                     <i class="bi bi-trash3 me-2 fs-5"></i>
                                     <span>Product Trash</span>
                                 </button>
@@ -466,8 +466,9 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                     </div>
                                 </div>
                                 <div class="card admin-card border-0 shadow-sm mb-4">
-                                    <div class="card-header bg-dark border-bottom border-secondary py-3">
+                                    <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                                         <h3 class="h5 mb-0 fw-bold text-orange">Bulk Product Upload (CSV / JSON)</h3>
+                                        <span class="badge bg-secondary">Optional Step A</span>
                                     </div>
                                     <div class="card-body p-4">
                                         <p class="text-secondary mb-3">Simple steps for non-technical admins: download sample CSV, fill each row (one product), then click import. Import replaces current catalog data.</p>
@@ -503,7 +504,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                 <div class="card admin-card border-0 shadow-sm mb-4">
                                     <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center">
                                         <h3 class="h5 mb-0 fw-bold text-orange">Manage Sections</h3>
-                                        <span class="text-secondary small">Create a section first, then add products</span>
+                                        <span class="text-secondary small">Step 1 of 3: Create a section first, then add products</span>
                                     </div>
                                     <div class="card-body p-4">
                                         <input type="hidden" id="sectionFormId">
@@ -556,7 +557,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                 <div class="card admin-card border-0 shadow-sm">
                                     <div
                                         class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center">
-                                        <h3 class="h5 mb-0 fw-bold text-orange">All Products (<span id="productCount">0</span>)</h3>
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Step 2 of 3: All Products (<span id="productCount">0</span>)</h3>
                                         <button class="btn btn-sm btn-orange" id="addNewProductBtn">
                                             <i class="bi bi-plus-circle me-1"></i>Add New Product
                                         </button>
@@ -581,45 +582,54 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
 
-                                <div class="card admin-card border-0 shadow-sm mt-4" id="productTrashCard">
-                                    <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                                        <h3 class="h5 mb-0 fw-bold text-orange d-flex flex-column gap-1">
-                                            Product Trash (<span id="productTrashCount">0</span>)
-                                            <small class="text-secondary fw-normal">Items auto-purge after 7 days unless restored.</small>
-                                        </h3>
-                                        <div class="d-flex gap-2 flex-wrap">
-                                            <button class="btn btn-sm btn-outline-orange" id="refreshProductTrashBtn" type="button">
-                                                <i class="bi bi-arrow-clockwise me-1"></i>Refresh
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-warning" id="emptyExpiredProductTrashBtn" type="button">
-                                                <i class="bi bi-hourglass-split me-1"></i>Empty Expired
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-danger" id="emptyAllProductTrashBtn" type="button">
-                                                <i class="bi bi-trash3 me-1"></i>Empty All
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="card-body p-0">
-                                        <div class="table-responsive">
-                                            <table class="table table-dark table-hover align-middle mb-0" id="productTrashTable">
-                                                <thead class="border-bottom border-secondary">
-                                                    <tr>
-                                                        <th class="py-3 ps-4 text-orange fw-semibold">Product</th>
-                                                        <th class="py-3 text-orange fw-semibold">Section</th>
-                                                        <th class="py-3 text-orange fw-semibold">Deleted At</th>
-                                                        <th class="py-3 text-orange fw-semibold">Auto Purge</th>
-                                                        <th class="py-3 pe-4 text-orange fw-semibold">Actions</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <tr>
-                                                        <td colspan="5" class="text-center py-4 text-secondary">Trash is empty.</td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
+                    <div class="tab-pane fade" id="productTrashSection">
+                        <div class="helper-banner mb-4">
+                            <div>
+                                <h2 class="h5 mb-2 text-light">Product Trash recovery</h2>
+                                <p class="mb-0 text-secondary">Restore recently deleted products or permanently remove expired trash entries.</p>
+                            </div>
+                            <span class="step-chip">Tip: Restore first if unsure. Empty actions are permanent.</span>
+                        </div>
+                        <div class="card admin-card border-0 shadow-sm" id="productTrashCard">
+                            <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <h3 class="h5 mb-0 fw-bold text-orange d-flex flex-column gap-1">
+                                    Product Trash (<span id="productTrashCount">0</span>)
+                                    <small class="text-secondary fw-normal">Items auto-purge after 7 days unless restored.</small>
+                                </h3>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button class="btn btn-sm btn-outline-orange" id="refreshProductTrashBtn" type="button">
+                                        <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-warning" id="emptyExpiredProductTrashBtn" type="button">
+                                        <i class="bi bi-hourglass-split me-1"></i>Empty Expired
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" id="emptyAllProductTrashBtn" type="button">
+                                        <i class="bi bi-trash3 me-1"></i>Empty All
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-dark table-hover align-middle mb-0" id="productTrashTable">
+                                        <thead class="border-bottom border-secondary">
+                                            <tr>
+                                                <th class="py-3 ps-4 text-orange fw-semibold">Product</th>
+                                                <th class="py-3 text-orange fw-semibold">Section</th>
+                                                <th class="py-3 text-orange fw-semibold">Deleted At</th>
+                                                <th class="py-3 text-orange fw-semibold">Auto Purge</th>
+                                                <th class="py-3 pe-4 text-orange fw-semibold">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td colspan="5" class="text-center py-4 text-secondary">Trash is empty.</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
@@ -664,6 +674,37 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                                 </tbody>
                                             </table>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-4 mb-4">
+                            <div class="col-12">
+                                <div class="card admin-card border-0 shadow-sm" id="shippingRulesCard">
+                                    <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Shipping Rules</h3>
+                                        <span class="text-secondary small">Used at checkout for all orders</span>
+                                    </div>
+                                    <div class="card-body p-4">
+                                        <div class="row g-3 align-items-end">
+                                            <div class="col-12 col-md-5 col-lg-4">
+                                                <label for="shippingFlatFeeInput" class="form-label text-light">Flat Shipping Fee (PKR)</label>
+                                                <input type="number" class="form-control bg-secondary border-0 text-light" id="shippingFlatFeeInput" min="0" step="0.01" placeholder="1000">
+                                                <small class="field-hint d-block mt-1">Applied when free-shipping condition is not met.</small>
+                                            </div>
+                                            <div class="col-12 col-md-5 col-lg-4">
+                                                <label for="freeShippingOverInput" class="form-label text-light">Free Shipping Over (PKR)</label>
+                                                <input type="number" class="form-control bg-secondary border-0 text-light" id="freeShippingOverInput" min="0" step="0.01" placeholder="500">
+                                                <small class="field-hint d-block mt-1">Set 0 to disable threshold-based free shipping.</small>
+                                            </div>
+                                            <div class="col-12 col-md-2 col-lg-4 d-grid">
+                                                <button class="btn btn-orange" id="saveShippingConfigBtn" type="button">
+                                                    <i class="bi bi-truck me-1"></i>Save Shipping Rules
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="text-secondary small mt-3" id="shippingRulesPreview">Current checkout rules will appear here.</div>
                                     </div>
                                 </div>
                             </div>
@@ -745,6 +786,59 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                                 <tbody>
                                                     <tr class="border-bottom border-secondary">
                                                         <td colspan="9" class="text-center py-4 text-secondary">No customers found</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-4 mb-4">
+                            <div class="col-12">
+                                <div class="card admin-card border-0 shadow-sm" id="customerBlacklistCard">
+                                    <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Customer Blacklist</h3>
+                                        <span class="text-secondary small">Blocked email/phone cannot be used for signup or profile updates</span>
+                                    </div>
+                                    <div class="card-body p-4">
+                                        <div class="row g-3 align-items-end">
+                                            <div class="col-12 col-md-4">
+                                                <label for="blacklistEmailInput" class="form-label text-light">Email</label>
+                                                <input type="email" class="form-control bg-secondary border-0 text-light" id="blacklistEmailInput" placeholder="user@example.com">
+                                                <small class="field-hint d-block mt-1">Optional if phone is provided.</small>
+                                            </div>
+                                            <div class="col-12 col-md-3">
+                                                <label for="blacklistPhoneInput" class="form-label text-light">Phone</label>
+                                                <input type="text" class="form-control bg-secondary border-0 text-light" id="blacklistPhoneInput" placeholder="03123456789">
+                                                <small class="field-hint d-block mt-1">11 to 15 digits.</small>
+                                            </div>
+                                            <div class="col-12 col-md-3">
+                                                <label for="blacklistReasonInput" class="form-label text-light">Reason</label>
+                                                <input type="text" class="form-control bg-secondary border-0 text-light" id="blacklistReasonInput" maxlength="255" placeholder="Fraud, abuse, chargeback, etc.">
+                                            </div>
+                                            <div class="col-12 col-md-2 d-grid">
+                                                <button class="btn btn-outline-danger" id="addBlacklistBtn" type="button">
+                                                    <i class="bi bi-slash-circle me-1"></i>Blacklist
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <small class="field-hint d-block mt-3">Tip: Use customer row actions for quick Blacklist + Delete on abusive accounts.</small>
+                                        <div class="table-responsive mt-3">
+                                            <table class="table table-dark table-hover align-middle mb-0" id="blacklistTable">
+                                                <thead class="border-bottom border-secondary">
+                                                    <tr>
+                                                        <th class="py-3 ps-4 text-orange fw-semibold">Email</th>
+                                                        <th class="py-3 text-orange fw-semibold">Phone</th>
+                                                        <th class="py-3 text-orange fw-semibold">Reason</th>
+                                                        <th class="py-3 text-orange fw-semibold">Added</th>
+                                                        <th class="py-3 pe-4 text-orange fw-semibold">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td colspan="5" class="text-center py-4 text-secondary">No blacklisted contacts yet.</td>
                                                     </tr>
                                                 </tbody>
                                             </table>

@@ -20,23 +20,23 @@ if (
     exit;
 }
 
-if (!isset($_SESSION['user_id']) || !is_numeric($_SESSION['user_id'])) {
-    http_response_code(401);
-    echo json_encode(['error' => 'Unauthorized']);
-    exit;
-}
-
-$userId = (int)$_SESSION['user_id'];
+$isAuthenticatedUser = isset($_SESSION['user_id']) && is_numeric($_SESSION['user_id']);
+$userId = $isAuthenticatedUser ? (int)$_SESSION['user_id'] : 0;
 $clientIp = commerza_client_ip();
+$rateScope = $isAuthenticatedUser ? 'user_account_exists_lookup' : 'public_signup_exists_lookup';
+$rateIdentifier = $isAuthenticatedUser
+    ? (string)$userId
+    : 'guest:' . substr(hash('sha256', ($clientIp !== '' ? $clientIp : '0.0.0.0') . '|' . session_id()), 0, 24);
+
 $rate = commerza_rate_limit_check(
     $con,
-    'user_account_exists_lookup',
-    (string)$userId,
+    $rateScope,
+    $rateIdentifier,
     $clientIp,
-    90,
+    $isAuthenticatedUser ? 90 : 45,
     600,
-    900,
-    1800,
+    $isAuthenticatedUser ? 900 : 1200,
+    $isAuthenticatedUser ? 1800 : 2400,
     86400
 );
 
@@ -51,10 +51,10 @@ if (!(bool)($rate['allowed'] ?? false)) {
 
 $field = (string)($_POST['field'] ?? '');
 $value = trim((string)($_POST['value'] ?? ''));
-$excludeCurrent = !empty($_POST['exclude_current']);
+$excludeCurrent = !empty($_POST['exclude_current']) && $isAuthenticatedUser;
 $excludeUserId = 0;
 
-if ($excludeCurrent && isset($_SESSION['user_id']) && is_numeric($_SESSION['user_id'])) {
+if ($excludeCurrent && $isAuthenticatedUser) {
     $excludeUserId = (int)$_SESSION['user_id'];
 }
 
@@ -67,23 +67,56 @@ if (!in_array($field, ['email', 'phone', 'username'], true) || $value === '') {
 if ($field === 'email') {
     $value = strtolower($value);
     if (!filter_var($value, FILTER_VALIDATE_EMAIL) || strlen($value) > 150) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Invalid email']);
+        echo json_encode([
+            'exists' => false,
+            'invalid' => true,
+            'message' => 'Invalid email',
+        ]);
         exit;
     }
+
+    $blocked = commerza_customer_blacklist_lookup($con, $value, '');
+    if (is_array($blocked)) {
+        echo json_encode([
+            'exists' => true,
+            'blocked' => true,
+            'block_type' => 'email',
+            'message' => commerza_customer_blacklist_feedback_message($blocked),
+        ]);
+        exit;
+    }
+
     $sql = 'SELECT 1 FROM users WHERE email = ?';
 } elseif ($field === 'phone') {
     if (!preg_match('/^\d{11,15}$/', $value)) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Invalid phone']);
+        echo json_encode([
+            'exists' => false,
+            'invalid' => true,
+            'message' => 'Invalid phone',
+        ]);
         exit;
     }
+
+    $blocked = commerza_customer_blacklist_lookup($con, '', $value);
+    if (is_array($blocked)) {
+        echo json_encode([
+            'exists' => true,
+            'blocked' => true,
+            'block_type' => 'phone',
+            'message' => commerza_customer_blacklist_feedback_message($blocked),
+        ]);
+        exit;
+    }
+
     $sql = 'SELECT 1 FROM users WHERE phone = ?';
 } else {
     $value = commerza_username_slug($value);
     if (!commerza_username_is_valid($value)) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Invalid username']);
+        echo json_encode([
+            'exists' => false,
+            'invalid' => true,
+            'message' => 'Invalid username',
+        ]);
         exit;
     }
 

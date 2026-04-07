@@ -319,6 +319,70 @@ function commerza_absolute_url(string $path = ''): string
     return $base . '/' . ltrim($path, '/');
 }
 
+function commerza_render_page_breadcrumb(string $currentLabel, array $parents = [], bool $includeHome = true): void
+{
+    static $stylePrinted = false;
+
+    $current = trim($currentLabel);
+    if ($current === '') {
+        return;
+    }
+
+    $crumbs = [];
+
+    if ($includeHome && strcasecmp($current, 'home') !== 0) {
+        $crumbs[] = [
+            'label' => 'Home',
+            'href' => 'index.php',
+        ];
+    }
+
+    foreach ($parents as $parent) {
+        if (!is_array($parent)) {
+            continue;
+        }
+
+        $label = trim((string)($parent['label'] ?? ''));
+        $href = trim((string)($parent['href'] ?? ''));
+
+        if ($label === '' || $href === '') {
+            continue;
+        }
+
+        $crumbs[] = [
+            'label' => $label,
+            'href' => $href,
+        ];
+    }
+
+    if (!$stylePrinted) {
+        $stylePrinted = true;
+        echo '<style>'
+            . '.page-breadcrumb-shell{position:relative;z-index:2;display:block;margin-bottom:1rem;}'
+            . '.page-breadcrumb{background:rgba(12,12,12,.66)!important;border:1px solid rgba(255,102,0,.28)!important;border-radius:999px!important;display:inline-flex!important;flex-wrap:wrap;margin:0;padding:7px 14px;box-shadow:0 8px 24px rgba(0,0,0,.28);}'
+            . '.page-breadcrumb .breadcrumb-item,.page-breadcrumb .breadcrumb-item a{color:#ffc898!important;text-decoration:none!important;font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;}'
+            . '.page-breadcrumb .breadcrumb-item.active{color:#ffe9d4!important;}'
+            . '.page-breadcrumb .breadcrumb-item+.breadcrumb-item::before{color:rgba(255,215,176,.78)!important;}'
+            . '@media (max-width:575.98px){.page-breadcrumb{border-radius:14px!important;padding:7px 10px;}.page-breadcrumb .breadcrumb-item,.page-breadcrumb .breadcrumb-item a{font-size:.68rem;letter-spacing:.04em;}}'
+            . '</style>';
+    }
+
+    echo '<section class="page-breadcrumb-shell mb-3">';
+    echo '<nav aria-label="Breadcrumb">';
+    echo '<ol class="breadcrumb page-breadcrumb mb-0">';
+
+    foreach ($crumbs as $crumb) {
+        $label = htmlspecialchars((string)$crumb['label'], ENT_QUOTES, 'UTF-8');
+        $href = htmlspecialchars((string)$crumb['href'], ENT_QUOTES, 'UTF-8');
+        echo '<li class="breadcrumb-item"><a href="' . $href . '">' . $label . '</a></li>';
+    }
+
+    echo '<li class="breadcrumb-item active" aria-current="page">' . htmlspecialchars($current, ENT_QUOTES, 'UTF-8') . '</li>';
+    echo '</ol>';
+    echo '</nav>';
+    echo '</section>';
+}
+
 function commerza_is_backend_request(): bool
 {
     $script = strtolower(str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? '')));
@@ -1037,6 +1101,168 @@ function commerza_username_blacklist_lookup(mysqli $con, string $username): ?arr
     }
 
     return null;
+}
+
+function commerza_customer_blacklist_normalize_email(string $email): string
+{
+    $normalized = strtolower(trim($email));
+    if ($normalized === '') {
+        return '';
+    }
+
+    if (!filter_var($normalized, FILTER_VALIDATE_EMAIL) || strlen($normalized) > 150) {
+        return '';
+    }
+
+    return $normalized;
+}
+
+function commerza_customer_blacklist_normalize_phone(string $phone): string
+{
+    $normalized = preg_replace('/\s+/', '', trim($phone));
+    if (!is_string($normalized)) {
+        return '';
+    }
+
+    if ($normalized === '') {
+        return '';
+    }
+
+    if (preg_match('/^\d{11,15}$/', $normalized) !== 1) {
+        return '';
+    }
+
+    return $normalized;
+}
+
+function commerza_customer_blacklist_ensure_table(mysqli $con): void
+{
+    static $initialized = false;
+
+    if ($initialized) {
+        return;
+    }
+
+    $con->query(
+        'CREATE TABLE IF NOT EXISTS customer_blacklist (
+            id INT NOT NULL AUTO_INCREMENT,
+            email VARCHAR(150) DEFAULT NULL,
+            phone VARCHAR(20) DEFAULT NULL,
+            reason VARCHAR(255) DEFAULT NULL,
+            created_by_admin_id INT DEFAULT NULL,
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY idx_customer_blacklist_active (is_active, created_at),
+            KEY idx_customer_blacklist_email (email),
+            KEY idx_customer_blacklist_phone (phone)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci'
+    );
+
+    $initialized = true;
+}
+
+function commerza_customer_blacklist_lookup(mysqli $con, string $email = '', string $phone = ''): ?array
+{
+    commerza_customer_blacklist_ensure_table($con);
+
+    $normalizedEmail = commerza_customer_blacklist_normalize_email($email);
+    $normalizedPhone = commerza_customer_blacklist_normalize_phone($phone);
+
+    if ($normalizedEmail === '' && $normalizedPhone === '') {
+        return null;
+    }
+
+    if ($normalizedEmail !== '') {
+        $stmt = $con->prepare(
+            'SELECT id, email, phone, reason, created_at
+             FROM customer_blacklist
+             WHERE is_active = 1
+               AND LOWER(TRIM(email)) = ?
+             ORDER BY id DESC
+             LIMIT 1'
+        );
+
+        if ($stmt) {
+            $stmt->bind_param('s', $normalizedEmail);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $row = $result ? $result->fetch_assoc() : null;
+            $stmt->close();
+
+            if ($row) {
+                return [
+                    'id' => (int)($row['id'] ?? 0),
+                    'email' => trim((string)($row['email'] ?? '')),
+                    'phone' => trim((string)($row['phone'] ?? '')),
+                    'reason' => trim((string)($row['reason'] ?? '')),
+                    'match' => 'email',
+                    'created_at' => (string)($row['created_at'] ?? ''),
+                ];
+            }
+        }
+    }
+
+    if ($normalizedPhone !== '') {
+        $stmt = $con->prepare(
+            'SELECT id, email, phone, reason, created_at
+             FROM customer_blacklist
+             WHERE is_active = 1
+               AND phone = ?
+             ORDER BY id DESC
+             LIMIT 1'
+        );
+
+        if ($stmt) {
+            $stmt->bind_param('s', $normalizedPhone);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $row = $result ? $result->fetch_assoc() : null;
+            $stmt->close();
+
+            if ($row) {
+                return [
+                    'id' => (int)($row['id'] ?? 0),
+                    'email' => trim((string)($row['email'] ?? '')),
+                    'phone' => trim((string)($row['phone'] ?? '')),
+                    'reason' => trim((string)($row['reason'] ?? '')),
+                    'match' => 'phone',
+                    'created_at' => (string)($row['created_at'] ?? ''),
+                ];
+            }
+        }
+    }
+
+    return null;
+}
+
+function commerza_customer_blacklist_feedback_message(array $blocked): string
+{
+    $match = strtolower(trim((string)($blocked['match'] ?? 'contact')));
+    $reason = trim((string)($blocked['reason'] ?? ''));
+
+    if ($reason !== '') {
+        if ($match === 'email') {
+            return 'This email has been blocked by admin. Reason: ' . $reason;
+        }
+
+        if ($match === 'phone') {
+            return 'This phone number has been blocked by admin. Reason: ' . $reason;
+        }
+
+        return 'This contact is blocked by admin. Reason: ' . $reason;
+    }
+
+    if ($match === 'email') {
+        return 'This email has been blocked by admin. Please contact support.';
+    }
+
+    if ($match === 'phone') {
+        return 'This phone number has been blocked by admin. Please contact support.';
+    }
+
+    return 'This contact is blocked by admin. Please contact support.';
 }
 
 function commerza_username_base_from_identity(string $fullName, string $email, int $fallbackId = 0): string

@@ -169,6 +169,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
   </header>
 
   <main class="container my-5">
+    <?php commerza_render_page_breadcrumb('FAQ'); ?>
     <section class="page-hero mb-5">
       <div class="hero-content">
         <span class="hero-badge"><i class="bi bi-question-circle"></i> Help Center</span>

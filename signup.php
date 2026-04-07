@@ -164,6 +164,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
               if (is_array($blockedUsername)) {
                 $errors[] = commerza_username_blacklist_feedback_message($blockedUsername);
               }
+
+              $blockedContact = commerza_customer_blacklist_lookup($con, $email, $phone);
+              if (is_array($blockedContact)) {
+                $errors[] = commerza_customer_blacklist_feedback_message($blockedContact);
+              }
             }
 
             if ($password_hash === '') {
@@ -250,6 +255,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       $blockedUsername = commerza_username_blacklist_lookup($con, $username);
       if (is_array($blockedUsername)) {
         $errors[] = commerza_username_blacklist_feedback_message($blockedUsername);
+      }
+
+      $blockedContact = commerza_customer_blacklist_lookup($con, $email, $phone);
+      if (is_array($blockedContact)) {
+        $errors[] = commerza_customer_blacklist_feedback_message($blockedContact);
       }
     }
 
@@ -1026,6 +1036,21 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
         input.css("border-color", "");
       }
 
+      function isValidLiveEmail(value) {
+        const normalized = (value || "").toString().trim().toLowerCase();
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized) && normalized.length <= 150;
+      }
+
+      function isValidLivePhone(value) {
+        const normalized = (value || "").toString().trim();
+        return /^\d{11,15}$/.test(normalized);
+      }
+
+      function isValidLiveUsername(value) {
+        const normalized = (value || "").toString().trim().toLowerCase();
+        return /^[a-z][a-z0-9_]{2,23}$/.test(normalized);
+      }
+
       function checkField(input, field, value, message) {
         $.post("backend/check_exists.php", {
             csrf_token: csrf,
@@ -1033,12 +1058,15 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
             value
           })
           .done(function(res) {
-            if (field === "username" && res?.blocked) {
+            if (res?.blocked) {
               fieldState[field] = true;
               setFieldStatus(
                 input,
                 true,
-                (res?.message || "This username is not allowed.").toString(),
+                (
+                  res?.message ||
+                  "This value is blocked by admin and cannot be used."
+                ).toString(),
               );
               return;
             }
@@ -1077,6 +1105,12 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
 
         if (normalized.length < 3) return;
 
+        if (!isValidLiveUsername(normalized)) {
+          setFieldStatus(input, true, "Use 3-24 chars, start with a letter.");
+          fieldState.username = false;
+          return;
+        }
+
         usernameTimer = setTimeout(() => {
           checkField(input, "username", normalized, "Username already taken");
         }, 450);
@@ -1085,22 +1119,38 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
       $("#signup-email").on("input", function() {
         const val = $(this).val().trim().toLowerCase();
         clearTimeout(emailTimer);
-        clearFieldStatus($(this));
+        const input = $(this);
+        clearFieldStatus(input);
         fieldState.email = false;
         if (!val) return;
+
+        if (!isValidLiveEmail(val)) {
+          setFieldStatus(input, true, "Enter a valid email first.");
+          fieldState.email = false;
+          return;
+        }
+
         emailTimer = setTimeout(() => {
-          checkField($(this), "email", val, "Email already registered");
+          checkField(input, "email", val, "Email already registered");
         }, 500);
       });
 
       $("#signup-phone").on("input", function() {
         const val = $(this).val().trim();
         clearTimeout(phoneTimer);
-        clearFieldStatus($(this));
+        const input = $(this);
+        clearFieldStatus(input);
         fieldState.phone = false;
         if (!val) return;
+
+        if (!isValidLivePhone(val)) {
+          setFieldStatus(input, true, "Use 11 to 15 digits.");
+          fieldState.phone = false;
+          return;
+        }
+
         phoneTimer = setTimeout(() => {
-          checkField($(this), "phone", val, "Phone already registered");
+          checkField(input, "phone", val, "Phone already registered");
         }, 500);
       });
 

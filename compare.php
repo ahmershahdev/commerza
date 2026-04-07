@@ -475,6 +475,7 @@ $highestStock = !empty($stockValues) ? max($stockValues) : 0;
   </header>
 
   <main class="container my-5">
+    <?php commerza_render_page_breadcrumb('Compare'); ?>
     <section class="page-hero mb-5">
       <div class="hero-content">
         <span class="hero-badge"><i class="bi bi-sliders"></i> Compare</span>

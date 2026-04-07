@@ -66,36 +66,6 @@ if ($homeVideoStmt) {
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
   <style>
-    .page-breadcrumb-shell {
-      position: relative;
-      z-index: 3;
-    }
-
-    .page-breadcrumb {
-      background: rgba(12, 12, 12, 0.66);
-      border: 1px solid rgba(255, 102, 0, 0.25);
-      border-radius: 999px;
-      display: inline-flex;
-      padding: 7px 14px;
-    }
-
-    .page-breadcrumb .breadcrumb-item,
-    .page-breadcrumb .breadcrumb-item a {
-      color: #ffc898;
-      text-decoration: none;
-      font-size: 0.75rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-
-    .page-breadcrumb .breadcrumb-item.active {
-      color: #ffe9d4;
-    }
-
-    .page-breadcrumb .breadcrumb-item+.breadcrumb-item::before {
-      color: rgba(255, 215, 176, 0.7);
-    }
-
     .app-coming-home {
       border: 1px solid rgba(255, 130, 64, 0.42);
       border-radius: 28px;
@@ -607,13 +577,6 @@ if ($homeVideoStmt) {
   </header>
 
   <main>
-    <section class="container-fluid pt-3 pb-2 page-breadcrumb-shell">
-      <nav aria-label="Breadcrumb">
-        <ol class="breadcrumb page-breadcrumb mb-0">
-          <li class="breadcrumb-item active" aria-current="page">Home</li>
-        </ol>
-      </nav>
-    </section>
     <div class="container-fluid">
       <div class="row">
         <div class="col">
@@ -698,7 +661,6 @@ if ($homeVideoStmt) {
           </div>
         </div>
       </div>
-
       <section class="hero-block mt-4">
         <div class="row align-items-center g-4">
           <div class="col-12 col-lg-6">

@@ -3061,6 +3061,55 @@ $(document).ready(function () {
     form.find(".search-suggestions").removeClass("show").empty();
   }
 
+  function suggestionSearchIndex(data) {
+    const allProducts = uniqueProducts(getAllProducts(data));
+    return allProducts
+      .filter((product) => {
+        const id = Number(product?.id || 0);
+        const name = (product?.name || "").toString().trim();
+        return id > 0 && name !== "";
+      })
+      .map((product) => {
+        const name = (product?.name || "").toString().trim();
+        const description = (product?.description || "").toString().trim();
+        const productCode = (product?.code || product?.productCode || "")
+          .toString()
+          .trim();
+
+        return {
+          id: Number(product.id || 0),
+          name,
+          image: (product?.image || "").toString().trim(),
+          salePrice: Number(product?.salePrice || product?.price || 0) || 0,
+          searchBlob: `${name} ${description} ${productCode}`.toLowerCase(),
+        };
+      });
+  }
+
+  function getLocalSuggestions(query, data, limit = 8) {
+    const normalized = (query || "").toString().trim().toLowerCase();
+    if (normalized.length < 2) {
+      return [];
+    }
+
+    const indexed = suggestionSearchIndex(data);
+    const startsWith = [];
+    const includes = [];
+
+    indexed.forEach((item) => {
+      if (item.name.toLowerCase().startsWith(normalized)) {
+        startsWith.push(item);
+        return;
+      }
+
+      if (item.searchBlob.includes(normalized)) {
+        includes.push(item);
+      }
+    });
+
+    return startsWith.concat(includes).slice(0, Math.max(1, limit));
+  }
+
   function fetchSearchSuggestions(query, limit = 6) {
     return $.ajax({
       url: "backend/products_api.php",
@@ -3095,17 +3144,31 @@ $(document).ready(function () {
     }
   });
 
-  function renderSuggestions(input, products) {
+  function renderSuggestions(input, products, query = "") {
     const form = input.closest(".search-form");
     let list = form.find(".search-suggestions");
     if (list.length === 0) {
       list = $('<div class="search-suggestions"></div>');
       form.append(list);
     }
+
+    const normalizedQuery = (query || "").toString().trim();
     if (products.length === 0) {
-      list.removeClass("show").empty();
+      if (normalizedQuery.length >= 2) {
+        list.html(`
+          <div class="suggestion-empty-state">
+            <i class="bi bi-search"></i>
+            <p class="mb-1">No quick matches for "${escapeHtml(normalizedQuery)}"</p>
+            <small>Press Enter to run advanced search across all products.</small>
+          </div>
+        `);
+        list.addClass("show");
+      } else {
+        list.removeClass("show").empty();
+      }
       return;
     }
+
     list.html(
       products
         .map(
@@ -3152,23 +3215,39 @@ $(document).ready(function () {
 
     const querySnapshot = value;
     suggestDebounceTimer = setTimeout(() => {
-      activeSuggestRequest = fetchSearchSuggestions(querySnapshot, 6)
-        .done((suggestions) => {
+      fetchProductsData()
+        .done((data) => {
           if (input.val().trim() !== querySnapshot) {
             return;
           }
 
-          renderSuggestions(input, suggestions);
-        })
-        .fail((xhr, status) => {
-          if (status !== "abort") {
-            clearSearchSuggestions(form);
+          const localMatches = getLocalSuggestions(querySnapshot, data, 8);
+          if (localMatches.length > 0) {
+            renderSuggestions(input, localMatches, querySnapshot);
+            return;
           }
+
+          activeSuggestRequest = fetchSearchSuggestions(querySnapshot, 8)
+            .done((remoteSuggestions) => {
+              if (input.val().trim() !== querySnapshot) {
+                return;
+              }
+
+              renderSuggestions(input, remoteSuggestions, querySnapshot);
+            })
+            .fail((xhr, status) => {
+              if (status !== "abort") {
+                renderSuggestions(input, [], querySnapshot);
+              }
+            })
+            .always(() => {
+              activeSuggestRequest = null;
+            });
         })
-        .always(() => {
-          activeSuggestRequest = null;
+        .fail(() => {
+          renderSuggestions(input, [], querySnapshot);
         });
-    }, 180);
+    }, 120);
   });
 
   $(document).on("click", ".suggestion-item", function (e) {

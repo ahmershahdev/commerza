@@ -27,7 +27,8 @@ function cart_api_snapshot_response(mysqli $con): array
     $snapshot = commerza_fetch_cart_snapshot($con);
     $userId = commerza_is_logged_in_user() ? (int)$_SESSION['user_id'] : 0;
     $subtotal = (float)($snapshot['subtotal'] ?? 0);
-    $shipping = 0.0;
+    $shippingConfig = commerza_cart_shipping_config($con);
+    $shipping = commerza_cart_shipping_cost($subtotal, $shippingConfig);
 
     $couponState = commerza_coupon_get_state($con, $subtotal, $userId);
     $discount = (bool)($couponState['ok'] ?? false)
@@ -49,6 +50,7 @@ function cart_api_snapshot_response(mysqli $con): array
             'discount' => $discount,
             'total' => $total,
         ],
+        'shipping_rules' => $shippingConfig,
         'coupon' => $couponPayload,
         'coupon_notice' => (!$couponPayload && !empty($couponState['code']) && !empty($couponState['message']))
             ? (string)$couponState['message']

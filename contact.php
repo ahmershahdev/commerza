@@ -1,10 +1,11 @@
 <?php
+
 declare(strict_types=1);
 
 include "backend/data.php";
 
 if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+  $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
 $errors = [];
@@ -29,156 +30,156 @@ $contactInquiryLabels = [
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (
-        empty($_POST['csrf_token']) ||
-        empty($_SESSION['csrf_token']) ||
-        !hash_equals($_SESSION['csrf_token'], (string)$_POST['csrf_token'])
-    ) {
-        http_response_code(403);
-        exit("Forbidden.");
-    }
+  if (
+    empty($_POST['csrf_token']) ||
+    empty($_SESSION['csrf_token']) ||
+    !hash_equals($_SESSION['csrf_token'], (string)$_POST['csrf_token'])
+  ) {
+    http_response_code(403);
+    exit("Forbidden.");
+  }
 
   $captchaCheck = commerza_captcha_verify_submission($con, $_POST, 'contact_form');
   if (!(bool)$captchaCheck['ok']) {
     $errors[] = (string)$captchaCheck['message'];
   }
 
-    $contact_name = trim((string)($_POST['contact_name'] ?? ''));
-    $contact_email = strtolower(trim((string)($_POST['contact_email'] ?? '')));
-    $contact_subject = trim((string)($_POST['contact_subject'] ?? ''));
-    $contact_inquiry_type = strtolower(trim((string)($_POST['contact_inquiry_type'] ?? 'general')));
-    $contact_order_ref = strtoupper(trim((string)($_POST['contact_order_ref'] ?? '')));
-    $contact_phone = trim((string)($_POST['contact_phone'] ?? ''));
-    $contact_preferred_reply = strtolower(trim((string)($_POST['contact_preferred_reply'] ?? 'email')));
-    $contact_message = trim((string)($_POST['contact_message'] ?? ''));
+  $contact_name = trim((string)($_POST['contact_name'] ?? ''));
+  $contact_email = strtolower(trim((string)($_POST['contact_email'] ?? '')));
+  $contact_subject = trim((string)($_POST['contact_subject'] ?? ''));
+  $contact_inquiry_type = strtolower(trim((string)($_POST['contact_inquiry_type'] ?? 'general')));
+  $contact_order_ref = strtoupper(trim((string)($_POST['contact_order_ref'] ?? '')));
+  $contact_phone = trim((string)($_POST['contact_phone'] ?? ''));
+  $contact_preferred_reply = strtolower(trim((string)($_POST['contact_preferred_reply'] ?? 'email')));
+  $contact_message = trim((string)($_POST['contact_message'] ?? ''));
 
-    $allowedInquiryTypes = ['general', 'order', 'shipping', 'returns', 'warranty', 'technical', 'payment'];
-    $allowedReplyModes = ['email', 'phone', 'either'];
+  $allowedInquiryTypes = ['general', 'order', 'shipping', 'returns', 'warranty', 'technical', 'payment'];
+  $allowedReplyModes = ['email', 'phone', 'either'];
 
-    if (strlen($contact_name) < 3 || strlen($contact_name) > 100) {
-        $errors[] = "Name must be 3-100 characters.";
-    }
+  if (strlen($contact_name) < 3 || strlen($contact_name) > 100) {
+    $errors[] = "Name must be 3-100 characters.";
+  }
 
-    if (!filter_var($contact_email, FILTER_VALIDATE_EMAIL) || strlen($contact_email) > 150) {
-        $errors[] = "Invalid email address.";
-    }
+  if (!filter_var($contact_email, FILTER_VALIDATE_EMAIL) || strlen($contact_email) > 150) {
+    $errors[] = "Invalid email address.";
+  }
 
-    if (strlen($contact_subject) < 3 || strlen($contact_subject) > 120) {
-      $errors[] = "Subject must be 3-120 characters.";
-    }
+  if (strlen($contact_subject) < 3 || strlen($contact_subject) > 120) {
+    $errors[] = "Subject must be 3-120 characters.";
+  }
 
-    if (!in_array($contact_inquiry_type, $allowedInquiryTypes, true)) {
-      $errors[] = "Invalid inquiry type selected.";
-    }
+  if (!in_array($contact_inquiry_type, $allowedInquiryTypes, true)) {
+    $errors[] = "Invalid inquiry type selected.";
+  }
 
-    if ($contact_order_ref !== '' && !preg_match('/^#?[A-Z0-9\-]{4,32}$/', $contact_order_ref)) {
-      $errors[] = "Order reference can only contain letters, numbers, and hyphens.";
-    }
+  if ($contact_order_ref !== '' && !preg_match('/^#?[A-Z0-9\-]{4,32}$/', $contact_order_ref)) {
+    $errors[] = "Order reference can only contain letters, numbers, and hyphens.";
+  }
 
-    if ($contact_phone !== '' && !preg_match('/^\+?[0-9\s\-]{8,20}$/', $contact_phone)) {
-      $errors[] = "Phone number format is invalid.";
-    }
+  if ($contact_phone !== '' && !preg_match('/^\+?[0-9\s\-]{8,20}$/', $contact_phone)) {
+    $errors[] = "Phone number format is invalid.";
+  }
 
-    if (!in_array($contact_preferred_reply, $allowedReplyModes, true)) {
-      $errors[] = "Invalid preferred reply option.";
-    }
+  if (!in_array($contact_preferred_reply, $allowedReplyModes, true)) {
+    $errors[] = "Invalid preferred reply option.";
+  }
 
-    if (strlen($contact_message) < 10 || strlen($contact_message) > 3000) {
-        $errors[] = "Message must be 10-3000 characters.";
-    }
+  if (strlen($contact_message) < 10 || strlen($contact_message) > 3000) {
+    $errors[] = "Message must be 10-3000 characters.";
+  }
 
-    $clientIp = commerza_client_ip();
-    $rateIdentifier = $contact_email !== '' ? $contact_email : ($clientIp !== '' ? $clientIp : 'anonymous');
+  $clientIp = commerza_client_ip();
+  $rateIdentifier = $contact_email !== '' ? $contact_email : ($clientIp !== '' ? $clientIp : 'anonymous');
 
-    if (empty($errors)) {
-      $rate = commerza_rate_limit_check(
+  if (empty($errors)) {
+    $rate = commerza_rate_limit_check(
+      $con,
+      'contact_form',
+      $rateIdentifier,
+      $clientIp,
+      2,
+      2700,
+      2700,
+      14400,
+      86400
+    );
+
+    if (!$rate['allowed']) {
+      $retrySeconds = max(1, (int)$rate['retry_after']);
+      $retryMinutes = (int)ceil($retrySeconds / 60);
+      commerza_security_log_rate_limit_block(
         $con,
         'contact_form',
-        $rateIdentifier,
+        'user',
+        $contact_email !== '' ? $contact_email : 'anonymous',
         $clientIp,
-        2,
-        2700,
-        2700,
-        14400,
-        86400
+        $retrySeconds
       );
+      $errors[] = "Too many messages sent. Try again in " . $retryMinutes . " minute(s) (" . $retrySeconds . " seconds).";
+    }
+  }
 
-      if (!$rate['allowed']) {
-        $retrySeconds = max(1, (int)$rate['retry_after']);
-        $retryMinutes = (int)ceil($retrySeconds / 60);
-        commerza_security_log_rate_limit_block(
-          $con,
-          'contact_form',
-          'user',
-          $contact_email !== '' ? $contact_email : 'anonymous',
-          $clientIp,
-          $retrySeconds
-        );
-        $errors[] = "Too many messages sent. Try again in " . $retryMinutes . " minute(s) (" . $retrySeconds . " seconds).";
+  if (empty($errors)) {
+    $dupStmt = $con->prepare("SELECT id FROM contact_messages WHERE email = ? AND message = ? AND created_at >= (NOW() - INTERVAL 10 MINUTE) LIMIT 1");
+
+    if (!$dupStmt) {
+      $errors[] = "Something went wrong. Please try again.";
+    } else {
+      $dupStmt->bind_param("ss", $contact_email, $contact_message);
+      $dupStmt->execute();
+      $dupResult = $dupStmt->get_result();
+
+      if ($dupResult && $dupResult->num_rows > 0) {
+        $errors[] = "Duplicate message detected. Please wait before submitting again.";
       }
+
+      $dupStmt->close();
     }
+  }
 
-    if (empty($errors)) {
-        $dupStmt = $con->prepare("SELECT id FROM contact_messages WHERE email = ? AND message = ? AND created_at >= (NOW() - INTERVAL 10 MINUTE) LIMIT 1");
+  if (empty($errors)) {
+    $ip_value = $clientIp !== '' ? $clientIp : null;
+    $contactMessagePayload =
+      "Inquiry Type: " . ucfirst($contact_inquiry_type) . "\n" .
+      "Subject: " . $contact_subject . "\n" .
+      "Order Ref: " . ($contact_order_ref !== '' ? $contact_order_ref : 'Not provided') . "\n" .
+      "Preferred Reply: " . ucfirst($contact_preferred_reply) . "\n" .
+      "Phone: " . ($contact_phone !== '' ? $contact_phone : 'Not provided') . "\n\n" .
+      "Message:\n" . $contact_message;
 
-        if (!$dupStmt) {
-            $errors[] = "Something went wrong. Please try again.";
-        } else {
-            $dupStmt->bind_param("ss", $contact_email, $contact_message);
-            $dupStmt->execute();
-            $dupResult = $dupStmt->get_result();
+    $insertStmt = $con->prepare("INSERT INTO contact_messages (name, email, message, ip_address) VALUES (?, ?, ?, ?)");
 
-            if ($dupResult && $dupResult->num_rows > 0) {
-                $errors[] = "Duplicate message detected. Please wait before submitting again.";
-            }
+    if (!$insertStmt) {
+      $errors[] = "Something went wrong. Please try again.";
+    } else {
+      $insertStmt->bind_param("ssss", $contact_name, $contact_email, $contactMessagePayload, $ip_value);
 
-            $dupStmt->close();
-        }
+      if ($insertStmt->execute()) {
+        commerza_security_log_event($con, [
+          'event_type' => 'contact_message_submitted',
+          'severity' => 'info',
+          'actor_type' => 'user',
+          'actor_identifier' => $contact_email,
+          'ip_address' => $clientIp,
+        ]);
+        commerza_rate_limit_reset($con, 'contact_form', $rateIdentifier, $clientIp);
+        $success = "Message sent successfully. We will get back to you soon.";
+        $contact_name = '';
+        $contact_email = '';
+        $contact_subject = '';
+        $contact_inquiry_type = 'general';
+        $contact_order_ref = '';
+        $contact_phone = '';
+        $contact_preferred_reply = 'email';
+        $contact_message = '';
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+      } else {
+        $errors[] = "Something went wrong. Please try again.";
+      }
+
+      $insertStmt->close();
     }
-
-    if (empty($errors)) {
-      $ip_value = $clientIp !== '' ? $clientIp : null;
-      $contactMessagePayload =
-        "Inquiry Type: " . ucfirst($contact_inquiry_type) . "\n" .
-        "Subject: " . $contact_subject . "\n" .
-        "Order Ref: " . ($contact_order_ref !== '' ? $contact_order_ref : 'Not provided') . "\n" .
-        "Preferred Reply: " . ucfirst($contact_preferred_reply) . "\n" .
-        "Phone: " . ($contact_phone !== '' ? $contact_phone : 'Not provided') . "\n\n" .
-        "Message:\n" . $contact_message;
-
-        $insertStmt = $con->prepare("INSERT INTO contact_messages (name, email, message, ip_address) VALUES (?, ?, ?, ?)");
-
-        if (!$insertStmt) {
-            $errors[] = "Something went wrong. Please try again.";
-        } else {
-            $insertStmt->bind_param("ssss", $contact_name, $contact_email, $contactMessagePayload, $ip_value);
-
-            if ($insertStmt->execute()) {
-              commerza_security_log_event($con, [
-                'event_type' => 'contact_message_submitted',
-                'severity' => 'info',
-                'actor_type' => 'user',
-                'actor_identifier' => $contact_email,
-                'ip_address' => $clientIp,
-              ]);
-                commerza_rate_limit_reset($con, 'contact_form', $rateIdentifier, $clientIp);
-                $success = "Message sent successfully. We will get back to you soon.";
-                $contact_name = '';
-                $contact_email = '';
-                $contact_subject = '';
-                $contact_inquiry_type = 'general';
-                $contact_order_ref = '';
-                $contact_phone = '';
-                $contact_preferred_reply = 'email';
-                $contact_message = '';
-                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-            } else {
-                $errors[] = "Something went wrong. Please try again.";
-            }
-
-            $insertStmt->close();
-        }
-    }
+  }
 }
 ?>
 <!DOCTYPE html>
@@ -579,6 +580,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   </header>
 
   <main class="container my-5">
+    <?php commerza_render_page_breadcrumb('Contact'); ?>
     <section class="page-hero mb-5">
       <div class="hero-content">
         <span class="hero-badge"><i class="bi bi-chat-dots"></i> Support</span>
@@ -707,12 +709,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               <div class="contact-touch-social">
                 <p class="contact-touch-note">Average response time: within 24 hours.</p>
                 <div class="social-links">
-                <a href="https://www.facebook.com/commerza.ahmer" target="_blank" rel="noopener noreferrer" aria-label="Commerza on Facebook"><i
-                    class="bi bi-facebook"></i></a>
-                <a href="https://x.com/commerza_ahmer" target="_blank" rel="noopener noreferrer" aria-label="Commerza on X"><i
-                    class="bi bi-twitter"></i></a>
-                <a href="https://www.instagram.com/commerza.ahmer" target="_blank" rel="noopener noreferrer" aria-label="Commerza on Instagram"><i
-                    class="bi bi-instagram"></i></a>
+                  <a href="https://www.facebook.com/commerza.ahmer" target="_blank" rel="noopener noreferrer" aria-label="Commerza on Facebook"><i
+                      class="bi bi-facebook"></i></a>
+                  <a href="https://x.com/commerza_ahmer" target="_blank" rel="noopener noreferrer" aria-label="Commerza on X"><i
+                      class="bi bi-twitter"></i></a>
+                  <a href="https://www.instagram.com/commerza.ahmer" target="_blank" rel="noopener noreferrer" aria-label="Commerza on Instagram"><i
+                      class="bi bi-instagram"></i></a>
                 </div>
               </div>
             </div>
@@ -751,8 +753,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                       type="button"
                       id="contactInquiryDropdownBtn"
                       data-bs-toggle="dropdown"
-                      aria-expanded="false"
-                    >
+                      aria-expanded="false">
                       <span id="contactInquiryLabel"><?= htmlspecialchars($contactInquiryLabels[$contact_inquiry_type] ?? $contactInquiryLabels['general']) ?></span>
                     </button>
                     <ul class="dropdown-menu contact-dropdown-menu w-100" aria-labelledby="contactInquiryDropdownBtn">
@@ -761,8 +762,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                           <button
                             type="button"
                             class="dropdown-item contact-inquiry-option <?= $contact_inquiry_type === $inquiryValue ? 'active' : '' ?>"
-                            data-value="<?= htmlspecialchars($inquiryValue) ?>"
-                          >
+                            data-value="<?= htmlspecialchars($inquiryValue) ?>">
                             <?= htmlspecialchars($inquiryLabel) ?>
                           </button>
                         </li>
@@ -884,10 +884,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <?= commerza_captcha_script_tag($con) ?>
   <script src="frontend/assets/js/script.js" defer></script>
   <script <?= commerza_csp_nonce_attr() ?>>
-    $(function () {
-      $("#serverAlert, #successAlert").each(function () {
+    $(function() {
+      $("#serverAlert, #successAlert").each(function() {
         const element = $(this);
-        setTimeout(function () {
+        setTimeout(function() {
           element.fadeOut(400);
         }, 3500);
       });
@@ -896,7 +896,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
       const inquiryInput = $('#contact-inquiry-type');
       const inquiryLabel = $('#contactInquiryLabel');
-      $('.contact-inquiry-option').on('click', function () {
+      $('.contact-inquiry-option').on('click', function() {
         const nextValue = ($(this).data('value') || '').toString().trim();
         const nextLabel = ($(this).text() || '').toString().trim();
 
@@ -910,7 +910,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $(this).addClass('active');
       });
 
-      $("#contactForm").on("submit", function () {
+      $("#contactForm").on("submit", function() {
         if (submitted) {
           return false;
         }

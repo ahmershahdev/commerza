@@ -578,6 +578,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
   </header>
 
   <main class="container my-5">
+    <?php commerza_render_page_breadcrumb('Wishlist'); ?>
     <section class="page-hero mb-5">
       <div class="hero-content">
         <span class="hero-badge"><i class="bi bi-heart"></i> Wishlist</span>

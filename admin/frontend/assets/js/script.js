@@ -31,10 +31,18 @@ let adminOrders = [];
 let adminCustomers = [];
 let adminMetrics = null;
 let adminRefunds = [];
+let adminBlacklist = [];
+let adminShippingConfig = {
+  flatFee: 1000,
+  freeShippingOver: 500,
+};
 let adminCoupons = [];
 let adminReviews = [];
 let productTrashItems = [];
 let notificationsPausedUntil = 0;
+const ADMIN_NOTIFICATIONS_DISMISSED_KEY =
+  "commerza_admin_notifications_dismissed";
+let dismissedNotificationSignatures = new Set();
 const ORDER_STATUS_LOCKS = new Set();
 let analyticsProfitLossChart = null;
 let securityEventsState = {
@@ -229,6 +237,16 @@ const ADMIN_TAB_PLAYBOOKS = {
     ],
     tip: "If pricing changes, update sale price and stock together.",
   },
+  productTrashSection: {
+    title: "Product Trash Workflow",
+    intro: "Use trash as a safety net before permanent deletion.",
+    steps: [
+      "Open Product Trash and review item name, section, and delete date.",
+      "Use Restore for mistaken deletions so products return to the catalog.",
+      "Use Empty Expired or Delete only when recovery is no longer needed.",
+    ],
+    tip: "Permanent delete cannot be undone, so restore first when unsure.",
+  },
   ordersSection: {
     title: "Order Handling Steps",
     intro: "Keep order updates consistent so customers are never confused.",
@@ -404,6 +422,41 @@ function readJsonStorage(key, fallback) {
   }
 }
 
+function loadDismissedNotificationSignatures() {
+  try {
+    const raw = localStorage.getItem(ADMIN_NOTIFICATIONS_DISMISSED_KEY);
+    if (!raw) {
+      dismissedNotificationSignatures = new Set();
+      return;
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      dismissedNotificationSignatures = new Set();
+      return;
+    }
+
+    dismissedNotificationSignatures = new Set(
+      parsed
+        .map((item) => (item || "").toString().trim())
+        .filter((item) => item !== ""),
+    );
+  } catch (_error) {
+    dismissedNotificationSignatures = new Set();
+  }
+}
+
+function saveDismissedNotificationSignatures() {
+  try {
+    localStorage.setItem(
+      ADMIN_NOTIFICATIONS_DISMISSED_KEY,
+      JSON.stringify(Array.from(dismissedNotificationSignatures)),
+    );
+  } catch (_error) {
+    // Ignore persistence failures in private browsing modes.
+  }
+}
+
 function getAdminOrdersData() {
   if (Array.isArray(adminOrders) && adminOrders.length) {
     return adminOrders;
@@ -426,6 +479,20 @@ function setAdminOrdersPayload(payload) {
       ? payload.metrics
       : null;
   adminRefunds = Array.isArray(payload?.refunds) ? payload.refunds : [];
+  adminBlacklist = Array.isArray(payload?.blacklist) ? payload.blacklist : [];
+
+  const shipping =
+    payload?.shippingConfig && typeof payload.shippingConfig === "object"
+      ? payload.shippingConfig
+      : {};
+
+  adminShippingConfig = {
+    flatFee: Math.max(0, Number(shipping?.flatFee ?? 1000) || 0),
+    freeShippingOver: Math.max(
+      0,
+      Number(shipping?.freeShippingOver ?? 500) || 0,
+    ),
+  };
 
   sessionStorage.setItem(ORDERS_KEY, JSON.stringify(adminOrders));
 }
@@ -476,6 +543,8 @@ async function loadAdminOrdersData(silent = false) {
     calculateDashboardMetrics();
     renderAnalyticsSection();
     renderRefundRequests();
+    renderBlacklistTable();
+    renderShippingConfigCard();
     updateNotifications();
 
     if ($("#emailSection").length) {
@@ -2153,7 +2222,13 @@ function renderAdminReviewImages(images) {
         return "";
       }
 
-      return `<a href="../${encodeURI(path)}" target="_blank" rel="noopener" class="d-inline-block me-1 mt-2"><img src="../${encodeURI(path)}" alt="Review image" style="width:34px;height:34px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.2);"></a>`;
+      const resolved = resolveAdminImagePath(path);
+      const safePath = sanitizeAdminMediaUrl(resolved || `../../${path}`);
+      if (!safePath) {
+        return "";
+      }
+
+      return `<a href="${escapeHtml(safePath)}" target="_blank" rel="noopener" class="d-inline-block me-1 mt-2"><img src="${escapeHtml(safePath)}" alt="Review image" style="width:34px;height:34px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.2);" onerror="this.style.display='none';"></a>`;
     })
     .join("");
 
@@ -2683,6 +2758,193 @@ function securityEventRowClass(severity) {
   return "security-event-info";
 }
 
+function humanizeSecurityText(value) {
+  const raw = (value || "").toString().trim();
+  if (raw === "") {
+    return "Unknown";
+  }
+
+  return raw
+    .replace(/[._-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (ch) => ch.toUpperCase());
+}
+
+function securityEventTypeLabel(eventType) {
+  const normalized = (eventType || "").toString().trim().toLowerCase();
+  if (normalized === "login_failed") {
+    return "Login Failed";
+  }
+  if (normalized === "login_success") {
+    return "Login Successful";
+  }
+  if (normalized === "suspicious_login_ip_change") {
+    return "Suspicious Login (IP Changed)";
+  }
+  if (normalized === "rate_limit_block") {
+    return "Rate Limit Blocked";
+  }
+
+  return humanizeSecurityText(eventType);
+}
+
+function securityActorDisplayLabel(actorType) {
+  const normalized = (actorType || "").toString().trim().toLowerCase();
+  if (normalized === "admin") {
+    return "Admin";
+  }
+  if (normalized === "user") {
+    return "Customer";
+  }
+  return "System";
+}
+
+function securityIdentifierDisplay(actorIdentifier) {
+  const value = (actorIdentifier || "").toString().trim();
+  const lowered = value.toLowerCase();
+
+  if (value === "" || value === "-" || lowered === "anonymous") {
+    return {
+      label: "Account",
+      value: "Unknown account",
+    };
+  }
+
+  if (value.includes("@")) {
+    return {
+      label: "Account",
+      value,
+    };
+  }
+
+  if (/^\d{11,15}$/.test(value)) {
+    return {
+      label: "Phone",
+      value,
+    };
+  }
+
+  return {
+    label: "Identifier",
+    value,
+  };
+}
+
+function securityIpDisplay(ipAddress) {
+  const ip = (ipAddress || "").toString().trim();
+  if (ip === "" || ip === "-" || ip === "0.0.0.0") {
+    return {
+      label: "Location",
+      value: "IP unavailable",
+    };
+  }
+
+  if (ip === "127.0.0.1" || ip === "::1") {
+    return {
+      label: "Location",
+      value: "Localhost",
+    };
+  }
+
+  return {
+    label: "IP Address",
+    value: ip,
+  };
+}
+
+function securityDetailValueText(value) {
+  if (value === null || typeof value === "undefined") {
+    return "-";
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "Yes" : "No";
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value.toString() : "-";
+  }
+
+  if (Array.isArray(value)) {
+    const preview = value
+      .slice(0, 3)
+      .map((entry) => securityDetailValueText(entry))
+      .filter((entry) => entry !== "-")
+      .join(", ");
+    if (preview !== "") {
+      return preview;
+    }
+    return value.length ? "Items available" : "-";
+  }
+
+  if (typeof value === "object") {
+    return "Additional data available";
+  }
+
+  const text = value.toString().trim();
+  if (text === "") {
+    return "-";
+  }
+
+  return humanizeSecurityText(text);
+}
+
+function securityEventDetailsSummary(eventItem) {
+  const details = eventItem?.details;
+  if (!details || typeof details !== "object") {
+    const preview = (eventItem?.details_preview || "").toString().trim();
+    return preview !== "" && preview !== "-"
+      ? preview
+      : "No additional details";
+  }
+
+  const currentIp = securityDetailValueText(details.current_ip);
+  const previousIp = securityDetailValueText(details.previous_ip);
+  if (currentIp !== "-" && previousIp !== "-") {
+    return `IP changed from ${previousIp} to ${currentIp}`;
+  }
+
+  const summaryParts = [];
+  const entries = Object.entries(details);
+  for (let index = 0; index < entries.length; index += 1) {
+    const [key, rawValue] = entries[index];
+    const valueText = securityDetailValueText(rawValue);
+    if (valueText === "-") {
+      continue;
+    }
+
+    const normalizedKey = (key || "").toString().trim().toLowerCase();
+    if (normalizedKey === "retry_after_seconds") {
+      summaryParts.push(`Retry after ${valueText} seconds`);
+      continue;
+    }
+
+    if (normalizedKey === "blacklist_id") {
+      summaryParts.push(`Blacklist entry #${valueText}`);
+      continue;
+    }
+
+    if (normalizedKey === "affected_rows") {
+      summaryParts.push(`Affected records: ${valueText}`);
+      continue;
+    }
+
+    const label = humanizeSecurityText(key);
+    summaryParts.push(`${label}: ${valueText}`);
+
+    if (summaryParts.length >= 3) {
+      break;
+    }
+  }
+
+  if (!summaryParts.length) {
+    return "No additional details";
+  }
+
+  return summaryParts.join(" | ");
+}
+
 function renderSecurityEventsTable() {
   const tbody = $("#securityEventsTable tbody");
   if (!tbody.length) {
@@ -2704,11 +2966,16 @@ function renderSecurityEventsTable() {
 
   events.forEach((eventItem) => {
     const eventType = (eventItem?.event_type || "unknown_event").toString();
+    const eventTypeLabel = securityEventTypeLabel(eventType);
     const severity = (eventItem?.severity || "info").toString();
+    const severityLabel = securitySeverityLabel(severity);
     const actorType = (eventItem?.actor_type || "-").toString();
     const actorIdentifier = (eventItem?.actor_identifier || "-").toString();
     const ipAddress = (eventItem?.ip_address || "-").toString();
-    const detailsPreview = (eventItem?.details_preview || "-").toString();
+    const actorLabel = securityActorDisplayLabel(actorType);
+    const identifierDisplay = securityIdentifierDisplay(actorIdentifier);
+    const ipDisplay = securityIpDisplay(ipAddress);
+    const detailsPreview = securityEventDetailsSummary(eventItem);
     const createdAt = formatDateTime(eventItem?.created_at || "");
 
     const detailsTitle =
@@ -2719,10 +2986,10 @@ function renderSecurityEventsTable() {
     tbody.append(`
       <tr class="border-bottom border-secondary security-event-row ${securityEventRowClass(severity)}">
         <td class="ps-4 py-3 text-secondary small">${escapeHtml(createdAt)}</td>
-        <td class="py-3 text-light fw-semibold">${escapeHtml(eventType)}</td>
-        <td class="py-3"><span class="badge ${securitySeverityBadgeClass(severity)} rounded-pill">${escapeHtml(severity)}</span></td>
-        <td class="py-3 text-secondary small">${escapeHtml(actorType)}</td>
-        <td class="py-3 text-secondary small"><div class="security-event-identifier">${escapeHtml(actorIdentifier)}</div><div class="security-event-ip text-warning">${escapeHtml(ipAddress)}</div></td>
+        <td class="py-3 text-light fw-semibold"><div class="security-event-label">${escapeHtml(eventTypeLabel)}</div><div class="security-event-code">${escapeHtml(eventType)}</div></td>
+        <td class="py-3"><span class="badge ${securitySeverityBadgeClass(severity)} rounded-pill">${escapeHtml(severityLabel)}</span></td>
+        <td class="py-3 text-secondary small">${escapeHtml(actorLabel)}</td>
+        <td class="py-3 text-secondary small"><div class="security-event-identifier-label">${escapeHtml(identifierDisplay.label)}</div><div class="security-event-identifier">${escapeHtml(identifierDisplay.value)}</div><div class="security-event-ip-label">${escapeHtml(ipDisplay.label)}</div><div class="security-event-ip">${escapeHtml(ipDisplay.value)}</div></td>
         <td class="pe-4 py-3 text-secondary small security-event-details" title="${detailsTitle}">${escapeHtml(detailsPreview)}</td>
       </tr>
     `);
@@ -4470,14 +4737,41 @@ function openNotificationTarget(tabId) {
   }
 }
 
+function notificationSignature(notification) {
+  const text = (notification?.text || "").toString().trim().toLowerCase();
+  const icon = (notification?.icon || "").toString().trim().toLowerCase();
+  const type = (notification?.type || "").toString().trim().toLowerCase();
+  const targetTab = (notification?.targetTab || "")
+    .toString()
+    .trim()
+    .toLowerCase();
+  return `${type}|${icon}|${targetTab}|${text}`;
+}
+
+let lastRenderedNotificationSignatures = [];
+
 function clearAdminNotifications(minutes = 45) {
-  notificationsPausedUntil =
-    Date.now() + Math.max(1, Number(minutes || 45)) * 60 * 1000;
+  void minutes;
+
+  if (!Array.isArray(lastRenderedNotificationSignatures)) {
+    lastRenderedNotificationSignatures = [];
+  }
+
+  lastRenderedNotificationSignatures.forEach((signature) => {
+    const safeSignature = (signature || "").toString().trim();
+    if (safeSignature !== "") {
+      dismissedNotificationSignatures.add(safeSignature);
+    }
+  });
+
+  saveDismissedNotificationSignatures();
   updateNotifications();
 }
 
 function resumeAdminNotifications() {
   notificationsPausedUntil = 0;
+  dismissedNotificationSignatures = new Set();
+  saveDismissedNotificationSignatures();
   updateNotifications();
 }
 
@@ -4577,6 +4871,28 @@ function updateNotifications() {
   }
 
   const latestNotifications = notifications.slice(0, 3);
+  const latestSignatures = latestNotifications.map((notification) =>
+    notificationSignature(notification),
+  );
+
+  lastRenderedNotificationSignatures = latestSignatures;
+
+  let dismissedPruned = false;
+  Array.from(dismissedNotificationSignatures).forEach((signature) => {
+    if (!latestSignatures.includes(signature)) {
+      dismissedNotificationSignatures.delete(signature);
+      dismissedPruned = true;
+    }
+  });
+
+  if (dismissedPruned) {
+    saveDismissedNotificationSignatures();
+  }
+
+  const visibleNotifications = latestNotifications.filter((notification) => {
+    const signature = notificationSignature(notification);
+    return !dismissedNotificationSignatures.has(signature);
+  });
 
   list.empty();
   list.append(`
@@ -4587,18 +4903,6 @@ function updateNotifications() {
   `);
   list.append('<li><hr class="dropdown-divider border-secondary"></li>');
 
-  if (notificationsPausedUntil > Date.now()) {
-    count.text("0");
-    count.addClass("d-none");
-    list.append(
-      '<li><span class="dropdown-item text-secondary">Notifications cleared for now.</span></li>',
-    );
-    list.append(
-      '<li><a class="dropdown-item text-light" href="#" onclick="resumeAdminNotifications(); return false;"><i class="bi bi-arrow-repeat me-2"></i>Show notifications again</a></li>',
-    );
-    return;
-  }
-
   if (latestNotifications.length === 0) {
     count.text("0");
     count.addClass("d-none");
@@ -4608,10 +4912,22 @@ function updateNotifications() {
     return;
   }
 
-  count.text(String(latestNotifications.length));
+  if (visibleNotifications.length === 0) {
+    count.text("0");
+    count.addClass("d-none");
+    list.append(
+      '<li><span class="dropdown-item text-secondary">Notifications cleared. New activity will appear automatically.</span></li>',
+    );
+    list.append(
+      '<li><a class="dropdown-item text-light" href="#" onclick="resumeAdminNotifications(); return false;"><i class="bi bi-arrow-repeat me-2"></i>Reset cleared state</a></li>',
+    );
+    return;
+  }
+
+  count.text(String(visibleNotifications.length));
   count.removeClass("d-none");
 
-  latestNotifications.forEach((notif, index) => {
+  visibleNotifications.forEach((notif, index) => {
     const targetTab = (notif?.targetTab || "").toString();
     const clickHandler = targetTab
       ? `openNotificationTarget('${targetTab}'); return false;`
@@ -4624,7 +4940,7 @@ function updateNotifications() {
                 <span>${safeText}</span>
             </a></li>
         `);
-    if (index < latestNotifications.length - 1) {
+    if (index < visibleNotifications.length - 1) {
       list.append('<li><hr class="dropdown-divider border-secondary"></li>');
     }
   });
@@ -4720,8 +5036,10 @@ $(document).ready(function () {
   function refreshTabPaneByTabId(tabId) {
     switch ((tabId || "").toString()) {
       case "product-trash-tab":
-      case "products-tab":
         loadProductTrashData(true);
+        break;
+      case "products-tab":
+        loadProductsFromJSON();
         break;
       case "orders-tab":
         displayAllOrders();
@@ -4970,6 +5288,8 @@ $(document).ready(function () {
 
   $("#bulkDeleteOrdersBtn").off("click").on("click", bulkDeleteOrders);
   $("#bulkDeleteCustomersBtn").off("click").on("click", bulkDeleteCustomers);
+  $("#saveShippingConfigBtn").off("click").on("click", saveShippingConfig);
+  $("#addBlacklistBtn").off("click").on("click", addBlacklistFromForm);
 
   $(document)
     .off("click", ".delete-customer-btn")
@@ -4983,6 +5303,72 @@ $(document).ready(function () {
         return;
       }
       deleteSingleCustomer(customerId, customerName || "Customer");
+    });
+
+  $(document)
+    .off("click", ".blacklist-customer-btn")
+    .on("click", ".blacklist-customer-btn", function () {
+      const customerId = parseInt($(this).data("customerId"), 10) || 0;
+      const customerName = ($(this).data("customerName") || "Customer")
+        .toString()
+        .trim();
+      const customerEmail = ($(this).data("customerEmail") || "")
+        .toString()
+        .trim();
+      const customerPhone = ($(this).data("customerPhone") || "")
+        .toString()
+        .trim();
+
+      blacklistCustomerByIdentity(
+        customerId,
+        customerName,
+        customerEmail,
+        customerPhone,
+        false,
+      );
+    });
+
+  $(document)
+    .off("click", ".blacklist-delete-customer-btn")
+    .on("click", ".blacklist-delete-customer-btn", function () {
+      const customerId = parseInt($(this).data("customerId"), 10) || 0;
+      const customerName = ($(this).data("customerName") || "Customer")
+        .toString()
+        .trim();
+      const customerEmail = ($(this).data("customerEmail") || "")
+        .toString()
+        .trim();
+      const customerPhone = ($(this).data("customerPhone") || "")
+        .toString()
+        .trim();
+
+      blacklistCustomerByIdentity(
+        customerId,
+        customerName,
+        customerEmail,
+        customerPhone,
+        true,
+      );
+    });
+
+  $(document)
+    .off("click", ".unblacklist-customer-btn")
+    .on("click", ".unblacklist-customer-btn", function () {
+      const customerEmail = ($(this).data("customerEmail") || "")
+        .toString()
+        .trim();
+      const customerPhone = ($(this).data("customerPhone") || "")
+        .toString()
+        .trim();
+
+      removeBlacklistByContact(customerEmail, customerPhone);
+    });
+
+  $(document)
+    .off("click", ".remove-blacklist-btn")
+    .on("click", ".remove-blacklist-btn", function () {
+      const blacklistId = parseInt($(this).data("blacklistId"), 10) || 0;
+      removeBlacklistById(blacklistId);
     });
 
   $(document)
@@ -5001,6 +5387,8 @@ $(document).ready(function () {
     input.attr("type", input.attr("type") === "password" ? "text" : "password");
     $(this).toggleClass("bi-eye bi-eye-slash");
   });
+
+  loadDismissedNotificationSignatures();
 
   const initialProductsLoad = loadProductsFromJSON();
   const initialTrashLoad = loadProductTrashData(true);
@@ -5028,6 +5416,8 @@ $(document).ready(function () {
     displayRecentOrders();
     displayAllOrders();
     displayAllCustomers();
+    renderBlacklistTable();
+    renderShippingConfigCard();
     renderAnalyticsSection();
     renderRefundRequests();
     updateNotifications();
@@ -6370,18 +6760,31 @@ function displayAllCustomers() {
   filteredCustomers.forEach((customer) => {
     const customerId = Number(customer.id || customer.userId || 0);
     const canDelete = customerId > 0;
+    const isBlacklisted = !!customer?.isBlacklisted;
+    const blacklistReason = (customer?.blacklistReason || "").toString().trim();
     const customerName = escapeHtml(customer.name || "Customer");
     const customerUsernameRaw = (customer.username || "").toString().trim();
     const customerUsername = customerUsernameRaw
       ? `@${escapeHtml(customerUsernameRaw)}`
       : '<span class="text-secondary small">Private / Not set</span>';
-    const customerEmail = escapeHtml(customer.email || "N/A");
-    const customerPhone = escapeHtml(customer.phone || "N/A");
+    const customerEmailRaw = (customer.email || "").toString().trim();
+    const customerPhoneRaw = (customer.phone || "").toString().trim();
+    const customerEmail = escapeHtml(customerEmailRaw || "N/A");
+    const customerPhone = escapeHtml(customerPhoneRaw || "N/A");
     const ordersCount = Math.max(0, parseInt(customer.orderCount, 10) || 0);
     const totalSpent = Number(customer.totalSpent || 0);
+    const blacklistButton = isBlacklisted
+      ? `<button class="btn btn-sm btn-outline-success unblacklist-customer-btn" data-customer-email="${escapeHtml(customerEmailRaw)}" data-customer-phone="${escapeHtml(customerPhoneRaw)}"><i class="bi bi-shield-check me-1"></i>Unblacklist</button>`
+      : `<button class="btn btn-sm btn-outline-warning blacklist-customer-btn" data-customer-id="${customerId}" data-customer-name="${customerName}" data-customer-email="${escapeHtml(customerEmailRaw)}" data-customer-phone="${escapeHtml(customerPhoneRaw)}"><i class="bi bi-slash-circle me-1"></i>Blacklist</button>`;
+    const blacklistDeleteButton = canDelete
+      ? `<button class="btn btn-sm btn-outline-danger blacklist-delete-customer-btn" data-customer-id="${customerId}" data-customer-name="${customerName}" data-customer-email="${escapeHtml(customerEmailRaw)}" data-customer-phone="${escapeHtml(customerPhoneRaw)}"><i class="bi bi-person-fill-x me-1"></i>Blacklist + Delete</button>`
+      : "";
     const deleteButton = canDelete
       ? `<button class="btn btn-sm btn-outline-danger delete-customer-btn" data-customer-id="${customerId}" data-customer-name="${customerName}"><i class="bi bi-person-x me-1"></i>Delete Profile</button>`
       : '<span class="text-secondary small">Guest checkout</span>';
+    const blacklistMeta = isBlacklisted
+      ? `<div class="small text-warning mt-1">Blacklisted${blacklistReason ? `: ${escapeHtml(blacklistReason)}` : ""}</div>`
+      : "";
 
     const row = document.createElement("tr");
     row.className = "border-bottom border-secondary";
@@ -6394,16 +6797,306 @@ function displayAllCustomers() {
             </td>
             <td class="py-3 text-light fw-semibold">${customerName}</td>
             <td class="py-3 text-secondary">${customerUsername}</td>
-            <td class="py-3 text-secondary">${customerEmail}</td>
+            <td class="py-3 text-secondary">${customerEmail}${blacklistMeta}</td>
             <td class="py-3 text-secondary">${customerPhone}</td>
             <td class="py-3 text-light">${ordersCount}</td>
             <td class="py-3 text-light fw-semibold">${formatPkr(totalSpent)}</td>
-            <td class="pe-4 py-3">${deleteButton}</td>
+            <td class="pe-4 py-3 d-flex flex-wrap gap-1">${blacklistButton}${blacklistDeleteButton}${deleteButton}</td>
         `;
     tbody.appendChild(row);
   });
 
   $("#customersSelectAll").prop("checked", false);
+}
+
+function renderShippingConfigCard() {
+  const flatFee = Math.max(0, Number(adminShippingConfig?.flatFee) || 0);
+  const freeOver = Math.max(
+    0,
+    Number(adminShippingConfig?.freeShippingOver) || 0,
+  );
+
+  if ($("#shippingFlatFeeInput").length) {
+    $("#shippingFlatFeeInput").val(flatFee.toFixed(2));
+  }
+
+  if ($("#freeShippingOverInput").length) {
+    $("#freeShippingOverInput").val(freeOver.toFixed(2));
+  }
+
+  const preview = $("#shippingRulesPreview");
+  if (!preview.length) {
+    return;
+  }
+
+  if (flatFee <= 0) {
+    preview.text("Shipping is currently free for all orders.");
+    return;
+  }
+
+  if (freeOver > 0) {
+    preview.text(
+      `Orders below ${formatPkr(freeOver)} pay ${formatPkr(flatFee)} shipping. Orders at or above threshold get free shipping.`,
+    );
+    return;
+  }
+
+  preview.text(`All orders pay flat shipping: ${formatPkr(flatFee)}.`);
+}
+
+function renderBlacklistTable() {
+  const tbody = $("#blacklistTable tbody");
+  if (!tbody.length) {
+    return;
+  }
+
+  const entries = Array.isArray(adminBlacklist) ? adminBlacklist : [];
+  tbody.empty();
+
+  if (!entries.length) {
+    tbody.append(
+      '<tr><td colspan="5" class="text-center py-4 text-secondary">No blacklisted contacts yet.</td></tr>',
+    );
+    return;
+  }
+
+  entries.forEach((entry) => {
+    const id = Number(entry?.id || 0);
+    const email = escapeHtml((entry?.email || "-").toString().trim() || "-");
+    const phone = escapeHtml((entry?.phone || "-").toString().trim() || "-");
+    const reason = escapeHtml((entry?.reason || "-").toString().trim() || "-");
+    const createdAt = escapeHtml(formatDateTime(entry?.createdAt || ""));
+
+    tbody.append(`
+      <tr class="border-bottom border-secondary">
+        <td class="ps-4 py-3 text-light">${email}</td>
+        <td class="py-3 text-secondary">${phone}</td>
+        <td class="py-3 text-secondary small">${reason}</td>
+        <td class="py-3 text-secondary small">${createdAt}</td>
+        <td class="pe-4 py-3">
+          <button class="btn btn-sm btn-outline-success remove-blacklist-btn" data-blacklist-id="${id}">
+            <i class="bi bi-shield-check me-1"></i>Unblacklist
+          </button>
+        </td>
+      </tr>
+    `);
+  });
+}
+
+function applyOrdersSummaryPayload(payload) {
+  setAdminOrdersPayload(payload || {});
+  displayRecentOrders();
+  displayAllOrders();
+  displayAllCustomers();
+  calculateDashboardMetrics();
+  renderAnalyticsSection();
+  renderRefundRequests();
+  renderBlacklistTable();
+  renderShippingConfigCard();
+  updateNotifications();
+  $("#customersSelectAll").prop("checked", false);
+}
+
+async function saveShippingConfig() {
+  const flatFee = Math.max(
+    0,
+    Number($("#shippingFlatFeeInput").val() || 0) || 0,
+  );
+  const freeShippingOver = Math.max(
+    0,
+    Number($("#freeShippingOverInput").val() || 0) || 0,
+  );
+
+  try {
+    const result = await adminPostJson(ADMIN_ORDERS_API, {
+      action: "save-shipping-settings",
+      flat_fee: Number(flatFee.toFixed(2)),
+      free_shipping_over: Number(freeShippingOver.toFixed(2)),
+    });
+
+    applyOrdersSummaryPayload(result?.payload || {});
+    showNotification(result?.message || "Shipping rules updated.", "success");
+  } catch (error) {
+    showNotification(
+      error?.message || "Unable to update shipping rules.",
+      "danger",
+    );
+  }
+}
+
+function findBlacklistEntryByContact(email, phone) {
+  const normalizedEmail = (email || "").toString().trim().toLowerCase();
+  const normalizedPhone = (phone || "").toString().trim();
+
+  const entries = Array.isArray(adminBlacklist) ? adminBlacklist : [];
+  return (
+    entries.find((entry) => {
+      const entryEmail = (entry?.email || "").toString().trim().toLowerCase();
+      const entryPhone = (entry?.phone || "").toString().trim();
+
+      if (normalizedEmail !== "" && entryEmail === normalizedEmail) {
+        return true;
+      }
+
+      if (normalizedPhone !== "" && entryPhone === normalizedPhone) {
+        return true;
+      }
+
+      return false;
+    }) || null
+  );
+}
+
+async function createBlacklistEntry(payload, successMessage) {
+  const result = await adminPostJson(ADMIN_ORDERS_API, {
+    action: "add-blacklist",
+    ...payload,
+  });
+
+  applyOrdersSummaryPayload(result?.payload || {});
+  showNotification(result?.message || successMessage, "success");
+}
+
+async function addBlacklistFromForm() {
+  const email = (($("#blacklistEmailInput").val() || "") + "").trim();
+  const phone = (($("#blacklistPhoneInput").val() || "") + "").trim();
+  const reason = (($("#blacklistReasonInput").val() || "") + "").trim();
+
+  if (email === "" && phone === "") {
+    showNotification("Enter an email or phone number.", "warning");
+    return;
+  }
+
+  try {
+    await createBlacklistEntry(
+      {
+        email,
+        phone,
+        reason,
+      },
+      "Contact blacklisted.",
+    );
+
+    $("#blacklistEmailInput").val("");
+    $("#blacklistPhoneInput").val("");
+    $("#blacklistReasonInput").val("");
+  } catch (error) {
+    showNotification(
+      error?.message || "Unable to blacklist contact.",
+      "danger",
+    );
+  }
+}
+
+async function blacklistCustomerByIdentity(
+  customerId,
+  customerName,
+  email,
+  phone,
+  deleteAfter = false,
+) {
+  const safeCustomerId = Number(customerId || 0) || 0;
+  const safeName = (customerName || "Customer").toString().trim() || "Customer";
+  const safeEmail = (email || "").toString().trim();
+  const safePhone = (phone || "").toString().trim();
+
+  if (safeCustomerId <= 0 && safeEmail === "" && safePhone === "") {
+    showNotification("Customer contact data is missing.", "warning");
+    return;
+  }
+
+  const confirmText = deleteAfter
+    ? `Blacklist and delete ${safeName}?`
+    : `Blacklist ${safeName}?`;
+  const confirmed = await showCustomConfirmDialog(
+    confirmText,
+    deleteAfter ? "Blacklist + Delete" : "Blacklist Customer",
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  const reason = await showCustomPromptDialog(
+    "Optional reason for blacklist entry:",
+    "",
+    "Blacklist Reason",
+  );
+
+  try {
+    await createBlacklistEntry(
+      {
+        customer_id: safeCustomerId,
+        email: safeEmail,
+        phone: safePhone,
+        reason: (reason || "").toString().trim(),
+      },
+      "Customer blacklisted.",
+    );
+
+    if (!deleteAfter || safeCustomerId <= 0) {
+      return;
+    }
+
+    const deleteResult = await adminPostJson(ADMIN_ORDERS_API, {
+      action: "delete-customers",
+      customer_ids: [safeCustomerId],
+    });
+
+    applyOrdersSummaryPayload(deleteResult?.payload || {});
+    showNotification(
+      deleteResult?.message || "Customer blacklisted and deleted.",
+      "success",
+    );
+  } catch (error) {
+    showNotification(
+      error?.message || "Unable to process blacklist action.",
+      "danger",
+    );
+  }
+}
+
+async function removeBlacklistById(blacklistId) {
+  const id = Number(blacklistId || 0) || 0;
+  if (id <= 0) {
+    showNotification("Invalid blacklist id.", "warning");
+    return;
+  }
+
+  const confirmed = await showCustomConfirmDialog(
+    "Remove this blacklist entry?",
+    "Unblacklist Contact",
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const result = await adminPostJson(ADMIN_ORDERS_API, {
+      action: "remove-blacklist",
+      blacklist_id: id,
+    });
+
+    applyOrdersSummaryPayload(result?.payload || {});
+    showNotification(result?.message || "Blacklist entry removed.", "success");
+  } catch (error) {
+    showNotification(
+      error?.message || "Unable to remove blacklist entry.",
+      "danger",
+    );
+  }
+}
+
+async function removeBlacklistByContact(email, phone) {
+  const entry = findBlacklistEntryByContact(email, phone);
+  if (!entry) {
+    showNotification(
+      "No active blacklist entry found for this customer.",
+      "warning",
+    );
+    return;
+  }
+
+  await removeBlacklistById(entry.id);
 }
 
 function deleteOrder(orderId) {

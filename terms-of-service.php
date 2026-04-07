@@ -40,8 +40,7 @@ require_once __DIR__ . '/backend/data.php';
 	<script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
 		{
 			"@context": "https://schema.org",
-			"@graph": [
-				{
+			"@graph": [{
 					"@type": "Organization",
 					"@id": "https://commerza.ahmershah.dev/#organization",
 					"name": "Commerza",
@@ -71,8 +70,7 @@ require_once __DIR__ . '/backend/data.php';
 				{
 					"@type": "BreadcrumbList",
 					"@id": "https://commerza.ahmershah.dev/terms-of-service.php#breadcrumb",
-					"itemListElement": [
-						{
+					"itemListElement": [{
 							"@type": "ListItem",
 							"position": 1,
 							"name": "Home",
@@ -197,6 +195,7 @@ require_once __DIR__ . '/backend/data.php';
 	</header>
 
 	<main class="container my-5">
+		<?php commerza_render_page_breadcrumb('Terms of Service'); ?>
 		<section class="page-hero mb-5">
 			<div class="hero-content">
 				<span class="hero-badge"><i class="bi bi-file-earmark-text"></i> Legal</span>

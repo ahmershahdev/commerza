@@ -246,6 +246,7 @@ $logoUrl = $siteBaseUrl . '/frontend/assets/images/logo/commerza-logo.webp';
 	</header>
 
 	<main class="container my-5">
+		<?php commerza_render_page_breadcrumb('Privacy Policy'); ?>
 		<section class="page-hero mb-5">
 			<div class="hero-content">
 				<span class="hero-badge"><i class="bi bi-shield-lock"></i> Legal</span>

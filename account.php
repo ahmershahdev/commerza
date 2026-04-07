@@ -481,6 +481,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $errors[] = "Invalid phone number.";
     }
 
+    if (empty($errors)) {
+      $blockedContact = commerza_customer_blacklist_lookup($con, $email, $phone);
+      if (is_array($blockedContact)) {
+        $errors[] = commerza_customer_blacklist_feedback_message($blockedContact);
+      }
+    }
+
     if ($address !== '' && strlen($address) < 8) {
       $errors[] = "Address must be at least 8 characters.";
     }
@@ -1240,6 +1247,78 @@ if (is_array($accountDeletePending)) {
       color: rgba(255, 204, 163, 0.7);
     }
 
+    .upload-progress-shell {
+      border: 1px solid rgba(255, 140, 64, 0.34);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background:
+        radial-gradient(circle at 0% 0%, rgba(255, 153, 51, 0.15), transparent 42%),
+        linear-gradient(140deg, rgba(17, 17, 17, 0.94), rgba(8, 8, 8, 0.96));
+      box-shadow:
+        0 12px 24px rgba(0, 0, 0, 0.34),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .upload-progress-shell::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, rgba(255, 255, 255, 0.08), transparent 40%);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      pointer-events: none;
+    }
+
+    .upload-progress-shell.is-active::after {
+      opacity: 1;
+    }
+
+    .upload-progress-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .upload-progress-percent {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.74rem;
+      color: #ffd6ad;
+      border: 1px solid rgba(255, 170, 122, 0.4);
+      border-radius: 999px;
+      padding: 2px 7px;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+
+    .upload-progress-track {
+      height: 8px !important;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .upload-progress-bar {
+      transition: width 0.2s ease;
+      font-size: 0;
+      background: linear-gradient(90deg, #ff8f36, #ffd35c) !important;
+    }
+
+    .upload-progress-shell.upload-state-processing .upload-progress-bar {
+      background: linear-gradient(90deg, #ff9f1a, #ffe27a) !important;
+    }
+
+    .upload-progress-shell.upload-state-success .upload-progress-bar {
+      background: linear-gradient(90deg, #25c96b, #82efad) !important;
+    }
+
+    .upload-progress-shell.upload-state-error .upload-progress-bar {
+      background: linear-gradient(90deg, #ff516d, #ff9bb0) !important;
+    }
+
     .password-wrapper {
       position: relative;
       width: 100%;
@@ -1536,9 +1615,12 @@ if (is_array($accountDeletePending)) {
                 accept="image/jpeg,image/png,image/webp,image/gif" />
               <small class="text-secondary d-block mt-2">Upload a clear square photo. Supported formats: JPG, PNG, WebP, GIF. Max 2 MB. Image is parsed/compressed before save.</small>
               <div class="upload-progress-shell mt-2 d-none" id="profileUploadProgress">
-                <small class="text-secondary d-block" data-upload-stage>Waiting to upload...</small>
-                <div class="progress mt-1" style="height: 6px;">
-                  <div class="progress-bar bg-warning" role="progressbar" data-upload-bar style="width: 0%">0%</div>
+                <div class="upload-progress-head">
+                  <small class="text-secondary d-block mb-0" data-upload-stage>Waiting to upload...</small>
+                  <span class="upload-progress-percent" data-upload-percent>0%</span>
+                </div>
+                <div class="progress mt-1 upload-progress-track">
+                  <div class="progress-bar upload-progress-bar bg-warning" role="progressbar" data-upload-bar style="width: 0%"></div>
                 </div>
               </div>
               <button type="submit" class="btn product-btn-buy w-100 mt-2" data-loading-text="Updating Picture...">
@@ -1943,9 +2025,12 @@ if (is_array($accountDeletePending)) {
                                 accept=".jpg,.jpeg,.png,.webp,.gif,.pdf">
                               <small class="text-secondary d-block mt-1">Allowed: JPG, PNG, WebP, GIF, PDF. Max 6 MB. Images are parsed/compressed before upload.</small>
                               <div class="upload-progress-shell mt-2 d-none" data-upload-progress-shell>
-                                <small class="text-secondary d-block" data-upload-stage>Waiting to upload...</small>
-                                <div class="progress mt-1" style="height: 6px;">
-                                  <div class="progress-bar bg-warning" role="progressbar" data-upload-bar style="width: 0%">0%</div>
+                                <div class="upload-progress-head">
+                                  <small class="text-secondary d-block mb-0" data-upload-stage>Waiting to upload...</small>
+                                  <span class="upload-progress-percent" data-upload-percent>0%</span>
+                                </div>
+                                <div class="progress mt-1 upload-progress-track">
+                                  <div class="progress-bar upload-progress-bar bg-warning" role="progressbar" data-upload-bar style="width: 0%"></div>
                                 </div>
                               </div>
                             </div>
@@ -2255,9 +2340,16 @@ if (is_array($accountDeletePending)) {
               "email",
               normalized,
               function(res) {
+                const blocked = !!res?.blocked;
                 emailTaken = !!res?.exists;
                 if (emailTaken) {
-                  setFieldState(emailInput, emailFeedback, "Email already in use.", "#ef4444", "#ef4444");
+                  const emailMessage =
+                    typeof res?.message === "string" && res.message.trim() !== "" ?
+                    res.message :
+                    blocked ?
+                    "This email is blocked by admin." :
+                    "Email already in use.";
+                  setFieldState(emailInput, emailFeedback, emailMessage, "#ef4444", "#ef4444");
                 } else {
                   setFieldState(emailInput, emailFeedback, "Email available.", "#22c55e", "#22c55e");
                 }
@@ -2294,9 +2386,16 @@ if (is_array($accountDeletePending)) {
               "phone",
               normalized,
               function(res) {
+                const blocked = !!res?.blocked;
                 phoneTaken = !!res?.exists;
                 if (phoneTaken) {
-                  setFieldState(phoneInput, phoneFeedback, "Phone already in use.", "#ef4444", "#ef4444");
+                  const phoneMessage =
+                    typeof res?.message === "string" && res.message.trim() !== "" ?
+                    res.message :
+                    blocked ?
+                    "This phone number is blocked by admin." :
+                    "Phone already in use.";
+                  setFieldState(phoneInput, phoneFeedback, phoneMessage, "#ef4444", "#ef4444");
                 } else {
                   setFieldState(phoneInput, phoneFeedback, "Phone available.", "#22c55e", "#22c55e");
                 }
@@ -2380,18 +2479,71 @@ if (is_array($accountDeletePending)) {
         const safePercent = Math.max(0, Math.min(100, Math.round(percent || 0)));
         const stage = shell.find("[data-upload-stage]").first();
         const bar = shell.find("[data-upload-bar]").first();
+        const percentChip = shell.find("[data-upload-percent]").first();
+
+        shell.removeClass("upload-state-upload upload-state-processing upload-state-success upload-state-error");
+        shell.addClass("is-active");
+
+        if (tone === "bg-success") {
+          shell.addClass("upload-state-success");
+        } else if (tone === "bg-danger") {
+          shell.addClass("upload-state-error");
+        } else if (safePercent >= 95) {
+          shell.addClass("upload-state-processing");
+        } else {
+          shell.addClass("upload-state-upload");
+        }
 
         shell.removeClass("d-none");
         if (stage.length) {
           stage.text((stageText || "Processing upload...").toString());
         }
 
+        if (percentChip.length) {
+          percentChip.text(`${safePercent}%`);
+        }
+
         if (bar.length) {
           bar.removeClass("bg-warning bg-danger bg-success");
-          bar.addClass(tone || "bg-warning");
+          if (tone) {
+            bar.addClass(tone);
+          }
           bar.css("width", `${safePercent}%`);
-          bar.text(`${safePercent}%`);
         }
+      };
+
+      const animateUploadShell = function(shell, stageText, targetPercent, tone, options = {}) {
+        if (!shell || !shell.length) {
+          return;
+        }
+
+        const safeTarget = Math.max(0, Math.min(100, Math.round(targetPercent || 0)));
+        const duration = Math.max(120, parseInt(options?.duration, 10) || 360);
+        const current = parseInt(shell.attr("data-progress-current") || "0", 10) || 0;
+
+        if (safeTarget <= current) {
+          updateUploadShell(shell, stageText, safeTarget, tone);
+          shell.attr("data-progress-current", String(safeTarget));
+          return;
+        }
+
+        const startedAt = Date.now();
+
+        const tick = function() {
+          const elapsed = Date.now() - startedAt;
+          const progressRatio = Math.max(0, Math.min(1, elapsed / duration));
+          const eased = 1 - Math.pow(1 - progressRatio, 3);
+          const next = Math.max(current, Math.round(current + (safeTarget - current) * eased));
+
+          updateUploadShell(shell, stageText, next, tone);
+          shell.attr("data-progress-current", String(next));
+
+          if (next < safeTarget && progressRatio < 1) {
+            window.requestAnimationFrame(tick);
+          }
+        };
+
+        window.requestAnimationFrame(tick);
       };
 
       const showServerBanner = function(type, message) {
@@ -2485,7 +2637,12 @@ if (is_array($accountDeletePending)) {
           event.stopImmediatePropagation();
 
           const shell = resolveShell(activeForm);
-          updateUploadShell(shell, "Uploading file...", 0, "bg-warning");
+          if (shell && shell.length) {
+            shell.attr("data-progress-current", "0");
+          }
+          animateUploadShell(shell, "Uploading file...", 4, "bg-warning", {
+            duration: 180,
+          });
 
           const submitBtn = activeForm.find("button[type='submit']").first();
           const originalText = submitBtn.text();
@@ -2506,29 +2663,38 @@ if (is_array($accountDeletePending)) {
 
           xhr.upload.addEventListener("progress", function(progressEvent) {
             if (!progressEvent.lengthComputable) {
-              updateUploadShell(shell, "Uploading file...", 0, "bg-warning");
+              animateUploadShell(shell, "Uploading file...", 60, "bg-warning", {
+                duration: 260,
+              });
               return;
             }
 
-            const pct = (progressEvent.loaded / progressEvent.total) * 100;
-            updateUploadShell(shell, `Uploading file... ${Math.round(pct)}%`, pct, "bg-warning");
+            const pct = (progressEvent.loaded / progressEvent.total) * 78;
+            const rounded = Math.max(4, Math.round(pct));
+            animateUploadShell(shell, `Uploading file... ${rounded}%`, rounded, "bg-warning", {
+              duration: 180,
+            });
           });
 
           xhr.upload.addEventListener("load", function() {
-            updateUploadShell(
+            animateUploadShell(
               shell,
-              "Upload complete. Server is parsing/compressing...",
-              100,
-              "bg-warning",
+              "Upload complete. Parsing and compressing image...",
+              90,
+              "bg-warning", {
+                duration: 420,
+              },
             );
           });
 
           xhr.onerror = function() {
-            updateUploadShell(
+            animateUploadShell(
               shell,
               "Upload failed due to a network error.",
               100,
-              "bg-danger",
+              "bg-danger", {
+                duration: 220,
+              },
             );
             restoreButton();
           };
@@ -2549,7 +2715,9 @@ if (is_array($accountDeletePending)) {
                     (Array.isArray(payload?.errors) && payload.errors.length ?
                       payload.errors[0] :
                       "Upload failed. Please try again.");
-                  updateUploadShell(shell, jsonError, 100, "bg-danger");
+                  animateUploadShell(shell, jsonError, 100, "bg-danger", {
+                    duration: 240,
+                  });
                   showServerBanner("error", jsonError);
                   restoreButton();
                   return;
@@ -2568,28 +2736,38 @@ if (is_array($accountDeletePending)) {
                   (payload?.message || "Profile picture updated successfully.")
                   .toString()
                   .trim();
-                updateUploadShell(shell, successMessage, 100, "bg-success");
+                animateUploadShell(shell, "Finalizing profile update...", 98, "bg-warning", {
+                  duration: 240,
+                });
+                animateUploadShell(shell, successMessage, 100, "bg-success", {
+                  duration: 280,
+                });
                 showServerBanner("success", successMessage);
                 restoreButton();
 
                 window.setTimeout(() => {
+                  shell.removeClass("is-active");
                   shell.addClass("d-none");
                 }, 1400);
                 return;
               }
 
-              updateUploadShell(shell, "Upload completed. Refreshing...", 100, "bg-success");
+              animateUploadShell(shell, "Upload completed. Refreshing...", 100, "bg-success", {
+                duration: 220,
+              });
               document.open();
               document.write(xhr.responseText || "");
               document.close();
               return;
             }
 
-            updateUploadShell(
+            animateUploadShell(
               shell,
               "Upload failed. Please try again.",
               100,
-              "bg-danger",
+              "bg-danger", {
+                duration: 240,
+              },
             );
             restoreButton();
           };

@@ -90,12 +90,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt = null;
 
     if ($isEmailLogin) {
-      $stmt = $con->prepare("SELECT id, full_name, email, password_hash FROM users WHERE email = ? LIMIT 1");
+      $stmt = $con->prepare("SELECT id, full_name, email, phone, password_hash FROM users WHERE email = ? LIMIT 1");
       if ($stmt) {
         $stmt->bind_param("s", $normalizedIdentifier);
       }
     } else {
-      $stmt = $con->prepare("SELECT id, full_name, email, password_hash FROM users WHERE username_slug = ? OR username = ? LIMIT 1");
+      $stmt = $con->prepare("SELECT id, full_name, email, phone, password_hash FROM users WHERE username_slug = ? OR username = ? LIMIT 1");
       if ($stmt) {
         $stmt->bind_param("ss", $usernameCandidate, $usernameCandidate);
       }
@@ -109,6 +109,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $user = $result ? $result->fetch_assoc() : null;
 
       if ($user && commerza_password_verify($password, (string)$user['password_hash'])) {
+        $blockedContact = commerza_customer_blacklist_lookup(
+          $con,
+          (string)($user['email'] ?? ''),
+          (string)($user['phone'] ?? '')
+        );
+
+        if (is_array($blockedContact)) {
+          commerza_security_log_event($con, [
+            'event_type' => 'login_blocked_blacklist',
+            'severity' => 'warning',
+            'actor_type' => 'user',
+            'actor_identifier' => (string)($user['email'] ?? $normalizedIdentifier),
+            'ip_address' => $clientIp,
+            'details' => [
+              'reason' => 'blacklisted_contact',
+              'match' => (string)($blockedContact['match'] ?? ''),
+              'blacklist_id' => (int)($blockedContact['id'] ?? 0),
+            ],
+          ]);
+
+          $errors[] = commerza_customer_blacklist_feedback_message($blockedContact);
+          $stmt->close();
+          goto login_done;
+        }
+
         $stmt->close();
         session_regenerate_id(true);
         $_SESSION['user_id'] = (int)$user['id'];
@@ -169,6 +194,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
   }
 }
+
+login_done:
 ?>
 <!DOCTYPE html>
 <html lang="en">

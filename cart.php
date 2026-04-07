@@ -237,7 +237,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
 
   if (empty($errors) && $subtotal > 0) {
     $user_id = (int)$_SESSION['user_id'];
-    $shipping_cost = 0.00;
+    $shipping_config = commerza_cart_shipping_config($con);
+    $shipping_cost = commerza_cart_shipping_cost($subtotal, $shipping_config);
     $discount_total = 0.00;
     $coupon_code = '';
     $coupon_id = 0;
@@ -1018,6 +1019,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
   </header>
 
   <main class="container my-5">
+    <?php commerza_render_page_breadcrumb('Cart'); ?>
     <section class="page-hero mb-5">
       <div class="hero-content">
         <span class="hero-badge"><i class="bi bi-cart3"></i> Checkout</span>

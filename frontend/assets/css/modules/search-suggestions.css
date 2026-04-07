@@ -43,6 +43,29 @@
   color: #ffcc00;
 }
 
+.suggestion-empty-state {
+  padding: 14px 16px;
+  display: grid;
+  gap: 4px;
+  color: #ffd9b3;
+}
+
+.suggestion-empty-state i {
+  color: #ff9f45;
+  font-size: 1rem;
+}
+
+.suggestion-empty-state p {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.suggestion-empty-state small {
+  color: #e6be99;
+  font-size: 0.75rem;
+}
+
 @media (max-width: 768px) {
   .offcanvas .search-form {
     position: relative;
@@ -59,6 +82,10 @@
     max-height: 50vh;
     z-index: 12000;
     backdrop-filter: none;
+  }
+
+  .suggestion-empty-state {
+    padding: 13px 12px;
   }
 
   .offcanvas .search-suggestions {
@@ -102,4 +129,3 @@
     display: none !important;
   }
 }
-
