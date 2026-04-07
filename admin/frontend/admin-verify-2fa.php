@@ -90,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       }
     }
   } elseif (empty($errors)) {
-    $codeValue = trim((string)($_POST['verification_code'] ?? ''));
+    $codeValue = admin_normalize_numeric_code((string)($_POST['verification_code'] ?? ''));
 
     $rate = commerza_rate_limit_check(
       $con,

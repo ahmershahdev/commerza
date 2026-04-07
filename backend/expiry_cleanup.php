@@ -145,7 +145,7 @@ function commerza_send_expiry_notice(string $email, string $name, string $typeLa
   </body>
 </html>';
 
-        $errorMessage = null;
+    $errorMessage = null;
     commerza_send_html_mail(
         $email,
         $subject,
@@ -258,6 +258,203 @@ function commerza_cleanup_expired_wishlist_items(mysqli $con, int $hours): void
     }
 }
 
+function commerza_cleanup_generated_media_path(string $path): bool
+{
+    $normalized = trim(str_replace('\\', '/', $path));
+    if ($normalized === '' || str_contains($normalized, '..')) {
+        return false;
+    }
+
+    $allowedPrefixes = [
+        'frontend/assets/images/products/uploads/',
+        'frontend/assets/videos/products/uploads/',
+        'frontend/assets/images/slider/',
+        'frontend/assets/videos/slider/',
+        'frontend/assets/images/logo/',
+        'frontend/assets/images/favicon/',
+        'frontend/assets/images/social/',
+    ];
+
+    $hasAllowedPrefix = false;
+    foreach ($allowedPrefixes as $prefix) {
+        if (str_starts_with($normalized, $prefix)) {
+            $hasAllowedPrefix = true;
+            break;
+        }
+    }
+
+    if (!$hasAllowedPrefix) {
+        return false;
+    }
+
+    return preg_match('/-[a-f0-9]{16}\.[a-z0-9]+$/i', basename($normalized)) === 1;
+}
+
+function commerza_product_media_path_referenced(mysqli $con, string $path): bool
+{
+    $normalized = trim(str_replace('\\', '/', $path));
+    if ($normalized === '') {
+        return false;
+    }
+
+    $productsStmt = $con->prepare(
+        'SELECT id
+         FROM products
+         WHERE image = ? OR video_url = ?
+         LIMIT 1'
+    );
+
+    if ($productsStmt) {
+        $productsStmt->bind_param('ss', $normalized, $normalized);
+        $productsStmt->execute();
+        $productsStmt->store_result();
+        $inProducts = $productsStmt->num_rows > 0;
+        $productsStmt->close();
+
+        if ($inProducts) {
+            return true;
+        }
+    }
+
+    $sliderStmt = $con->prepare(
+        'SELECT id
+         FROM slider
+         WHERE image_url = ? OR video_url = ?
+         LIMIT 1'
+    );
+
+    if ($sliderStmt) {
+        $sliderStmt->bind_param('ss', $normalized, $normalized);
+        $sliderStmt->execute();
+        $sliderStmt->store_result();
+        $inSlider = $sliderStmt->num_rows > 0;
+        $sliderStmt->close();
+
+        if ($inSlider) {
+            return true;
+        }
+    }
+
+    $socialStmt = $con->prepare(
+        'SELECT id
+         FROM social_links
+         WHERE icon = ?
+         LIMIT 1'
+    );
+
+    if ($socialStmt) {
+        $socialStmt->bind_param('s', $normalized);
+        $socialStmt->execute();
+        $socialStmt->store_result();
+        $inSocial = $socialStmt->num_rows > 0;
+        $socialStmt->close();
+
+        if ($inSocial) {
+            return true;
+        }
+    }
+
+    $settingsStmt = $con->prepare(
+        'SELECT id
+         FROM site_settings
+         WHERE setting_val = ?
+         LIMIT 1'
+    );
+
+    if ($settingsStmt) {
+        $settingsStmt->bind_param('s', $normalized);
+        $settingsStmt->execute();
+        $settingsStmt->store_result();
+        $inSettings = $settingsStmt->num_rows > 0;
+        $settingsStmt->close();
+
+        if ($inSettings) {
+            return true;
+        }
+    }
+
+    $trashStmt = $con->prepare(
+        'SELECT id
+         FROM product_trash
+         WHERE image = ? OR video_url = ?
+         LIMIT 1'
+    );
+
+    if ($trashStmt) {
+        $trashStmt->bind_param('ss', $normalized, $normalized);
+        $trashStmt->execute();
+        $trashStmt->store_result();
+        $inTrash = $trashStmt->num_rows > 0;
+        $trashStmt->close();
+
+        if ($inTrash) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function commerza_cleanup_product_media_file(mysqli $con, string $relativePath): void
+{
+    $normalized = trim(str_replace('\\', '/', $relativePath));
+    if (!commerza_cleanup_generated_media_path($normalized)) {
+        return;
+    }
+
+    if (commerza_product_media_path_referenced($con, $normalized)) {
+        return;
+    }
+
+    $absolutePath = dirname(__DIR__) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $normalized);
+    if (is_file($absolutePath)) {
+        @unlink($absolutePath);
+    }
+}
+
+function commerza_cleanup_expired_product_trash(mysqli $con): void
+{
+    $result = $con->query("SHOW TABLES LIKE 'product_trash'");
+    if (!($result instanceof mysqli_result) || $result->num_rows === 0) {
+        return;
+    }
+
+    $expiredResult = $con->query(
+        'SELECT id, image, video_url
+         FROM product_trash
+         WHERE purge_after <= NOW()
+         LIMIT 500'
+    );
+
+    if (!($expiredResult instanceof mysqli_result) || $expiredResult->num_rows === 0) {
+        return;
+    }
+
+    $ids = [];
+    $paths = [];
+    while ($row = $expiredResult->fetch_assoc()) {
+        $id = (int)($row['id'] ?? 0);
+        if ($id > 0) {
+            $ids[] = $id;
+        }
+        $paths[] = (string)($row['image'] ?? '');
+        $paths[] = (string)($row['video_url'] ?? '');
+    }
+
+    if (empty($ids)) {
+        return;
+    }
+
+    $idList = implode(',', array_map('intval', $ids));
+    if (!$con->query("DELETE FROM product_trash WHERE id IN ({$idList})")) {
+        return;
+    }
+
+    foreach ($paths as $path) {
+        commerza_cleanup_product_media_file($con, (string)$path);
+    }
+}
+
 function commerza_run_expiry_cleanup(mysqli $con): void
 {
     $hours = commerza_get_expiry_hours();
@@ -265,6 +462,7 @@ function commerza_run_expiry_cleanup(mysqli $con): void
     try {
         commerza_cleanup_expired_cart_items($con, $hours);
         commerza_cleanup_expired_wishlist_items($con, $hours);
+        commerza_cleanup_expired_product_trash($con);
     } catch (Throwable $error) {
         error_log('Commerza expiry cleanup failed: ' . $error->getMessage());
     }

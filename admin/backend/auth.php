@@ -554,8 +554,24 @@ function admin_enforce_post_idempotency_guard(mysqli $con): void
 
 admin_enforce_post_idempotency_guard($con);
 
+function admin_normalize_numeric_code(string $code): string
+{
+    $digits = preg_replace('/\D+/', '', trim($code));
+    if (!is_string($digits)) {
+        return '';
+    }
+
+    if (strlen($digits) > 6) {
+        $digits = substr($digits, 0, 6);
+    }
+
+    return $digits;
+}
+
 function admin_store_reset_code(mysqli $con, int $adminId, string $code): bool
 {
+    $code = admin_normalize_numeric_code($code);
+
     if (!preg_match('/^\d{6}$/', $code)) {
         return false;
     }
@@ -580,25 +596,100 @@ function admin_store_reset_code(mysqli $con, int $adminId, string $code): bool
     return $ok;
 }
 
-function admin_verify_reset_code(array $admin, string $code): bool
+function admin_verify_reset_code_status(mysqli $con, int $adminId, string $code): array
 {
+    $code = admin_normalize_numeric_code($code);
+
+    if ($adminId <= 0) {
+        return [
+            'ok' => false,
+            'status' => 'invalid_admin',
+            'message' => 'Invalid admin account.',
+        ];
+    }
+
     if (!preg_match('/^\d{6}$/', $code)) {
-        return false;
+        return [
+            'ok' => false,
+            'status' => 'invalid_code_format',
+            'message' => 'Enter a valid 6-digit reset code.',
+        ];
     }
 
-    $hash = (string)($admin['reset_token'] ?? '');
-    $expiry = (string)($admin['reset_token_expiry'] ?? '');
+    $stmt = $con->prepare(
+        'SELECT
+            reset_token,
+            CASE
+                WHEN reset_token_expiry IS NOT NULL AND reset_token_expiry >= NOW() THEN 1
+                ELSE 0
+            END AS reset_code_is_active
+         FROM admin_users
+         WHERE id = ?
+         LIMIT 1'
+    );
 
-    if ($hash === '' || $expiry === '') {
-        return false;
+    if (!$stmt) {
+        return [
+            'ok' => false,
+            'status' => 'server_error',
+            'message' => 'Unable to verify reset code right now.',
+        ];
     }
 
-    $expiryTs = strtotime($expiry);
-    if ($expiryTs === false || $expiryTs < time()) {
-        return false;
+    $stmt->bind_param('i', $adminId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    if (!is_array($row)) {
+        return [
+            'ok' => false,
+            'status' => 'invalid_admin',
+            'message' => 'Invalid admin account.',
+        ];
     }
 
-    return commerza_password_verify($code, $hash);
+    $hash = (string)($row['reset_token'] ?? '');
+    $isActive = (int)($row['reset_code_is_active'] ?? 0) === 1;
+
+    if ($hash === '') {
+        return [
+            'ok' => false,
+            'status' => 'missing_code',
+            'message' => 'No active reset code found. Request a new code.',
+        ];
+    }
+
+    if (!$isActive) {
+        return [
+            'ok' => false,
+            'status' => 'expired',
+            'message' => 'Reset code expired. Request a new code.',
+        ];
+    }
+
+    if (!commerza_password_verify($code, $hash)) {
+        return [
+            'ok' => false,
+            'status' => 'invalid_code',
+            'message' => 'Invalid reset code.',
+        ];
+    }
+
+    return [
+        'ok' => true,
+        'status' => 'verified',
+        'message' => 'Reset code verified.',
+    ];
+}
+
+function admin_verify_reset_code(mysqli $con, array $admin, string $code): bool
+{
+    $adminId = (int)($admin['id'] ?? 0);
+    $status = admin_verify_reset_code_status($con, $adminId, $code);
+
+    return (bool)($status['ok'] ?? false);
 }
 
 function admin_clear_reset_code(mysqli $con, int $adminId): void
@@ -652,13 +743,93 @@ function admin_public_url(string $path = ''): string
     return $base . '/' . ltrim($path, '/');
 }
 
+function admin_email_setting(mysqli $con, string $key, string $fallback = ''): string
+{
+    $stmt = $con->prepare(
+        'SELECT setting_val
+         FROM site_settings
+         WHERE setting_key = ?
+         LIMIT 1'
+    );
+
+    if (!$stmt) {
+        return $fallback;
+    }
+
+    $stmt->bind_param('s', $key);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    if (!is_array($row)) {
+        return $fallback;
+    }
+
+    $value = trim((string)($row['setting_val'] ?? ''));
+    return $value !== '' ? $value : $fallback;
+}
+
+function admin_email_context(): array
+{
+    global $con;
+
+    $siteName = 'Commerza';
+    $supportEmail = trim((string)(getenv('COMMERZA_SUPPORT_EMAIL') ?: 'support@ahmershah.dev'));
+
+    if ($con instanceof mysqli) {
+        $siteName = admin_email_setting($con, 'site_name', $siteName);
+
+        $siteEmail = strtolower(trim(admin_email_setting($con, 'site_email', '')));
+        if ($siteEmail !== '' && filter_var($siteEmail, FILTER_VALIDATE_EMAIL)) {
+            $supportEmail = $siteEmail;
+        }
+    }
+
+    if (!filter_var($supportEmail, FILTER_VALIDATE_EMAIL)) {
+        $supportEmail = 'support@ahmershah.dev';
+    }
+
+    return [
+        'site_name' => $siteName,
+        'support_email' => $supportEmail,
+    ];
+}
+
+function admin_mail_from_email(): string
+{
+    global $con;
+
+    $defaultSender = commerza_mail_default_sender();
+    $candidates = [
+        getenv('COMMERZA_SUPPORT_EMAIL'),
+        $defaultSender['email'] ?? '',
+        getenv('COMMERZA_SMTP_USERNAME'),
+    ];
+
+    if ($con instanceof mysqli) {
+        $candidates[] = admin_email_setting($con, 'site_email', '');
+    }
+
+    foreach ($candidates as $candidate) {
+        $email = strtolower(trim((string)$candidate));
+        if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $email;
+        }
+    }
+
+    return 'support@ahmershah.dev';
+}
+
 function admin_email_layout(string $title, string $intro, string $bodyHtml): string
 {
+    $context = admin_email_context();
     $safeTitle = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
     $safeIntro = htmlspecialchars($intro, ENT_QUOTES, 'UTF-8');
+    $safeSiteName = htmlspecialchars((string)($context['site_name'] ?? 'Commerza'), ENT_QUOTES, 'UTF-8');
     $safeLogo = htmlspecialchars(admin_public_url('/frontend/assets/images/logo/commerza-logo.webp'), ENT_QUOTES, 'UTF-8');
     $safeHome = htmlspecialchars(admin_public_url('/'), ENT_QUOTES, 'UTF-8');
-    $safeSupportEmail = htmlspecialchars('support@ahmershah.dev', ENT_QUOTES, 'UTF-8');
+    $safeSupportEmail = htmlspecialchars((string)($context['support_email'] ?? 'support@ahmershah.dev'), ENT_QUOTES, 'UTF-8');
     $socialLinks = '<a href="https://instagram.com/commerza" style="color:#ffb066;text-decoration:none;">Instagram</a> <span style="color:#666;">|</span> <a href="https://facebook.com/commerza" style="color:#ffb066;text-decoration:none;">Facebook</a> <span style="color:#666;">|</span> <a href="https://www.linkedin.com/in/syedahmershah" style="color:#ffb066;text-decoration:none;">LinkedIn</a> <span style="color:#666;">|</span> <a href="https://github.com/ahmershahdev" style="color:#ffb066;text-decoration:none;">GitHub</a>';
 
     return '<!DOCTYPE html>
@@ -672,7 +843,7 @@ function admin_email_layout(string $title, string $intro, string $bodyHtml): str
                             <td style="padding:18px 24px;background:linear-gradient(90deg,#161616,#101010);border-bottom:1px solid #2b2b2b;">
                                 <a href="' . $safeHome . '" style="text-decoration:none;display:inline-flex;align-items:center;gap:10px;">
                                     <img src="' . $safeLogo . '" alt="Commerza" width="44" height="44" style="display:block;border-radius:8px;object-fit:cover;">
-                                    <span style="color:#ff8a2b;font-size:18px;font-weight:800;letter-spacing:.6px;">COMMERZA Admin Security</span>
+                                    <span style="color:#ff8a2b;font-size:18px;font-weight:800;letter-spacing:.6px;">' . $safeSiteName . ' Admin Security</span>
                                 </a>
                             </td>
                         </tr>
@@ -710,10 +881,12 @@ function admin_send_password_reset_code_email(
     string $code,
     ?string &$errorMessage = null
 ): bool {
+    $context = admin_email_context();
+    $siteName = (string)($context['site_name'] ?? 'Commerza');
     $safeName = htmlspecialchars($recipientName !== '' ? $recipientName : 'Admin', ENT_QUOTES, 'UTF-8');
     $safeCode = htmlspecialchars($code, ENT_QUOTES, 'UTF-8');
 
-    $subject = 'Commerza Admin Password Reset Code';
+    $subject = $siteName . ' Admin Password Reset Code';
 
     $body =
         '<p style="margin:0 0 10px 0;">Hello ' . $safeName . ',</p>' .
@@ -723,14 +896,14 @@ function admin_send_password_reset_code_email(
 
     $html = admin_email_layout('Admin Password Reset', 'A secure verification step is required to continue.', $body);
 
-    $fromEmail = trim((string)(getenv('COMMERZA_SUPPORT_EMAIL') ?: 'support@ahmershah.dev'));
+    $fromEmail = admin_mail_from_email();
 
     return commerza_send_html_mail(
         $recipientEmail,
         $subject,
         $html,
         $fromEmail,
-        'Commerza Admin',
+        $siteName . ' Admin',
         $errorMessage
     );
 }
@@ -806,10 +979,12 @@ function admin_send_two_factor_code_email(
     string $code,
     ?string &$errorMessage = null
 ): bool {
+    $context = admin_email_context();
+    $siteName = (string)($context['site_name'] ?? 'Commerza');
     $safeName = htmlspecialchars($recipientName !== '' ? $recipientName : 'Admin', ENT_QUOTES, 'UTF-8');
     $safeCode = htmlspecialchars($code, ENT_QUOTES, 'UTF-8');
 
-    $subject = 'Commerza Admin Login Verification Code';
+    $subject = $siteName . ' Admin Login Verification Code';
 
     $body =
         '<p style="margin:0 0 10px 0;">Hello ' . $safeName . ',</p>' .
@@ -819,14 +994,14 @@ function admin_send_two_factor_code_email(
 
     $html = admin_email_layout('Two-Factor Login Verification', 'Enter this code to finish secure admin authentication.', $body);
 
-    $fromEmail = trim((string)(getenv('COMMERZA_SUPPORT_EMAIL') ?: 'support@ahmershah.dev'));
+    $fromEmail = admin_mail_from_email();
 
     return commerza_send_html_mail(
         $recipientEmail,
         $subject,
         $html,
         $fromEmail,
-        'Commerza Admin Security',
+        $siteName . ' Admin Security',
         $errorMessage
     );
 }
@@ -908,6 +1083,8 @@ function admin_issue_two_factor_challenge(mysqli $con, array $admin, string $nex
 
 function admin_verify_two_factor_code(mysqli $con, int $adminId, string $code): array
 {
+    $code = admin_normalize_numeric_code($code);
+
     if ($adminId <= 0) {
         return [
             'ok' => false,
@@ -936,7 +1113,18 @@ function admin_verify_two_factor_code(mysqli $con, int $adminId, string $code): 
     }
 
     $selectStmt = $con->prepare(
-        'SELECT id, full_name, email, is_active, two_factor_code_hash, two_factor_expires_at, two_factor_attempts
+        'SELECT
+            id,
+            full_name,
+            email,
+            is_active,
+            two_factor_code_hash,
+            two_factor_expires_at,
+            two_factor_attempts,
+            CASE
+                WHEN two_factor_expires_at IS NOT NULL AND two_factor_expires_at >= NOW() THEN 1
+                ELSE 0
+            END AS two_factor_is_active
          FROM admin_users
          WHERE id = ?
          LIMIT 1
@@ -970,11 +1158,10 @@ function admin_verify_two_factor_code(mysqli $con, int $adminId, string $code): 
     }
 
     $codeHash = (string)($admin['two_factor_code_hash'] ?? '');
-    $expiresAt = (string)($admin['two_factor_expires_at'] ?? '');
     $attempts = (int)($admin['two_factor_attempts'] ?? 0);
-    $expiryTs = strtotime($expiresAt);
+    $isChallengeActive = (int)($admin['two_factor_is_active'] ?? 0) === 1;
 
-    if ($codeHash === '' || $expiresAt === '' || $expiryTs === false || $expiryTs < time()) {
+    if ($codeHash === '' || !$isChallengeActive) {
         admin_clear_two_factor_challenge($con, (int)$admin['id']);
         $con->commit();
         return [

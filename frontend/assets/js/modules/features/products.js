@@ -50,8 +50,24 @@ function productsResolveBasePath() {
       return "";
     }
 
-    const normalized = `/${raw.replace(/^\/+|\/+$/g, "")}/`;
-    return normalized === "//" ? "/" : normalized;
+    const segments = raw.split("/").filter(Boolean);
+    const isSafeSegment = (segment) => /^[a-z0-9_-]+$/i.test(segment || "");
+    const projectSegment = segments.find((segment) =>
+      /^commerza$/i.test(segment),
+    );
+
+    if (projectSegment && isSafeSegment(projectSegment)) {
+      return `/${projectSegment}/`;
+    }
+
+    for (let index = 0; index < segments.length; index += 1) {
+      const segment = (segments[index] || "").toString().trim();
+      if (isSafeSegment(segment)) {
+        return `/${segment}/`;
+      }
+    }
+
+    return raw.includes(":") ? "/" : "";
   };
 
   const globalBase = normalizeBase(window.CommerzaAppBasePath || "");
@@ -87,7 +103,7 @@ function productsResolveBasePath() {
     }
   }
 
-  return "/";
+  return normalizeBase(window.location.pathname) || "/";
 }
 
 function productsBuildDetailPath(product) {
@@ -96,13 +112,7 @@ function productsBuildDetailPath(product) {
     return "products.php";
   }
 
-  const numericProductId = Number.parseInt(product?.id, 10);
-  const idQuery =
-    Number.isInteger(numericProductId) && numericProductId > 0
-      ? `?id=${encodeURIComponent(String(numericProductId))}`
-      : "";
-
-  return `${productsResolveBasePath()}products/${encodeURIComponent(slug)}${idQuery}`;
+  return `${productsResolveBasePath()}products/${encodeURIComponent(slug)}`;
 }
 
 function productsBuildRatingMarkup(product) {
