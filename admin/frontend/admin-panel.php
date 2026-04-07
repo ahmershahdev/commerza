@@ -84,6 +84,15 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                             </li>
                             <li class="nav-item mb-1">
                                 <button
+                                    class="nav-link rounded-2 d-flex align-items-center py-2 px-3 w-100 text-start border-0"
+                                    id="product-trash-tab" data-bs-toggle="pill" data-bs-target="#productsSection"
+                                    type="button" aria-controls="productsSection" aria-selected="false">
+                                    <i class="bi bi-trash3 me-2 fs-5"></i>
+                                    <span>Product Trash</span>
+                                </button>
+                            </li>
+                            <li class="nav-item mb-1">
+                                <button
                                     class="nav-link rounded-2 d-flex align-items-center justify-content-between py-2 px-3 w-100 text-start border-0"
                                     id="orders-tab" data-bs-toggle="pill" data-bs-target="#ordersSection" type="button"
                                     aria-controls="ordersSection" aria-selected="false">
@@ -805,10 +814,16 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                             </div>
                                             <div class="col-12 col-md-4">
                                                 <label for="couponDiscountType" class="form-label text-light">Discount Type</label>
-                                                <select class="form-select bg-secondary border-0 text-light" id="couponDiscountType">
-                                                    <option value="fixed">Fixed PKR</option>
-                                                    <option value="percent">Percent %</option>
-                                                </select>
+                                                <div class="dropdown">
+                                                    <button class="btn btn-dark border border-secondary text-light w-100 text-start rounded-2 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="couponDiscountTypeBtn">
+                                                        Fixed PKR
+                                                    </button>
+                                                    <ul class="dropdown-menu dropdown-menu-start bg-dark border-secondary w-100" id="couponDiscountTypeMenu">
+                                                        <li><a class="dropdown-item text-light admin-dropdown-item active" href="#" data-target="couponDiscountType" data-value="fixed" data-label="Fixed PKR">Fixed PKR</a></li>
+                                                        <li><a class="dropdown-item text-light admin-dropdown-item" href="#" data-target="couponDiscountType" data-value="percent" data-label="Percent %">Percent %</a></li>
+                                                    </ul>
+                                                </div>
+                                                <input type="hidden" id="couponDiscountType" value="fixed">
                                                 <small class="field-hint d-block mt-1">Choose fixed amount or percentage-based discount.</small>
                                             </div>
                                             <div class="col-12 col-md-4">
@@ -866,7 +881,15 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                     <div class="card-body p-4 coupon-form-panel">
                                         <div class="mb-3">
                                             <label for="couponEmailCouponId" class="form-label text-light">Select Coupon</label>
-                                            <select class="form-select bg-secondary border-0 text-light" id="couponEmailCouponId"></select>
+                                            <div class="dropdown">
+                                                <button class="btn btn-dark border border-secondary text-light w-100 text-start rounded-2 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="couponEmailCouponIdBtn">
+                                                    Select a coupon
+                                                </button>
+                                                <ul class="dropdown-menu dropdown-menu-start bg-dark border-secondary w-100" id="couponEmailCouponIdMenu">
+                                                    <li><span class="dropdown-item text-secondary">No coupons available</span></li>
+                                                </ul>
+                                            </div>
+                                            <input type="hidden" id="couponEmailCouponId" value="">
                                             <small class="field-hint d-block mt-1">Pick which coupon details to insert into the message.</small>
                                         </div>
                                         <div class="mb-3">
@@ -977,13 +1000,22 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                             <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                                 <h3 class="h5 mb-0 fw-bold text-orange">All Product Reviews</h3>
                                 <div class="d-flex align-items-center gap-2">
-                                    <select class="form-select bg-secondary border-0 text-light form-select-sm"
-                                        id="reviewVisibilityFilter"
-                                        style="min-width: 120px; width: auto;">
-                                        <option value="all">All Reviews</option>
-                                        <option value="visible">Visible</option>
-                                        <option value="hidden">Hidden</option>
-                                    </select>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-dark border border-secondary text-light dropdown-toggle"
+                                            type="button"
+                                            id="reviewVisibilityFilterBtn"
+                                            data-bs-toggle="dropdown"
+                                            aria-expanded="false"
+                                            style="min-width: 132px;">
+                                            All Reviews
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-start bg-dark border-secondary" id="reviewVisibilityFilterMenu">
+                                            <li><a class="dropdown-item text-light admin-dropdown-item active" href="#" data-target="reviewVisibilityFilter" data-value="all" data-label="All Reviews">All Reviews</a></li>
+                                            <li><a class="dropdown-item text-light admin-dropdown-item" href="#" data-target="reviewVisibilityFilter" data-value="visible" data-label="Visible">Visible</a></li>
+                                            <li><a class="dropdown-item text-light admin-dropdown-item" href="#" data-target="reviewVisibilityFilter" data-value="hidden" data-label="Hidden">Hidden</a></li>
+                                        </ul>
+                                    </div>
+                                    <input type="hidden" id="reviewVisibilityFilter" value="all">
                                     <button class="btn btn-sm btn-orange" id="addReviewBtn" type="button">
                                         <i class="bi bi-plus-circle me-1"></i>Add Review
                                     </button>
@@ -1043,10 +1075,16 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                     </div>
                                     <div class="col-12 col-md-3">
                                         <label for="fakeReviewVisibility" class="form-label text-light">Visibility</label>
-                                        <select class="form-select bg-secondary border-0 text-light" id="fakeReviewVisibility">
-                                            <option value="1" selected>Visible</option>
-                                            <option value="0">Hidden</option>
-                                        </select>
+                                        <div class="dropdown">
+                                            <button class="btn btn-dark border border-secondary text-light w-100 text-start rounded-2 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="fakeReviewVisibilityBtn">
+                                                Visible
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-start bg-dark border-secondary w-100" id="fakeReviewVisibilityMenu">
+                                                <li><a class="dropdown-item text-light admin-dropdown-item active" href="#" data-target="fakeReviewVisibility" data-value="1" data-label="Visible">Visible</a></li>
+                                                <li><a class="dropdown-item text-light admin-dropdown-item" href="#" data-target="fakeReviewVisibility" data-value="0" data-label="Hidden">Hidden</a></li>
+                                            </ul>
+                                        </div>
+                                        <input type="hidden" id="fakeReviewVisibility" value="1">
                                     </div>
                                 </div>
                                 <div class="d-flex gap-2 mt-3 flex-wrap">
@@ -1692,20 +1730,32 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                     </div>
                                     <div class="col-6 col-md-3 col-xl-2">
                                         <label class="form-label text-light" for="securitySeverityFilter">Severity</label>
-                                        <select id="securitySeverityFilter" class="form-select bg-secondary border-0 text-light">
-                                            <option value="">All</option>
-                                            <option value="info">Info</option>
-                                            <option value="warning">Warning</option>
-                                            <option value="critical">Critical</option>
-                                        </select>
+                                        <div class="dropdown">
+                                            <button class="btn btn-dark border border-secondary text-light w-100 text-start rounded-2 dropdown-toggle" type="button" id="securitySeverityFilterBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                                                All
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-start bg-dark border-secondary w-100" id="securitySeverityFilterMenu">
+                                                <li><a class="dropdown-item text-light admin-dropdown-item active" href="#" data-target="securitySeverityFilter" data-value="" data-label="All">All</a></li>
+                                                <li><a class="dropdown-item text-light admin-dropdown-item" href="#" data-target="securitySeverityFilter" data-value="info" data-label="Info">Info</a></li>
+                                                <li><a class="dropdown-item text-light admin-dropdown-item" href="#" data-target="securitySeverityFilter" data-value="warning" data-label="Warning">Warning</a></li>
+                                                <li><a class="dropdown-item text-light admin-dropdown-item" href="#" data-target="securitySeverityFilter" data-value="critical" data-label="Critical">Critical</a></li>
+                                            </ul>
+                                        </div>
+                                        <input type="hidden" id="securitySeverityFilter" value="">
                                     </div>
                                     <div class="col-6 col-md-3 col-xl-2">
                                         <label class="form-label text-light" for="securityActorTypeFilter">Actor</label>
-                                        <select id="securityActorTypeFilter" class="form-select bg-secondary border-0 text-light">
-                                            <option value="">All</option>
-                                            <option value="user">User</option>
-                                            <option value="admin">Admin</option>
-                                        </select>
+                                        <div class="dropdown">
+                                            <button class="btn btn-dark border border-secondary text-light w-100 text-start rounded-2 dropdown-toggle" type="button" id="securityActorTypeFilterBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                                                All
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-start bg-dark border-secondary w-100" id="securityActorTypeFilterMenu">
+                                                <li><a class="dropdown-item text-light admin-dropdown-item active" href="#" data-target="securityActorTypeFilter" data-value="" data-label="All">All</a></li>
+                                                <li><a class="dropdown-item text-light admin-dropdown-item" href="#" data-target="securityActorTypeFilter" data-value="user" data-label="User">User</a></li>
+                                                <li><a class="dropdown-item text-light admin-dropdown-item" href="#" data-target="securityActorTypeFilter" data-value="admin" data-label="Admin">Admin</a></li>
+                                            </ul>
+                                        </div>
+                                        <input type="hidden" id="securityActorTypeFilter" value="">
                                     </div>
                                     <div class="col-12 col-md-6 col-xl-3">
                                         <label class="form-label text-light" for="securityEventSearchFilter">Search</label>

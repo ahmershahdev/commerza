@@ -56,6 +56,37 @@ if ($categoryVideoStmt) {
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .page-breadcrumb-shell {
+      margin-top: 12px;
+      margin-bottom: 6px;
+    }
+
+    .page-breadcrumb {
+      background: rgba(12, 12, 12, 0.66);
+      border: 1px solid rgba(255, 102, 0, 0.25);
+      border-radius: 999px;
+      display: inline-flex;
+      padding: 7px 14px;
+    }
+
+    .page-breadcrumb .breadcrumb-item,
+    .page-breadcrumb .breadcrumb-item a {
+      color: #ffc898;
+      text-decoration: none;
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .page-breadcrumb .breadcrumb-item.active {
+      color: #ffe9d4;
+    }
+
+    .page-breadcrumb .breadcrumb-item+.breadcrumb-item::before {
+      color: rgba(255, 215, 176, 0.7);
+    }
+  </style>
   <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -65,14 +96,18 @@ if ($categoryVideoStmt) {
       "url": "https://commerza.ahmershah.dev/shop-category-a.php",
       "about": ["Premium Watches", "Mechanical Timepieces", "Smart Watches"],
       "keywords": "automatic watches, smart watches, premium timepieces",
-      "isPartOf": {"@type": "WebSite", "name": "Commerza", "url": "https://commerza.ahmershah.dev/"},
+      "isPartOf": {
+        "@type": "WebSite",
+        "name": "Commerza",
+        "url": "https://commerza.ahmershah.dev/"
+      },
       "publisher": {
         "@type": "Organization",
         "name": "Commerza",
         "logo": "https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp"
       }
     }
-    </script>
+  </script>
   <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -82,18 +117,29 @@ if ($categoryVideoStmt) {
       "url": "https://commerza.ahmershah.dev/shop-category-a.php",
       "about": ["Premium Watches", "Mechanical Timepieces", "Smart Watches"],
       "keywords": "automatic watches, smart watches, premium timepieces",
-      "isPartOf": {"@type": "WebSite", "name": "Commerza", "url": "https://commerza.ahmershah.dev/"},
+      "isPartOf": {
+        "@type": "WebSite",
+        "name": "Commerza",
+        "url": "https://commerza.ahmershah.dev/"
+      },
       "mainEntity": {
         "@type": "ItemList",
-        "itemListElement": [
-          {
+        "itemListElement": [{
             "@type": "Product",
             "position": 1,
             "name": "White Gold Steel Watch",
             "description": "Premium white dial with golden accents, stainless steel case with automatic movement mechanism.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/white-gold-steel.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "6200", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "6200",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -101,8 +147,16 @@ if ($categoryVideoStmt) {
             "name": "Black White Gold Watch",
             "description": "Premium black leather strap with white and golden dial, smooth automatic movement.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/black-white-gold.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "7100", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "7100",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -110,8 +164,16 @@ if ($categoryVideoStmt) {
             "name": "Skeleton Gold Steel Watch",
             "description": "White and golden skeleton display with premium steel case, clear and clean design with automatic movement.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/skeleton-gold-steel.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "8900", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "8900",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -119,8 +181,16 @@ if ($categoryVideoStmt) {
             "name": "Brown White Gold Watch",
             "description": "Rich brown leather strap with white and golden dial, premium automatic movement.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/brown-gold-dial.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "9600", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "9600",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -128,8 +198,16 @@ if ($categoryVideoStmt) {
             "name": "Black Gold Dial Watch",
             "description": "Elegant black leather strap with stunning golden dial, precision automatic movement mechanism.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/black-gold-dial.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "7800", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "7800",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -137,8 +215,16 @@ if ($categoryVideoStmt) {
             "name": "Brown Gold Premium Watch",
             "description": "Premium brown leather with luxurious golden dial, crafted with premium automatic movement.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/brown-premium-watch.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "10200", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "10200",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -146,8 +232,16 @@ if ($categoryVideoStmt) {
             "name": "Premium Black Gold Watch",
             "description": "Premium black leather strap with premium golden dial, smooth and refined automatic movement.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/premium-black-gold.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "12400", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "12400",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -155,8 +249,16 @@ if ($categoryVideoStmt) {
             "name": "Black Minimalist Watch",
             "description": "Modern minimalist design with black leather strap, clean and simple automatic movement.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/black-minimalist.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "8300", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "8300",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -164,8 +266,16 @@ if ($categoryVideoStmt) {
             "name": "Fajr - Hybrid Digital Rectangle Watch",
             "description": "Advanced hybrid digital display with rectangular design, combining intelligent timekeeping with modern aesthetics and reliable smart features.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/smart/Fajr - Hybrid Digital Rectangle Watch.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "5500", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "5500",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -173,8 +283,16 @@ if ($categoryVideoStmt) {
             "name": "Fajr - Hybrid Digital Round Watch",
             "description": "Elegant hybrid digital timepiece with round dial, seamlessly blending traditional watch aesthetics with cutting-edge smart connectivity.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/smart/Fajr - Hybrid Digital Round Watch.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "6500", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "6500",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -182,8 +300,16 @@ if ($categoryVideoStmt) {
             "name": "Hango X - Skmei Digital Watch - Black",
             "description": "Professional digital sports watch in sleek black finish, featuring multi-function display with water resistance and precision timing capabilities.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/smart/Hango X - Skmei Digital Watch - Black.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "8900", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "8900",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -191,8 +317,16 @@ if ($categoryVideoStmt) {
             "name": "I-8 Pro Max Smart Watch",
             "description": "Premium smart watch with advanced health monitoring, comprehensive fitness tracking, and seamless connectivity for the modern professional.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/smart/I-8 Pro Max Smart Watch.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "10800", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "10800",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -200,8 +334,16 @@ if ($categoryVideoStmt) {
             "name": "S-8 Pro Max Smart Watch",
             "description": "Top-tier smart watch featuring advanced AI assistant, comprehensive health analytics, extended battery life, and premium build quality.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/smart/S-8 Pro Max Smart Watch.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "13800", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "13800",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -209,8 +351,16 @@ if ($categoryVideoStmt) {
             "name": "T800 Ultra 2 49 mm",
             "description": "Rugged ultra-performance smart watch with expansive 49mm display, military-grade durability, extended battery endurance, and all-terrain capabilities.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/smart/T800 Ultra 2 49 mm.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "12600", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "12600",
+              "availability": "https://schema.org/InStock"
+            }
           },
           {
             "@type": "Product",
@@ -218,13 +368,21 @@ if ($categoryVideoStmt) {
             "name": "Ultra 8 Smart Watch",
             "description": "Ultra-premium smart watch with sophisticated design, intuitive interface, comprehensive wellness monitoring, and seamless daily integration.",
             "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/smart/Ultra 8 Smart Watch.webp",
-            "brand": {"@type": "Brand", "name": "Commerza"},
-            "offers": {"@type": "Offer", "priceCurrency": "PKR", "price": "15500", "availability": "https://schema.org/InStock"}
+            "brand": {
+              "@type": "Brand",
+              "name": "Commerza"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "PKR",
+              "price": "15500",
+              "availability": "https://schema.org/InStock"
+            }
           }
         ]
       }
     }
-    </script>
+  </script>
 </head>
 
 <body class="dark-theme premium-cards">
@@ -369,6 +527,14 @@ if ($categoryVideoStmt) {
     </div>
   </header>
   <main class="container-fluid pt-5">
+    <section class="page-breadcrumb-shell">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumb page-breadcrumb mb-0">
+          <li class="breadcrumb-item"><a href="index.php">Home</a></li>
+          <li class="breadcrumb-item active" aria-current="page">Shop Category A</li>
+        </ol>
+      </nav>
+    </section>
     <div class="row mt-2">
       <div class="col">
         <div id="customAlert" class="alert alert-danger text-center"
@@ -644,191 +810,188 @@ if ($categoryVideoStmt) {
   </footer>
 
   <script <?= commerza_csp_nonce_attr() ?> type="application/json">
-{
-  "page": "shop-category-a",
-  "name": "The Automatic Vault & Smart Evolution Series",
-  "category": "Premium Watches",
-  "subcategory": "Mechanical & Smart Timepieces",
-  "section": "The Elite Engineering Series",
-  "collections": [
     {
-      "collection": "The Automatic Vault",
-      "products": [
-        {
-          "id": 1,
-          "name": "White Gold Steel Watch",
-          "description": "Premium white dial with golden accents, stainless steel case with automatic movement mechanism.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/white-gold-steel.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 8500,
-          "salePrice": 6200,
-          "availability": "InStock"
+      "page": "shop-category-a",
+      "name": "The Automatic Vault & Smart Evolution Series",
+      "category": "Premium Watches",
+      "subcategory": "Mechanical & Smart Timepieces",
+      "section": "The Elite Engineering Series",
+      "collections": [{
+          "collection": "The Automatic Vault",
+          "products": [{
+              "id": 1,
+              "name": "White Gold Steel Watch",
+              "description": "Premium white dial with golden accents, stainless steel case with automatic movement mechanism.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/white-gold-steel.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 8500,
+              "salePrice": 6200,
+              "availability": "InStock"
+            },
+            {
+              "id": 2,
+              "name": "Black White Gold Watch",
+              "description": "Premium black leather strap with white and golden dial, smooth automatic movement.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/black-white-gold.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 9200,
+              "salePrice": 7100,
+              "availability": "InStock"
+            },
+            {
+              "id": 3,
+              "name": "Skeleton Gold Steel Watch",
+              "description": "White and golden skeleton display with premium steel case, clear and clean design with automatic movement.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/skeleton-gold-steel.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 11500,
+              "salePrice": 8900,
+              "availability": "InStock"
+            },
+            {
+              "id": 4,
+              "name": "Brown White Gold Watch",
+              "description": "Rich brown leather strap with white and golden dial, premium automatic movement.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/brown-gold-dial.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 12800,
+              "salePrice": 9600,
+              "availability": "InStock"
+            },
+            {
+              "id": 5,
+              "name": "Black Gold Dial Watch",
+              "description": "Elegant black leather strap with stunning golden dial, precision automatic movement mechanism.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/black-gold-dial.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 10200,
+              "salePrice": 7800,
+              "availability": "InStock"
+            },
+            {
+              "id": 6,
+              "name": "Brown Gold Premium Watch",
+              "description": "Premium brown leather with luxurious golden dial, crafted with premium automatic movement.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/brown-premium-watch.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 13500,
+              "salePrice": 10200,
+              "availability": "InStock"
+            },
+            {
+              "id": 7,
+              "name": "Premium Black Gold Watch",
+              "description": "Premium black leather strap with premium golden dial, smooth and refined automatic movement.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/premium-black-gold.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 16500,
+              "salePrice": 12400,
+              "availability": "InStock"
+            },
+            {
+              "id": 8,
+              "name": "Black Minimalist Watch",
+              "description": "Modern minimalist design with black leather strap, clean and simple automatic movement.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/black-minimalist.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 11000,
+              "salePrice": 8300,
+              "availability": "InStock"
+            }
+          ]
         },
         {
-          "id": 2,
-          "name": "Black White Gold Watch",
-          "description": "Premium black leather strap with white and golden dial, smooth automatic movement.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/black-white-gold.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 9200,
-          "salePrice": 7100,
-          "availability": "InStock"
-        },
-        {
-          "id": 3,
-          "name": "Skeleton Gold Steel Watch",
-          "description": "White and golden skeleton display with premium steel case, clear and clean design with automatic movement.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/skeleton-gold-steel.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 11500,
-          "salePrice": 8900,
-          "availability": "InStock"
-        },
-        {
-          "id": 4,
-          "name": "Brown White Gold Watch",
-          "description": "Rich brown leather strap with white and golden dial, premium automatic movement.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/brown-gold-dial.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 12800,
-          "salePrice": 9600,
-          "availability": "InStock"
-        },
-        {
-          "id": 5,
-          "name": "Black Gold Dial Watch",
-          "description": "Elegant black leather strap with stunning golden dial, precision automatic movement mechanism.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/black-gold-dial.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 10200,
-          "salePrice": 7800,
-          "availability": "InStock"
-        },
-        {
-          "id": 6,
-          "name": "Brown Gold Premium Watch",
-          "description": "Premium brown leather with luxurious golden dial, crafted with premium automatic movement.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/brown-premium-watch.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 13500,
-          "salePrice": 10200,
-          "availability": "InStock"
-        },
-        {
-          "id": 7,
-          "name": "Premium Black Gold Watch",
-          "description": "Premium black leather strap with premium golden dial, smooth and refined automatic movement.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/premium-black-gold.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 16500,
-          "salePrice": 12400,
-          "availability": "InStock"
-        },
-        {
-          "id": 8,
-          "name": "Black Minimalist Watch",
-          "description": "Modern minimalist design with black leather strap, clean and simple automatic movement.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/featured/black-minimalist.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 11000,
-          "salePrice": 8300,
-          "availability": "InStock"
-        }
-      ]
-    },
-    {
-      "collection": "Smart Evolution Series",
-      "products": [
-        {
-          "id": 9,
-          "name": "Fajr - Hybrid Digital Rectangle Watch",
-          "description": "Advanced hybrid digital display with rectangular design, combining intelligent timekeeping with modern aesthetics and reliable smart features.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/smart/Fajr - Hybrid Digital Rectangle Watch.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 7000,
-          "salePrice": 5500,
-          "availability": "InStock"
-        },
-        {
-          "id": 10,
-          "name": "Fajr - Hybrid Digital Round Watch",
-          "description": "Elegant hybrid digital timepiece with round dial, seamlessly blending traditional watch aesthetics with cutting-edge smart connectivity.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/smart/Fajr - Hybrid Digital Round Watch.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 7500,
-          "salePrice": 6500,
-          "availability": "InStock"
-        },
-        {
-          "id": 11,
-          "name": "Hango X - Skmei Digital Watch - Black",
-          "description": "Professional digital sports watch in sleek black finish, featuring multi-function display with water resistance and precision timing capabilities.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/smart/Hango X - Skmei Digital Watch - Black.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 11500,
-          "salePrice": 8900,
-          "availability": "InStock"
-        },
-        {
-          "id": 12,
-          "name": "I-8 Pro Max Smart Watch",
-          "description": "Premium smart watch with advanced health monitoring, comprehensive fitness tracking, and seamless connectivity for the modern professional.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/smart/I-8 Pro Max Smart Watch.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 14200,
-          "salePrice": 10800,
-          "availability": "InStock"
-        },
-        {
-          "id": 13,
-          "name": "S-8 Pro Max Smart Watch",
-          "description": "Top-tier smart watch featuring advanced AI assistant, comprehensive health analytics, extended battery life, and premium build quality.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/smart/S-8 Pro Max Smart Watch.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 18500,
-          "salePrice": 13800,
-          "availability": "InStock"
-        },
-        {
-          "id": 14,
-          "name": "T800 Ultra 2 49 mm",
-          "description": "Rugged ultra-performance smart watch with expansive 49mm display, military-grade durability, extended battery endurance, and all-terrain capabilities.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/smart/T800 Ultra 2 49 mm.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 16800,
-          "salePrice": 12600,
-          "availability": "InStock"
-        },
-        {
-          "id": 15,
-          "name": "Ultra 8 Smart Watch",
-          "description": "Ultra-premium smart watch with sophisticated design, intuitive interface, comprehensive wellness monitoring, and seamless daily integration.",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/smart/Ultra 8 Smart Watch.webp",
-          "brand": "Commerza",
-          "priceCurrency": "PKR",
-          "price": 20500,
-          "salePrice": 15500,
-          "availability": "InStock"
+          "collection": "Smart Evolution Series",
+          "products": [{
+              "id": 9,
+              "name": "Fajr - Hybrid Digital Rectangle Watch",
+              "description": "Advanced hybrid digital display with rectangular design, combining intelligent timekeeping with modern aesthetics and reliable smart features.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/smart/Fajr - Hybrid Digital Rectangle Watch.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 7000,
+              "salePrice": 5500,
+              "availability": "InStock"
+            },
+            {
+              "id": 10,
+              "name": "Fajr - Hybrid Digital Round Watch",
+              "description": "Elegant hybrid digital timepiece with round dial, seamlessly blending traditional watch aesthetics with cutting-edge smart connectivity.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/smart/Fajr - Hybrid Digital Round Watch.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 7500,
+              "salePrice": 6500,
+              "availability": "InStock"
+            },
+            {
+              "id": 11,
+              "name": "Hango X - Skmei Digital Watch - Black",
+              "description": "Professional digital sports watch in sleek black finish, featuring multi-function display with water resistance and precision timing capabilities.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/smart/Hango X - Skmei Digital Watch - Black.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 11500,
+              "salePrice": 8900,
+              "availability": "InStock"
+            },
+            {
+              "id": 12,
+              "name": "I-8 Pro Max Smart Watch",
+              "description": "Premium smart watch with advanced health monitoring, comprehensive fitness tracking, and seamless connectivity for the modern professional.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/smart/I-8 Pro Max Smart Watch.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 14200,
+              "salePrice": 10800,
+              "availability": "InStock"
+            },
+            {
+              "id": 13,
+              "name": "S-8 Pro Max Smart Watch",
+              "description": "Top-tier smart watch featuring advanced AI assistant, comprehensive health analytics, extended battery life, and premium build quality.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/smart/S-8 Pro Max Smart Watch.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 18500,
+              "salePrice": 13800,
+              "availability": "InStock"
+            },
+            {
+              "id": 14,
+              "name": "T800 Ultra 2 49 mm",
+              "description": "Rugged ultra-performance smart watch with expansive 49mm display, military-grade durability, extended battery endurance, and all-terrain capabilities.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/smart/T800 Ultra 2 49 mm.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 16800,
+              "salePrice": 12600,
+              "availability": "InStock"
+            },
+            {
+              "id": 15,
+              "name": "Ultra 8 Smart Watch",
+              "description": "Ultra-premium smart watch with sophisticated design, intuitive interface, comprehensive wellness monitoring, and seamless daily integration.",
+              "image": "https://commerza.ahmershah.dev/frontend/assets/images/products/smart/Ultra 8 Smart Watch.webp",
+              "brand": "Commerza",
+              "priceCurrency": "PKR",
+              "price": 20500,
+              "salePrice": 15500,
+              "availability": "InStock"
+            }
+          ]
         }
       ]
     }
-  ]
-}
-</script>
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>
@@ -837,12 +1000,12 @@ if ($categoryVideoStmt) {
   <script src="frontend/assets/js/auth.js" defer></script>
   <script src="frontend/assets/js/script.js" defer></script>
   <script <?= commerza_csp_nonce_attr() ?>>
-    document.addEventListener("DOMContentLoaded", function () {
+    document.addEventListener("DOMContentLoaded", function() {
       if (typeof window.commerzaOnReady !== "function") {
         return;
       }
 
-      window.commerzaOnReady(function () {
+      window.commerzaOnReady(function() {
         loadProductsBySection("automatic-vault", "automatic-vault-products-container");
         loadProductsBySection("smart-evolution", "smart-evolution-products-container");
       });

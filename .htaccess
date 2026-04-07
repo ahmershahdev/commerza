@@ -78,4 +78,12 @@ RewriteRule ^admin-verify-2fa\.php$ admin/frontend/admin-verify-2fa.php [QSA,L,N
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
+
+# Route unknown browser document requests to the custom 404 page.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{HTTP_SEC_FETCH_DEST} =document [OR]
+RewriteCond %{HTTP_SEC_FETCH_MODE} =navigate [OR]
+RewriteCond %{HTTP_ACCEPT} text/html [NC]
+RewriteRule ^ 404.php [QSA,L]
 </IfModule>

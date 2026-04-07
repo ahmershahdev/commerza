@@ -56,6 +56,37 @@ if ($categoryBVideoStmt) {
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .page-breadcrumb-shell {
+      margin-top: 12px;
+      margin-bottom: 6px;
+    }
+
+    .page-breadcrumb {
+      background: rgba(12, 12, 12, 0.66);
+      border: 1px solid rgba(255, 102, 0, 0.25);
+      border-radius: 999px;
+      display: inline-flex;
+      padding: 7px 14px;
+    }
+
+    .page-breadcrumb .breadcrumb-item,
+    .page-breadcrumb .breadcrumb-item a {
+      color: #ffc898;
+      text-decoration: none;
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .page-breadcrumb .breadcrumb-item.active {
+      color: #ffe9d4;
+    }
+
+    .page-breadcrumb .breadcrumb-item+.breadcrumb-item::before {
+      color: rgba(255, 215, 176, 0.7);
+    }
+  </style>
   <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -497,6 +528,14 @@ if ($categoryBVideoStmt) {
   </header>
 
   <main>
+    <section class="container-fluid page-breadcrumb-shell">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumb page-breadcrumb mb-0">
+          <li class="breadcrumb-item"><a href="index.php">Home</a></li>
+          <li class="breadcrumb-item active" aria-current="page">Shop Category B</li>
+        </ol>
+      </nav>
+    </section>
     <div class="container-fluid">
       <div class="row mt-2">
         <div class="col">

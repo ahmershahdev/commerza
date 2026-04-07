@@ -33,9 +33,7 @@ $(document).ready(function () {
 
     let isPlaying = true;
 
-    playPauseBtn.addEventListener("click", function () {
-      isPlaying = !isPlaying;
-
+    const applyCarouselPlayState = () => {
       if (isPlaying) {
         carousel.cycle();
         playPauseBtn.innerHTML = '<i class="bi bi-pause-fill"></i>';
@@ -43,7 +41,37 @@ $(document).ready(function () {
         carousel.pause();
         playPauseBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
       }
+    };
+
+    const keepCarouselPausedAfterManualMove = () => {
+      if (!isPlaying) {
+        window.setTimeout(() => {
+          carousel.pause();
+        }, 0);
+      }
+    };
+
+    carouselElement.addEventListener(
+      "slide.bs.carousel",
+      keepCarouselPausedAfterManualMove,
+    );
+    carouselElement.addEventListener(
+      "slid.bs.carousel",
+      keepCarouselPausedAfterManualMove,
+    );
+
+    carouselElement
+      .querySelectorAll("[data-bs-slide], [data-bs-slide-to]")
+      .forEach((control) => {
+        control.addEventListener("click", keepCarouselPausedAfterManualMove);
+      });
+
+    playPauseBtn.addEventListener("click", function () {
+      isPlaying = !isPlaying;
+      applyCarouselPlayState();
     });
+
+    applyCarouselPlayState();
   }
 
   initAccountPage();
@@ -552,19 +580,19 @@ $(document).ready(function () {
     }
 
     let shouldCooldown = false;
+    let didMutateQuantity = false;
 
     cartActionLocks.add(itemId);
     setCartItemActionState(itemId, true);
 
     try {
       if (action === "plus") {
-        shouldCooldown = true;
-
         if (getTotalCartQty() >= 10) {
           triggerAlert();
           return;
         }
 
+        shouldCooldown = true;
         const result = await postCartAction("set_qty", {
           product_id: itemId,
           quantity: currentQty + 1,
@@ -574,6 +602,8 @@ $(document).ready(function () {
           showNotif(result.message, "warning");
           return;
         }
+
+        didMutateQuantity = true;
       } else if (action === "minus") {
         if (currentQty <= 1) {
           return;
@@ -590,14 +620,22 @@ $(document).ready(function () {
           showNotif(result.message, "warning");
           return;
         }
+
+        didMutateQuantity = true;
       }
 
-      updateCartBadge();
-      displayCartItems(itemId);
+      if (didMutateQuantity) {
+        if (shouldCooldown) {
+          setCartQtyCooldown(itemId);
+        }
+
+        updateCartBadge();
+        displayCartItems(itemId);
+      }
     } finally {
       cartActionLocks.delete(itemId);
 
-      if (shouldCooldown) {
+      if (didMutateQuantity && shouldCooldown) {
         startCartQtyCooldown(itemId);
       }
 
@@ -769,14 +807,27 @@ $(document).ready(function () {
     return remaining;
   }
 
+  function setCartQtyCooldown(productId, durationMs = CART_QTY_COOLDOWN_MS) {
+    const safeProductId = parseInt(productId, 10);
+    if (!Number.isInteger(safeProductId) || safeProductId <= 0) {
+      return 0;
+    }
+
+    const safeDuration = Math.max(200, parseInt(durationMs, 10) || 0);
+    const expiresAt = Date.now() + safeDuration;
+    cartQtyCooldownUntil.set(safeProductId, expiresAt);
+    return expiresAt;
+  }
+
   function startCartQtyCooldown(productId) {
     const safeProductId = parseInt(productId, 10);
     if (!Number.isInteger(safeProductId) || safeProductId <= 0) {
       return;
     }
 
-    const expiresAt = Date.now() + CART_QTY_COOLDOWN_MS;
-    cartQtyCooldownUntil.set(safeProductId, expiresAt);
+    if (getCartQtyCooldownMs(safeProductId) <= 0) {
+      setCartQtyCooldown(safeProductId);
+    }
 
     const refreshState = () => {
       if (getCartQtyCooldownMs(safeProductId) <= 0) {
@@ -2232,6 +2283,38 @@ $(document).ready(function () {
     });
   }
 
+  function reviewUpdateUploadShell(
+    stageText,
+    percent,
+    tone = "bg-warning",
+    shouldShow = true,
+  ) {
+    const shell = $("#reviewUploadProgress");
+    if (!shell.length) {
+      return;
+    }
+
+    const safePercent = Math.max(0, Math.min(100, Math.round(percent || 0)));
+    const stage = shell.find("[data-upload-stage]").first();
+    const bar = shell.find("[data-upload-bar]").first();
+
+    shell.toggleClass("d-none", !shouldShow);
+    if (!shouldShow) {
+      return;
+    }
+
+    if (stage.length) {
+      stage.text((stageText || "Optimizing selected images...").toString());
+    }
+
+    if (bar.length) {
+      bar.removeClass("bg-warning bg-danger bg-success");
+      bar.addClass(tone || "bg-warning");
+      bar.css("width", `${safePercent}%`);
+      bar.text(`${safePercent}%`);
+    }
+  }
+
   function reviewRenderSelectedFiles() {
     const selection = $("#reviewFileSelection");
     if (!selection.length) {
@@ -2294,6 +2377,12 @@ $(document).ready(function () {
       input.value = "";
     }
 
+    reviewUpdateUploadShell(
+      "Waiting to optimize selected images...",
+      0,
+      "bg-warning",
+      false,
+    );
     reviewRenderSelectedFiles();
   }
 
@@ -2311,20 +2400,42 @@ $(document).ready(function () {
     }
 
     const normalizedFiles = files.slice(0, REVIEW_MAX_UPLOAD_FILES);
+    reviewUpdateUploadShell("Preparing selected images...", 5, "bg-warning");
     $("#reviewFileSelection").text("Optimizing selected images...");
 
     const compressedFiles = [];
     let originalBytes = 0;
+    const totalFiles = normalizedFiles.length;
 
-    for (const file of normalizedFiles) {
+    for (let index = 0; index < totalFiles; index += 1) {
+      const file = normalizedFiles[index];
       originalBytes += Number(file?.size) || 0;
+      const beforeCompress = 20 + Math.round((index / totalFiles) * 55);
+      reviewUpdateUploadShell(
+        `Parsing and compressing image ${index + 1} of ${totalFiles}...`,
+        beforeCompress,
+        "bg-warning",
+      );
+
       const compressed = await reviewCompressFileToWebp(file);
       compressedFiles.push(compressed instanceof File ? compressed : file);
+
+      const afterCompress = 20 + Math.round(((index + 1) / totalFiles) * 60);
+      reviewUpdateUploadShell(
+        `Optimized image ${index + 1} of ${totalFiles}.`,
+        afterCompress,
+        "bg-warning",
+      );
     }
 
     reviewSelectedFiles = compressedFiles;
     reviewSyncInputFiles();
     reviewRenderSelectedFiles();
+    reviewUpdateUploadShell(
+      "Image optimization complete. Ready to submit review.",
+      100,
+      "bg-success",
+    );
 
     const optimizedBytes = reviewSelectedFiles.reduce(
       (total, file) => total + (Number(file?.size) || 0),
@@ -2548,6 +2659,7 @@ $(document).ready(function () {
     const removeExistingWrap = $("#reviewRemoveExistingWrap");
     const removeExistingInput = $("#reviewRemoveExistingImages");
     const submitBtn = $("#reviewSubmitBtn");
+    const lockNotice = $("#reviewLockNotice");
     const hiddenProductInput = $("#reviewProductId");
 
     if (!form.length) {
@@ -2592,6 +2704,13 @@ $(document).ready(function () {
 
     if (!canReview) {
       reviewClearSelectedFiles();
+    }
+
+    if (lockNotice.length) {
+      lockNotice.toggleClass("d-none", !isLocked);
+      if (isLocked) {
+        lockNotice.text("This review is locked by admin and cannot be edited.");
+      }
     }
 
     submitBtn.text(

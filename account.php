@@ -16,6 +16,22 @@ $user_id = (int)$_SESSION['user_id'];
 $errors = [];
 $success = [];
 
+function account_is_ajax_request(): bool
+{
+  $requestedWith = strtolower(trim((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')));
+  if ($requestedWith === 'xmlhttprequest') {
+    return true;
+  }
+
+  $accept = strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? ''));
+  if (strpos($accept, 'application/json') !== false) {
+    return true;
+  }
+
+  $ajaxFlag = strtolower(trim((string)($_POST['ajax'] ?? '')));
+  return in_array($ajaxFlag, ['1', 'true', 'yes', 'on'], true);
+}
+
 function fetchUser(mysqli $con, int $user_id): ?array
 {
   $stmt = $con->prepare("SELECT id, full_name, username, username_slug, profile_visibility, email, phone, address, profile_picture, password_hash FROM users WHERE id = ? LIMIT 1");
@@ -283,13 +299,13 @@ function account_store_refund_evidence($file, int $userId, int $orderId, array &
       return null;
     }
 
-    $imageBlob = (string)($conversion['blob'] ?? '');
+    $imageBlob = (string)($conversion['binary'] ?? ($conversion['blob'] ?? ''));
     if ($imageBlob === '') {
       $errors[] = 'Unable to save parsed evidence image.';
       return null;
     }
 
-    $candidateExtension = strtolower(trim((string)($conversion['output_extension'] ?? 'webp')));
+    $candidateExtension = strtolower(trim((string)($conversion['extension'] ?? ($conversion['output_extension'] ?? 'webp'))));
     if (!preg_match('/^[a-z0-9]{2,6}$/', $candidateExtension)) {
       $candidateExtension = 'webp';
     }
@@ -358,6 +374,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 
   $action = (string)($_POST['action'] ?? '');
+  $isAjaxRequest = account_is_ajax_request();
 
   $captchaContexts = [
     'update_profile' => 'user_account_profile',
@@ -983,6 +1000,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header("Location: login.php");
     exit;
   }
+
+  if ($isAjaxRequest && $action === 'update_profile_picture') {
+    if (!headers_sent()) {
+      header('Content-Type: application/json; charset=utf-8');
+      header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    }
+
+    $responseVisibility = strtolower(trim((string)($user['profile_visibility'] ?? 'private')));
+    if (!in_array($responseVisibility, ['private', 'public'], true)) {
+      $responseVisibility = 'private';
+    }
+
+    $responseUsername = commerza_username_slug((string)($user['username'] ?? ''));
+    if (!commerza_username_is_valid($responseUsername)) {
+      $responseUsername = commerza_username_base_from_identity(
+        (string)($user['full_name'] ?? ''),
+        (string)($user['email'] ?? ''),
+        $user_id
+      );
+      if (!commerza_username_is_valid($responseUsername)) {
+        $responseUsername = 'user' . max(1, $user_id);
+      }
+    }
+
+    $profilePicture = !empty($user['profile_picture'])
+      ? (string)$user['profile_picture']
+      : 'frontend/assets/images/logo/commerza-logo.webp';
+
+    $primaryMessage = '';
+    if (!empty($success)) {
+      $primaryMessage = (string)$success[0];
+    } elseif (!empty($errors)) {
+      $primaryMessage = (string)$errors[0];
+    }
+
+    echo json_encode([
+      'ok' => empty($errors),
+      'message' => $primaryMessage,
+      'errors' => array_values($errors),
+      'success' => array_values($success),
+      'csrf_token' => (string)($_SESSION['csrf_token'] ?? ''),
+      'profile_picture' => $profilePicture,
+      'full_name' => (string)($user['full_name'] ?? ''),
+      'username' => $responseUsername,
+      'email' => (string)($user['email'] ?? ''),
+      'profile_visibility' => $responseVisibility,
+      'profile_visibility_label' => $responseVisibility === 'public' ? 'Public Profile' : 'Private Profile',
+      'profile_visibility_icon' => $responseVisibility === 'public' ? 'bi-globe2' : 'bi-shield-lock',
+    ], JSON_UNESCAPED_SLASHES);
+    exit;
+  }
 }
 
 $orders = [];
@@ -1144,6 +1212,32 @@ if (is_array($accountDeletePending)) {
 
     .account-page label {
       color: rgb(255, 255, 255);
+    }
+
+    .account-breadcrumb .breadcrumb {
+      background: rgba(16, 16, 16, 0.65);
+      border: 1px solid rgba(255, 102, 0, 0.24);
+      border-radius: 999px;
+      display: inline-flex;
+      margin: 0;
+      padding: 8px 14px;
+    }
+
+    .account-breadcrumb .breadcrumb-item,
+    .account-breadcrumb .breadcrumb-item a {
+      color: #ffc89d;
+      font-size: 0.78rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      text-decoration: none;
+    }
+
+    .account-breadcrumb .breadcrumb-item.active {
+      color: #fff3e5;
+    }
+
+    .account-breadcrumb .breadcrumb-item+.breadcrumb-item::before {
+      color: rgba(255, 204, 163, 0.7);
     }
 
     .password-wrapper {
@@ -1411,6 +1505,12 @@ if (is_array($accountDeletePending)) {
   </header>
 
   <main class="container my-5">
+    <nav class="account-breadcrumb mb-3" aria-label="Breadcrumb">
+      <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="index.php">Home</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Account</li>
+      </ol>
+    </nav>
     <h1 class="mb-4" style="color: #ff6600; user-select: none">My Account</h1>
 
     <div class="row">
@@ -2294,10 +2394,76 @@ if (is_array($accountDeletePending)) {
         }
       };
 
-      const bindUploadProgressForm = function(form, fileSelector, resolveShell) {
+      const showServerBanner = function(type, message) {
+        const safeType = type === "error" ? "error" : "success";
+        const safeMessage = (message || "").toString().trim();
+        if (!safeMessage) {
+          return;
+        }
+
+        const targetId = safeType === "error" ? "serverError" : "serverSuccess";
+        const fallbackId = safeType === "error" ? "serverSuccess" : "serverError";
+
+        $(`#${fallbackId}`).remove();
+
+        let banner = $(`#${targetId}`);
+        if (!banner.length) {
+          banner = $("<div>")
+            .attr("id", targetId)
+            .appendTo("body");
+        }
+
+        banner.stop(true, true).text(safeMessage).show();
+
+        window.setTimeout(() => {
+          banner.fadeOut(400);
+        }, 3500);
+      };
+
+      const applyProfilePictureResponse = function(payload) {
+        const picturePath = (payload?.profile_picture || "").toString().trim();
+        if (picturePath !== "") {
+          const cacheBustedPath = `${picturePath}${picturePath.includes("?") ? "&" : "?"}v=${Date.now()}`;
+          $("#accountProfileImage").attr("src", cacheBustedPath);
+        }
+
+        const fullName = (payload?.full_name || "").toString().trim();
+        if (fullName !== "") {
+          $("#accountProfileName").text(fullName);
+        }
+
+        const username = (payload?.username || "").toString().trim();
+        if (username !== "") {
+          $("#accountProfileUsername").text(`@${username}`);
+        }
+
+        const email = (payload?.email || "").toString().trim();
+        if (email !== "") {
+          $("#accountProfileEmail").text(email);
+        }
+
+        const visibilityLabel = (payload?.profile_visibility_label || "").toString().trim();
+        const visibilityIcon = (payload?.profile_visibility_icon || "bi-shield-lock").toString().trim();
+        const visibilityPill = $("#accountProfileVisibility");
+        if (visibilityPill.length && visibilityLabel !== "") {
+          visibilityPill.empty();
+          $("<i>")
+            .addClass(`bi ${visibilityIcon || "bi-shield-lock"}`)
+            .appendTo(visibilityPill);
+          visibilityPill.append(document.createTextNode(` ${visibilityLabel}`));
+        }
+      };
+
+      const bindUploadProgressForm = function(form, fileSelector, resolveShell, options = {}) {
         if (!form || !form.length) {
           return;
         }
+
+        const expectJsonResponse = !!options?.expectJsonResponse;
+        const onJsonSuccess =
+          typeof options?.onJsonSuccess === "function" ?
+          options.onJsonSuccess :
+          null;
 
         form.off("submit.uploadProgress").on("submit.uploadProgress", function(event) {
           const activeForm = $(this);
@@ -2336,6 +2502,7 @@ if (is_array($accountDeletePending)) {
             (activeForm.attr("action") || window.location.href).toString(),
             true,
           );
+          xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
 
           xhr.upload.addEventListener("progress", function(progressEvent) {
             if (!progressEvent.lengthComputable) {
@@ -2368,6 +2535,49 @@ if (is_array($accountDeletePending)) {
 
           xhr.onload = function() {
             if (xhr.status >= 200 && xhr.status < 400) {
+              if (expectJsonResponse) {
+                let payload = null;
+                try {
+                  payload = JSON.parse(xhr.responseText || "{}");
+                } catch (_error) {
+                  payload = null;
+                }
+
+                if (!payload || payload.ok !== true) {
+                  const jsonError =
+                    payload?.message ||
+                    (Array.isArray(payload?.errors) && payload.errors.length ?
+                      payload.errors[0] :
+                      "Upload failed. Please try again.");
+                  updateUploadShell(shell, jsonError, 100, "bg-danger");
+                  showServerBanner("error", jsonError);
+                  restoreButton();
+                  return;
+                }
+
+                const nextToken = (payload?.csrf_token || "").toString().trim();
+                if (nextToken !== "") {
+                  $("input[name='csrf_token']").val(nextToken);
+                }
+
+                if (onJsonSuccess) {
+                  onJsonSuccess(payload, activeForm);
+                }
+
+                const successMessage =
+                  (payload?.message || "Profile picture updated successfully.")
+                  .toString()
+                  .trim();
+                updateUploadShell(shell, successMessage, 100, "bg-success");
+                showServerBanner("success", successMessage);
+                restoreButton();
+
+                window.setTimeout(() => {
+                  shell.addClass("d-none");
+                }, 1400);
+                return;
+              }
+
               updateUploadShell(shell, "Upload completed. Refreshing...", 100, "bg-success");
               document.open();
               document.write(xhr.responseText || "");
@@ -2385,6 +2595,9 @@ if (is_array($accountDeletePending)) {
           };
 
           const formData = new FormData(activeForm[0]);
+          if (expectJsonResponse) {
+            formData.set("ajax", "1");
+          }
           xhr.send(formData);
           return false;
         });
@@ -2395,6 +2608,9 @@ if (is_array($accountDeletePending)) {
         "#profilePictureInput",
         function() {
           return $("#profileUploadProgress");
+        }, {
+          expectJsonResponse: true,
+          onJsonSuccess: applyProfilePictureResponse,
         },
       );
 

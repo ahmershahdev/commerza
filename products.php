@@ -408,6 +408,20 @@ $productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza
       min-height: 18px;
     }
 
+    .upload-progress-shell {
+      border: 1px solid rgba(255, 153, 61, 0.32);
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: rgba(18, 18, 18, 0.84);
+    }
+
+    .upload-progress-shell [data-upload-stage] {
+      font-size: 0.75rem;
+      letter-spacing: 0.02em;
+      color: #f2d8bf;
+      display: block;
+    }
+
     .review-stars-input {
       display: flex;
       flex-wrap: wrap;
@@ -748,6 +762,7 @@ $productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza
           <span id="reviewsSummaryText" class="small text-secondary">Loading reviews...</span>
         </div>
         <p id="reviewEligibilityMessage" class="small text-secondary mb-3">Login and place an eligible order to review this product.</p>
+        <p id="reviewLockNotice" class="small text-warning mb-3 d-none"></p>
         <form id="productReviewForm" class="row g-3">
           <input type="hidden" id="reviewProductId" value="">
           <div class="col-12 col-md-4">
@@ -770,6 +785,12 @@ $productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza
             <label for="reviewImages" class="form-label text-light">Upload Images (Optional)</label>
             <input type="file" id="reviewImages" class="form-control review-file-input" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
             <div id="reviewFileSelection" class="review-file-selection">No images selected yet.</div>
+            <div class="upload-progress-shell mt-2 d-none" id="reviewUploadProgress">
+              <small class="text-secondary d-block" data-upload-stage>Waiting to optimize selected images...</small>
+              <div class="progress mt-1" style="height: 6px;">
+                <div class="progress-bar bg-warning" role="progressbar" data-upload-bar style="width: 0%">0%</div>
+              </div>
+            </div>
             <div id="reviewRemoveExistingWrap" class="form-check mt-2 d-none">
               <input class="form-check-input" type="checkbox" value="1" id="reviewRemoveExistingImages">
               <label class="form-check-label text-light small" for="reviewRemoveExistingImages">Remove previously uploaded review images when updating.</label>

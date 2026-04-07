@@ -1638,12 +1638,78 @@ function formatDateTime(value) {
   return `${date.toISOString().slice(0, 10)} ${date.toTimeString().slice(0, 5)}`;
 }
 
+function setAdminDropdownSelection(targetId, value, label = "") {
+  const input = $(`#${targetId}`);
+  const button = $(`#${targetId}Btn`);
+  const menu = $(`#${targetId}Menu`);
+
+  if (!input.length) {
+    return;
+  }
+
+  const normalizedValue = (value ?? "").toString();
+  input.val(normalizedValue);
+
+  if (button.length && label.toString().trim() !== "") {
+    button.text(label.toString());
+  }
+
+  if (!menu.length) {
+    return;
+  }
+
+  let hasActive = false;
+  menu.find(".admin-dropdown-item").each(function () {
+    const item = $(this);
+    const itemValue = (item.data("value") ?? "").toString();
+    const isActive = itemValue === normalizedValue;
+    item.toggleClass("active", isActive);
+    if (isActive) {
+      hasActive = true;
+    }
+  });
+
+  if (!hasActive) {
+    menu.find(".admin-dropdown-item").removeClass("active");
+  }
+}
+
+function couponDiscountTypeLabel(value) {
+  return (value || "").toString() === "percent" ? "Percent %" : "Fixed PKR";
+}
+
+function reviewVisibilityLabel(value) {
+  const normalized = (value || "all").toString();
+  if (normalized === "visible") return "Visible";
+  if (normalized === "hidden") return "Hidden";
+  return "All Reviews";
+}
+
+function fakeReviewVisibilityLabel(value) {
+  return (value || "1").toString() === "0" ? "Hidden" : "Visible";
+}
+
+function securitySeverityLabel(value) {
+  const normalized = (value || "").toString();
+  if (normalized === "info") return "Info";
+  if (normalized === "warning") return "Warning";
+  if (normalized === "critical") return "Critical";
+  return "All";
+}
+
+function securityActorTypeLabel(value) {
+  const normalized = (value || "").toString();
+  if (normalized === "user") return "User";
+  if (normalized === "admin") return "Admin";
+  return "All";
+}
+
 function resetCouponForm() {
   $("#couponId").val("");
   $("#couponCode").val("");
   $("#couponTitle").val("");
   $("#couponDescription").val("");
-  $("#couponDiscountType").val("fixed");
+  setAdminDropdownSelection("couponDiscountType", "fixed", "Fixed PKR");
   $("#couponDiscountValue").val("");
   $("#couponMinOrder").val("0");
   $("#couponMaxDiscount").val("").prop("disabled", true);
@@ -1654,22 +1720,52 @@ function resetCouponForm() {
 }
 
 function populateCouponEmailSelect() {
-  const select = $("#couponEmailCouponId");
-  if (!select.length) return;
+  const input = $("#couponEmailCouponId");
+  const button = $("#couponEmailCouponIdBtn");
+  const menu = $("#couponEmailCouponIdMenu");
+  if (!input.length || !button.length || !menu.length) return;
 
-  select.empty();
+  const selectedValue = (input.val() || "").toString();
+  menu.empty();
 
   if (!adminCoupons.length) {
-    select.append('<option value="">No coupons available</option>');
+    input.val("");
+    button.text("No coupons available");
+    menu.append(
+      '<li><span class="dropdown-item text-secondary">No coupons available</span></li>',
+    );
     return;
   }
 
-  select.append('<option value="">Select a coupon</option>');
+  menu.append(
+    '<li><a class="dropdown-item text-light admin-dropdown-item" href="#" data-target="couponEmailCouponId" data-value="" data-label="Select a coupon">Select a coupon</a></li>',
+  );
+  menu.append('<li><hr class="dropdown-divider border-secondary-subtle"></li>');
+
   adminCoupons.forEach((coupon) => {
     const code = escapeHtml(coupon.code || "");
     const label = escapeHtml(coupon.discountLabel || "Offer");
-    select.append(`<option value="${coupon.id}">${code} · ${label}</option>`);
+    const optionLabel = `${code} - ${label}`;
+    menu.append(
+      `<li><a class="dropdown-item text-light admin-dropdown-item" href="#" data-target="couponEmailCouponId" data-value="${Number(coupon.id || 0)}" data-label="${optionLabel}">${optionLabel}</a></li>`,
+    );
   });
+
+  const matchingCoupon = adminCoupons.find(
+    (coupon) => String(Number(coupon.id || 0)) === selectedValue,
+  );
+
+  if (matchingCoupon) {
+    const matchLabel = `${(matchingCoupon.code || "").toString()} - ${(matchingCoupon.discountLabel || "Offer").toString()}`;
+    setAdminDropdownSelection(
+      "couponEmailCouponId",
+      String(Number(matchingCoupon.id || 0)),
+      matchLabel,
+    );
+    return;
+  }
+
+  setAdminDropdownSelection("couponEmailCouponId", "", "Select a coupon");
 }
 
 function renderCouponsTable() {
@@ -1771,7 +1867,11 @@ function editCouponById(couponId) {
   $("#couponCode").val(coupon.code || "");
   $("#couponTitle").val(coupon.title || "");
   $("#couponDescription").val(coupon.description || "");
-  $("#couponDiscountType").val(coupon.discountType || "fixed");
+  setAdminDropdownSelection(
+    "couponDiscountType",
+    coupon.discountType || "fixed",
+    couponDiscountTypeLabel(coupon.discountType || "fixed"),
+  );
   $("#couponDiscountValue").val(coupon.discountValue || "");
   $("#couponMinOrder").val(coupon.minOrder || 0);
   $("#couponMaxDiscount")
@@ -2523,6 +2623,17 @@ function initReviewsSection() {
     return;
   }
 
+  setAdminDropdownSelection(
+    "reviewVisibilityFilter",
+    $("#reviewVisibilityFilter").val() || "all",
+    reviewVisibilityLabel($("#reviewVisibilityFilter").val() || "all"),
+  );
+  setAdminDropdownSelection(
+    "fakeReviewVisibility",
+    $("#fakeReviewVisibility").val() || "1",
+    fakeReviewVisibilityLabel($("#fakeReviewVisibility").val() || "1"),
+  );
+
   $("#reviewVisibilityFilter")
     .off("change")
     .on("change", function () {
@@ -2730,8 +2841,8 @@ function applySecurityEventsFilters(resetPage = true) {
 
 function clearSecurityEventsFilters() {
   $("#securityEventTypeFilter").val("");
-  $("#securitySeverityFilter").val("");
-  $("#securityActorTypeFilter").val("");
+  setAdminDropdownSelection("securitySeverityFilter", "", "All");
+  setAdminDropdownSelection("securityActorTypeFilter", "", "All");
   $("#securityEventSearchFilter").val("");
   $("#securityFromFilter").val("");
   $("#securityToFilter").val("");
@@ -2752,6 +2863,17 @@ function initSecurityEventsSection() {
   if (!$("#securityEventsSection").length) {
     return;
   }
+
+  setAdminDropdownSelection(
+    "securitySeverityFilter",
+    $("#securitySeverityFilter").val() || "",
+    securitySeverityLabel($("#securitySeverityFilter").val() || ""),
+  );
+  setAdminDropdownSelection(
+    "securityActorTypeFilter",
+    $("#securityActorTypeFilter").val() || "",
+    securityActorTypeLabel($("#securityActorTypeFilter").val() || ""),
+  );
 
   $("#securityEventsApplyBtn")
     .off("click")
@@ -4576,8 +4698,31 @@ $(document).ready(function () {
 
   injectAdminTabPlaybooks();
 
+  $(document)
+    .off("click.adminDropdownItem")
+    .on("click.adminDropdownItem", ".admin-dropdown-item", function (event) {
+      event.preventDefault();
+
+      const targetId = ($(this).data("target") || "").toString().trim();
+      if (!targetId) {
+        return;
+      }
+
+      const selectedValue = ($(this).data("value") ?? "").toString();
+      const selectedLabel = ($(this).data("label") || $(this).text() || "")
+        .toString()
+        .trim();
+
+      setAdminDropdownSelection(targetId, selectedValue, selectedLabel);
+      $(`#${targetId}`).trigger("change");
+    });
+
   function refreshTabPaneByTabId(tabId) {
     switch ((tabId || "").toString()) {
+      case "product-trash-tab":
+      case "products-tab":
+        loadProductTrashData(true);
+        break;
       case "orders-tab":
         displayAllOrders();
         renderRefundRequests();
@@ -4604,6 +4749,15 @@ $(document).ready(function () {
       default:
         break;
     }
+  }
+
+  function focusProductTrashCard() {
+    const card = document.getElementById("productTrashCard");
+    if (!card) {
+      return;
+    }
+
+    card.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function syncActiveTabUi(tabEl) {
@@ -4637,6 +4791,10 @@ $(document).ready(function () {
       const activeTabId = (this.id || "").toString();
       syncActiveTabUi(this);
       refreshTabPaneByTabId(activeTabId);
+
+      if (activeTabId === "product-trash-tab") {
+        window.setTimeout(focusProductTrashCard, 180);
+      }
     });
 
   syncActiveTabUi(

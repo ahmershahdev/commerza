@@ -1,5 +1,6 @@
 <?php
 header('Content-Type: application/json');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
 include __DIR__ . '/data.php';
 
@@ -16,6 +17,35 @@ if (
 ) {
     http_response_code(403);
     echo json_encode(['error' => 'Forbidden']);
+    exit;
+}
+
+if (!isset($_SESSION['user_id']) || !is_numeric($_SESSION['user_id'])) {
+    http_response_code(401);
+    echo json_encode(['error' => 'Unauthorized']);
+    exit;
+}
+
+$userId = (int)$_SESSION['user_id'];
+$clientIp = commerza_client_ip();
+$rate = commerza_rate_limit_check(
+    $con,
+    'user_account_exists_lookup',
+    (string)$userId,
+    $clientIp,
+    90,
+    600,
+    900,
+    1800,
+    86400
+);
+
+if (!(bool)($rate['allowed'] ?? false)) {
+    http_response_code(429);
+    echo json_encode([
+        'error' => 'Too many requests.',
+        'retry_after' => max(1, (int)($rate['retry_after'] ?? 1)),
+    ]);
     exit;
 }
 
