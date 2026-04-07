@@ -123,6 +123,18 @@ function orders_api_delete_user_profile_picture(string $relativePath): void
     }
 }
 
+function orders_api_is_cod_payment_method(string $paymentMethod): bool
+{
+    $normalized = strtolower(trim($paymentMethod));
+    if ($normalized === '') {
+        return false;
+    }
+
+    return $normalized === 'cod'
+        || str_contains($normalized, 'cash on delivery')
+        || preg_match('/\bcod\b/i', $normalized) === 1;
+}
+
 function orders_api_ensure_order_coupon_columns(mysqli $con): void
 {
     static $initialized = false;
@@ -209,7 +221,8 @@ function orders_api_fetch_refunds(mysqli $con): array
             o.customer_name,
             o.customer_email,
             o.status AS order_status,
-                o.payment_status AS order_payment_status,
+            o.payment_status AS order_payment_status,
+            o.payment_method AS order_payment_method,
             o.updated_at AS order_updated_at
          FROM refund_requests r
          INNER JOIN orders o ON o.id = r.order_id
@@ -236,6 +249,7 @@ function orders_api_fetch_refunds(mysqli $con): array
             'customerEmail' => (string)($row['customer_email'] ?? ''),
             'orderStatus' => (string)($row['order_status'] ?? ''),
             'orderPaymentStatus' => (string)($row['order_payment_status'] ?? 'unpaid'),
+            'orderPaymentMethod' => (string)($row['order_payment_method'] ?? ''),
             'reason' => (string)($row['reason'] ?? ''),
             'status' => (string)($row['status'] ?? 'pending'),
             'adminNote' => (string)($row['admin_note'] ?? ''),
@@ -787,6 +801,7 @@ if ($action === 'update-status') {
     $order = null;
     $orderId = 0;
     $oldStatus = 'Pending';
+    $oldPaymentStatus = 'unpaid';
 
     $lockStmt = $con->prepare(
         'SELECT
@@ -827,11 +842,30 @@ if ($action === 'update-status') {
 
     $orderId = (int)($order['id'] ?? 0);
     $oldStatus = (string)($order['status'] ?? 'Pending');
+    $oldPaymentStatus = strtolower(trim((string)($order['payment_status'] ?? 'unpaid')));
+    if ($oldPaymentStatus === '') {
+        $oldPaymentStatus = 'unpaid';
+    }
 
-    if ($oldStatus !== $nextStatus) {
+    $resolvedStatus = $nextStatus;
+    $resolvedPaymentStatus = $oldPaymentStatus;
+
+    if (
+        strcasecmp($resolvedStatus, 'Delivered') === 0
+        && orders_api_is_cod_payment_method((string)($order['payment_method'] ?? ''))
+        && $resolvedPaymentStatus === 'unpaid'
+    ) {
+        $resolvedPaymentStatus = 'paid';
+    }
+
+    $statusChanged = $oldStatus !== $resolvedStatus;
+    $paymentStatusChanged = $oldPaymentStatus !== $resolvedPaymentStatus;
+
+    if ($statusChanged || $paymentStatusChanged) {
         $updateStmt = $con->prepare(
             'UPDATE orders
-             SET status = ?
+             SET status = ?,
+                 payment_status = ?
              WHERE id = ?
              LIMIT 1'
         );
@@ -841,7 +875,7 @@ if ($action === 'update-status') {
             orders_api_json(['ok' => false, 'message' => 'Unable to update order status.'], 500);
         }
 
-        $updateStmt->bind_param('si', $nextStatus, $orderId);
+        $updateStmt->bind_param('ssi', $resolvedStatus, $resolvedPaymentStatus, $orderId);
         $ok = $updateStmt->execute();
         $updateStmt->close();
 
@@ -850,7 +884,8 @@ if ($action === 'update-status') {
             orders_api_json(['ok' => false, 'message' => 'Unable to update order status.'], 500);
         }
 
-        $order['status'] = $nextStatus;
+        $order['status'] = $resolvedStatus;
+        $order['payment_status'] = $resolvedPaymentStatus;
     }
 
     if (!$con->commit()) {
@@ -858,13 +893,13 @@ if ($action === 'update-status') {
         orders_api_json(['ok' => false, 'message' => 'Unable to finalize order status update.'], 500);
     }
 
-    if ($oldStatus !== $nextStatus) {
-        commerza_notify_order_status_change($con, $order, $oldStatus, $nextStatus);
+    if ($statusChanged) {
+        commerza_notify_order_status_change($con, $order, $oldStatus, $resolvedStatus);
         admin_api_log_security_event($con, $admin, 'order.status_change', 'info', [
             'order_id' => $orderId,
             'order_number' => $orderNumber,
             'old_status' => $oldStatus,
-            'new_status' => $nextStatus,
+            'new_status' => $resolvedStatus,
         ]);
     }
 
@@ -874,17 +909,22 @@ if ($action === 'update-status') {
             'order' => [
                 'db_id' => $orderId,
                 'orderId' => (string)($order['order_number'] ?? $orderNumber),
-                'status' => (string)($order['status'] ?? $nextStatus),
+                'status' => (string)($order['status'] ?? $resolvedStatus),
                 'paymentStatus' => (string)($order['payment_status'] ?? 'unpaid'),
             ],
             'metrics' => orders_api_fetch_metrics($con),
         ];
 
+    $message = 'Order is already in the selected status.';
+    if ($statusChanged) {
+        $message = 'Order status updated.';
+    } elseif ($paymentStatusChanged) {
+        $message = 'Order payment status synced for COD delivery.';
+    }
+
     orders_api_json([
         'ok' => true,
-        'message' => $oldStatus !== $nextStatus
-            ? 'Order status updated.'
-            : 'Order is already in the selected status.',
+        'message' => $message,
         'payload' => $payload,
     ]);
 }

@@ -1,6 +1,7 @@
 <?php
 include "backend/data.php";
 require_once __DIR__ . '/backend/notifications.php';
+require_once __DIR__ . '/backend/media_image_helpers.php';
 
 if (!isset($_SESSION['user_id']) || !is_numeric($_SESSION['user_id'])) {
   header("Location: login.php");
@@ -271,6 +272,31 @@ function account_store_refund_evidence($file, int $userId, int $orderId, array &
     return null;
   }
 
+  $isImageEvidence = strpos($mime, 'image/') === 0;
+  $imageBlob = '';
+  $outputExtension = $extension;
+
+  if ($isImageEvidence) {
+    $conversion = commerza_media_convert_upload_to_webp($tmpPath, $mime, 420, 2200);
+    if (!(bool)($conversion['ok'] ?? false)) {
+      $errors[] = (string)($conversion['message'] ?? 'Unable to parse and compress evidence image.');
+      return null;
+    }
+
+    $imageBlob = (string)($conversion['blob'] ?? '');
+    if ($imageBlob === '') {
+      $errors[] = 'Unable to save parsed evidence image.';
+      return null;
+    }
+
+    $candidateExtension = strtolower(trim((string)($conversion['output_extension'] ?? 'webp')));
+    if (!preg_match('/^[a-z0-9]{2,6}$/', $candidateExtension)) {
+      $candidateExtension = 'webp';
+    }
+
+    $outputExtension = $candidateExtension;
+  }
+
   $uploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'refunds';
   if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
     $errors[] = 'Unable to prepare refund upload directory.';
@@ -284,19 +310,31 @@ function account_store_refund_evidence($file, int $userId, int $orderId, array &
     $originalName = 'refund-evidence.' . $extension;
   }
 
-  $filename = 'refund_' . $userId . '_' . $orderId . '_' . bin2hex(random_bytes(10)) . '.' . $extension;
+  $filename = 'refund_' . $userId . '_' . $orderId . '_' . bin2hex(random_bytes(10)) . '.' . $outputExtension;
   $absolutePath = $uploadDir . DIRECTORY_SEPARATOR . $filename;
   $relativePath = 'frontend/assets/uploads/refunds/' . $filename;
+  $storedSize = $size;
 
-  if (!move_uploaded_file($tmpPath, $absolutePath)) {
-    $errors[] = 'Unable to save refund evidence file.';
-    return null;
+  if ($isImageEvidence) {
+    if (@file_put_contents($absolutePath, $imageBlob) === false) {
+      $errors[] = 'Unable to save parsed refund evidence file.';
+      return null;
+    }
+
+    $storedSize = max(0, strlen($imageBlob));
+  } else {
+    if (!move_uploaded_file($tmpPath, $absolutePath)) {
+      $errors[] = 'Unable to save refund evidence file.';
+      return null;
+    }
+
+    $storedSize = (int)(filesize($absolutePath) ?: $size);
   }
 
   return [
     'path' => $relativePath,
     'name' => $originalName,
-    'size' => $size,
+    'size' => $storedSize,
   ];
 }
 
@@ -559,18 +597,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $errors[] = "Invalid upload.";
         } else {
           $finfo = finfo_open(FILEINFO_MIME_TYPE);
-          $mime = $finfo ? finfo_file($finfo, $tmp_path) : '';
+          $mime = $finfo ? (string)finfo_file($finfo, $tmp_path) : '';
 
           if ($finfo) {
             finfo_close($finfo);
           }
 
-          $allowed = [
-            'image/jpeg' => 'jpg',
-            'image/png' => 'png',
-            'image/webp' => 'webp',
-            'image/gif' => 'gif'
-          ];
+          $allowed = commerza_media_allowed_image_mimes();
 
           if (!isset($allowed[$mime])) {
             $errors[] = "Only JPG, PNG, WEBP, and GIF are allowed.";
@@ -580,36 +613,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
               $errors[] = "Failed to create upload directory.";
             } else {
-              $ext = $allowed[$mime];
-              $filename = 'user_' . $user_id . '_' . bin2hex(random_bytes(12)) . '.' . $ext;
-              $destination = $uploadDir . DIRECTORY_SEPARATOR . $filename;
-              $publicPath = 'frontend/assets/images/users/' . $filename;
-
-              if (!move_uploaded_file($tmp_path, $destination)) {
-                $errors[] = "Failed to save uploaded image.";
+              $conversion = commerza_media_convert_upload_to_webp($tmp_path, $mime, 220, 1400);
+              if (!(bool)($conversion['ok'] ?? false)) {
+                $errors[] = (string)($conversion['message'] ?? 'Failed to parse and compress profile picture.');
               } else {
-                $updateStmt = $con->prepare("UPDATE users SET profile_picture = ? WHERE id = ? LIMIT 1");
+                $outputExtension = strtolower(trim((string)($conversion['extension'] ?? '')));
+                if ($outputExtension === '') {
+                  $outputExtension = 'webp';
+                }
 
-                if (!$updateStmt) {
-                  $errors[] = "Something went wrong. Please try again.";
+                $filename = 'user_' . $user_id . '_' . bin2hex(random_bytes(12)) . '.' . $outputExtension;
+                $destination = $uploadDir . DIRECTORY_SEPARATOR . $filename;
+                $publicPath = 'frontend/assets/images/users/' . $filename;
+                $binary = (string)($conversion['binary'] ?? '');
+
+                if ($binary === '' || file_put_contents($destination, $binary) === false) {
+                  $errors[] = "Failed to save uploaded image.";
                 } else {
-                  $updateStmt->bind_param("si", $publicPath, $user_id);
+                  $updateStmt = $con->prepare("UPDATE users SET profile_picture = ? WHERE id = ? LIMIT 1");
 
-                  if ($updateStmt->execute()) {
-                    if (!empty($user['profile_picture']) && strpos((string)$user['profile_picture'], 'frontend/assets/images/users/') === 0) {
-                      $oldPath = __DIR__ . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string)$user['profile_picture']);
+                  if (!$updateStmt) {
+                    $errors[] = "Something went wrong. Please try again.";
+                  } else {
+                    $updateStmt->bind_param("si", $publicPath, $user_id);
 
-                      if (is_file($oldPath)) {
-                        @unlink($oldPath);
+                    if ($updateStmt->execute()) {
+                      if (!empty($user['profile_picture']) && strpos((string)$user['profile_picture'], 'frontend/assets/images/users/') === 0) {
+                        $oldPath = __DIR__ . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string)$user['profile_picture']);
+
+                        if (is_file($oldPath)) {
+                          @unlink($oldPath);
+                        }
                       }
+
+                      $success[] = "Profile picture updated successfully.";
+                    } else {
+                      $errors[] = "Something went wrong. Please try again.";
                     }
 
-                    $success[] = "Profile picture updated successfully.";
-                  } else {
-                    $errors[] = "Something went wrong. Please try again.";
+                    $updateStmt->close();
                   }
-
-                  $updateStmt->close();
                 }
               }
             }
@@ -1099,7 +1142,7 @@ if (is_array($accountDeletePending)) {
       margin: 0 auto;
     }
 
-    label {
+    .account-page label {
       color: rgb(255, 255, 255);
     }
 
@@ -1207,10 +1250,65 @@ if (is_array($accountDeletePending)) {
       color: #ffd8b8;
       background: rgba(255, 102, 0, 0.1);
     }
+
+    .account-section-subtitle {
+      color: #b9b9b9;
+      font-size: 0.92rem;
+      margin: -2px 0 16px;
+      line-height: 1.5;
+    }
+
+    .account-personal-form .account-field {
+      border: 1px solid rgba(255, 102, 0, 0.2);
+      border-radius: 12px;
+      padding: 14px;
+      background: rgba(14, 14, 14, 0.62);
+      height: 100%;
+    }
+
+    .account-personal-form .form-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 0.74rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #ffd7b0;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .account-personal-form .form-label i {
+      color: #ff9c53;
+      font-size: 0.85rem;
+    }
+
+    .account-personal-form .account-help {
+      min-height: 34px;
+      margin-top: 8px;
+      font-size: 0.78rem;
+      line-height: 1.45;
+      display: block;
+    }
+
+    .account-personal-form .account-live-feedback {
+      margin-top: 6px;
+      min-height: 16px;
+    }
+
+    @media (max-width: 767.98px) {
+      .account-personal-form .account-field {
+        padding: 12px;
+      }
+
+      .account-personal-form .account-help {
+        min-height: 0;
+      }
+    }
   </style>
 </head>
 
-<body class="dark-theme">
+<body class="dark-theme account-page">
   <?php if (!empty($errors)): ?>
     <div id="serverError"><?= htmlspecialchars(implode(' ', $errors)) ?></div>
   <?php endif; ?>
@@ -1336,7 +1434,13 @@ if (is_array($accountDeletePending)) {
               <input type="hidden" name="action" value="update_profile_picture">
               <input type="file" name="profile_picture" id="profilePictureInput" class="form-control search-input mt-3"
                 accept="image/jpeg,image/png,image/webp,image/gif" />
-              <small class="text-secondary d-block mt-2">Upload a clear square photo. Supported formats: JPG, PNG, WebP, GIF.</small>
+              <small class="text-secondary d-block mt-2">Upload a clear square photo. Supported formats: JPG, PNG, WebP, GIF. Max 2 MB. Image is parsed/compressed before save.</small>
+              <div class="upload-progress-shell mt-2 d-none" id="profileUploadProgress">
+                <small class="text-secondary d-block" data-upload-stage>Waiting to upload...</small>
+                <div class="progress mt-1" style="height: 6px;">
+                  <div class="progress-bar bg-warning" role="progressbar" data-upload-bar style="width: 0%">0%</div>
+                </div>
+              </div>
               <button type="submit" class="btn product-btn-buy w-100 mt-2" data-loading-text="Updating Picture...">
                 Update Picture
               </button>
@@ -1473,98 +1577,113 @@ if (is_array($accountDeletePending)) {
         <div class="card product-card mb-4">
           <div class="card-body">
             <h4 class="product-name mb-3">Personal Information</h4>
+            <p class="account-section-subtitle">Keep your profile details accurate so checkout, delivery, and account security work smoothly.</p>
 
-            <form action="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" id="updateProfileForm">
+            <form action="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" id="updateProfileForm" class="account-personal-form">
               <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
               <input type="hidden" name="action" value="update_profile">
 
-              <div class="row">
-                <div class="col-md-6 mb-3">
-                  <label for="full-name" class="form-label">Full Name</label>
-                  <input type="text" id="full-name" name="full_name" class="form-control search-input"
-                    value="<?= htmlspecialchars((string)$user['full_name']) ?>" required
-                    autocomplete="name" minlength="3" maxlength="40"
-                    pattern="[A-Za-z][A-Za-z\s\.\'\-]{2,39}"
-                    title="Use 3-40 letters with spaces, dots, apostrophes, or hyphens." />
-                  <small class="text-secondary d-block mt-1">Use your real name for invoices and delivery records.</small>
-                </div>
-
-                <div class="col-md-6 mb-3">
-                  <label for="username" class="form-label">Username</label>
-                  <input type="text" id="username" name="username" class="form-control search-input"
-                    value="<?= htmlspecialchars($username_value) ?>" required
-                    autocomplete="username" minlength="3" maxlength="24"
-                    pattern="[a-zA-Z][a-zA-Z0-9_]{2,23}"
-                    title="Use 3-24 characters: letters, numbers, underscore." />
-                  <div id="usernameLiveFeedback" class="account-live-feedback" aria-live="polite"></div>
-                  <small class="text-secondary d-block mt-1">This username may appear publicly in reviews when profile is public.</small>
-                </div>
-
-                <div class="col-md-6 mb-3">
-                  <label for="email" class="form-label">Email Address</label>
-                  <input type="email" id="email" name="email" class="form-control search-input"
-                    value="<?= htmlspecialchars((string)$user['email']) ?>" required
-                    autocomplete="email" maxlength="150" />
-                  <div id="emailLiveFeedback" class="account-live-feedback" aria-live="polite"></div>
-                  <small class="text-secondary d-block mt-1">Use an active email to receive security and order updates.</small>
-                </div>
-
-                <div class="col-md-6 mb-3">
-                  <label for="profile-visibility" class="form-label">Profile Visibility</label>
-                  <input type="hidden" id="profile-visibility" name="profile_visibility" value="<?= htmlspecialchars($profile_visibility_value) ?>" required>
-                  <div class="dropdown account-visibility-dropdown">
-                    <button class="btn dropdown-toggle w-100 text-start d-flex align-items-center justify-content-between"
-                      type="button" id="profileVisibilityMenu" data-bs-toggle="dropdown" aria-expanded="false">
-                      <span class="d-inline-flex align-items-center gap-2">
-                        <i class="bi <?= $profile_visibility_value === 'public' ? 'bi-globe2' : 'bi-shield-lock' ?>" id="profileVisibilityIcon"></i>
-                        <span id="profileVisibilityLabel"><?= htmlspecialchars($profile_visibility_label) ?></span>
-                      </span>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-dark w-100 border-secondary" aria-labelledby="profileVisibilityMenu">
-                      <li>
-                        <button type="button" class="dropdown-item profile-visibility-option <?= $profile_visibility_value === 'private' ? 'active' : '' ?>" data-value="private" data-label="Private Profile" data-icon="bi-shield-lock">
-                          <i class="bi bi-shield-lock me-2"></i>Private Profile
-                        </button>
-                      </li>
-                      <li>
-                        <button type="button" class="dropdown-item profile-visibility-option <?= $profile_visibility_value === 'public' ? 'active' : '' ?>" data-value="public" data-label="Public Profile" data-icon="bi-globe2">
-                          <i class="bi bi-globe2 me-2"></i>Public Profile
-                        </button>
-                      </li>
-                    </ul>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <div class="account-field h-100">
+                    <label for="full-name" class="form-label"><i class="bi bi-person-badge"></i><span>Full Name</span></label>
+                    <input type="text" id="full-name" name="full_name" class="form-control search-input"
+                      value="<?= htmlspecialchars((string)$user['full_name']) ?>" required
+                      autocomplete="name" minlength="3" maxlength="40"
+                      pattern="[A-Za-z][A-Za-z\s\.\'\-]{2,39}"
+                      title="Use 3-40 letters with spaces, dots, apostrophes, or hyphens." />
+                    <small class="account-help text-secondary">Use your real name for invoices and delivery records.</small>
                   </div>
-                  <small class="text-secondary">Public profile shows your username in public-facing areas (like reviews). Private keeps identity generic.</small>
                 </div>
 
-                <div class="col-md-6 mb-3">
-                  <label for="phone" class="form-label">Phone Number</label>
-                  <input type="tel" id="phone" name="phone" class="form-control search-input"
-                    value="<?= htmlspecialchars((string)$user['phone']) ?>" required
-                    autocomplete="tel" minlength="11" maxlength="15"
-                    pattern="\d{11,15}" title="Enter 11 to 15 digits only." />
-                  <div id="phoneLiveFeedback" class="account-live-feedback" aria-live="polite"></div>
-                  <small class="text-secondary d-block mt-1">Digits only. Include your area/mobile code without symbols.</small>
-                </div>
-
-                <div class="col-md-12 mb-3">
-                  <label for="address" class="form-label">Address</label>
-                  <textarea id="address" name="address" class="form-control search-input" rows="3" maxlength="255"
-                    minlength="8" placeholder="Enter your address"><?= htmlspecialchars((string)($user['address'] ?? '')) ?></textarea>
-                  <small class="text-secondary d-block mt-1">Add complete house, street, city details for accurate delivery.</small>
-                </div>
-
-                <div class="col-md-12 mb-3">
-                  <label class="form-label">Address Map Preview</label>
-                  <div class="ratio ratio-16x9 border border-secondary rounded overflow-hidden">
-                    <iframe
-                      id="address-map-frame"
-                      src="https://www.google.com/maps?q=<?= rawurlencode((string)($user['address'] ?: 'Pakistan')) ?>&output=embed"
-                      title="Address Map Preview"
-                      loading="lazy"
-                      referrerpolicy="no-referrer-when-downgrade"
-                      style="border:0;"></iframe>
+                <div class="col-md-6">
+                  <div class="account-field h-100">
+                    <label for="username" class="form-label"><i class="bi bi-at"></i><span>Username</span></label>
+                    <input type="text" id="username" name="username" class="form-control search-input"
+                      value="<?= htmlspecialchars($username_value) ?>" required
+                      autocomplete="username" minlength="3" maxlength="24"
+                      pattern="[a-zA-Z][a-zA-Z0-9_]{2,23}"
+                      title="Use 3-24 characters: letters, numbers, underscore." />
+                    <div id="usernameLiveFeedback" class="account-live-feedback" aria-live="polite"></div>
+                    <small class="account-help text-secondary">This username may appear publicly in reviews when profile is public.</small>
                   </div>
-                  <small class="text-secondary">Map refreshes automatically as you edit your address.</small>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="account-field h-100">
+                    <label for="email" class="form-label"><i class="bi bi-envelope"></i><span>Email Address</span></label>
+                    <input type="email" id="email" name="email" class="form-control search-input"
+                      value="<?= htmlspecialchars((string)$user['email']) ?>" required
+                      autocomplete="email" maxlength="150" />
+                    <div id="emailLiveFeedback" class="account-live-feedback" aria-live="polite"></div>
+                    <small class="account-help text-secondary">Use an active email to receive security and order updates.</small>
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="account-field h-100">
+                    <label for="profile-visibility" class="form-label"><i class="bi bi-shield-check"></i><span>Profile Visibility</span></label>
+                    <input type="hidden" id="profile-visibility" name="profile_visibility" value="<?= htmlspecialchars($profile_visibility_value) ?>" required>
+                    <div class="dropdown account-visibility-dropdown">
+                      <button class="btn dropdown-toggle w-100 text-start d-flex align-items-center justify-content-between"
+                        type="button" id="profileVisibilityMenu" data-bs-toggle="dropdown" aria-expanded="false">
+                        <span class="d-inline-flex align-items-center gap-2">
+                          <i class="bi <?= $profile_visibility_value === 'public' ? 'bi-globe2' : 'bi-shield-lock' ?>" id="profileVisibilityIcon"></i>
+                          <span id="profileVisibilityLabel"><?= htmlspecialchars($profile_visibility_label) ?></span>
+                        </span>
+                      </button>
+                      <ul class="dropdown-menu dropdown-menu-dark w-100 border-secondary" aria-labelledby="profileVisibilityMenu">
+                        <li>
+                          <button type="button" class="dropdown-item profile-visibility-option <?= $profile_visibility_value === 'private' ? 'active' : '' ?>" data-value="private" data-label="Private Profile" data-icon="bi-shield-lock">
+                            <i class="bi bi-shield-lock me-2"></i>Private Profile
+                          </button>
+                        </li>
+                        <li>
+                          <button type="button" class="dropdown-item profile-visibility-option <?= $profile_visibility_value === 'public' ? 'active' : '' ?>" data-value="public" data-label="Public Profile" data-icon="bi-globe2">
+                            <i class="bi bi-globe2 me-2"></i>Public Profile
+                          </button>
+                        </li>
+                      </ul>
+                    </div>
+                    <small class="account-help text-secondary">Public profile shows your username in public-facing areas (like reviews). Private keeps identity generic.</small>
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="account-field h-100">
+                    <label for="phone" class="form-label"><i class="bi bi-telephone"></i><span>Phone Number</span></label>
+                    <input type="tel" id="phone" name="phone" class="form-control search-input"
+                      value="<?= htmlspecialchars((string)$user['phone']) ?>" required
+                      autocomplete="tel" minlength="11" maxlength="15"
+                      pattern="\d{11,15}" title="Enter 11 to 15 digits only." />
+                    <div id="phoneLiveFeedback" class="account-live-feedback" aria-live="polite"></div>
+                    <small class="account-help text-secondary">Digits only. Include your area/mobile code without symbols.</small>
+                  </div>
+                </div>
+
+                <div class="col-md-12">
+                  <div class="account-field">
+                    <label for="address" class="form-label"><i class="bi bi-geo-alt"></i><span>Address</span></label>
+                    <textarea id="address" name="address" class="form-control search-input" rows="3" maxlength="255"
+                      minlength="8" placeholder="Enter your address"><?= htmlspecialchars((string)($user['address'] ?? '')) ?></textarea>
+                    <small class="account-help text-secondary">Add complete house, street, city details for accurate delivery.</small>
+                  </div>
+                </div>
+
+                <div class="col-md-12">
+                  <div class="account-field">
+                    <label class="form-label"><i class="bi bi-map"></i><span>Address Map Preview</span></label>
+                    <div class="ratio ratio-16x9 border border-secondary rounded overflow-hidden">
+                      <iframe
+                        id="address-map-frame"
+                        src="https://www.google.com/maps?q=<?= rawurlencode((string)($user['address'] ?: 'Pakistan')) ?>&output=embed"
+                        title="Address Map Preview"
+                        loading="lazy"
+                        referrerpolicy="no-referrer-when-downgrade"
+                        style="border:0;"></iframe>
+                    </div>
+                    <small class="account-help text-secondary">Map refreshes automatically as you edit your address.</small>
+                  </div>
                 </div>
               </div>
 
@@ -1698,7 +1817,7 @@ if (is_array($accountDeletePending)) {
                         <?php endif; ?>
 
                         <?php if ($canRequestRefund): ?>
-                          <form action="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" enctype="multipart/form-data" class="mt-2">
+                          <form action="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" enctype="multipart/form-data" class="mt-2 refund-request-form">
                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
                             <input type="hidden" name="action" value="request_refund">
                             <input type="hidden" name="order_id" value="<?= (int)$orderId ?>">
@@ -1720,8 +1839,15 @@ if (is_array($accountDeletePending)) {
                                 id="refund-evidence-<?= (int)$orderId ?>"
                                 type="file"
                                 name="refund_evidence"
-                                class="form-control search-input"
+                                class="form-control search-input refund-evidence-input"
                                 accept=".jpg,.jpeg,.png,.webp,.gif,.pdf">
+                              <small class="text-secondary d-block mt-1">Allowed: JPG, PNG, WebP, GIF, PDF. Max 6 MB. Images are parsed/compressed before upload.</small>
+                              <div class="upload-progress-shell mt-2 d-none" data-upload-progress-shell>
+                                <small class="text-secondary d-block" data-upload-stage>Waiting to upload...</small>
+                                <div class="progress mt-1" style="height: 6px;">
+                                  <div class="progress-bar bg-warning" role="progressbar" data-upload-bar style="width: 0%">0%</div>
+                                </div>
+                              </div>
                             </div>
                             <button type="submit" class="btn product-btn-cart" data-loading-text="Submitting Refund...">
                               Refund Me
@@ -2145,6 +2271,139 @@ if (is_array($accountDeletePending)) {
           return true;
         });
       }
+
+      const updateUploadShell = function(shell, stageText, percent, tone) {
+        if (!shell || !shell.length) {
+          return;
+        }
+
+        const safePercent = Math.max(0, Math.min(100, Math.round(percent || 0)));
+        const stage = shell.find("[data-upload-stage]").first();
+        const bar = shell.find("[data-upload-bar]").first();
+
+        shell.removeClass("d-none");
+        if (stage.length) {
+          stage.text((stageText || "Processing upload...").toString());
+        }
+
+        if (bar.length) {
+          bar.removeClass("bg-warning bg-danger bg-success");
+          bar.addClass(tone || "bg-warning");
+          bar.css("width", `${safePercent}%`);
+          bar.text(`${safePercent}%`);
+        }
+      };
+
+      const bindUploadProgressForm = function(form, fileSelector, resolveShell) {
+        if (!form || !form.length) {
+          return;
+        }
+
+        form.off("submit.uploadProgress").on("submit.uploadProgress", function(event) {
+          const activeForm = $(this);
+          const fileInput = activeForm.find(fileSelector).first();
+          if (!fileInput.length) {
+            return true;
+          }
+
+          const file = fileInput[0]?.files?.[0] || null;
+          if (!file) {
+            const shell = resolveShell(activeForm);
+            if (shell && shell.length) {
+              shell.addClass("d-none");
+            }
+            return true;
+          }
+
+          event.preventDefault();
+          event.stopImmediatePropagation();
+
+          const shell = resolveShell(activeForm);
+          updateUploadShell(shell, "Uploading file...", 0, "bg-warning");
+
+          const submitBtn = activeForm.find("button[type='submit']").first();
+          const originalText = submitBtn.text();
+          const loadingText = (submitBtn.data("loading-text") || "Uploading...").toString();
+          submitBtn.prop("disabled", true).text(loadingText);
+
+          const restoreButton = function() {
+            submitBtn.prop("disabled", false).text(originalText);
+          };
+
+          const xhr = new XMLHttpRequest();
+          xhr.open(
+            (activeForm.attr("method") || "POST").toString().toUpperCase(),
+            (activeForm.attr("action") || window.location.href).toString(),
+            true,
+          );
+
+          xhr.upload.addEventListener("progress", function(progressEvent) {
+            if (!progressEvent.lengthComputable) {
+              updateUploadShell(shell, "Uploading file...", 0, "bg-warning");
+              return;
+            }
+
+            const pct = (progressEvent.loaded / progressEvent.total) * 100;
+            updateUploadShell(shell, `Uploading file... ${Math.round(pct)}%`, pct, "bg-warning");
+          });
+
+          xhr.upload.addEventListener("load", function() {
+            updateUploadShell(
+              shell,
+              "Upload complete. Server is parsing/compressing...",
+              100,
+              "bg-warning",
+            );
+          });
+
+          xhr.onerror = function() {
+            updateUploadShell(
+              shell,
+              "Upload failed due to a network error.",
+              100,
+              "bg-danger",
+            );
+            restoreButton();
+          };
+
+          xhr.onload = function() {
+            if (xhr.status >= 200 && xhr.status < 400) {
+              updateUploadShell(shell, "Upload completed. Refreshing...", 100, "bg-success");
+              document.open();
+              document.write(xhr.responseText || "");
+              document.close();
+              return;
+            }
+
+            updateUploadShell(
+              shell,
+              "Upload failed. Please try again.",
+              100,
+              "bg-danger",
+            );
+            restoreButton();
+          };
+
+          const formData = new FormData(activeForm[0]);
+          xhr.send(formData);
+          return false;
+        });
+      };
+
+      bindUploadProgressForm(
+        $("#updateProfilePictureForm"),
+        "#profilePictureInput",
+        function() {
+          return $("#profileUploadProgress");
+        },
+      );
+
+      $(".refund-request-form").each(function() {
+        const form = $(this);
+        bindUploadProgressForm(form, ".refund-evidence-input", function(activeForm) {
+          return activeForm.find("[data-upload-progress-shell]").first();
+        });
+      });
 
       $("form").on("submit", function() {
         const btn = $(this).find("button[type='submit']").first();

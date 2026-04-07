@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
-function commerza_products_has_column(mysqli $con, string $column): bool
+function commerza_table_has_column(mysqli $con, string $table, string $column): bool
 {
-    $escaped = $con->real_escape_string($column);
-    $result = $con->query("SHOW COLUMNS FROM products LIKE '{$escaped}'");
+    $escapedTable = $con->real_escape_string($table);
+    $escapedColumn = $con->real_escape_string($column);
+    $result = $con->query("SHOW COLUMNS FROM {$escapedTable} LIKE '{$escapedColumn}'");
     if (!($result instanceof mysqli_result)) {
         return false;
     }
@@ -16,10 +17,16 @@ function commerza_products_has_column(mysqli $con, string $column): bool
     return $hasColumn;
 }
 
-function commerza_products_has_index(mysqli $con, string $indexName): bool
+function commerza_products_has_column(mysqli $con, string $column): bool
 {
-    $escaped = $con->real_escape_string($indexName);
-    $result = $con->query("SHOW INDEX FROM products WHERE Key_name = '{$escaped}'");
+    return commerza_table_has_column($con, 'products', $column);
+}
+
+function commerza_table_has_index(mysqli $con, string $table, string $indexName): bool
+{
+    $escapedTable = $con->real_escape_string($table);
+    $escapedIndex = $con->real_escape_string($indexName);
+    $result = $con->query("SHOW INDEX FROM {$escapedTable} WHERE Key_name = '{$escapedIndex}'");
     if (!($result instanceof mysqli_result)) {
         return false;
     }
@@ -28,6 +35,11 @@ function commerza_products_has_index(mysqli $con, string $indexName): bool
     $result->free();
 
     return $hasIndex;
+}
+
+function commerza_products_has_index(mysqli $con, string $indexName): bool
+{
+    return commerza_table_has_index($con, 'products', $indexName);
 }
 
 function commerza_normalize_product_code_value(string $value, int $fallbackId = 0): string
@@ -172,6 +184,7 @@ function commerza_products_ensure_schema(mysqli $con): void
         'product_code' => 'ALTER TABLE products ADD COLUMN product_code VARCHAR(40) DEFAULT NULL AFTER video_url',
         'warranty_info' => "ALTER TABLE products ADD COLUMN warranty_info VARCHAR(120) NOT NULL DEFAULT '12-month seller warranty' AFTER product_code",
         'dispatch_info' => "ALTER TABLE products ADD COLUMN dispatch_info VARCHAR(120) NOT NULL DEFAULT 'Dispatch in 24-48 hours' AFTER warranty_info",
+        'deleted_at' => 'ALTER TABLE products ADD COLUMN deleted_at DATETIME DEFAULT NULL AFTER returns_info',
     ];
 
     $addedColumns = false;
@@ -202,11 +215,91 @@ function commerza_products_ensure_schema(mysqli $con): void
         'idx_products_price' => 'ALTER TABLE products ADD INDEX idx_products_price (price)',
         'idx_products_sale_price' => 'ALTER TABLE products ADD INDEX idx_products_sale_price (salePrice)',
         'idx_products_stock' => 'ALTER TABLE products ADD INDEX idx_products_stock (stock)',
+        'idx_products_deleted_at' => 'ALTER TABLE products ADD INDEX idx_products_deleted_at (deleted_at)',
         'uq_products_product_code' => 'ALTER TABLE products ADD UNIQUE INDEX uq_products_product_code (product_code)',
     ];
 
     foreach ($requiredIndexes as $indexName => $sql) {
         if (commerza_products_has_index($con, $indexName)) {
+            continue;
+        }
+
+        $con->query($sql);
+    }
+
+    $con->query(
+        'CREATE TABLE IF NOT EXISTS product_trash (
+            id BIGINT NOT NULL AUTO_INCREMENT,
+            product_id INT NOT NULL,
+            section_id VARCHAR(64) NOT NULL,
+            section_name VARCHAR(128) NOT NULL,
+            section_page VARCHAR(64) NOT NULL DEFAULT "index.php",
+            section_category VARCHAR(120) NOT NULL DEFAULT "Uncategorized",
+            section_subcategory VARCHAR(120) NOT NULL DEFAULT "General",
+            name VARCHAR(255) NOT NULL,
+            slug VARCHAR(120) DEFAULT NULL,
+            description TEXT DEFAULT NULL,
+            image VARCHAR(255) DEFAULT NULL,
+            video_url VARCHAR(255) DEFAULT NULL,
+            product_code VARCHAR(40) DEFAULT NULL,
+            warranty_info VARCHAR(120) DEFAULT NULL,
+            dispatch_info VARCHAR(120) DEFAULT NULL,
+            returns_info VARCHAR(140) DEFAULT NULL,
+            price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+            sale_price DECIMAL(10,2) DEFAULT NULL,
+            stock INT NOT NULL DEFAULT 0,
+            movement ENUM("auto","manual","quartz","smart") DEFAULT NULL,
+            original_created_at DATETIME DEFAULT NULL,
+            original_updated_at DATETIME DEFAULT NULL,
+            deleted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            purge_after DATETIME NOT NULL,
+            deleted_by_admin_id INT DEFAULT NULL,
+            delete_reason VARCHAR(255) DEFAULT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_product_trash_product_id (product_id),
+            KEY idx_product_trash_deleted_at (deleted_at),
+            KEY idx_product_trash_purge_after (purge_after),
+            KEY idx_product_trash_section (section_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci'
+    );
+
+    $trashRequiredColumns = [
+        'section_page' => 'ALTER TABLE product_trash ADD COLUMN section_page VARCHAR(64) NOT NULL DEFAULT "index.php"',
+        'section_category' => 'ALTER TABLE product_trash ADD COLUMN section_category VARCHAR(120) NOT NULL DEFAULT "Uncategorized"',
+        'section_subcategory' => 'ALTER TABLE product_trash ADD COLUMN section_subcategory VARCHAR(120) NOT NULL DEFAULT "General"',
+        'slug' => 'ALTER TABLE product_trash ADD COLUMN slug VARCHAR(120) DEFAULT NULL',
+        'video_url' => 'ALTER TABLE product_trash ADD COLUMN video_url VARCHAR(255) DEFAULT NULL',
+        'product_code' => 'ALTER TABLE product_trash ADD COLUMN product_code VARCHAR(40) DEFAULT NULL',
+        'warranty_info' => 'ALTER TABLE product_trash ADD COLUMN warranty_info VARCHAR(120) DEFAULT NULL',
+        'dispatch_info' => 'ALTER TABLE product_trash ADD COLUMN dispatch_info VARCHAR(120) DEFAULT NULL',
+        'returns_info' => 'ALTER TABLE product_trash ADD COLUMN returns_info VARCHAR(140) DEFAULT NULL',
+        'sale_price' => 'ALTER TABLE product_trash ADD COLUMN sale_price DECIMAL(10,2) DEFAULT NULL',
+        'movement' => 'ALTER TABLE product_trash ADD COLUMN movement ENUM("auto","manual","quartz","smart") DEFAULT NULL',
+        'original_created_at' => 'ALTER TABLE product_trash ADD COLUMN original_created_at DATETIME DEFAULT NULL',
+        'original_updated_at' => 'ALTER TABLE product_trash ADD COLUMN original_updated_at DATETIME DEFAULT NULL',
+        'deleted_at' => 'ALTER TABLE product_trash ADD COLUMN deleted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP',
+        'purge_after' => 'ALTER TABLE product_trash ADD COLUMN purge_after DATETIME NOT NULL',
+        'deleted_by_admin_id' => 'ALTER TABLE product_trash ADD COLUMN deleted_by_admin_id INT DEFAULT NULL',
+        'delete_reason' => 'ALTER TABLE product_trash ADD COLUMN delete_reason VARCHAR(255) DEFAULT NULL',
+    ];
+
+    foreach ($trashRequiredColumns as $columnName => $sql) {
+        if (commerza_table_has_column($con, 'product_trash', $columnName)) {
+            continue;
+        }
+
+        $con->query($sql);
+    }
+
+    $trashRequiredIndexes = [
+        'uq_product_trash_product_id' => 'ALTER TABLE product_trash ADD UNIQUE KEY uq_product_trash_product_id (product_id)',
+        'idx_product_trash_deleted_at' => 'ALTER TABLE product_trash ADD KEY idx_product_trash_deleted_at (deleted_at)',
+        'idx_product_trash_purge_after' => 'ALTER TABLE product_trash ADD KEY idx_product_trash_purge_after (purge_after)',
+        'idx_product_trash_section' => 'ALTER TABLE product_trash ADD KEY idx_product_trash_section (section_id)',
+    ];
+
+    foreach ($trashRequiredIndexes as $indexName => $sql) {
+        if (commerza_table_has_index($con, 'product_trash', $indexName)) {
             continue;
         }
 

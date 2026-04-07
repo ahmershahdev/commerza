@@ -21,7 +21,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   $captchaContexts = [
     'send_reset_code' => 'admin_forgot_password_send',
-    'reset_password' => 'admin_forgot_password_reset',
   ];
 
   if (isset($captchaContexts[$action])) {
@@ -116,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 
   if (empty($errors) && $action === 'reset_password') {
-    $code = trim((string)($_POST['reset_code'] ?? ''));
+    $code = admin_normalize_numeric_code((string)($_POST['reset_code'] ?? ''));
     $newPassword = (string)($_POST['new_password'] ?? '');
     $confirmPassword = (string)($_POST['confirm_password'] ?? '');
 
@@ -133,19 +132,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $errors[] = $passwordPolicyError !== null ? $passwordPolicyError : commerza_password_policy_description();
     }
 
-    if (empty($errors) && !admin_verify_reset_code($admin, $code)) {
-      commerza_security_log_event($con, [
-        'event_type' => 'admin_password_reset_failed',
-        'severity' => 'warning',
-        'actor_type' => 'admin',
-        'actor_identifier' => (string)($admin['email'] ?? 'admin'),
-        'admin_id' => (int)($admin['id'] ?? 0),
-        'ip_address' => $clientIp,
-        'details' => [
-          'reason' => 'invalid_or_expired_reset_code',
-        ],
-      ]);
-      $errors[] = 'Invalid or expired reset code.';
+    if (empty($errors)) {
+      $adminId = (int)($admin['id'] ?? 0);
+      $verification = admin_verify_reset_code_status($con, $adminId, $code);
+
+      if (!(bool)($verification['ok'] ?? false)) {
+        $status = (string)($verification['status'] ?? 'invalid_code');
+        $securityReason = 'invalid_or_expired_reset_code';
+        $message = 'Incorrect reset code. Please try again.';
+
+        if ($status === 'expired' || $status === 'missing_code') {
+          admin_clear_reset_code($con, $adminId);
+          $securityReason = 'expired_reset_code';
+          $message = 'Reset code expired. Request a new code.';
+        } elseif ($status === 'invalid_code_format') {
+          $securityReason = 'invalid_code_format';
+          $message = 'Enter a valid 6-digit reset code.';
+        } elseif ($status === 'server_error') {
+          $securityReason = 'verification_server_error';
+          $message = 'Unable to verify reset code right now. Please retry.';
+        }
+
+        commerza_security_log_event($con, [
+          'event_type' => 'admin_password_reset_failed',
+          'severity' => 'warning',
+          'actor_type' => 'admin',
+          'actor_identifier' => (string)($admin['email'] ?? 'admin'),
+          'admin_id' => $adminId,
+          'ip_address' => $clientIp,
+          'details' => [
+            'reason' => $securityReason,
+            'status' => $status,
+          ],
+        ]);
+
+        $errors[] = $message;
+      }
     }
 
     if (empty($errors)) {
@@ -473,8 +495,6 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
           <i class="bi bi-eye password-toggle" data-target="#confirm-password"></i>
         </div>
       </div>
-
-      <?= commerza_captcha_widget_html($con, 'admin_forgot_password_reset') ?>
 
       <div class="d-grid">
         <button type="submit" class="btn reset-btn" id="resetPasswordBtn">Update Password</button>

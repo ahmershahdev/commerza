@@ -80,6 +80,15 @@ function admin_reviews_require_csrf(): void
     }
 }
 
+function admin_reviews_column_exists(mysqli $con, string $table, string $column): bool
+{
+    $tableEscaped = $con->real_escape_string($table);
+    $columnEscaped = $con->real_escape_string($column);
+    $result = $con->query("SHOW COLUMNS FROM {$tableEscaped} LIKE '{$columnEscaped}'");
+
+    return $result instanceof mysqli_result && $result->num_rows > 0;
+}
+
 function admin_reviews_ensure_table(mysqli $con): void
 {
     static $initialized = false;
@@ -98,15 +107,38 @@ function admin_reviews_ensure_table(mysqli $con): void
             review_text VARCHAR(500) NOT NULL,
             is_verified_purchase TINYINT(1) NOT NULL DEFAULT 1,
             is_visible TINYINT(1) NOT NULL DEFAULT 1,
+            is_locked TINYINT(1) NOT NULL DEFAULT 0,
+            locked_at DATETIME DEFAULT NULL,
+            locked_by_admin_id INT DEFAULT NULL,
             admin_note VARCHAR(500) DEFAULT NULL,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             UNIQUE KEY uq_review_user_product (user_id, product_id),
             KEY idx_review_product_visible (product_id, is_visible),
+            KEY idx_review_locked (is_locked, updated_at),
             KEY idx_review_created (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci'
     );
+
+    $missingColumns = [
+        'is_locked' => 'ALTER TABLE product_reviews ADD COLUMN is_locked TINYINT(1) NOT NULL DEFAULT 0 AFTER is_visible',
+        'locked_at' => 'ALTER TABLE product_reviews ADD COLUMN locked_at DATETIME DEFAULT NULL AFTER is_locked',
+        'locked_by_admin_id' => 'ALTER TABLE product_reviews ADD COLUMN locked_by_admin_id INT DEFAULT NULL AFTER locked_at',
+    ];
+
+    foreach ($missingColumns as $column => $sql) {
+        if (admin_reviews_column_exists($con, 'product_reviews', $column)) {
+            continue;
+        }
+
+        $con->query($sql);
+    }
+
+    $indexCheck = $con->query("SHOW INDEX FROM product_reviews WHERE Key_name = 'idx_review_locked'");
+    if (!($indexCheck instanceof mysqli_result) || $indexCheck->num_rows === 0) {
+        $con->query('ALTER TABLE product_reviews ADD KEY idx_review_locked (is_locked, updated_at)');
+    }
 
     $initialized = true;
 }
@@ -207,6 +239,9 @@ function admin_reviews_fetch_all(mysqli $con, string $visibility = 'all'): array
             r.review_text,
             r.is_verified_purchase,
             r.is_visible,
+            r.is_locked,
+            r.locked_at,
+            r.locked_by_admin_id,
             r.admin_note,
             r.created_at,
             r.updated_at,
@@ -246,6 +281,9 @@ function admin_reviews_fetch_all(mysqli $con, string $visibility = 'all'): array
             'reviewText' => (string)($row['review_text'] ?? ''),
             'isVerifiedPurchase' => (int)($row['is_verified_purchase'] ?? 0) === 1,
             'isVisible' => (int)($row['is_visible'] ?? 0) === 1,
+            'isLocked' => (int)($row['is_locked'] ?? 0) === 1,
+            'lockedAt' => (string)($row['locked_at'] ?? ''),
+            'lockedByAdminId' => (int)($row['locked_by_admin_id'] ?? 0),
             'adminNote' => (string)($row['admin_note'] ?? ''),
             'createdAt' => (string)($row['created_at'] ?? ''),
             'updatedAt' => (string)($row['updated_at'] ?? ''),
@@ -263,6 +301,7 @@ function admin_reviews_stats(mysqli $con): array
             COUNT(*) AS total_reviews,
             COALESCE(SUM(CASE WHEN is_visible = 1 THEN 1 ELSE 0 END), 0) AS visible_reviews,
             COALESCE(SUM(CASE WHEN is_visible = 0 THEN 1 ELSE 0 END), 0) AS hidden_reviews,
+            COALESCE(SUM(CASE WHEN is_locked = 1 THEN 1 ELSE 0 END), 0) AS locked_reviews,
             COALESCE(AVG(rating), 0) AS average_rating
          FROM product_reviews'
     );
@@ -273,6 +312,7 @@ function admin_reviews_stats(mysqli $con): array
         'total' => (int)($row['total_reviews'] ?? 0),
         'visible' => (int)($row['visible_reviews'] ?? 0),
         'hidden' => (int)($row['hidden_reviews'] ?? 0),
+        'locked' => (int)($row['locked_reviews'] ?? 0),
         'averageRating' => round((float)($row['average_rating'] ?? 0), 2),
     ];
 }
@@ -295,6 +335,143 @@ function admin_reviews_exists(mysqli $con, int $reviewId): bool
     $stmt->close();
 
     return $exists;
+}
+
+function admin_reviews_fake_profile(): array
+{
+    $firstNames = [
+        'Aiden',
+        'Noah',
+        'Liam',
+        'Ethan',
+        'Mason',
+        'Lucas',
+        'Aria',
+        'Maya',
+        'Ayla',
+        'Zara',
+        'Hina',
+        'Areeba',
+        'Sara',
+        'Daniyal',
+        'Hamza',
+        'Talha',
+        'Usman',
+        'Ibrahim',
+        'Rayyan',
+        'Zayan',
+    ];
+    $lastNames = [
+        'Khan',
+        'Raza',
+        'Ali',
+        'Malik',
+        'Shah',
+        'Sheikh',
+        'Butt',
+        'Qureshi',
+        'Hussain',
+        'Mirza',
+    ];
+
+    $first = $firstNames[array_rand($firstNames)];
+    $last = $lastNames[array_rand($lastNames)];
+
+    return [
+        'full_name' => trim($first . ' ' . $last),
+        'username_base' => strtolower(preg_replace('/[^a-z0-9_]+/i', '', $first . $last) ?? 'reviewer'),
+    ];
+}
+
+function admin_reviews_create_fake_user(mysqli $con): ?array
+{
+    $stmt = $con->prepare(
+        'INSERT INTO users (full_name, username, username_slug, email, phone, password_hash, address, profile_visibility)
+         VALUES (?, ?, ?, ?, ?, ?, NULL, "public")'
+    );
+
+    if (!$stmt) {
+        return null;
+    }
+
+    for ($attempt = 0; $attempt < 12; $attempt++) {
+        $profile = admin_reviews_fake_profile();
+        $base = trim((string)($profile['username_base'] ?? 'reviewer'));
+        if ($base === '') {
+            $base = 'reviewer';
+        }
+
+        $suffix = (string)random_int(1000, 999999);
+        $username = substr($base . $suffix, 0, 24);
+        $email = $username . '+' . random_int(100, 999) . '@fake-review.local';
+        $phone = '03' . str_pad((string)random_int(0, 999999999), 9, '0', STR_PAD_LEFT);
+        try {
+            $secretPart = bin2hex(random_bytes(4));
+        } catch (Throwable $exception) {
+            $secretPart = substr(hash('sha256', microtime(true) . '|' . mt_rand()), 0, 8);
+        }
+
+        $passwordHash = commerza_password_hash('Fake@' . $secretPart);
+        $fullName = (string)($profile['full_name'] ?? 'Customer');
+
+        $stmt->bind_param('ssssss', $fullName, $username, $username, $email, $phone, $passwordHash);
+        if ($stmt->execute()) {
+            $createdId = (int)$stmt->insert_id;
+            $stmt->close();
+
+            return [
+                'id' => $createdId,
+                'full_name' => $fullName,
+                'username' => $username,
+                'email' => $email,
+            ];
+        }
+
+        if ((int)$stmt->errno !== 1062) {
+            $stmt->close();
+            return null;
+        }
+    }
+
+    $stmt->close();
+    return null;
+}
+
+function admin_reviews_random_review_text(string $productName, int $rating): string
+{
+    $safeProductName = trim($productName) !== '' ? trim($productName) : 'this product';
+
+    $positive = [
+        'Build quality feels premium and it looks exactly like the listing photos.',
+        'Delivery was smooth and the packaging looked professional.',
+        'Using it daily now and the performance has stayed consistent.',
+        'Design and comfort are both excellent for long use.',
+        'Great value for the price point and support response was quick.',
+    ];
+
+    $neutral = [
+        'Overall good product with a few minor details that can improve.',
+        'Quality is acceptable and it performs as expected in normal use.',
+        'Looks nice, works fine, and setup was easy.',
+        'Decent option for daily use and the finish is clean.',
+    ];
+
+    $critical = [
+        'Product is usable but delivery and finishing could be improved.',
+        'Expected a bit more consistency in quality at this price.',
+        'Some features are good but overall experience was average.',
+    ];
+
+    if ($rating >= 5) {
+        $pool = $positive;
+    } elseif ($rating >= 3) {
+        $pool = $neutral;
+    } else {
+        $pool = $critical;
+    }
+
+    $line = $pool[array_rand($pool)];
+    return 'Review for ' . $safeProductName . ': ' . $line;
 }
 
 $admin = admin_require_login_api($con);
@@ -418,6 +595,81 @@ if ($action === 'set-visibility') {
     ]);
 }
 
+if ($action === 'set-lock') {
+    $reviewId = (int)($body['id'] ?? 0);
+    $isLocked = (int)($body['is_locked'] ?? 0) === 1 ? 1 : 0;
+    $adminId = (int)($admin['id'] ?? 0);
+
+    if ($reviewId <= 0) {
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'Invalid review id.',
+        ], 422);
+    }
+
+    $stmt = $con->prepare(
+        'UPDATE product_reviews
+         SET is_locked = ?,
+             locked_at = CASE WHEN ? = 1 THEN NOW() ELSE NULL END,
+             locked_by_admin_id = CASE WHEN ? = 1 THEN ? ELSE NULL END,
+             updated_at = NOW()
+         WHERE id = ?
+         LIMIT 1'
+    );
+
+    if (!$stmt) {
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'Unable to update review lock state.',
+        ], 500);
+    }
+
+    $stmt->bind_param('iiiii', $isLocked, $isLocked, $isLocked, $adminId, $reviewId);
+    $ok = $stmt->execute();
+    $affected = $stmt->affected_rows;
+    $stmt->close();
+
+    if (!$ok) {
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'Unable to update review lock state.',
+        ], 500);
+    }
+
+    if ($affected < 1) {
+        if (!admin_reviews_exists($con, $reviewId)) {
+            admin_reviews_json([
+                'ok' => false,
+                'message' => 'Review not found.',
+            ], 404);
+        }
+
+        admin_reviews_json([
+            'ok' => true,
+            'message' => 'Review lock state already set.',
+            'payload' => [
+                'reviews' => admin_reviews_fetch_all($con),
+                'stats' => admin_reviews_stats($con),
+            ],
+        ]);
+    }
+
+    admin_api_log_security_event($con, $admin, 'review.lock_state_changed', 'info', [
+        'review_id' => $reviewId,
+        'is_locked' => $isLocked,
+        'admin_id' => $adminId,
+    ]);
+
+    admin_reviews_json([
+        'ok' => true,
+        'message' => $isLocked === 1 ? 'Review locked successfully.' : 'Review unlocked successfully.',
+        'payload' => [
+            'reviews' => admin_reviews_fetch_all($con),
+            'stats' => admin_reviews_stats($con),
+        ],
+    ]);
+}
+
 if ($action === 'update-review') {
     $reviewId = (int)($body['id'] ?? 0);
     $rating = (int)($body['rating'] ?? 0);
@@ -450,6 +702,33 @@ if ($action === 'update-review') {
             'ok' => false,
             'message' => 'Admin note can be up to 500 characters.',
         ], 422);
+    }
+
+    $lockStmt = $con->prepare('SELECT is_locked FROM product_reviews WHERE id = ? LIMIT 1');
+    if (!$lockStmt) {
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'Unable to verify review lock state.',
+        ], 500);
+    }
+
+    $lockStmt->bind_param('i', $reviewId);
+    $lockStmt->execute();
+    $lockRow = $lockStmt->get_result()?->fetch_assoc();
+    $lockStmt->close();
+
+    if (!is_array($lockRow)) {
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'Review not found.',
+        ], 404);
+    }
+
+    if ((int)($lockRow['is_locked'] ?? 0) === 1) {
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'Review is locked. Unlock it before editing.',
+        ], 423);
     }
 
     $stmt = $con->prepare(
@@ -563,6 +842,131 @@ if ($action === 'delete-review') {
     admin_reviews_json([
         'ok' => true,
         'message' => 'Review deleted successfully.',
+        'payload' => [
+            'reviews' => admin_reviews_fetch_all($con),
+            'stats' => admin_reviews_stats($con),
+        ],
+    ]);
+}
+
+if ($action === 'add-fake-bulk-reviews') {
+    $productId = (int)($body['product_id'] ?? 0);
+    $count = (int)($body['count'] ?? 1);
+    $count = max(1, min(100, $count));
+    $ratingMin = (int)($body['rating_min'] ?? 3);
+    $ratingMax = (int)($body['rating_max'] ?? 5);
+    $isVisible = (int)($body['is_visible'] ?? 1) === 1 ? 1 : 0;
+
+    $ratingMin = max(1, min(5, $ratingMin));
+    $ratingMax = max(1, min(5, $ratingMax));
+    if ($ratingMin > $ratingMax) {
+        [$ratingMin, $ratingMax] = [$ratingMax, $ratingMin];
+    }
+
+    if ($productId <= 0) {
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'Product ID is required for fake reviews.',
+        ], 422);
+    }
+
+    $productStmt = $con->prepare('SELECT id, name FROM products WHERE id = ? LIMIT 1');
+    if (!$productStmt) {
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'Unable to validate fake review target.',
+        ], 500);
+    }
+
+    $productStmt->bind_param('i', $productId);
+    $productStmt->execute();
+    $productResult = $productStmt->get_result();
+    $productRow = $productResult ? $productResult->fetch_assoc() : null;
+    $productStmt->close();
+
+    if (!is_array($productRow)) {
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'Product not found.',
+        ], 404);
+    }
+
+    $productName = trim((string)($productRow['name'] ?? 'Product'));
+    if ($productName === '') {
+        $productName = 'Product';
+    }
+
+    $insertStmt = $con->prepare(
+        'INSERT INTO product_reviews (
+            user_id,
+            product_id,
+            order_id,
+            rating,
+            review_text,
+            is_verified_purchase,
+            is_visible,
+            is_locked,
+            locked_at,
+            locked_by_admin_id,
+            admin_note
+        ) VALUES (?, ?, NULL, ?, ?, 0, ?, 0, NULL, NULL, ?)'
+    );
+
+    if (!$insertStmt) {
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'Unable to prepare fake review insertion.',
+        ], 500);
+    }
+
+    $inserted = 0;
+    $failed = 0;
+    $adminNote = 'Admin generated fake review';
+
+    for ($index = 0; $index < $count; $index++) {
+        $fakeUser = admin_reviews_create_fake_user($con);
+        if (!is_array($fakeUser) || (int)($fakeUser['id'] ?? 0) <= 0) {
+            $failed++;
+            continue;
+        }
+
+        $userId = (int)$fakeUser['id'];
+        $rating = random_int($ratingMin, $ratingMax);
+        $reviewText = admin_reviews_random_review_text($productName, $rating);
+
+        $insertStmt->bind_param('iiisis', $userId, $productId, $rating, $reviewText, $isVisible, $adminNote);
+        if (!$insertStmt->execute()) {
+            $failed++;
+            continue;
+        }
+
+        $inserted++;
+    }
+
+    $insertStmt->close();
+
+    if ($inserted <= 0) {
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'Unable to generate fake reviews. Please retry.',
+        ], 500);
+    }
+
+    admin_api_log_security_event($con, $admin, 'review.fake_bulk_created', 'warning', [
+        'product_id' => $productId,
+        'requested_count' => $count,
+        'inserted_count' => $inserted,
+        'failed_count' => $failed,
+        'rating_min' => $ratingMin,
+        'rating_max' => $ratingMax,
+        'is_visible' => $isVisible,
+    ]);
+
+    admin_reviews_json([
+        'ok' => true,
+        'message' => $failed > 0
+            ? "Generated {$inserted} fake review(s). {$failed} could not be created."
+            : "Generated {$inserted} fake review(s) successfully.",
         'payload' => [
             'reviews' => admin_reviews_fetch_all($con),
             'stats' => admin_reviews_stats($con),

@@ -20,8 +20,13 @@ $(document).ready(function () {
   const carouselElement = document.getElementById("carouselExampleIndicators");
   const playPauseBtn = document.getElementById("carouselPlayPause");
 
-  if (carouselElement && playPauseBtn) {
-    const carousel = new bootstrap.Carousel(carouselElement, {
+  if (
+    carouselElement &&
+    playPauseBtn &&
+    window.bootstrap &&
+    typeof window.bootstrap.Carousel === "function"
+  ) {
+    const carousel = new window.bootstrap.Carousel(carouselElement, {
       interval: 3500,
       pause: false,
     });
@@ -223,21 +228,36 @@ $(document).ready(function () {
   }
 
   function resolveCartItem(btn) {
+    const dataId = parseInt(btn.data("productId"), 10);
     const dataName = btn.data("productName");
+    const dataCode = (btn.data("productCode") || "").toString().trim();
     const dataPrice = btn.data("productSalePrice") || btn.data("productPrice");
     const dataImage = btn.data("productImage");
 
+    let productId = Number.isInteger(dataId) && dataId > 0 ? dataId : 0;
     let name = dataName;
+    let productCode = dataCode;
     let price = dataPrice;
     let image = dataImage;
 
-    if (!name || !price || !image) {
+    if (!productId || !name || !productCode || !price || !image) {
       const card = btn.closest(".product-card");
       const detailCard = btn.closest(".product-detail-card");
       const scope = card.length ? card : detailCard;
 
+      if (!productId) {
+        const scopedId = parseInt(scope.data("productId"), 10);
+        if (Number.isInteger(scopedId) && scopedId > 0) {
+          productId = scopedId;
+        }
+      }
+
       if (!name) {
         name = scope.find(".product-name").first().text().trim();
+      }
+
+      if (!productCode) {
+        productCode = (scope.data("productCode") || "").toString().trim();
       }
 
       if (!price) {
@@ -263,7 +283,9 @@ $(document).ready(function () {
     })();
 
     return {
+      id: productId,
       name: name || "",
+      code: productCode || "",
       price: normalizedPrice,
       image: image || "",
     };
@@ -282,6 +304,11 @@ $(document).ready(function () {
     const btn = $(this);
     const rawHref = (btn.attr("href") || "").trim();
     const href = rawHref.toLowerCase();
+    const isPlaceholderAnchor =
+      rawHref === "" ||
+      rawHref === "#" ||
+      rawHref.startsWith("#") ||
+      rawHref.endsWith("#");
     const isDirectContactLink =
       href.startsWith("mailto:") || href.startsWith("tel:");
     const hasProductContext =
@@ -291,9 +318,14 @@ $(document).ready(function () {
       btn.closest(".product-card[data-product-name]").length > 0;
     const isNavigationLink =
       href !== "" &&
-      href !== "#" &&
+      !isPlaceholderAnchor &&
       !href.startsWith("javascript:") &&
       href.indexOf("compare.php") === -1;
+
+    if (isPlaceholderAnchor) {
+      e.preventDefault();
+    }
+
     if (
       $(this).hasClass("change-qty") ||
       $(this).hasClass("compare-remove-btn") ||
@@ -301,11 +333,16 @@ $(document).ready(function () {
       $(this).hasClass("compare-link") ||
       (href && href.indexOf("compare.php") !== -1) ||
       isDirectContactLink ||
-      isNavigationLink ||
-      !hasProductContext
+      isNavigationLink
     )
       return;
-    e.preventDefault();
+
+    if (!hasProductContext) {
+      if (isPlaceholderAnchor) {
+        showNotif("Unable to add this product right now.", "warning");
+      }
+      return;
+    }
 
     await initCartState();
 
@@ -314,9 +351,14 @@ $(document).ready(function () {
       return;
     }
 
-    const productId = parseInt(btn.data("productId"), 10);
-    const productName = (btn.data("productName") || "").toString().trim();
-    const productCode = (btn.data("productCode") || "").toString().trim();
+    const cartItem = resolveCartItem(btn);
+    const productId = parseInt(cartItem.id || btn.data("productId"), 10);
+    const productName = (cartItem.name || btn.data("productName") || "")
+      .toString()
+      .trim();
+    const productCode = (cartItem.code || btn.data("productCode") || "")
+      .toString()
+      .trim();
     if (!Number.isInteger(productId) || productId <= 0) {
       showNotif("Unable to add this product. Invalid product id.", "warning");
       return;
@@ -1183,7 +1225,7 @@ $(document).ready(function () {
       url: "backend/products_api.php",
       method: "GET",
       dataType: "json",
-      cache: false,
+      cache: true,
     }).then((data) => {
       const normalized = {
         sections: Array.isArray(data?.sections) ? data.sections : [],
@@ -1432,7 +1474,40 @@ $(document).ready(function () {
     return fromName || "product";
   }
 
+  function sanitizeProductBasePath(rawPath) {
+    const raw = (rawPath || "").toString().trim().replace(/\\/g, "/");
+    if (!raw) {
+      return "";
+    }
+
+    const segments = raw.split("/").filter(Boolean);
+    const isSafeSegment = (segment) => /^[a-z0-9_-]+$/i.test(segment || "");
+    const projectSegment = segments.find((segment) =>
+      /^commerza$/i.test(segment),
+    );
+
+    if (projectSegment && isSafeSegment(projectSegment)) {
+      return `/${projectSegment}/`;
+    }
+
+    for (let index = 0; index < segments.length; index += 1) {
+      const segment = (segments[index] || "").toString().trim();
+      if (isSafeSegment(segment)) {
+        return `/${segment}/`;
+      }
+    }
+
+    return raw.includes(":") ? "/" : "";
+  }
+
   function getProductAppBasePath() {
+    const globalBase = sanitizeProductBasePath(
+      window.CommerzaAppBasePath || "",
+    );
+    if (globalBase) {
+      return globalBase;
+    }
+
     const pathname = window.location.pathname.replace(/\\/g, "/");
     const lowerPathname = pathname.toLowerCase();
     const markers = ["/products.php", "/prodcuts/", "/products/", "/product/"];
@@ -1440,16 +1515,20 @@ $(document).ready(function () {
     for (const marker of markers) {
       const markerIndex = lowerPathname.indexOf(marker);
       if (markerIndex >= 0) {
-        return pathname.slice(0, markerIndex + 1);
+        return (
+          sanitizeProductBasePath(pathname.slice(0, markerIndex + 1)) || "/"
+        );
       }
     }
 
     const lastSlashIndex = pathname.lastIndexOf("/");
     if (lastSlashIndex >= 0) {
-      return pathname.slice(0, lastSlashIndex + 1);
+      return (
+        sanitizeProductBasePath(pathname.slice(0, lastSlashIndex + 1)) || "/"
+      );
     }
 
-    return "/";
+    return sanitizeProductBasePath(pathname) || "/";
   }
 
   function buildProductDetailPathFromSlug(slug) {
@@ -1466,13 +1545,8 @@ $(document).ready(function () {
     const detailPath = buildProductDetailPathFromSlug(
       resolveProductIdentitySlug(product),
     );
-    const numericProductId = Number.parseInt(product?.id, 10);
-    const idQuery =
-      Number.isInteger(numericProductId) && numericProductId > 0
-        ? `?id=${encodeURIComponent(String(numericProductId))}`
-        : "";
 
-    return `${window.location.origin}${basePath}${detailPath}${idQuery}`;
+    return `${window.location.origin}${basePath}${detailPath}`;
   }
 
   function extractProductSlugFromPath() {
@@ -1582,35 +1656,114 @@ $(document).ready(function () {
       return null;
     }
 
+    const pickByLowestId = (candidates) => {
+      if (!Array.isArray(candidates) || candidates.length === 0) {
+        return null;
+      }
+
+      return candidates.slice().sort((a, b) => {
+        const aId = Number.parseInt(a?.id, 10);
+        const bId = Number.parseInt(b?.id, 10);
+        const safeA = Number.isInteger(aId) ? aId : Number.MAX_SAFE_INTEGER;
+        const safeB = Number.isInteger(bId) ? bId : Number.MAX_SAFE_INTEGER;
+        return safeA - safeB;
+      })[0];
+    };
+
+    const candidates = [];
+
     for (const section of data.sections) {
       const products = section.products || [];
       for (const product of products) {
-        const productId = (product.id ?? "").toString().trim();
-        const productName = normalizeProductIdentityName(product.name || "");
-        const productCode = normalizeProductIdentityCode(
-          product.productCode || "",
-        );
-        const productSlug = normalizeProductIdentitySlug(
-          product.slug || product.name || "",
-        );
-
-        const idMatches = id === "" ? true : productId === id;
-        const nameMatches =
-          normalizedName === "" ? true : productName === normalizedName;
-        const codeMatches =
-          normalizedCode === "" ? true : productCode === normalizedCode;
-        const slugMatches =
-          normalizedSlug === "" ? true : productSlug === normalizedSlug;
-
-        if (idMatches && nameMatches && codeMatches && slugMatches) {
-          return {
-            ...product,
-            sectionName: section.sectionName,
-            sectionId: section.sectionId,
-          };
-        }
+        candidates.push({
+          ...product,
+          sectionName: section.sectionName,
+          sectionId: section.sectionId,
+        });
       }
     }
+
+    if (id !== "") {
+      const idMatch = candidates.find(
+        (product) => (product.id ?? "").toString().trim() === id,
+      );
+      if (idMatch) {
+        return idMatch;
+      }
+    }
+
+    const hasStrictFilters =
+      normalizedSlug !== "" || normalizedCode !== "" || normalizedName !== "";
+
+    if (hasStrictFilters) {
+      const strictMatches = candidates.filter((product) => {
+        if (
+          normalizedSlug !== "" &&
+          normalizeProductIdentitySlug(product.slug || product.name || "") !==
+            normalizedSlug
+        ) {
+          return false;
+        }
+
+        if (
+          normalizedCode !== "" &&
+          normalizeProductIdentityCode(product.productCode || "") !==
+            normalizedCode
+        ) {
+          return false;
+        }
+
+        if (
+          normalizedName !== "" &&
+          normalizeProductIdentityName(product.name || "") !== normalizedName
+        ) {
+          return false;
+        }
+
+        return true;
+      });
+
+      const strictWinner = pickByLowestId(strictMatches);
+      if (strictWinner) {
+        return strictWinner;
+      }
+    }
+
+    if (normalizedSlug !== "") {
+      const slugWinner = pickByLowestId(
+        candidates.filter(
+          (product) =>
+            normalizeProductIdentitySlug(product.slug || product.name || "") ===
+            normalizedSlug,
+        ),
+      );
+      if (slugWinner) {
+        return slugWinner;
+      }
+    }
+
+    if (normalizedCode !== "") {
+      const codeWinner = pickByLowestId(
+        candidates.filter(
+          (product) =>
+            normalizeProductIdentityCode(product.productCode || "") ===
+            normalizedCode,
+        ),
+      );
+      if (codeWinner) {
+        return codeWinner;
+      }
+    }
+
+    if (normalizedName !== "") {
+      return pickByLowestId(
+        candidates.filter(
+          (product) =>
+            normalizeProductIdentityName(product.name || "") === normalizedName,
+        ),
+      );
+    }
+
     return null;
   }
 
@@ -1931,6 +2084,318 @@ $(document).ready(function () {
     return html ? `<div class="mt-2">${html}</div>` : "";
   }
 
+  const REVIEW_MAX_UPLOAD_FILES = 2;
+  const REVIEW_MAX_UPLOAD_BYTES = 6 * 1024 * 1024;
+  const REVIEW_WEBP_TARGET_KB = 260;
+  const REVIEW_WEBP_MAX_DIMENSION = 1800;
+  const REVIEW_WEBP_QUALITY_STEPS = [
+    0.86, 0.8, 0.74, 0.68, 0.62, 0.56, 0.5, 0.44,
+  ];
+
+  let reviewSelectedFiles = [];
+
+  function reviewFormatSizeKb(bytes) {
+    const numeric = Number(bytes);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return "0 KB";
+    }
+
+    return `${Math.max(1, Math.round(numeric / 1024))} KB`;
+  }
+
+  function reviewBaseName(fileName) {
+    const stem = (fileName || "review-image")
+      .toString()
+      .replace(/\.[^.]+$/, "")
+      .replace(/[^a-z0-9-_]+/gi, "-")
+      .replace(/^-+|-+$/g, "");
+
+    return stem || "review-image";
+  }
+
+  function reviewCanvasToBlob(canvas, type, quality) {
+    return new Promise((resolve) => {
+      if (!canvas || typeof canvas.toBlob !== "function") {
+        resolve(null);
+        return;
+      }
+
+      canvas.toBlob(
+        (blob) => {
+          resolve(blob || null);
+        },
+        type,
+        quality,
+      );
+    });
+  }
+
+  function reviewLoadImageFromFile(file) {
+    return new Promise((resolve, reject) => {
+      if (!(file instanceof File)) {
+        reject(new Error("Invalid review image file."));
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(file);
+      const image = new Image();
+      image.decoding = "async";
+      image.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(image);
+      };
+      image.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error("Unable to parse selected image."));
+      };
+      image.src = objectUrl;
+    });
+  }
+
+  async function reviewCompressFileToWebp(file) {
+    const mime = (file?.type || "").toString().toLowerCase();
+    const size = Number(file?.size) || 0;
+
+    if (
+      !(
+        mime === "image/png" ||
+        mime === "image/jpeg" ||
+        mime === "image/webp" ||
+        mime === "image/gif"
+      )
+    ) {
+      throw new Error("Only JPG, PNG, WEBP, and GIF images are allowed.");
+    }
+
+    if (size <= 0 || size >= REVIEW_MAX_UPLOAD_BYTES) {
+      throw new Error("Each image must be less than 6 MB.");
+    }
+
+    const image = await reviewLoadImageFromFile(file);
+    const sourceWidth = Number(image.naturalWidth || image.width || 0);
+    const sourceHeight = Number(image.naturalHeight || image.height || 0);
+
+    if (!sourceWidth || !sourceHeight) {
+      return file;
+    }
+
+    const longestSide = Math.max(sourceWidth, sourceHeight);
+    const scale =
+      longestSide > REVIEW_WEBP_MAX_DIMENSION
+        ? REVIEW_WEBP_MAX_DIMENSION / longestSide
+        : 1;
+
+    const outputWidth = Math.max(1, Math.round(sourceWidth * scale));
+    const outputHeight = Math.max(1, Math.round(sourceHeight * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = outputWidth;
+    canvas.height = outputHeight;
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return file;
+    }
+
+    context.drawImage(image, 0, 0, outputWidth, outputHeight);
+
+    const targetBytes = REVIEW_WEBP_TARGET_KB * 1024;
+    let bestBlob = null;
+
+    for (const quality of REVIEW_WEBP_QUALITY_STEPS) {
+      const blob = await reviewCanvasToBlob(canvas, "image/webp", quality);
+      if (!blob) {
+        continue;
+      }
+
+      if (!bestBlob || blob.size < bestBlob.size) {
+        bestBlob = blob;
+      }
+
+      if (blob.size <= targetBytes) {
+        bestBlob = blob;
+        break;
+      }
+    }
+
+    if (!bestBlob) {
+      return file;
+    }
+
+    if (mime === "image/webp" && bestBlob.size >= size) {
+      return file;
+    }
+
+    return new File([bestBlob], `${reviewBaseName(file.name)}.webp`, {
+      type: "image/webp",
+      lastModified: Date.now(),
+    });
+  }
+
+  function reviewRenderSelectedFiles() {
+    const selection = $("#reviewFileSelection");
+    if (!selection.length) {
+      return;
+    }
+
+    if (!reviewSelectedFiles.length) {
+      selection.text("No images selected yet.");
+      return;
+    }
+
+    const markup = reviewSelectedFiles
+      .map((file, index) => {
+        const safeName = escapeHtml(
+          (file?.name || `review-image-${index + 1}.webp`).toString(),
+        );
+        const sizeLabel = reviewFormatSizeKb(file?.size || 0);
+
+        return `
+          <span class="badge rounded-pill text-bg-dark border border-warning-subtle me-2 mb-2">
+            <span>${safeName} (${sizeLabel})</span>
+            <button type="button" class="btn btn-link btn-sm text-warning p-0 ms-2 review-remove-file-btn" data-file-index="${index}" aria-label="Remove ${safeName}">
+              <i class="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
+          </span>
+        `;
+      })
+      .join("");
+
+    selection.html(markup);
+  }
+
+  function reviewSyncInputFiles() {
+    const input = document.getElementById("reviewImages");
+    if (!input) {
+      return;
+    }
+
+    if (typeof DataTransfer === "undefined") {
+      return;
+    }
+
+    try {
+      const transfer = new DataTransfer();
+      reviewSelectedFiles.forEach((file) => {
+        transfer.items.add(file);
+      });
+
+      input.files = transfer.files;
+    } catch (_error) {
+      // Some older engines may block FileList mutation; keeping state fallback is safe.
+    }
+  }
+
+  function reviewClearSelectedFiles() {
+    reviewSelectedFiles = [];
+
+    const input = document.getElementById("reviewImages");
+    if (input) {
+      input.value = "";
+    }
+
+    reviewRenderSelectedFiles();
+  }
+
+  async function reviewHandleFileSelectionChange(event) {
+    const input = event?.target;
+    const files = input?.files ? Array.from(input.files) : [];
+
+    if (!files.length) {
+      reviewClearSelectedFiles();
+      return;
+    }
+
+    if (files.length > REVIEW_MAX_UPLOAD_FILES) {
+      showNotif("You can upload up to 2 images only.", "warning");
+    }
+
+    const normalizedFiles = files.slice(0, REVIEW_MAX_UPLOAD_FILES);
+    $("#reviewFileSelection").text("Optimizing selected images...");
+
+    const compressedFiles = [];
+    let originalBytes = 0;
+
+    for (const file of normalizedFiles) {
+      originalBytes += Number(file?.size) || 0;
+      const compressed = await reviewCompressFileToWebp(file);
+      compressedFiles.push(compressed instanceof File ? compressed : file);
+    }
+
+    reviewSelectedFiles = compressedFiles;
+    reviewSyncInputFiles();
+    reviewRenderSelectedFiles();
+
+    const optimizedBytes = reviewSelectedFiles.reduce(
+      (total, file) => total + (Number(file?.size) || 0),
+      0,
+    );
+
+    if (originalBytes > 0) {
+      const savingsRatio = Math.max(0, 1 - optimizedBytes / originalBytes);
+      const savingsPercent = Math.round(savingsRatio * 100);
+      const optimizedLabel = reviewFormatSizeKb(optimizedBytes);
+
+      if (savingsPercent > 0) {
+        showNotif(
+          `Images converted to WebP (${savingsPercent}% smaller, ${optimizedLabel} total).`,
+          "success",
+        );
+      } else {
+        showNotif(
+          `Images converted to WebP (${optimizedLabel} total).`,
+          "success",
+        );
+      }
+    }
+  }
+
+  function reviewInitializeUploader() {
+    const input = document.getElementById("reviewImages");
+    if (!input) {
+      return;
+    }
+
+    if (input.getAttribute("data-review-uploader-ready") !== "1") {
+      input.addEventListener("change", (event) => {
+        reviewHandleFileSelectionChange(event).catch((error) => {
+          showNotif(
+            error?.message || "Unable to optimize selected images.",
+            "warning",
+          );
+          reviewClearSelectedFiles();
+        });
+      });
+
+      input.setAttribute("data-review-uploader-ready", "1");
+    }
+
+    $(document)
+      .off("click.reviewRemoveSelectedImage")
+      .on(
+        "click.reviewRemoveSelectedImage",
+        "#reviewFileSelection .review-remove-file-btn",
+        function (event) {
+          event.preventDefault();
+
+          const index = parseInt($(this).attr("data-file-index"), 10);
+          if (
+            !Number.isInteger(index) ||
+            index < 0 ||
+            index >= reviewSelectedFiles.length
+          ) {
+            return;
+          }
+
+          reviewSelectedFiles.splice(index, 1);
+          reviewSyncInputFiles();
+          reviewRenderSelectedFiles();
+        },
+      );
+
+    reviewRenderSelectedFiles();
+  }
+
   const REVIEW_RATING_LABELS = {
     1: "1 star - Poor",
     2: "2 stars - Fair",
@@ -2080,6 +2545,8 @@ $(document).ready(function () {
     const ratingInput = $("#reviewRating");
     const textInput = $("#reviewText");
     const imageInput = $("#reviewImages");
+    const removeExistingWrap = $("#reviewRemoveExistingWrap");
+    const removeExistingInput = $("#reviewRemoveExistingImages");
     const submitBtn = $("#reviewSubmitBtn");
     const hiddenProductInput = $("#reviewProductId");
 
@@ -2090,8 +2557,15 @@ $(document).ready(function () {
     hiddenProductInput.val(String(productId || ""));
 
     const existingReview = eligibility?.existing_review || null;
-    const canReview = !!eligibility?.can_review || !!existingReview;
+    const existingImages = Array.isArray(existingReview?.images)
+      ? existingReview.images
+      : [];
+    const isLocked = !!existingReview?.is_locked;
+    const canReview =
+      !isLocked && (!!eligibility?.can_review || !!existingReview);
     const statusMessage = (eligibility?.message || "").toString().trim();
+
+    reviewInitializeUploader();
 
     if (existingReview) {
       setReviewRatingSelection(existingReview.rating || 5);
@@ -2102,14 +2576,31 @@ $(document).ready(function () {
       setReviewRatingSelection(0);
     }
 
-    ratingInput.prop("disabled", false);
+    ratingInput.prop("disabled", !canReview);
     textInput.prop("disabled", !canReview);
     imageInput.prop("disabled", !canReview);
+    removeExistingInput.prop("checked", false);
+    removeExistingInput.prop("disabled", !(canReview && existingImages.length));
+    removeExistingWrap.toggleClass(
+      "d-none",
+      !(canReview && existingImages.length),
+    );
+    submitBtn.data("reviewLocked", isLocked ? 1 : 0);
     submitBtn.prop("disabled", !canReview);
-    $("#reviewStarsInput").toggleClass("is-readonly", false);
-    setupReviewStarInput(false);
+    $("#reviewStarsInput").toggleClass("is-readonly", !canReview);
+    setupReviewStarInput(!canReview);
 
-    submitBtn.text(existingReview ? "Update Review" : "Submit Review");
+    if (!canReview) {
+      reviewClearSelectedFiles();
+    }
+
+    submitBtn.text(
+      isLocked
+        ? "Review Locked"
+        : existingReview
+          ? "Update Review"
+          : "Submit Review",
+    );
 
     if (message.length) {
       message
@@ -2141,10 +2632,23 @@ $(document).ready(function () {
 
       const rating = getReviewRatingSelection();
       const text = ($("#reviewText").val() || "").toString().trim();
-      const imageInput = document.getElementById("reviewImages");
-      const selectedFiles = imageInput?.files
-        ? Array.from(imageInput.files)
-        : [];
+      const selectedFiles = reviewSelectedFiles.slice(
+        0,
+        REVIEW_MAX_UPLOAD_FILES,
+      );
+      const removeExistingImages = $("#reviewRemoveExistingImages").is(
+        ":checked",
+      );
+      const submitBtn = $("#reviewSubmitBtn");
+      const isLocked = parseInt(submitBtn.data("reviewLocked"), 10) === 1;
+
+      if (isLocked) {
+        showNotif(
+          "This review has been locked by admin and cannot be edited.",
+          "warning",
+        );
+        return;
+      }
 
       if (rating < 1 || rating > 5) {
         showNotif("Select a rating between 1 and 5.", "warning");
@@ -2159,16 +2663,26 @@ $(document).ready(function () {
         return;
       }
 
-      if (selectedFiles.length > 2) {
+      if (selectedFiles.length > REVIEW_MAX_UPLOAD_FILES) {
         showNotif("You can upload up to 2 images only.", "warning");
         return;
       }
 
-      const maxBytes = 6 * 1024 * 1024;
+      const maxBytes = REVIEW_MAX_UPLOAD_BYTES;
       for (const file of selectedFiles) {
         const mime = (file?.type || "").toString().toLowerCase();
-        if (!(mime === "image/png" || mime === "image/jpeg")) {
-          showNotif("Only PNG and JPG images are allowed.", "warning");
+        if (
+          !(
+            mime === "image/png" ||
+            mime === "image/jpeg" ||
+            mime === "image/webp" ||
+            mime === "image/gif"
+          )
+        ) {
+          showNotif(
+            "Only JPG, PNG, WEBP, and GIF images are allowed.",
+            "warning",
+          );
           return;
         }
 
@@ -2178,7 +2692,6 @@ $(document).ready(function () {
         }
       }
 
-      const submitBtn = $("#reviewSubmitBtn");
       const originalText = submitBtn.text();
       submitBtn.prop("disabled", true).text("Submitting...");
 
@@ -2190,7 +2703,11 @@ $(document).ready(function () {
         body.set("review_text", text);
         body.set("csrf_token", reviewsCsrfToken || "");
 
-        selectedFiles.slice(0, 2).forEach((file) => {
+        if (removeExistingImages) {
+          body.set("remove_existing_images", "1");
+        }
+
+        selectedFiles.slice(0, REVIEW_MAX_UPLOAD_FILES).forEach((file) => {
           body.append("review_images[]", file);
         });
 
@@ -2220,9 +2737,8 @@ $(document).ready(function () {
         }
 
         $("#reviewText").val("");
-        if (imageInput) {
-          imageInput.value = "";
-        }
+        $("#reviewRemoveExistingImages").prop("checked", false);
+        reviewClearSelectedFiles();
         renderReviewsMarquee(product);
       } catch (error) {
         showNotif(error?.message || "Unable to submit review.", "warning");
@@ -2397,20 +2913,22 @@ $(document).ready(function () {
 
     const productRequest = getProductRequestParams();
 
+    const hasProductIdentity =
+      (productRequest.slug || "").toString().trim() !== "" ||
+      (productRequest.id || "").toString().trim() !== "" ||
+      (productRequest.name || "").toString().trim() !== "" ||
+      (productRequest.code || "").toString().trim() !== "";
+
+    if (!hasProductIdentity) {
+      renderProductDetail(null);
+      renderShareButtons(null);
+      renderReviewsMarquee(null);
+      return;
+    }
+
     fetchProductsData()
       .done((data) => {
-        let product = findProduct(data, productRequest);
-
-        if (
-          !product &&
-          !productRequest.slug &&
-          !productRequest.id &&
-          !productRequest.name &&
-          !productRequest.code
-        ) {
-          const fallbackProducts = uniqueProducts(getAllProducts(data));
-          product = fallbackProducts.length > 0 ? fallbackProducts[0] : null;
-        }
+        const product = findProduct(data, productRequest);
 
         renderProductDetail(product);
         renderShareButtons(product);
@@ -2467,8 +2985,12 @@ $(document).ready(function () {
     const query = $(this).find('input[type="search"]').val() || "";
     handleSearch(query);
     const offcanvas = $(".offcanvas.show");
-    if (offcanvas.length) {
-      bootstrap.Offcanvas.getInstance(offcanvas[0])?.hide();
+    if (
+      offcanvas.length &&
+      window.bootstrap &&
+      typeof window.bootstrap.Offcanvas?.getInstance === "function"
+    ) {
+      window.bootstrap.Offcanvas.getInstance(offcanvas[0])?.hide();
     }
   });
 

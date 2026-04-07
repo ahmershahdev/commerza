@@ -33,6 +33,7 @@ let adminMetrics = null;
 let adminRefunds = [];
 let adminCoupons = [];
 let adminReviews = [];
+let productTrashItems = [];
 let notificationsPausedUntil = 0;
 const ORDER_STATUS_LOCKS = new Set();
 let analyticsProfitLossChart = null;
@@ -349,6 +350,48 @@ function sanitizeAdminMediaUrl(value) {
 
 function formatPkr(value) {
   return `PKR ${Number(value || 0).toLocaleString()}`;
+}
+
+function isCodPaymentMethod(paymentMethod) {
+  const normalized = (paymentMethod || "").toString().toLowerCase().trim();
+  if (!normalized) return false;
+  return (
+    normalized === "cod" ||
+    normalized.includes("cash on delivery") ||
+    /\bcod\b/i.test(normalized)
+  );
+}
+
+function resolveOrderPaymentBadge(paymentStatusRaw, paymentMethodRaw) {
+  const paymentStatus = (paymentStatusRaw || "").toString().toLowerCase();
+  const paymentMethod = (paymentMethodRaw || "").toString().trim();
+  const codUnpaid =
+    paymentStatus === "unpaid" && isCodPaymentMethod(paymentMethod);
+
+  if (paymentStatus === "refunded") {
+    return { label: "Refunded", className: "bg-secondary" };
+  }
+
+  if (paymentStatus === "partially_refunded") {
+    return { label: "Refund Pending", className: "bg-warning text-dark" };
+  }
+
+  if (paymentStatus === "paid") {
+    return { label: "Paid", className: "bg-success" };
+  }
+
+  if (codUnpaid) {
+    return { label: "COD", className: "bg-info text-dark" };
+  }
+
+  if (paymentStatus === "unpaid") {
+    return { label: "Unpaid", className: "bg-dark border border-secondary" };
+  }
+
+  return {
+    label: paymentMethod || "N/A",
+    className: "bg-dark border border-secondary",
+  };
 }
 
 function readJsonStorage(key, fallback) {
@@ -1980,6 +2023,7 @@ function renderReviewsStats(stats = {}) {
   $("#reviewStatVisible").text(parseInt(stats.visible, 10) || 0);
   $("#reviewStatHidden").text(parseInt(stats.hidden, 10) || 0);
   $("#reviewStatAverage").text(Number(stats.averageRating || 0).toFixed(2));
+  $("#reviewStatLocked").text(parseInt(stats.locked || 0, 10) || 0);
 }
 
 function renderAdminReviewImages(images) {
@@ -2022,11 +2066,22 @@ function renderReviewsTable() {
     const statusBadge = review.isVisible
       ? '<span class="badge bg-success">Visible</span>'
       : '<span class="badge bg-secondary">Hidden</span>';
+    const lockBadge = review.isLocked
+      ? '<span class="badge bg-info text-dark">Locked</span>'
+      : '<span class="badge bg-dark border border-secondary">Unlocked</span>';
     const rating = Math.max(1, Math.min(5, parseInt(review.rating, 10) || 0));
     const stars = `${"★".repeat(rating)}${"☆".repeat(5 - rating)}`;
     const text = (review.reviewText || "").toString();
     const clipped = text.length > 120 ? `${text.slice(0, 120)}...` : text;
     const imageMarkup = renderAdminReviewImages(review.images || []);
+    const lockMeta = review.isLocked
+      ? `<div class="text-info small">${escapeHtml(
+          review.lockedAt
+            ? `Locked: ${formatDateTime(review.lockedAt)}`
+            : "Locked",
+        )}</div>`
+      : "";
+    const reviewId = Number(review.id || 0);
 
     tbody.append(`
       <tr class="border-bottom border-secondary">
@@ -2037,13 +2092,16 @@ function renderReviewsTable() {
         </td>
         <td class="py-3 text-warning">${stars}</td>
         <td class="py-3 text-secondary small" title="${escapeHtml(text)}">${escapeHtml(clipped)}${imageMarkup}</td>
-        <td class="py-3">${statusBadge}</td>
-        <td class="py-3 text-secondary small">${escapeHtml(formatDateTime(review.updatedAt))}</td>
+        <td class="py-3">
+          <div class="d-flex flex-column gap-1">${statusBadge}${lockBadge}</div>
+        </td>
+        <td class="py-3 text-secondary small">${escapeHtml(formatDateTime(review.updatedAt))}${lockMeta}</td>
         <td class="pe-4 py-3">
           <div class="d-flex flex-wrap gap-1">
-            <button class="btn btn-sm btn-outline-orange" onclick="editReviewById(${Number(review.id || 0)})">Edit</button>
-            <button class="btn btn-sm ${review.isVisible ? "btn-outline-secondary" : "btn-outline-success"}" onclick="toggleReviewVisibilityById(${Number(review.id || 0)}, ${review.isVisible ? 0 : 1})">${review.isVisible ? "Hide" : "Show"}</button>
-            <button class="btn btn-sm btn-outline-danger" onclick="deleteReviewById(${Number(review.id || 0)})"><i class="bi bi-trash"></i></button>
+            <button class="btn btn-sm btn-outline-orange" onclick="editReviewById(${reviewId})" ${review.isLocked ? "disabled" : ""}>Edit</button>
+            <button class="btn btn-sm ${review.isVisible ? "btn-outline-secondary" : "btn-outline-success"}" onclick="toggleReviewVisibilityById(${reviewId}, ${review.isVisible ? 0 : 1})">${review.isVisible ? "Hide" : "Show"}</button>
+            <button class="btn btn-sm ${review.isLocked ? "btn-outline-warning" : "btn-outline-info"}" onclick="setReviewLockById(${reviewId}, ${review.isLocked ? 0 : 1})">${review.isLocked ? "Unlock" : "Lock"}</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteReviewById(${reviewId})"><i class="bi bi-trash"></i></button>
           </div>
         </td>
       </tr>
@@ -2112,12 +2170,48 @@ async function toggleReviewVisibilityById(reviewId, isVisible) {
   }
 }
 
+async function setReviewLockById(reviewId, isLocked) {
+  const safeReviewId = parseInt(reviewId, 10) || 0;
+  if (safeReviewId <= 0) {
+    showNotification("Invalid review id.", "warning");
+    return;
+  }
+
+  try {
+    const result = await adminPostJson(ADMIN_REVIEWS_API, {
+      action: "set-lock",
+      id: safeReviewId,
+      is_locked: isLocked ? 1 : 0,
+    });
+
+    adminReviews = Array.isArray(result?.payload?.reviews)
+      ? result.payload.reviews
+      : adminReviews;
+    renderReviewsStats(result?.payload?.stats || {});
+    renderReviewsTable();
+    showNotification(
+      result?.message || "Review lock state updated.",
+      "success",
+    );
+  } catch (error) {
+    showNotification(
+      error?.message || "Unable to update review lock state.",
+      "danger",
+    );
+  }
+}
+
 async function editReviewById(reviewId) {
   const review = adminReviews.find(
     (item) => Number(item.id) === Number(reviewId),
   );
   if (!review) {
     showNotification("Review not found.", "warning");
+    return;
+  }
+
+  if (review.isLocked) {
+    showNotification("Unlock this review before editing it.", "warning");
     return;
   }
 
@@ -2345,6 +2439,72 @@ async function addReviewByAdmin() {
   }
 }
 
+async function addFakeBulkReviewsByAdmin(forcedCount = null) {
+  const inputProductId = parseInt($("#fakeReviewProductId").val(), 10) || 0;
+  let productId = inputProductId;
+
+  if (productId <= 0) {
+    const productIdPrompt = await showCustomPromptDialog(
+      "Product ID for fake review generation:",
+      "",
+      "Fake Review Product",
+    );
+
+    if (productIdPrompt === null) {
+      return;
+    }
+
+    productId = parseInt((productIdPrompt || "").toString().trim(), 10) || 0;
+  }
+
+  if (productId <= 0) {
+    showNotification("Enter a valid Product ID.", "warning");
+    return;
+  }
+
+  const configuredCount = parseInt($("#fakeReviewCount").val(), 10) || 1;
+  const count = Math.max(
+    1,
+    Math.min(
+      100,
+      Number.isInteger(forcedCount) ? forcedCount : configuredCount,
+    ),
+  );
+  const ratingMin = Math.max(
+    1,
+    Math.min(5, parseInt($("#fakeReviewRatingMin").val(), 10) || 3),
+  );
+  const ratingMax = Math.max(
+    1,
+    Math.min(5, parseInt($("#fakeReviewRatingMax").val(), 10) || 5),
+  );
+  const isVisible =
+    parseInt($("#fakeReviewVisibility").val(), 10) === 0 ? 0 : 1;
+
+  try {
+    const result = await adminPostJson(ADMIN_REVIEWS_API, {
+      action: "add-fake-bulk-reviews",
+      product_id: productId,
+      count,
+      rating_min: Math.min(ratingMin, ratingMax),
+      rating_max: Math.max(ratingMin, ratingMax),
+      is_visible: isVisible,
+    });
+
+    adminReviews = Array.isArray(result?.payload?.reviews)
+      ? result.payload.reviews
+      : adminReviews;
+    renderReviewsStats(result?.payload?.stats || {});
+    renderReviewsTable();
+    showNotification(result?.message || "Fake reviews generated.", "success");
+  } catch (error) {
+    showNotification(
+      error?.message || "Unable to generate fake reviews.",
+      "danger",
+    );
+  }
+}
+
 function initReviewsSection() {
   if (!$("#reviewsSection").length) {
     return;
@@ -2366,6 +2526,18 @@ function initReviewsSection() {
     .off("click")
     .on("click", function () {
       addReviewByAdmin();
+    });
+
+  $("#addFakeReviewBtn")
+    .off("click")
+    .on("click", function () {
+      addFakeBulkReviewsByAdmin(1);
+    });
+
+  $("#addFakeBulkReviewsBtn")
+    .off("click")
+    .on("click", function () {
+      addFakeBulkReviewsByAdmin();
     });
 }
 
@@ -2732,11 +2904,224 @@ function hydrateProductsData(data) {
     ? Math.max(...productsData.map((p) => p.id)) + 1
     : 1;
   nextSectionId = allSections.length ? allSections.length + 1 : 1;
+  if (Array.isArray(data?.trash?.items)) {
+    hydrateProductTrashItems(data.trash.items);
+  }
   renderSectionDropdowns();
   renderSectionsTable();
   renderProductsTable();
   calculateDashboardMetrics();
   updateNotifications();
+}
+
+function hydrateProductTrashItems(items) {
+  productTrashItems = Array.isArray(items) ? items : [];
+  renderProductTrashTable();
+}
+
+function formatTrashCountdown(seconds) {
+  let remaining = Math.max(0, parseInt(seconds, 10) || 0);
+  const days = Math.floor(remaining / 86400);
+  remaining -= days * 86400;
+  const hours = Math.floor(remaining / 3600);
+  remaining -= hours * 3600;
+  const minutes = Math.floor(remaining / 60);
+
+  if (days > 0) {
+    return `${days}d ${hours}h`;
+  }
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
+}
+
+function renderProductTrashTable() {
+  const tbody = $("#productTrashTable tbody");
+  if (!tbody.length) {
+    return;
+  }
+
+  tbody.empty();
+  const items = Array.isArray(productTrashItems) ? productTrashItems : [];
+  $("#productTrashCount").text(items.length);
+
+  if (!items.length) {
+    tbody.append(
+      '<tr><td colspan="5" class="text-center py-4 text-secondary">Trash is empty.</td></tr>',
+    );
+    return;
+  }
+
+  items.forEach((item) => {
+    const name = escapeHtml((item?.name || "Product").toString());
+    const code = escapeHtml((item?.productCode || "").toString());
+    const section = escapeHtml((item?.sectionName || "Section").toString());
+    const image = escapeHtml((item?.image || "").toString());
+    const deletedAt = escapeHtml(formatDateTime(item?.deletedAt || ""));
+    const purgeAfter = escapeHtml(formatDateTime(item?.purgeAfter || ""));
+    const countdown = formatTrashCountdown(item?.expiresInSeconds || 0);
+    const trashId = Number(item?.id || 0);
+
+    const imageCell = image
+      ? `<img src="../../${image}" alt="${name}" class="rounded" width="44" height="44" style="object-fit:cover;">`
+      : '<span class="badge bg-secondary">No media</span>';
+
+    tbody.append(`
+      <tr class="border-bottom border-secondary">
+        <td class="ps-4 py-3 text-light">
+          <div class="d-flex align-items-center gap-2">
+            ${imageCell}
+            <div>
+              <div class="fw-semibold">${name}</div>
+              <div class="text-secondary small">Code: ${code || "-"}</div>
+            </div>
+          </div>
+        </td>
+        <td class="py-3 text-secondary small">${section}</td>
+        <td class="py-3 text-secondary small">${deletedAt}</td>
+        <td class="py-3 text-secondary small">
+          <div class="text-warning fw-semibold">${countdown}</div>
+          <div>${purgeAfter}</div>
+        </td>
+        <td class="pe-4 py-3">
+          <div class="d-flex gap-1 flex-wrap">
+            <button class="btn btn-sm btn-outline-success" onclick="restoreTrashProductById(${trashId})">Restore</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteTrashItemById(${trashId})">Delete</button>
+          </div>
+        </td>
+      </tr>
+    `);
+  });
+}
+
+async function loadProductTrashData(silent = false) {
+  if (!$("#productTrashTable").length) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(
+      `${ADMIN_PRODUCTS_SYNC_API}?action=get-trash`,
+      {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+      },
+    );
+
+    const result = await response.json();
+    if (!response.ok || !result?.ok) {
+      throw new Error(result?.message || "Unable to load product trash.");
+    }
+
+    hydrateProductTrashItems(result?.payload?.items || []);
+    return true;
+  } catch (error) {
+    if (!silent) {
+      showNotification(
+        error?.message || "Unable to load product trash.",
+        "danger",
+      );
+    }
+    return false;
+  }
+}
+
+async function restoreTrashProductById(trashId) {
+  const safeId = parseInt(trashId, 10) || 0;
+  if (safeId <= 0) {
+    showNotification("Invalid trash item.", "warning");
+    return;
+  }
+
+  const confirmed = await showCustomConfirmDialog(
+    "Restore this product from trash?",
+    "Restore Product",
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const result = await adminPostJson(ADMIN_PRODUCTS_SYNC_API, {
+      action: "restore-trash-product",
+      id: safeId,
+    });
+
+    if (result?.payload?.products) {
+      hydrateProductsData(result.payload.products);
+    }
+    hydrateProductTrashItems(result?.payload?.trash?.items || []);
+    showNotification(
+      result?.message || "Product restored from trash.",
+      "success",
+    );
+  } catch (error) {
+    showNotification(error?.message || "Unable to restore product.", "danger");
+  }
+}
+
+async function deleteTrashItemById(trashId) {
+  const safeId = parseInt(trashId, 10) || 0;
+  if (safeId <= 0) {
+    showNotification("Invalid trash item.", "warning");
+    return;
+  }
+
+  const confirmed = await showCustomConfirmDialog(
+    "Permanently delete this trash item? This cannot be undone.",
+    "Permanent Delete",
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const result = await adminPostJson(ADMIN_PRODUCTS_SYNC_API, {
+      action: "delete-trash-item",
+      id: safeId,
+    });
+
+    hydrateProductTrashItems(result?.payload?.trash?.items || []);
+    showNotification(
+      result?.message || "Trash item permanently deleted.",
+      "success",
+    );
+  } catch (error) {
+    showNotification(
+      error?.message || "Unable to delete trash item.",
+      "danger",
+    );
+  }
+}
+
+async function emptyProductTrash(mode = "all") {
+  const safeMode = mode === "expired" ? "expired" : "all";
+  const confirmed = await showCustomConfirmDialog(
+    safeMode === "expired"
+      ? "Delete only expired trash items now?"
+      : "Permanently delete every trashed product now?",
+    safeMode === "expired" ? "Empty Expired Trash" : "Empty All Trash",
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const result = await adminPostJson(ADMIN_PRODUCTS_SYNC_API, {
+      action: "empty-trash",
+      mode: safeMode,
+    });
+
+    hydrateProductTrashItems(result?.payload?.trash?.items || []);
+    showNotification(
+      result?.message || "Trash cleaned successfully.",
+      "success",
+    );
+  } catch (error) {
+    showNotification(error?.message || "Unable to empty trash.", "danger");
+  }
 }
 
 function buildProductsPayload() {
@@ -2756,7 +3141,7 @@ function buildProductsPayload() {
 function saveProductsToJSON() {
   const dataToSave = buildProductsPayload();
 
-  adminPostJson(ADMIN_PRODUCTS_SYNC_API, {
+  return adminPostJson(ADMIN_PRODUCTS_SYNC_API, {
     action: "save-products",
     sections: dataToSave.sections,
   })
@@ -2764,6 +3149,7 @@ function saveProductsToJSON() {
       if (result?.payload) {
         hydrateProductsData(result.payload);
       }
+      return result;
     })
     .catch((error) => {
       console.error("Error syncing products to backend:", error);
@@ -2771,6 +3157,7 @@ function saveProductsToJSON() {
         error?.message || "Could not sync products to backend.",
         "danger",
       );
+      return null;
     });
 }
 
@@ -2924,8 +3311,8 @@ function editProduct(id) {
 
 async function deleteProduct(id) {
   const confirmed = await showCustomConfirmDialog(
-    "Delete this product?",
-    "Delete Product",
+    "Move this product to trash? It will auto-delete after 7 days.",
+    "Move To Trash",
   );
   if (!confirmed) {
     return;
@@ -2939,7 +3326,10 @@ async function deleteProduct(id) {
     renderProductsTable();
     calculateDashboardMetrics();
     updateNotifications();
-    showNotification(`"${name}" deleted!`, "success");
+    showNotification(
+      `"${name}" moved to trash (7-day restore window).`,
+      "success",
+    );
   }
 }
 
@@ -3048,8 +3438,8 @@ function editSection(sectionId) {
 
 async function deleteSection(sectionId) {
   const confirmed = await showCustomConfirmDialog(
-    "Delete this section and all its products?",
-    "Delete Section",
+    "Move this section and all its products to trash?",
+    "Move Section To Trash",
   );
   if (!confirmed) return;
 
@@ -3565,7 +3955,7 @@ function buildCatalogFromJsonPayload(rawData) {
   };
 }
 
-function applyImportedCatalogData(catalog) {
+async function applyImportedCatalogData(catalog, onProgress = null) {
   const importedSections = Array.isArray(catalog?.sections)
     ? catalog.sections
     : [];
@@ -3577,8 +3967,83 @@ function applyImportedCatalogData(catalog) {
     throw new Error("Imported file has no usable sections/products.");
   }
 
-  allSections = importedSections;
-  productsData = importedProducts;
+  const totalSteps = importedSections.length + importedProducts.length;
+  let importProgressStep = 0;
+  const reportProgress = (label) => {
+    if (typeof onProgress !== "function") {
+      return;
+    }
+
+    importProgressStep += 1;
+    onProgress({
+      step: importProgressStep,
+      total: Math.max(totalSteps, 1),
+      label: (label || "Processing").toString(),
+    });
+  };
+
+  allSections = [];
+  const sectionMap = new Map();
+  importedSections.forEach((section, index) => {
+    const normalized = {
+      sectionName: (section?.sectionName || `Section ${index + 1}`).toString(),
+      sectionId: (section?.sectionId || `section-${index + 1}`).toString(),
+      page: (section?.page || "index.php").toString(),
+      category: (section?.category || "Uncategorized").toString(),
+      subcategory: (section?.subcategory || "General").toString(),
+      products: [],
+    };
+
+    allSections.push(normalized);
+    sectionMap.set(normalized.sectionId, normalized);
+    reportProgress(`Section: ${normalized.sectionName}`);
+  });
+
+  productsData = [];
+  const usedProductIds = new Set();
+  let productIdSeed = 1;
+
+  for (let index = 0; index < importedProducts.length; index += 1) {
+    const product = importedProducts[index] || {};
+    const preferredSectionId = (product?.sectionId || "").toString();
+    const section =
+      sectionMap.get(preferredSectionId) ||
+      allSections.find((entry) => entry.sectionId === preferredSectionId) ||
+      allSections[0];
+
+    let productId = parseInt(product?.id, 10);
+    if (!Number.isInteger(productId) || productId <= 0) {
+      productId = productIdSeed;
+    }
+
+    while (usedProductIds.has(productId)) {
+      productId += 1;
+    }
+
+    usedProductIds.add(productId);
+    productIdSeed = Math.max(productIdSeed + 1, productId + 1);
+
+    productsData.push({
+      ...product,
+      id: productId,
+      sectionId: section?.sectionId || preferredSectionId,
+      sectionName: section?.sectionName || product?.sectionName || "Section",
+      page: section?.page || product?.page || "index.php",
+      category: section?.category || product?.category || "Uncategorized",
+      subcategory: section?.subcategory || product?.subcategory || "General",
+    });
+
+    reportProgress(
+      `Product: ${(product?.name || `Item ${index + 1}`).toString()}`,
+    );
+
+    if (index % 20 === 0) {
+      // Yield so the UI can refresh progress text for large imports.
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
   nextId = productsData.length
     ? Math.max(...productsData.map((p) => parseInt(p?.id, 10) || 0)) + 1
     : 1;
@@ -3590,7 +4055,6 @@ function applyImportedCatalogData(catalog) {
   renderProductsTable();
   calculateDashboardMetrics();
   updateNotifications();
-  saveProductsToJSON();
 }
 
 async function importProductsFromFileInput() {
@@ -3609,34 +4073,80 @@ async function importProductsFromFileInput() {
     return;
   }
 
-  const text = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve((reader.result || "").toString());
-    reader.onerror = () => reject(new Error("Unable to read uploaded file."));
-    reader.readAsText(file);
-  });
+  const importBtn = $("#bulkProductsImportBtn");
+  const progressEl = $("#bulkImportProgress");
+  const originalBtnHtml = importBtn.html();
+  const setImportProgress = (message, toneClass = "text-secondary") => {
+    if (!progressEl.length) {
+      return;
+    }
+    progressEl
+      .removeClass(
+        "text-secondary text-warning text-success text-danger text-info",
+      )
+      .addClass(toneClass)
+      .text((message || "").toString());
+  };
+
+  importBtn
+    .prop("disabled", true)
+    .html(
+      '<span class="spinner-border spinner-border-sm"></span> Importing...',
+    );
+  setImportProgress("Reading import file...", "text-warning");
 
   try {
+    const text = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve((reader.result || "").toString());
+      reader.onerror = () => reject(new Error("Unable to read uploaded file."));
+      reader.readAsText(file);
+    });
+
     const fileName = (file?.name || "").toLowerCase();
     const isJson = fileName.endsWith(".json") || file.type.includes("json");
     let catalog = null;
 
     if (isJson) {
+      setImportProgress("Parsing JSON payload...", "text-info");
       const parsed = JSON.parse(text || "{}");
       catalog = buildCatalogFromJsonPayload(parsed);
     } else {
+      setImportProgress("Parsing CSV rows one-by-one...", "text-info");
       const rows = parseCsvObjects(text || "");
       catalog = buildCatalogFromCsvRows(rows);
     }
 
-    applyImportedCatalogData(catalog);
+    await applyImportedCatalogData(catalog, ({ step, total, label }) => {
+      setImportProgress(`Processing ${step}/${total} | ${label}`, "text-info");
+    });
+
+    setImportProgress("Syncing imported catalog to server...", "text-warning");
+    const syncResult = await saveProductsToJSON();
+    if (!syncResult?.ok) {
+      throw new Error("Imported rows were prepared but server sync failed.");
+    }
+
     input.value = "";
+    const importedCount = Array.isArray(catalog?.products)
+      ? catalog.products.length
+      : 0;
+    setImportProgress(
+      `Import complete. ${importedCount} product(s) processed one-by-one.`,
+      "text-success",
+    );
     showNotification("Bulk upload completed successfully.", "success");
   } catch (error) {
+    setImportProgress(
+      error?.message || "Import failed. Check your file and retry.",
+      "text-danger",
+    );
     showNotification(
       error?.message || "Unable to import products file.",
       "danger",
     );
+  } finally {
+    importBtn.prop("disabled", false).html(originalBtnHtml);
   }
 }
 
@@ -4071,13 +4581,19 @@ $(document).ready(function () {
 
   function syncActiveTabUi(tabEl) {
     const pageTitle = document.getElementById("pageTitle");
+    const breadcrumbCurrent = document.getElementById("adminBreadcrumbCurrent");
     const tabText =
       tabEl?.querySelector("span:last-child")?.textContent?.trim() ||
       tabEl?.textContent?.trim() ||
       "Dashboard";
+    const normalizedTitle = tabText.replace(/\s+/g, " ");
 
     if (pageTitle) {
-      pageTitle.textContent = tabText.replace(/\s+/g, " ");
+      pageTitle.textContent = normalizedTitle;
+    }
+
+    if (breadcrumbCurrent) {
+      breadcrumbCurrent.textContent = normalizedTitle;
     }
 
     if (window.innerWidth < 768 && sidebar) {
@@ -4249,6 +4765,24 @@ $(document).ready(function () {
     .off("click")
     .on("click", downloadSampleProductsCSV);
 
+  $("#refreshProductTrashBtn")
+    .off("click")
+    .on("click", function () {
+      loadProductTrashData(false);
+    });
+
+  $("#emptyExpiredProductTrashBtn")
+    .off("click")
+    .on("click", function () {
+      emptyProductTrash("expired");
+    });
+
+  $("#emptyAllProductTrashBtn")
+    .off("click")
+    .on("click", function () {
+      emptyProductTrash("all");
+    });
+
   $("#bulkDeleteOrdersBtn").off("click").on("click", bulkDeleteOrders);
   $("#bulkDeleteCustomersBtn").off("click").on("click", bulkDeleteCustomers);
 
@@ -4284,6 +4818,7 @@ $(document).ready(function () {
   });
 
   const initialProductsLoad = loadProductsFromJSON();
+  const initialTrashLoad = loadProductTrashData(true);
   const initialOrdersLoad = loadAdminOrdersData(true);
   const initialCouponsLoad = loadCouponsData(true);
   const initialReviewsLoad = loadReviewsData(true);
@@ -4297,6 +4832,7 @@ $(document).ready(function () {
 
   Promise.allSettled([
     Promise.resolve(initialProductsLoad),
+    Promise.resolve(initialTrashLoad),
     Promise.resolve(initialOrdersLoad),
     Promise.resolve(initialCouponsLoad),
     Promise.resolve(initialReviewsLoad),
@@ -5241,25 +5777,10 @@ function renderRefundRequests() {
     const status = (refund.status || "pending").toLowerCase();
     const statusLabel =
       status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
-    const orderPaymentStatus = (refund.orderPaymentStatus || "unpaid")
-      .toString()
-      .toLowerCase();
-    const orderPaymentLabel =
-      orderPaymentStatus === "refunded"
-        ? "Refunded"
-        : orderPaymentStatus === "partially_refunded"
-          ? "Refund Pending"
-          : orderPaymentStatus === "paid"
-            ? "Paid"
-            : "Unpaid";
-    const orderPaymentClass =
-      orderPaymentStatus === "refunded"
-        ? "bg-secondary"
-        : orderPaymentStatus === "partially_refunded"
-          ? "bg-warning text-dark"
-          : orderPaymentStatus === "paid"
-            ? "bg-success"
-            : "bg-dark border border-secondary";
+    const paymentBadge = resolveOrderPaymentBadge(
+      refund.orderPaymentStatus || "unpaid",
+      refund.orderPaymentMethod || "",
+    );
 
     const row = document.createElement("tr");
     row.className = "border-bottom border-secondary";
@@ -5268,7 +5789,7 @@ function renderRefundRequests() {
       <td class="py-3 text-light">${customerName}</td>
       <td class="py-3 text-secondary small">${requestedAt}</td>
       <td class="py-3"><span class="badge ${refundBadgeClass(status)} rounded-pill">${escapeHtml(statusLabel)}</span></td>
-      <td class="py-3"><span class="badge ${orderPaymentClass} rounded-pill">${escapeHtml(orderPaymentLabel)}</span></td>
+      <td class="py-3"><span class="badge ${paymentBadge.className} rounded-pill">${escapeHtml(paymentBadge.label)}</span></td>
       <td class="py-3 text-secondary small">${reason}</td>
       <td class="py-3 text-secondary small">${evidenceUrl ? `<a href="${evidenceUrl}" target="_blank" rel="noopener" class="text-warning text-decoration-underline">${evidenceName}</a>` : "No file"}</td>
       <td class="pe-4 py-3">
@@ -5466,25 +5987,10 @@ function displayAllOrders() {
     const safePhone = escapeHtml(order.phone || "N/A");
     const safeAddress = escapeHtml(order.address || "N/A");
     const statusValue = (order.status || "Pending").toString();
-    const paymentStatus = (order.paymentStatus || "").toString().toLowerCase();
-    const paymentLabel =
-      paymentStatus === "refunded"
-        ? "Refunded"
-        : paymentStatus === "partially_refunded"
-          ? "Refund Pending"
-          : paymentStatus === "paid"
-            ? "Paid"
-            : paymentStatus === "unpaid"
-              ? "Unpaid"
-              : order.paymentMethod || "N/A";
-    const paymentBadgeClass =
-      paymentStatus === "refunded"
-        ? "bg-secondary"
-        : paymentStatus === "partially_refunded"
-          ? "bg-warning text-dark"
-          : paymentStatus === "paid"
-            ? "bg-success"
-            : "bg-dark border border-secondary";
+    const paymentBadge = resolveOrderPaymentBadge(
+      order.paymentStatus || "",
+      order.paymentMethod || "",
+    );
     const safeUserNote = escapeHtml((order.userNote || "").toString());
     const safeAdminNote = escapeHtml((order.adminNote || "").toString());
     const safeDeliveryEstimate = escapeHtml(
@@ -5504,7 +6010,7 @@ function displayAllOrders() {
             <td class="py-3 text-light">${safeCustomerName}</td>
             <td class="py-3 text-secondary small">${safeDate}</td>
             <td class="py-3 text-light fw-semibold">${formatPkr(totalAmount)}</td>
-            <td class="py-3"><span class="badge ${paymentBadgeClass} rounded-pill">${escapeHtml(paymentLabel)}</span></td>
+            <td class="py-3"><span class="badge ${paymentBadge.className} rounded-pill">${escapeHtml(paymentBadge.label)}</span></td>
             <td class="py-3"><span class="badge ${statusClass(statusValue)} rounded-pill">${escapeHtml(statusValue)}</span></td>
             <td class="pe-4 py-3">
               <button class="btn btn-sm btn-outline-danger" onclick="deleteOrder(decodeURIComponent('${encodedOrderId}')); event.stopPropagation();"><i class="bi bi-trash"></i></button>

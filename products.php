@@ -11,6 +11,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
   $requestUri = (string)($_SERVER['REQUEST_URI'] ?? '');
   $requestPath = (string)(parse_url($requestUri, PHP_URL_PATH) ?? '');
   $normalizedRequestPath = str_replace('\\', '/', $requestPath);
+  $rawQueryString = (string)(parse_url($requestUri, PHP_URL_QUERY) ?? '');
+  $visibleQueryParams = [];
+  if ($rawQueryString !== '') {
+    parse_str($rawQueryString, $visibleQueryParams);
+  }
+
   $normalizeSlug = static function (string $raw): string {
     $slug = strtolower(trim($raw));
     $slug = preg_replace('/[^a-z0-9]+/', '-', $slug);
@@ -20,40 +26,110 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     return trim($slug, '-');
   };
 
-  if (preg_match('#/(?:prodcuts|product)/([^/?#]+)/?$#i', $normalizedRequestPath, $legacyMatch) === 1) {
+  $dbConnection = $GLOBALS['con'] ?? null;
+
+  $resolveSlugFromProductId = static function (int $productId) use ($dbConnection, $normalizeSlug): string {
+    if (!($dbConnection instanceof mysqli) || $productId <= 0) {
+      return '';
+    }
+
+    $stmt = $dbConnection->prepare('SELECT name FROM products WHERE id = ? LIMIT 1');
+    if (!$stmt) {
+      return '';
+    }
+
+    $stmt->bind_param('i', $productId);
+    if (!$stmt->execute()) {
+      $stmt->close();
+      return '';
+    }
+
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    $name = trim((string)($row['name'] ?? ''));
+    if ($name === '') {
+      return '';
+    }
+
+    return $normalizeSlug($name);
+  };
+
+  if (preg_match('~/(?:prodcuts|product)/([^/?#]+)/?$~i', $normalizedRequestPath, $legacyMatch) === 1) {
     $legacySlug = $normalizeSlug(rawurldecode((string)($legacyMatch[1] ?? '')));
     if ($legacySlug !== '') {
-      $queryString = (string)(parse_url($requestUri, PHP_URL_QUERY) ?? '');
+      $forwardQueryParams = $visibleQueryParams;
+      unset($forwardQueryParams['id'], $forwardQueryParams['slug']);
       $targetUrl = commerza_absolute_url('/products/' . rawurlencode($legacySlug));
-      if ($queryString !== '') {
-        $targetUrl .= '?' . $queryString;
+      $query = http_build_query($forwardQueryParams);
+      if ($query !== '') {
+        $targetUrl .= '?' . $query;
       }
       header('Location: ' . $targetUrl, true, 301);
       exit;
     }
   }
 
-  if (preg_match('#/products\.php$#i', $normalizedRequestPath) === 1) {
-    $queryParams = $_GET;
+  if (preg_match('~/(?:products)/([^/?#]+)/?$~i', $normalizedRequestPath, $canonicalMatch) === 1) {
+    $canonicalSlug = $normalizeSlug(rawurldecode((string)($canonicalMatch[1] ?? '')));
+    if ($canonicalSlug !== '') {
+      $targetPath = '/products/' . rawurlencode($canonicalSlug);
+      $forwardQueryParams = $visibleQueryParams;
+      $hasIdQuery = array_key_exists('id', $visibleQueryParams);
+      $hasSlugQuery = array_key_exists('slug', $visibleQueryParams);
+      unset($forwardQueryParams['id'], $forwardQueryParams['slug']);
+
+      if ($hasIdQuery || $hasSlugQuery) {
+        $targetUrl = commerza_absolute_url($targetPath);
+        $query = http_build_query($forwardQueryParams);
+        if ($query !== '') {
+          $targetUrl .= '?' . $query;
+        }
+        header('Location: ' . $targetUrl, true, 301);
+        exit;
+      }
+    }
+  }
+
+  if (preg_match('~/(?:products|products\.php)$~i', $normalizedRequestPath) === 1) {
+    $isLegacyProductsPhpRoute = preg_match('~/products\.php$~i', $normalizedRequestPath) === 1;
+    $queryParams = $visibleQueryParams;
     $targetPath = '/products';
+    $shouldRedirect = $isLegacyProductsPhpRoute;
 
     if (isset($queryParams['slug'])) {
       $slug = $normalizeSlug((string)$queryParams['slug']);
 
       if ($slug !== '') {
         $targetPath .= '/' . rawurlencode($slug);
-        unset($queryParams['slug']);
+        unset($queryParams['slug'], $queryParams['id']);
+        $shouldRedirect = true;
+      }
+    } elseif (isset($queryParams['id'])) {
+      $slugFromId = $resolveSlugFromProductId((int)$queryParams['id']);
+      if ($slugFromId !== '') {
+        $targetPath .= '/' . rawurlencode($slugFromId);
+        unset($queryParams['id'], $queryParams['slug']);
+        $shouldRedirect = true;
       }
     }
 
     $targetUrl = commerza_absolute_url($targetPath);
     $query = http_build_query($queryParams);
+    $sourceQuery = http_build_query($visibleQueryParams);
+    if ($query !== $sourceQuery) {
+      $shouldRedirect = true;
+    }
+
     if ($query !== '') {
       $targetUrl .= '?' . $query;
     }
 
-    header('Location: ' . $targetUrl, true, 301);
-    exit;
+    if ($shouldRedirect) {
+      header('Location: ' . $targetUrl, true, 301);
+      exit;
+    }
   }
 }
 
@@ -692,9 +768,13 @@ $productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza
           </div>
           <div class="col-12">
             <label for="reviewImages" class="form-label text-light">Upload Images (Optional)</label>
-            <input type="file" id="reviewImages" class="form-control review-file-input" accept="image/png,image/jpeg" multiple>
+            <input type="file" id="reviewImages" class="form-control review-file-input" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
             <div id="reviewFileSelection" class="review-file-selection">No images selected yet.</div>
-            <small class="text-secondary d-block mt-1">PNG/JPG only, max 2 images, each less than 6 MB.</small>
+            <div id="reviewRemoveExistingWrap" class="form-check mt-2 d-none">
+              <input class="form-check-input" type="checkbox" value="1" id="reviewRemoveExistingImages">
+              <label class="form-check-label text-light small" for="reviewRemoveExistingImages">Remove previously uploaded review images when updating.</label>
+            </div>
+            <small class="text-secondary d-block mt-1">JPG, PNG, WEBP, or GIF. Max 2 images, each less than 6 MB. Selected images are converted to optimized WEBP before upload.</small>
           </div>
           <div class="col-12">
             <button type="submit" class="btn product-btn-buy" id="reviewSubmitBtn">Submit Review</button>
@@ -769,29 +849,6 @@ $productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza
   <script src="frontend/assets/js/auth.js"></script>
   <script <?= commerza_csp_nonce_attr() ?>>
     window.CommerzaCsrfToken = <?= json_encode((string)$_SESSION['csrf_token']) ?>;
-
-    document.addEventListener("DOMContentLoaded", function() {
-      const reviewInput = document.getElementById("reviewImages");
-      const reviewSelection = document.getElementById("reviewFileSelection");
-
-      if (!reviewInput || !reviewSelection) {
-        return;
-      }
-
-      const refreshSelectionLabel = function() {
-        const files = Array.from(reviewInput.files || []);
-        if (files.length === 0) {
-          reviewSelection.textContent = "No images selected yet.";
-          return;
-        }
-
-        const names = files.map((file) => (file && file.name ? file.name : "image"));
-        reviewSelection.textContent = names.join(" | ");
-      };
-
-      reviewInput.addEventListener("change", refreshSelectionLabel);
-      refreshSelectionLabel();
-    });
   </script>
   <script src="frontend/assets/js/script.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
