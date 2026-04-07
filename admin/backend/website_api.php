@@ -202,6 +202,118 @@ function website_api_valid_path(string $value): bool
     return preg_match('#^[a-zA-Z0-9/_\-.]+$#', $value) === 1;
 }
 
+function website_api_project_root(): string
+{
+    return dirname(__DIR__, 2);
+}
+
+function website_api_is_generated_media_path(string $path): bool
+{
+    $normalized = trim($path);
+    if ($normalized === '' || !website_api_valid_path($normalized)) {
+        return false;
+    }
+
+    if (preg_match('#^https?://#i', $normalized) === 1) {
+        return false;
+    }
+
+    $allowedPrefixes = [
+        'frontend/assets/images/slider/',
+        'frontend/assets/images/logo/',
+        'frontend/assets/images/favicon/',
+        'frontend/assets/images/social/',
+        'frontend/assets/videos/slider/',
+        'frontend/assets/videos/products/',
+    ];
+
+    $prefixAllowed = false;
+    foreach ($allowedPrefixes as $prefix) {
+        if (strpos($normalized, $prefix) === 0) {
+            $prefixAllowed = true;
+            break;
+        }
+    }
+
+    if (!$prefixAllowed) {
+        return false;
+    }
+
+    $filename = pathinfo($normalized, PATHINFO_FILENAME);
+    return preg_match('/-[a-f0-9]{16}$/i', (string)$filename) === 1;
+}
+
+function website_api_path_referenced_elsewhere(mysqli $con, string $path): bool
+{
+    $siteStmt = $con->prepare('SELECT COUNT(*) AS total FROM site_settings WHERE setting_val = ?');
+    if (!$siteStmt) {
+        return true;
+    }
+
+    $siteStmt->bind_param('s', $path);
+    $siteStmt->execute();
+    $siteRow = $siteStmt->get_result()?->fetch_assoc();
+    $siteStmt->close();
+    if ((int)($siteRow['total'] ?? 0) > 0) {
+        return true;
+    }
+
+    $sliderStmt = $con->prepare('SELECT COUNT(*) AS total FROM slider WHERE image_url = ? OR video_url = ?');
+    if (!$sliderStmt) {
+        return true;
+    }
+
+    $sliderStmt->bind_param('ss', $path, $path);
+    $sliderStmt->execute();
+    $sliderRow = $sliderStmt->get_result()?->fetch_assoc();
+    $sliderStmt->close();
+    if ((int)($sliderRow['total'] ?? 0) > 0) {
+        return true;
+    }
+
+    $productStmt = $con->prepare('SELECT COUNT(*) AS total FROM products WHERE image = ? OR video_url = ?');
+    if (!$productStmt) {
+        return true;
+    }
+
+    $productStmt->bind_param('ss', $path, $path);
+    $productStmt->execute();
+    $productRow = $productStmt->get_result()?->fetch_assoc();
+    $productStmt->close();
+    if ((int)($productRow['total'] ?? 0) > 0) {
+        return true;
+    }
+
+    $socialStmt = $con->prepare('SELECT COUNT(*) AS total FROM social_links WHERE icon = ?');
+    if (!$socialStmt) {
+        return true;
+    }
+
+    $socialStmt->bind_param('s', $path);
+    $socialStmt->execute();
+    $socialRow = $socialStmt->get_result()?->fetch_assoc();
+    $socialStmt->close();
+
+    return (int)($socialRow['total'] ?? 0) > 0;
+}
+
+function website_api_cleanup_replaced_media(mysqli $con, string $oldPath): void
+{
+    $normalized = trim($oldPath);
+    if (!website_api_is_generated_media_path($normalized)) {
+        return;
+    }
+
+    if (website_api_path_referenced_elsewhere($con, $normalized)) {
+        return;
+    }
+
+    $absolutePath = website_api_project_root() . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $normalized);
+    if (is_file($absolutePath)) {
+        @unlink($absolutePath);
+    }
+}
+
 function website_api_social_rows(mysqli $con): array
 {
     $rows = [];
@@ -387,6 +499,8 @@ if ($action === 'save-brand') {
     $name = website_api_clean_text((string)($body['name'] ?? ''), 100);
     $logo = trim((string)($body['logo'] ?? ''));
     $favicon = trim((string)($body['favicon'] ?? ''));
+    $previousLogo = website_api_get_setting($con, 'logo_url', '');
+    $previousFavicon = website_api_get_setting($con, 'favicon_url', '');
 
     if ($name === '' || !website_api_valid_path($logo) || !website_api_valid_path($favicon)) {
         website_api_json([
@@ -405,6 +519,13 @@ if ($action === 'save-brand') {
             'ok' => false,
             'message' => 'Unable to save branding.',
         ], 500);
+    }
+
+    if ($previousLogo !== '' && $previousLogo !== $logo) {
+        website_api_cleanup_replaced_media($con, $previousLogo);
+    }
+    if ($previousFavicon !== '' && $previousFavicon !== $favicon) {
+        website_api_cleanup_replaced_media($con, $previousFavicon);
     }
 
     admin_api_log_security_event($con, $admin, 'website.brand_updated', 'info', [
@@ -477,6 +598,16 @@ if ($action === 'save-social') {
     }
 
     if ($id > 0) {
+        $previousIcon = '';
+        $existingStmt = $con->prepare('SELECT icon FROM social_links WHERE id = ? LIMIT 1');
+        if ($existingStmt) {
+            $existingStmt->bind_param('i', $id);
+            $existingStmt->execute();
+            $existingRow = $existingStmt->get_result()?->fetch_assoc();
+            $existingStmt->close();
+            $previousIcon = trim((string)($existingRow['icon'] ?? ''));
+        }
+
         $stmt = $con->prepare(
             'UPDATE social_links
              SET label = ?, url = ?, icon = ?
@@ -500,6 +631,10 @@ if ($action === 'save-social') {
                 'ok' => false,
                 'message' => 'Unable to update social link.',
             ], 500);
+        }
+
+        if ($previousIcon !== '' && $previousIcon !== $icon) {
+            website_api_cleanup_replaced_media($con, $previousIcon);
         }
 
         admin_api_log_security_event($con, $admin, 'website.social_updated', 'info', [
@@ -569,6 +704,16 @@ if ($action === 'delete-social') {
         ], 422);
     }
 
+    $existingIcon = '';
+    $iconStmt = $con->prepare('SELECT icon FROM social_links WHERE id = ? LIMIT 1');
+    if ($iconStmt) {
+        $iconStmt->bind_param('i', $id);
+        $iconStmt->execute();
+        $iconRow = $iconStmt->get_result()?->fetch_assoc();
+        $iconStmt->close();
+        $existingIcon = trim((string)($iconRow['icon'] ?? ''));
+    }
+
     $stmt = $con->prepare('DELETE FROM social_links WHERE id = ? LIMIT 1');
     if (!$stmt) {
         website_api_json([
@@ -586,6 +731,10 @@ if ($action === 'delete-social') {
             'ok' => false,
             'message' => 'Unable to delete social link.',
         ], 500);
+    }
+
+    if ($existingIcon !== '') {
+        website_api_cleanup_replaced_media($con, $existingIcon);
     }
 
     admin_api_log_security_event($con, $admin, 'website.social_deleted', 'warning', [
@@ -700,6 +849,18 @@ if ($action === 'save-slider') {
     }
 
     if ($id > 0) {
+        $previousImage = '';
+        $previousVideo = '';
+        $existingStmt = $con->prepare('SELECT image_url, video_url FROM slider WHERE id = ? LIMIT 1');
+        if ($existingStmt) {
+            $existingStmt->bind_param('i', $id);
+            $existingStmt->execute();
+            $existingRow = $existingStmt->get_result()?->fetch_assoc();
+            $existingStmt->close();
+            $previousImage = trim((string)($existingRow['image_url'] ?? ''));
+            $previousVideo = trim((string)($existingRow['video_url'] ?? ''));
+        }
+
         $stmt = $con->prepare(
             'UPDATE slider
              SET title = ?, subtitle = ?, description = ?, image_url = ?, alt_text = ?, video_url = ?, cta_text = ?, cta_url = ?
@@ -723,6 +884,13 @@ if ($action === 'save-slider') {
                 'ok' => false,
                 'message' => 'Unable to update slide.',
             ], 500);
+        }
+
+        if ($previousImage !== '' && $previousImage !== $image) {
+            website_api_cleanup_replaced_media($con, $previousImage);
+        }
+        if ($previousVideo !== '' && $previousVideo !== $video) {
+            website_api_cleanup_replaced_media($con, $previousVideo);
         }
 
         admin_api_log_security_event($con, $admin, 'website.slider_updated', 'info', [
@@ -787,6 +955,8 @@ if ($action === 'save-slider') {
 if ($action === 'save-feature-videos') {
     $homeVideo = trim((string)($body['home_video'] ?? ''));
     $categoryAVideo = trim((string)($body['category_a_video'] ?? ''));
+    $previousHomeVideo = website_api_get_setting($con, 'home_feature_video', '');
+    $previousCategoryVideo = website_api_get_setting($con, 'category_a_feature_video', '');
 
     if (!website_api_valid_path($homeVideo) || !website_api_valid_path($categoryAVideo)) {
         website_api_json([
@@ -818,6 +988,13 @@ if ($action === 'save-feature-videos') {
         ], 500);
     }
 
+    if ($previousHomeVideo !== '' && $previousHomeVideo !== $homeVideo) {
+        website_api_cleanup_replaced_media($con, $previousHomeVideo);
+    }
+    if ($previousCategoryVideo !== '' && $previousCategoryVideo !== $categoryAVideo) {
+        website_api_cleanup_replaced_media($con, $previousCategoryVideo);
+    }
+
     admin_api_log_security_event($con, $admin, 'website.featured_videos_saved', 'info', [
         'home_video' => $homeVideo,
         'category_a_video' => $categoryAVideo,
@@ -839,6 +1016,18 @@ if ($action === 'delete-slider') {
         ], 422);
     }
 
+    $existingImage = '';
+    $existingVideo = '';
+    $existingStmt = $con->prepare('SELECT image_url, video_url FROM slider WHERE id = ? LIMIT 1');
+    if ($existingStmt) {
+        $existingStmt->bind_param('i', $id);
+        $existingStmt->execute();
+        $existingRow = $existingStmt->get_result()?->fetch_assoc();
+        $existingStmt->close();
+        $existingImage = trim((string)($existingRow['image_url'] ?? ''));
+        $existingVideo = trim((string)($existingRow['video_url'] ?? ''));
+    }
+
     $stmt = $con->prepare('DELETE FROM slider WHERE id = ? LIMIT 1');
     if (!$stmt) {
         website_api_json([
@@ -856,6 +1045,13 @@ if ($action === 'delete-slider') {
             'ok' => false,
             'message' => 'Unable to delete slide.',
         ], 500);
+    }
+
+    if ($existingImage !== '') {
+        website_api_cleanup_replaced_media($con, $existingImage);
+    }
+    if ($existingVideo !== '') {
+        website_api_cleanup_replaced_media($con, $existingVideo);
     }
 
     admin_api_log_security_event($con, $admin, 'website.slider_deleted', 'warning', [

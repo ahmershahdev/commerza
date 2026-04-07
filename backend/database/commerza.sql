@@ -525,6 +525,7 @@ CREATE TABLE `products` (
   `warranty_info` varchar(120) NOT NULL DEFAULT '12-month seller warranty',
   `dispatch_info` varchar(120) NOT NULL DEFAULT 'Dispatch in 24-48 hours',
   `returns_info` varchar(140) NOT NULL DEFAULT '7-day return policy (unused items)',
+  `deleted_at` datetime DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -590,6 +591,9 @@ CREATE TABLE `product_reviews` (
   `review_text` varchar(500) NOT NULL,
   `is_verified_purchase` tinyint(1) NOT NULL DEFAULT 1,
   `is_visible` tinyint(1) NOT NULL DEFAULT 1,
+  `is_locked` tinyint(1) NOT NULL DEFAULT 0,
+  `locked_at` datetime DEFAULT NULL,
+  `locked_by_admin_id` int(11) DEFAULT NULL,
   `admin_note` varchar(500) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
@@ -609,6 +613,42 @@ CREATE TABLE `product_review_images` (
   `image_size` int(11) NOT NULL DEFAULT 0,
   `sort_order` tinyint(4) NOT NULL DEFAULT 0,
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `product_trash`
+--
+
+CREATE TABLE `product_trash` (
+  `id` bigint(20) NOT NULL,
+  `product_id` int(11) NOT NULL,
+  `section_id` varchar(64) DEFAULT NULL,
+  `section_name` varchar(128) DEFAULT NULL,
+  `section_page` varchar(64) DEFAULT NULL,
+  `section_category` varchar(128) DEFAULT NULL,
+  `section_subcategory` varchar(128) DEFAULT NULL,
+  `name` varchar(255) NOT NULL,
+  `slug` varchar(120) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `image` varchar(255) DEFAULT NULL,
+  `video_url` varchar(255) DEFAULT NULL,
+  `product_code` varchar(40) DEFAULT NULL,
+  `warranty_info` varchar(120) DEFAULT NULL,
+  `dispatch_info` varchar(120) DEFAULT NULL,
+  `returns_info` varchar(140) DEFAULT NULL,
+  `price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `sale_price` decimal(10,2) DEFAULT NULL,
+  `stock` int(11) NOT NULL DEFAULT 0,
+  `movement` enum('auto','manual','quartz','smart') DEFAULT NULL,
+  `original_created_at` datetime DEFAULT NULL,
+  `original_updated_at` datetime DEFAULT NULL,
+  `deleted_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `purge_after` datetime NOT NULL,
+  `deleted_by_admin_id` int(11) DEFAULT NULL,
+  `delete_reason` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -1549,7 +1589,8 @@ ALTER TABLE `products`
   ADD KEY `idx_products_movement` (`movement`),
   ADD KEY `idx_products_price` (`price`),
   ADD KEY `idx_products_sale_price` (`salePrice`),
-  ADD KEY `idx_products_stock` (`stock`);
+  ADD KEY `idx_products_stock` (`stock`),
+  ADD KEY `idx_products_deleted_at` (`deleted_at`);
 
 --
 -- Indexes for table `product_reviews`
@@ -1558,7 +1599,8 @@ ALTER TABLE `product_reviews`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uq_review_user_product` (`user_id`,`product_id`),
   ADD KEY `idx_review_product_visible` (`product_id`,`is_visible`),
-  ADD KEY `idx_review_created` (`created_at`);
+  ADD KEY `idx_review_created` (`created_at`),
+  ADD KEY `idx_review_locked` (`is_locked`,`updated_at`);
 
 --
 -- Indexes for table `product_review_images`
@@ -1566,6 +1608,16 @@ ALTER TABLE `product_reviews`
 ALTER TABLE `product_review_images`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_review_images_review` (`review_id`);
+
+--
+-- Indexes for table `product_trash`
+--
+ALTER TABLE `product_trash`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uq_product_trash_product_id` (`product_id`),
+  ADD KEY `idx_product_trash_purge_after` (`purge_after`),
+  ADD KEY `idx_product_trash_deleted_at` (`deleted_at`),
+  ADD KEY `idx_product_trash_section` (`section_id`);
 
 --
 -- Indexes for table `rate_limits`
@@ -1822,6 +1874,12 @@ ALTER TABLE `products`
 --
 ALTER TABLE `product_reviews`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `product_trash`
+--
+ALTER TABLE `product_trash`
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `product_review_images`

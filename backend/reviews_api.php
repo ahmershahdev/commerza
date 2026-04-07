@@ -95,6 +95,15 @@ function reviews_api_refund_table_exists(mysqli $con): bool
     return $exists;
 }
 
+function reviews_api_column_exists(mysqli $con, string $table, string $column): bool
+{
+    $tableEscaped = $con->real_escape_string($table);
+    $columnEscaped = $con->real_escape_string($column);
+    $result = $con->query("SHOW COLUMNS FROM {$tableEscaped} LIKE '{$columnEscaped}'");
+
+    return $result instanceof mysqli_result && $result->num_rows > 0;
+}
+
 function reviews_api_ensure_table(mysqli $con): void
 {
     static $initialized = false;
@@ -113,15 +122,38 @@ function reviews_api_ensure_table(mysqli $con): void
             review_text VARCHAR(500) NOT NULL,
             is_verified_purchase TINYINT(1) NOT NULL DEFAULT 1,
             is_visible TINYINT(1) NOT NULL DEFAULT 1,
+            is_locked TINYINT(1) NOT NULL DEFAULT 0,
+            locked_at DATETIME DEFAULT NULL,
+            locked_by_admin_id INT DEFAULT NULL,
             admin_note VARCHAR(500) DEFAULT NULL,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             UNIQUE KEY uq_review_user_product (user_id, product_id),
             KEY idx_review_product_visible (product_id, is_visible),
+            KEY idx_review_locked (is_locked, updated_at),
             KEY idx_review_created (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci'
     );
+
+    $missingColumns = [
+        'is_locked' => 'ALTER TABLE product_reviews ADD COLUMN is_locked TINYINT(1) NOT NULL DEFAULT 0 AFTER is_visible',
+        'locked_at' => 'ALTER TABLE product_reviews ADD COLUMN locked_at DATETIME DEFAULT NULL AFTER is_locked',
+        'locked_by_admin_id' => 'ALTER TABLE product_reviews ADD COLUMN locked_by_admin_id INT DEFAULT NULL AFTER locked_at',
+    ];
+
+    foreach ($missingColumns as $column => $sql) {
+        if (reviews_api_column_exists($con, 'product_reviews', $column)) {
+            continue;
+        }
+
+        $con->query($sql);
+    }
+
+    $indexCheck = $con->query("SHOW INDEX FROM product_reviews WHERE Key_name = 'idx_review_locked'");
+    if (!($indexCheck instanceof mysqli_result) || $indexCheck->num_rows === 0) {
+        $con->query('ALTER TABLE product_reviews ADD KEY idx_review_locked (is_locked, updated_at)');
+    }
 
     $initialized = true;
 }
@@ -447,7 +479,7 @@ function reviews_api_product_exists(mysqli $con, int $productId): bool
 function reviews_api_existing_user_review(mysqli $con, int $userId, int $productId): ?array
 {
     $stmt = $con->prepare(
-        'SELECT id, rating, review_text, is_visible, created_at, updated_at
+        'SELECT id, rating, review_text, is_visible, is_locked, locked_at, created_at, updated_at
          FROM product_reviews
          WHERE user_id = ? AND product_id = ?
          LIMIT 1'
@@ -478,6 +510,18 @@ function reviews_api_check_eligibility(mysqli $con, int $userId, int $productId)
     }
 
     $existingReview = reviews_api_existing_user_review($con, $userId, $productId);
+    $existingReviewLocked = is_array($existingReview)
+        && (int)($existingReview['is_locked'] ?? 0) === 1;
+
+    if ($existingReviewLocked) {
+        return [
+            'can_review' => false,
+            'message' => 'Your review is locked by admin and can no longer be edited.',
+            'eligible_order_id' => 0,
+            'existing_review' => $existingReview,
+        ];
+    }
+
     $hasRefundTable = reviews_api_refund_table_exists($con);
 
     $sqlBase =
@@ -670,6 +714,8 @@ function reviews_api_payload(mysqli $con, int $productId, int $userId): array
             'rating' => (int)($eligibility['existing_review']['rating'] ?? 0),
             'text' => (string)($eligibility['existing_review']['review_text'] ?? ''),
             'is_visible' => (int)($eligibility['existing_review']['is_visible'] ?? 0) === 1,
+            'is_locked' => (int)($eligibility['existing_review']['is_locked'] ?? 0) === 1,
+            'locked_at' => (string)($eligibility['existing_review']['locked_at'] ?? ''),
             'updated_at' => (string)($eligibility['existing_review']['updated_at'] ?? ''),
             'images' => reviews_api_review_images($con, (int)($eligibility['existing_review']['id'] ?? 0)),
         ]
@@ -805,6 +851,16 @@ if (!$existingReview && !(bool)($eligibility['can_review'] ?? false)) {
     ], 403);
 }
 
+if ($existingReview && (int)($existingReview['is_locked'] ?? 0) === 1) {
+    reviews_api_json([
+        'ok' => false,
+        'message' => 'Your review is locked by admin and cannot be updated.',
+        'logged_in' => true,
+        'payload' => reviews_api_payload($con, $productId, $userId),
+        'csrf_token' => $_SESSION['csrf_token'],
+    ], 423);
+}
+
 if ($existingReview) {
     $reviewId = (int)($existingReview['id'] ?? 0);
     $replaceImages = !empty($validatedImages) || $removeExistingImages;
@@ -925,9 +981,10 @@ $stmt = $con->prepare(
     VALUES (?, ?, ?, ?, ?, 1, 1)
     ON DUPLICATE KEY UPDATE
        id = LAST_INSERT_ID(id),
-       rating = VALUES(rating),
-       review_text = VALUES(review_text),
-       updated_at = NOW()'
+    order_id = IF(is_locked = 1, order_id, VALUES(order_id)),
+    rating = IF(is_locked = 1, rating, VALUES(rating)),
+    review_text = IF(is_locked = 1, review_text, VALUES(review_text)),
+    updated_at = IF(is_locked = 1, updated_at, NOW())'
 );
 
 if (!$stmt) {
@@ -958,6 +1015,33 @@ if (!$ok || $reviewId <= 0) {
 $didConcurrentUpsert = $affectedRows > 1;
 $oldImagePaths = [];
 $removedExistingImages = false;
+
+// Re-check lock state after upsert to guard against admin locks applied mid-request.
+$lockStateStmt = $con->prepare(
+    'SELECT is_locked
+     FROM product_reviews
+     WHERE id = ?
+     LIMIT 1'
+);
+
+if ($lockStateStmt) {
+    $lockStateStmt->bind_param('i', $reviewId);
+    $lockStateStmt->execute();
+    $lockStateResult = $lockStateStmt->get_result();
+    $lockStateRow = $lockStateResult ? $lockStateResult->fetch_assoc() : null;
+    $lockStateStmt->close();
+
+    if (is_array($lockStateRow) && (int)($lockStateRow['is_locked'] ?? 0) === 1) {
+        $con->rollback();
+        reviews_api_json([
+            'ok' => false,
+            'message' => 'Your review is locked by admin and cannot be updated.',
+            'logged_in' => true,
+            'payload' => reviews_api_payload($con, $productId, $userId),
+            'csrf_token' => $_SESSION['csrf_token'],
+        ], 423);
+    }
+}
 
 $storedImages = [];
 if ($didConcurrentUpsert && ($removeExistingImages || !empty($validatedImages))) {

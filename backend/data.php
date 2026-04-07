@@ -498,6 +498,32 @@ function commerza_optimize_stylesheet_links(string $buffer): string
     ) ?? $buffer;
 }
 
+function commerza_site_settings_inline_json_tag(): string
+{
+    $payload = $GLOBALS['commerza_public_site_settings_payload'] ?? null;
+    if (!is_array($payload) || empty($payload)) {
+        return '';
+    }
+
+    $json = json_encode(
+        $payload,
+        JSON_UNESCAPED_SLASHES
+            | JSON_UNESCAPED_UNICODE
+            | JSON_HEX_TAG
+            | JSON_HEX_AMP
+            | JSON_HEX_APOS
+            | JSON_HEX_QUOT
+    );
+
+    if (!is_string($json) || $json === '') {
+        return '';
+    }
+
+    return '<script ' . commerza_csp_nonce_attr() . ' id="commerzaSiteSettingsData" type="application/json">'
+        . $json
+        . '</script>';
+}
+
 function commerza_html_meta_normalize(string $buffer): string
 {
     if ($buffer === '') {
@@ -534,6 +560,13 @@ function commerza_html_meta_normalize(string $buffer): string
     ) {
         $canonical = "\n  <link rel=\"canonical\" href=\"{$ogUrl[1]}\" />\n";
         $buffer = preg_replace('/<\/head>/i', $canonical . '</head>', $buffer, 1) ?? $buffer;
+    }
+
+    if (stripos($buffer, 'id="commerzaSiteSettingsData"') === false) {
+        $settingsScript = commerza_site_settings_inline_json_tag();
+        if ($settingsScript !== '') {
+            $buffer = preg_replace('/<\/head>/i', "\n  {$settingsScript}\n</head>", $buffer, 1) ?? $buffer;
+        }
     }
 
     $hasOrganizationSchema = preg_match('/"@type"\s*:\s*"Organization"/i', $buffer) === 1;
@@ -717,6 +750,77 @@ if (!$con) {
 }
 
 mysqli_set_charset($con, "utf8mb4");
+
+function commerza_site_setting_value(mysqli $con, string $key, string $fallback = ''): string
+{
+    $stmt = $con->prepare(
+        'SELECT setting_val
+         FROM site_settings
+         WHERE setting_key = ?
+         LIMIT 1'
+    );
+
+    if (!$stmt) {
+        return $fallback;
+    }
+
+    $stmt->bind_param('s', $key);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    if (!is_array($row)) {
+        return $fallback;
+    }
+
+    $value = trim((string)($row['setting_val'] ?? ''));
+    return $value !== '' ? $value : $fallback;
+}
+
+function commerza_build_public_site_settings_payload(mysqli $con): array
+{
+    return [
+        'brand' => [
+            'name' => commerza_site_setting_value($con, 'site_name', 'COMMERZA'),
+            'logo' => commerza_site_setting_value(
+                $con,
+                'logo_url',
+                'frontend/assets/images/logo/commerza-logo.webp'
+            ),
+            'favicon' => commerza_site_setting_value(
+                $con,
+                'favicon_url',
+                'frontend/assets/images/favicon/commerza-watches-icon.ico'
+            ),
+        ],
+        'contact' => [
+            'address' => commerza_site_setting_value($con, 'site_address', ''),
+            'email' => commerza_site_setting_value($con, 'site_email', ''),
+            'phone' => commerza_site_setting_value($con, 'site_phone', ''),
+        ],
+        'ticker' => [
+            'enabled' => commerza_site_setting_value($con, 'ticker_enabled', '1') !== '0',
+            'messages' => [],
+        ],
+        'socialLinks' => [],
+        'sliderImages' => [],
+        'featuredVideos' => [
+            'home' => commerza_site_setting_value(
+                $con,
+                'home_feature_video',
+                'frontend/assets/videos/slider/steel_watch_1.mp4'
+            ),
+            'categoryA' => commerza_site_setting_value(
+                $con,
+                'category_a_feature_video',
+                'frontend/assets/videos/products/smart/automatic_watches_carousel.mp4'
+            ),
+        ],
+    ];
+}
+
+$GLOBALS['commerza_public_site_settings_payload'] = commerza_build_public_site_settings_payload($con);
 
 function commerza_users_table_exists(mysqli $con): bool
 {

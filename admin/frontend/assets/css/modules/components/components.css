@@ -180,6 +180,28 @@ img {
   border-radius: 18px;
 }
 
+.admin-breadcrumb {
+  --bs-breadcrumb-divider: ">";
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.78rem;
+  color: #9b9b9b;
+  letter-spacing: 0.2px;
+}
+
+.admin-breadcrumb .breadcrumb-item,
+.admin-breadcrumb .breadcrumb-item span {
+  color: #9b9b9b;
+}
+
+.admin-breadcrumb .breadcrumb-item + .breadcrumb-item::before {
+  color: rgba(255, 122, 26, 0.7);
+}
+
+.admin-breadcrumb .breadcrumb-item.active {
+  color: #ffb066;
+  font-weight: 600;
+}
+
 .captcha-wrapper {
   width: 100%;
   display: flex;

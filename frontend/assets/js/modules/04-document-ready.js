@@ -2560,7 +2560,9 @@ $(document).ready(function () {
     const existingImages = Array.isArray(existingReview?.images)
       ? existingReview.images
       : [];
-    const canReview = !!eligibility?.can_review || !!existingReview;
+    const isLocked = !!existingReview?.is_locked;
+    const canReview =
+      !isLocked && (!!eligibility?.can_review || !!existingReview);
     const statusMessage = (eligibility?.message || "").toString().trim();
 
     reviewInitializeUploader();
@@ -2574,7 +2576,7 @@ $(document).ready(function () {
       setReviewRatingSelection(0);
     }
 
-    ratingInput.prop("disabled", false);
+    ratingInput.prop("disabled", !canReview);
     textInput.prop("disabled", !canReview);
     imageInput.prop("disabled", !canReview);
     removeExistingInput.prop("checked", false);
@@ -2583,15 +2585,22 @@ $(document).ready(function () {
       "d-none",
       !(canReview && existingImages.length),
     );
+    submitBtn.data("reviewLocked", isLocked ? 1 : 0);
     submitBtn.prop("disabled", !canReview);
-    $("#reviewStarsInput").toggleClass("is-readonly", false);
-    setupReviewStarInput(false);
+    $("#reviewStarsInput").toggleClass("is-readonly", !canReview);
+    setupReviewStarInput(!canReview);
 
     if (!canReview) {
       reviewClearSelectedFiles();
     }
 
-    submitBtn.text(existingReview ? "Update Review" : "Submit Review");
+    submitBtn.text(
+      isLocked
+        ? "Review Locked"
+        : existingReview
+          ? "Update Review"
+          : "Submit Review",
+    );
 
     if (message.length) {
       message
@@ -2630,6 +2639,16 @@ $(document).ready(function () {
       const removeExistingImages = $("#reviewRemoveExistingImages").is(
         ":checked",
       );
+      const submitBtn = $("#reviewSubmitBtn");
+      const isLocked = parseInt(submitBtn.data("reviewLocked"), 10) === 1;
+
+      if (isLocked) {
+        showNotif(
+          "This review has been locked by admin and cannot be edited.",
+          "warning",
+        );
+        return;
+      }
 
       if (rating < 1 || rating > 5) {
         showNotif("Select a rating between 1 and 5.", "warning");
@@ -2673,7 +2692,6 @@ $(document).ready(function () {
         }
       }
 
-      const submitBtn = $("#reviewSubmitBtn");
       const originalText = submitBtn.text();
       submitBtn.prop("disabled", true).text("Submitting...");
 
