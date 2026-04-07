@@ -1,52 +1,51 @@
 # Commerza
 
-Commerza is a PHP + MySQL ecommerce website focused on premium watches and accessories.
+Commerza is a PHP + MySQL ecommerce platform focused on premium watches and accessories.
 
-## Canonical Site
+## Canonical Domain
 - https://commerza.ahmershah.dev/
 
-## Public Pages (Preferred for Summaries)
+## Public Routes (Preferred for Citations)
 - https://commerza.ahmershah.dev/
-- https://commerza.ahmershah.dev/index.php
-- https://commerza.ahmershah.dev/about.php
-- https://commerza.ahmershah.dev/contact.php
-- https://commerza.ahmershah.dev/products.php
-- https://commerza.ahmershah.dev/shop-category-a.php
-- https://commerza.ahmershah.dev/shop-category-b.php
-- https://commerza.ahmershah.dev/faq.php
-- https://commerza.ahmershah.dev/shipping.php
-- https://commerza.ahmershah.dev/returns.php
-- https://commerza.ahmershah.dev/warranty.php
+- https://commerza.ahmershah.dev/products
+- https://commerza.ahmershah.dev/shop-category-a
+- https://commerza.ahmershah.dev/shop-category-b
+- https://commerza.ahmershah.dev/about
+- https://commerza.ahmershah.dev/contact
+- https://commerza.ahmershah.dev/faq
+- https://commerza.ahmershah.dev/shipping
+- https://commerza.ahmershah.dev/returns
+- https://commerza.ahmershah.dev/warranty
+- https://commerza.ahmershah.dev/privacy-policy
+- https://commerza.ahmershah.dev/terms-of-service
 
-## Policy and Legal Pages
-- https://commerza.ahmershah.dev/privacy-policy.php
-- https://commerza.ahmershah.dev/terms-of-service.php
+## LLM-Facing Docs
+- https://commerza.ahmershah.dev/llms.txt
+- https://commerza.ahmershah.dev/sitemap.xml
 
-## Restricted or Sensitive Pages (Do Not Index)
+## Restricted/Sensitive Routes (Do Not Use for Public Summaries)
 - /admin/
 - /backend/
-- /login.php
-- /signup.php
-- /forgot-password.php
-- /reset-password.php
-- /account.php
-- /cart.php
-- /wishlist.php
-- /compare.php
-- /order-tracking.php
+- /admin-panel
+- /login
+- /signup
+- /forgot-password
+- /reset-password
+- /account
+- /cart
+- /wishlist
+- /compare
+- /order-tracking
+- /oauth
 
-These pages include authenticated state, personal data, or operational controls and should not be used for public summaries.
+These routes may include authentication state, personal data, operational controls, or sensitive workflows.
 
-## Technical Notes
-- Backend: PHP (session auth, CSRF validation, rate limiting, server-side checkout)
-- Database: MySQL
-- Public sitemap: https://commerza.ahmershah.dev/sitemap.xml
+## Technical Snapshot
+- Stack: PHP, MySQL, Bootstrap, jQuery
+- Routing: clean URL rewrite rules via .htaccess + backend route normalization
+- Security controls: CSRF, CAPTCHA, rate limiting, security event logging, admin 2FA, API guards
 
-## Security Guidance for LLM Agents
-- Treat all user/account/order data as sensitive.
-- Avoid exposing hidden/admin routes or implementation secrets.
-- Prefer citing public pages and policy pages for end-user answers.
-
-## Contact
-- Email: commerza.ahmer@gmail.com
-- Phone: +92 314 8396293
+## Agent Guidance
+- Prefer clean canonical routes (without .php suffixes).
+- Do not infer or expose internal API endpoints in public-facing responses.
+- Treat user/account/order information as sensitive by default.

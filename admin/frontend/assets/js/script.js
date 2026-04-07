@@ -942,6 +942,15 @@ function bindUploadControl(buttonSelector, inputSelector, target, onComplete) {
 function setLiveViewersModeUi(mode, storageReady = true) {
   const normalized = mode === "fake" ? "fake" : "real";
   $("#liveViewersMode").val(normalized);
+  const modeLabel =
+    normalized === "fake" ? "Fake (marketing demo)" : "Real (active sessions)";
+  $("#liveViewersModeBtn").text(modeLabel);
+  $("#liveViewersModeMenu .dropdown-item").removeClass("active");
+  $("#liveViewersModeMenu .dropdown-item").each(function () {
+    if (($(this).data("mode") || "").toString() === normalized) {
+      $(this).addClass("active");
+    }
+  });
   $("#liveViewerFakeConfig").toggleClass("d-none", normalized !== "fake");
   const statusLabel = storageReady
     ? `Mode: ${normalized}`
@@ -971,10 +980,11 @@ function renderLiveViewersTopProducts(products, storageReady = true) {
 
   products.forEach((item) => {
     const productName = (item?.name || "Product").toString();
+    const safeProductName = escapeHtml(productName);
     const viewers = Math.max(0, parseInt(item?.viewers, 10) || 0);
     tbody.append(`
       <tr class="border-bottom border-secondary">
-        <td class="ps-3 py-3 text-light fw-semibold">${productName}</td>
+        <td class="ps-3 py-3 text-light fw-semibold">${safeProductName}</td>
         <td class="pe-3 py-3 text-end text-orange fw-semibold">${viewers}</td>
       </tr>
     `);
@@ -1079,10 +1089,13 @@ function initLiveViewersAnalytics() {
     return;
   }
 
-  $("#liveViewersMode")
-    .off("change")
-    .on("change", function () {
-      setLiveViewersModeUi($(this).val());
+  setLiveViewersModeUi($("#liveViewersMode").val());
+
+  $("#liveViewersModeMenu")
+    .off("click", ".dropdown-item")
+    .on("click", ".dropdown-item", function (event) {
+      event.preventDefault();
+      setLiveViewersModeUi(($(this).data("mode") || "").toString());
     });
 
   $("#saveLiveViewersBtn").off("click").on("click", saveLiveViewersSettings);
@@ -2907,6 +2920,7 @@ function hydrateProductsData(data) {
   if (Array.isArray(data?.trash?.items)) {
     hydrateProductTrashItems(data.trash.items);
   }
+  syncProductWorkspaceSummary();
   renderSectionDropdowns();
   renderSectionsTable();
   renderProductsTable();
@@ -2914,8 +2928,21 @@ function hydrateProductsData(data) {
   updateNotifications();
 }
 
+function syncProductWorkspaceSummary() {
+  $("#productWorkspaceProducts").text(
+    Array.isArray(productsData) ? productsData.length : 0,
+  );
+  $("#productWorkspaceSections").text(
+    Array.isArray(allSections) ? allSections.length : 0,
+  );
+  $("#productWorkspaceTrash").text(
+    Array.isArray(productTrashItems) ? productTrashItems.length : 0,
+  );
+}
+
 function hydrateProductTrashItems(items) {
   productTrashItems = Array.isArray(items) ? items : [];
+  syncProductWorkspaceSummary();
   renderProductTrashTable();
 }
 

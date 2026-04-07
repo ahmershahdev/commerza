@@ -1,7 +1,7 @@
 # Commerza Apache rules
 
 Options -Indexes
-ErrorDocument 404 /404.php
+ErrorDocument 404 /error
 
 <IfModule mod_rewrite.c>
 RewriteEngine On
@@ -28,6 +28,7 @@ RewriteRule ^ - [F,L]
 RewriteRule ^$ index.php [QSA,L,NC]
 RewriteRule ^home/?$ index.php [QSA,L,NC]
 RewriteRule ^index/?$ index.php [QSA,L,NC]
+RewriteRule ^error/?$ 404.php [QSA,L,NC]
 
 RewriteRule ^product/([a-z0-9-]+)/?$ products.php?slug=$1 [QSA,L,NC]
 RewriteRule ^product/?$ products.php [QSA,L,NC]

@@ -174,6 +174,61 @@
   color: #ffdf80;
 }
 
+.product-workspace-card {
+  border: 1px solid rgba(255, 122, 26, 0.24);
+  border-radius: 16px;
+  padding: 16px 18px;
+  background: linear-gradient(
+    150deg,
+    rgba(20, 20, 24, 0.98),
+    rgba(12, 12, 16, 0.98)
+  );
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.26);
+}
+
+.product-workspace-kicker {
+  color: #b8b8b8;
+  font-size: 0.75rem;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+
+.product-workspace-value {
+  color: #fff;
+  font-size: 1.75rem;
+  font-weight: 800;
+}
+
+.product-workspace-trash {
+  border-color: rgba(255, 193, 7, 0.38);
+  background: linear-gradient(
+    150deg,
+    rgba(40, 30, 8, 0.96),
+    rgba(23, 17, 6, 0.96)
+  );
+}
+
+.coupon-form-panel .form-control,
+.coupon-form-panel .form-select {
+  min-height: 44px;
+}
+
+.admin-mode-dropdown .dropdown-item {
+  text-transform: none;
+  letter-spacing: 0.2px;
+  font-size: 0.88rem;
+}
+
+.admin-mode-dropdown .dropdown-item.active,
+.admin-mode-dropdown .dropdown-item:active {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 122, 26, 0.28),
+    rgba(255, 122, 26, 0.12)
+  ) !important;
+  color: #ffd6af !important;
+}
+
 .field-hint {
   display: block;
   margin-top: 6px;

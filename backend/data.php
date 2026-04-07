@@ -335,6 +335,7 @@ function commerza_clean_route_map(): array
 
     $map = [
         'index.php' => '/home',
+        '404.php' => '/error',
         'about.php' => '/about',
         'contact.php' => '/contact',
         'faq.php' => '/faq',

@@ -1,84 +1,176 @@
 # Commerza
 
-## Overview
+Commerza is a PHP + MySQL ecommerce platform with a public storefront and an admin control panel.
 
-Commerza is a PHP and MySQL ecommerce application with a customer storefront and a separate admin panel.
-The project includes account and auth flows, cart and wishlist APIs, order lifecycle management, notification emails, and operational reporting jobs.
+This README is the operational map for developers, reviewers, and maintainers.
 
-## Wiki
+## 1. Architecture Overview
 
-- Project wiki entrypoint: `WIKI.md`
-- Detailed chapters: `docs/wiki/`
+Commerza is organized into two major surfaces:
 
-## Tech Stack
+1. Storefront: server-rendered public pages and customer-facing interactions.
+2. Admin panel: operations UI for products, orders, coupons, reviews, analytics, website content, and security events.
 
-- PHP (server-rendered pages and API endpoints)
-- MySQL (commerce, auth, settings, and analytics tables)
-- Bootstrap and jQuery (frontend and admin UI behavior)
-- XAMPP runtime (Apache, MySQL, PHP)
+Core runtime helpers and shared protections are centralized in backend bootstrap files (especially backend/data.php).
 
-## Directory Map
+## 2. High-Level Folder Structure
 
-- `backend/`: Core runtime logic, APIs, helpers, jobs, schema
-- `frontend/`: Storefront assets (CSS, JS, images, videos)
-- `admin/backend/`: Admin auth and API controllers
-- `admin/frontend/`: Admin pages and assets
+Top-level layout:
 
-## Core Features
+1. admin/
+2. backend/
+3. frontend/
+4. public PHP pages at repository root (index.php, products.php, about.php, etc.)
+5. configuration and crawler files (.htaccess, robots.txt, sitemap.xml, llms.txt)
 
-- Storefront: product browsing, category pages, compare, wishlist, cart, checkout, order tracking
-- Account: profile updates, password change, profile image upload, order history, refund requests
-- Auth: signup verification, password reset, OAuth integration, admin 2FA verification
-- Notifications: transactional emails, engagement reminders, monthly and weekly reports
-- Security: CSRF protection, CAPTCHA verification, rate limiting, security event logging
+Detailed map:
 
-## Local Setup
+1. admin/backend/
 
-1. Place the project in XAMPP web root, for example `C:\xampp\htdocs\commerza`.
-2. Import schema from `backend/database/commerza.sql` into the `commerza` database.
-3. Configure environment values in `.env`.
-4. Start Apache and MySQL from XAMPP.
-5. Open `http://localhost/commerza/`.
+- Admin auth, permissions, and admin-only APIs.
+- Examples: orders_api.php, website_api.php, coupons_api.php, reviews_api.php, products_sync_api.php.
 
-## Environment Configuration
+2. admin/frontend/
 
-Minimum keys for production-ready behavior:
+- Admin HTML pages and bundled assets.
+- Key page: admin-panel.php.
+- Assets under admin/frontend/assets/css and admin/frontend/assets/js.
 
-- DB: `COMMERZA_DB_HOST`, `COMMERZA_DB_USER`, `COMMERZA_DB_PASSWORD`, `COMMERZA_DB_NAME`
-- App URL: `COMMERZA_APP_URL`
-- SMTP: `COMMERZA_SMTP_HOST`, `COMMERZA_SMTP_PORT`, `COMMERZA_SMTP_ENCRYPTION`, `COMMERZA_SMTP_USERNAME`, `COMMERZA_SMTP_PASSWORD`, `COMMERZA_SMTP_FROM_EMAIL`, `COMMERZA_SMTP_FROM_NAME`
-- CAPTCHA: `COMMERZA_CAPTCHA_ENABLED`, `COMMERZA_CAPTCHA_PROVIDER`, `COMMERZA_RECAPTCHA_SITE_KEY`, `COMMERZA_RECAPTCHA_SECRET_KEY`
+3. backend/
 
-## Database Health Checks
+- Shared app bootstrap and helpers.
+- API endpoints for storefront actions (cart, wishlist, reviews, newsletter, order tracking, etc.).
+- Security and utility helpers (rate limits, CSRF/session bootstrap, notifications, mailer).
+- Scheduled jobs and reporting scripts.
+- SQL schema in backend/database/commerza.sql.
 
-Run these SQL checks against live DB:
+4. frontend/
 
-- Table count parity with schema baseline:
-  - `SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = 'commerza';`
-- Missing table parity checks should show none after import.
-- Foreign key inventory:
-  - `SELECT COUNT(*) FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = 'commerza';`
-- Orphan user reference spot-check:
-  - `SELECT COUNT(*) FROM orders o LEFT JOIN users u ON u.id = o.user_id WHERE o.user_id IS NOT NULL AND u.id IS NULL;`
+- Storefront static assets: CSS modules, JS modules, images, videos.
 
-## Scheduled Jobs
+5. root public pages
 
-- Engagement reminders:
-  - `C:\xampp\php\php.exe C:\xampp\htdocs\commerza\backend\send_engagement_reminders.php 180`
-- Monthly report:
-  - `C:\xampp\php\php.exe C:\xampp\htdocs\commerza\backend\monthly_profit_report.php`
-- Weekly report:
-  - `C:\xampp\php\php.exe C:\xampp\htdocs\commerza\backend\weekly_analytics_report.php`
+- Customer-facing routes mapped by clean rewrite rules.
+- Examples: home, products, about, contact, faq, shipping, returns, warranty.
 
-## Release Readiness Checklist
+## 3. Routing and .htaccess Behavior
 
-- SMTP delivery verified from real flows (signup and admin 2FA)
-- CAPTCHA verification active on sensitive actions
-- CSP and security headers applied without runtime breakage
-- Database schema parity and FK presence validated
-- PHP lint and runtime checks passing
+Routing is split between Apache rewrite rules and PHP-side canonical normalization.
 
-## Notes
+1. Apache (.htaccess)
 
-- Use `C:\xampp\php\php.exe` for CLI linting and job execution in this environment.
-- Keep credentials and secrets out of source control.
+- Rewrites clean routes to PHP entry pages.
+- Blocks direct browser navigation to backend/admin backend API scripts.
+- Restricts sensitive files and directories.
+- Uses ErrorDocument 404 /error with a clean /error rewrite to 404.php.
+
+2. PHP canonical route map (backend/data.php)
+
+- Redirects legacy .php requests to clean canonical routes for GET/HEAD.
+- Keeps special query-based routes intact where needed (example: product slug pages).
+
+3. Current clean-route examples
+
+- /home, /products, /about, /contact, /faq, /shipping, /returns, /warranty
+- /login, /signup, /forgot-password, /reset-password
+- /admin-login, /admin-panel, /admin-forgot-password, /admin-verify-2fa
+- /error (404 presentation page)
+
+## 4. Security Model (Practical Summary)
+
+Major controls used across the codebase:
+
+1. Session + CSRF protections for form and API actions.
+2. Rate limiting on sensitive workflows (auth, reset, verification, etc.).
+3. CAPTCHA checks on selected high-risk forms.
+4. Security event logging in admin-facing audit streams.
+5. Permission checks for admin APIs.
+6. Input validation/sanitization and prepared SQL statements.
+7. Content Security Policy and defensive headers emitted from shared bootstrap.
+
+Operational guidance:
+
+1. Never bypass admin permission gates in new APIs.
+2. Keep all new mutating endpoints CSRF-protected.
+3. Log meaningful security events for auth, destructive actions, and suspicious behavior.
+
+## 5. SEO and Discoverability
+
+SEO signals are distributed across page templates and shared runtime helpers.
+
+1. Canonical URLs
+
+- Prefer clean routes (without .php) in canonical and OG URL tags.
+
+2. Sitemap
+
+- Managed in sitemap.xml with clean canonical URLs.
+
+3. Robots
+
+- robots.txt allows public content and blocks sensitive/account/admin paths.
+
+4. LLM discoverability
+
+- llms.txt documents public vs restricted routes for AI agents.
+
+5. Structured data
+
+- Pages include JSON-LD snippets (WebPage/FAQPage/etc.) where relevant.
+
+## 6. Key Runtime Files You Should Know
+
+1. backend/data.php
+
+- Bootstrap, DB connection, base URL resolution, canonical route redirects, output normalization, public settings payload injection.
+
+2. .htaccess
+
+- Rewrite rules, sensitive route/file access restrictions, clean-route mapping, 404 route behavior.
+
+3. admin/frontend/admin-panel.php
+
+- Primary admin UI shell and tab panes.
+
+4. admin/frontend/assets/js/script.js
+
+- Admin panel behavior, API integration, rendering logic.
+
+5. backend/database/commerza.sql
+
+- Baseline schema for local provisioning and parity checks.
+
+## 7. Local Setup (XAMPP)
+
+1. Place project in C:/xampp/htdocs/commerza.
+2. Import backend/database/commerza.sql into MySQL database commerza.
+3. Configure environment values in .env.
+4. Start Apache + MySQL from XAMPP control panel.
+5. Open http://localhost/commerza/.
+
+## 8. Useful Commands
+
+1. PHP lint example:
+
+- C:/xampp/php/php.exe -l backend/data.php
+
+2. Scheduled job examples:
+
+- C:/xampp/php/php.exe C:/xampp/htdocs/commerza/backend/send_engagement_reminders.php 180
+- C:/xampp/php/php.exe C:/xampp/htdocs/commerza/backend/monthly_profit_report.php
+- C:/xampp/php/php.exe C:/xampp/htdocs/commerza/backend/weekly_analytics_report.php
+
+## 9. Deployment/Release Checklist
+
+1. Verify canonical URLs and clean routes work on target host.
+2. Confirm robots.txt and sitemap.xml point to production domain.
+3. Verify SMTP, CAPTCHA, and environment secrets are configured.
+4. Run PHP lint on touched files.
+5. Manually test key auth/order/admin flows before release.
+
+## 10. Documentation and Policies
+
+1. Security policy: SECURITY.md
+2. Agent/LLM guidance: llms.txt
+3. Crawler policy: robots.txt
+4. URL discovery: sitemap.xml

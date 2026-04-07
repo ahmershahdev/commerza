@@ -1,33 +1,54 @@
 <?php
 require_once __DIR__ . '/backend/data.php';
+
+$appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
+$publicSettings = $GLOBALS['commerza_public_site_settings_payload'] ?? [];
+$siteBrandName = trim((string)($publicSettings['brand']['name'] ?? 'Commerza'));
+if ($siteBrandName === '') {
+  $siteBrandName = 'Commerza';
+}
+
+$siteLogoPath = trim((string)($publicSettings['brand']['logo'] ?? 'frontend/assets/images/logo/commerza-logo.webp'));
+if ($siteLogoPath === '') {
+  $siteLogoPath = 'frontend/assets/images/logo/commerza-logo.webp';
+}
+
+$siteFaviconPath = trim((string)($publicSettings['brand']['favicon'] ?? 'frontend/assets/images/favicon/commerza-watches-icon.ico'));
+if ($siteFaviconPath === '') {
+  $siteFaviconPath = 'frontend/assets/images/favicon/commerza-watches-icon.ico';
+}
+
+$pageCanonicalUrl = commerza_absolute_url('/faq');
+$pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
 ?>
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
   <meta charset="UTF-8" />
+  <base href="<?= htmlspecialchars($appBaseHref, ENT_QUOTES, 'UTF-8') ?>">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Frequently Asked Questions - Commerza. Find answers about our premium watches, shipping, returns, and customer service.">
+  <meta name="description" content="<?= htmlspecialchars('Frequently Asked Questions - ' . $siteBrandName . '. Find answers about our premium watches, shipping, returns, and customer service.', ENT_QUOTES, 'UTF-8') ?>">
   <meta name="robots" content="index, follow">
   <meta name="author" content="Syed Ahmer Shah">
-  <meta property="og:title" content="FAQ | Commerza">
-  <meta property="og:description" content="Find answers to frequently asked questions about Commerza watches and services.">
-  <meta property="og:url" content="https://commerza.ahmershah.dev/faq.php">
+  <meta property="og:title" content="<?= htmlspecialchars('FAQ | ' . $siteBrandName, ENT_QUOTES, 'UTF-8') ?>">
+  <meta property="og:description" content="<?= htmlspecialchars('Find answers to frequently asked questions about ' . $siteBrandName . ' watches and services.', ENT_QUOTES, 'UTF-8') ?>">
+  <meta property="og:url" content="<?= htmlspecialchars($pageCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
-  <title>FAQ | Commerza</title>
-  <link rel="canonical" href="https://commerza.ahmershah.dev/faq.php" />
+  <meta property="og:image" content="<?= htmlspecialchars($pageOgImageUrl, ENT_QUOTES, 'UTF-8') ?>">
+  <title><?= htmlspecialchars('FAQ | ' . $siteBrandName, ENT_QUOTES, 'UTF-8') ?></title>
+  <link rel="canonical" href="<?= htmlspecialchars($pageCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" />
   <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "FAQPage",
-      "name": "FAQ | Commerza",
-      "url": "https://commerza.ahmershah.dev/faq.php",
-      "description": "Frequently asked questions for Commerza customers."
+      "name": <?= json_encode('FAQ | ' . $siteBrandName, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
+      "url": <?= json_encode($pageCanonicalUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
+      "description": <?= json_encode('Frequently asked questions for ' . $siteBrandName . ' customers.', JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>
     }
   </script>
 
-  <link rel="icon" href="frontend/assets/images/favicon/commerza-watches-icon.ico" />
+  <link rel="icon" href="<?= htmlspecialchars($siteFaviconPath, ENT_QUOTES, 'UTF-8') ?>" />
   <link rel="stylesheet" href="frontend/assets/css/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" />
@@ -44,33 +65,37 @@ require_once __DIR__ . '/backend/data.php';
       margin-bottom: 8px;
       transition: all 0.3s ease;
     }
+
     .accordion-button:hover {
       background-color: #252525;
       border-color: #ff8533;
     }
-   
+
     .accordion-button::after {
       background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23ff6600'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
     }
+
     .accordion-item {
       border: none;
       background-color: transparent;
       user-select: none;
     }
+
     .accordion-button {
       border-radius: 6px;
     }
-    .accordion-collapse, .accordion-collapse.active {
+
+    .accordion-collapse,
+    .accordion-collapse.active {
       border: 1px solid #ff6600;
       border-top: none;
       border-radius: 0 0 6px 6px;
     }
+
     .accordion-body {
       background-color: #0d0d0d;
       border-radius: 0 0 6px 6px;
     }
-
-    
   </style>
 </head>
 
@@ -79,8 +104,8 @@ require_once __DIR__ . '/backend/data.php';
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
       <div class="container-fluid">
         <a class="navbar-brand fw-bold" href="index.php">
-          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy" class="navbar-logo me-2" />
-          <span class="brand-text">COMMERZA</span>
+          <img src="<?= htmlspecialchars($siteLogoPath, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> Logo" loading="lazy" class="navbar-logo me-2" />
+          <span class="brand-text"><?= htmlspecialchars(strtoupper($siteBrandName), ENT_QUOTES, 'UTF-8') ?></span>
         </a>
         <div class="d-flex align-items-center order-lg-2">
           <ul class="navbar-nav ms-3 d-none d-lg-flex flex-row align-items-center me-3">
@@ -114,8 +139,8 @@ require_once __DIR__ . '/backend/data.php';
     <div class="offcanvas offcanvas-start" tabindex="-1" id="navbarOffcanvas" aria-labelledby="offcanvasNavbarLabel">
       <div class="offcanvas-header">
         <h5 class="offcanvas-title" id="offcanvasNavbarLabel">
-          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy" class="offcanvas-logo me-2" />
-          <span class="brand-text">COMMERZA</span>
+          <img src="<?= htmlspecialchars($siteLogoPath, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> Logo" loading="lazy" class="offcanvas-logo me-2" />
+          <span class="brand-text"><?= htmlspecialchars(strtoupper($siteBrandName), ENT_QUOTES, 'UTF-8') ?></span>
         </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
       </div>
@@ -228,7 +253,7 @@ require_once __DIR__ . '/backend/data.php';
         </h3>
         <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
           <div class="accordion-body product-desc">
-            Yes, all Commerza watches include a 12-month limited warranty
+            Yes, all <?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> watches include a 12-month limited warranty
             covering manufacturing defects.
           </div>
         </div>
@@ -278,7 +303,7 @@ require_once __DIR__ . '/backend/data.php';
     <div class="container-fluid">
       <div class="row py-5">
         <div class="col-12 col-sm-6 col-md-6 col-lg-3 mb-4">
-          <h3 class="footer-heading">Commerza</h3>
+          <h3 class="footer-heading"><?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?></h3>
           <p class="footer-text">
             Premium watches and accessories for the modern lifestyle. Quality
             craftsmanship meets contemporary design.
@@ -308,9 +333,9 @@ require_once __DIR__ . '/backend/data.php';
         <div class="col-12 col-sm-6 col-md-6 col-lg-3 mb-4">
           <h3 class="footer-heading">Connect</h3>
           <div class="social-links">
-            <a href="https://www.facebook.com/commerza.ahmer" target="_blank" aria-label="Commerza on Facebook"><i class="bi bi-facebook"></i></a>
-            <a href="https://x.com/commerza_ahmer" target="_blank" aria-label="Commerza on X"><i class="bi bi-twitter"></i></a>
-            <a href="https://www.instagram.com/commerza.ahmer" target="_blank" aria-label="Commerza on Instagram"><i class="bi bi-instagram"></i></a>
+            <a href="https://www.facebook.com/commerza.ahmer" target="_blank" aria-label="<?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> on Facebook"><i class="bi bi-facebook"></i></a>
+            <a href="https://x.com/commerza_ahmer" target="_blank" aria-label="<?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> on X"><i class="bi bi-twitter"></i></a>
+            <a href="https://www.instagram.com/commerza.ahmer" target="_blank" aria-label="<?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> on Instagram"><i class="bi bi-instagram"></i></a>
           </div>
           <p class="footer-text mt-3">Email: commerza.ahmer@gmail.com</p>
           <p class="footer-text">Phone: +92 314 8396293</p>
@@ -319,12 +344,20 @@ require_once __DIR__ . '/backend/data.php';
       <div class="row">
         <div class="col-12 text-center py-3 border-top">
           <p class="footer-copyright">
-            &copy; 2026 Commerza. All rights reserved.
+            &copy; 2026 <?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?>. All rights reserved.
           </p>
         </div>
       </div>
     </div>
   </footer>
+  <script src="frontend/assets/js/modules/core/site-settings.js" defer></script>
+  <script <?= commerza_csp_nonce_attr() ?>>
+    document.addEventListener("DOMContentLoaded", function() {
+      if (typeof applySiteSettings === "function") {
+        applySiteSettings();
+      }
+    });
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>

@@ -2,6 +2,24 @@
 require_once __DIR__ . '/backend/data.php';
 
 $appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
+$publicSettings = $GLOBALS['commerza_public_site_settings_payload'] ?? [];
+$siteBrandName = trim((string)($publicSettings['brand']['name'] ?? 'Commerza'));
+if ($siteBrandName === '') {
+  $siteBrandName = 'Commerza';
+}
+
+$siteLogoPath = trim((string)($publicSettings['brand']['logo'] ?? 'frontend/assets/images/logo/commerza-logo.webp'));
+if ($siteLogoPath === '') {
+  $siteLogoPath = 'frontend/assets/images/logo/commerza-logo.webp';
+}
+
+$siteFaviconPath = trim((string)($publicSettings['brand']['favicon'] ?? 'frontend/assets/images/favicon/commerza-watches-icon.ico'));
+if ($siteFaviconPath === '') {
+  $siteFaviconPath = 'frontend/assets/images/favicon/commerza-watches-icon.ico';
+}
+
+$pageCanonicalUrl = commerza_absolute_url('/about');
+$pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -10,27 +28,27 @@ $appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <base href="<?= htmlspecialchars($appBaseHref, ENT_QUOTES, 'UTF-8') ?>">
-  <meta name="description" content="Learn about Commerza - Your trusted source for premium automatic watches. Discover our commitment to quality, craftsmanship, and exceptional timepiece design.">
+  <meta name="description" content="<?= htmlspecialchars('Learn about ' . $siteBrandName . ' - Your trusted source for premium automatic watches. Discover our commitment to quality, craftsmanship, and exceptional timepiece design.', ENT_QUOTES, 'UTF-8') ?>">
   <meta name="robots" content="index, follow">
   <meta name="author" content="Syed Ahmer Shah">
-  <meta property="og:title" content="About Us | Commerza">
-  <meta property="og:description" content="Learn about Commerza's commitment to quality and craftsmanship in premium watches.">
-  <meta property="og:url" content="https://commerza.ahmershah.dev/about.php">
+  <meta property="og:title" content="<?= htmlspecialchars('About Us | ' . $siteBrandName, ENT_QUOTES, 'UTF-8') ?>">
+  <meta property="og:description" content="<?= htmlspecialchars('Learn about ' . $siteBrandName . '\'s commitment to quality and craftsmanship in premium watches.', ENT_QUOTES, 'UTF-8') ?>">
+  <meta property="og:url" content="<?= htmlspecialchars($pageCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
-  <title>About Us | Commerza</title>
-  <link rel="canonical" href="https://commerza.ahmershah.dev/about.php" />
+  <meta property="og:image" content="<?= htmlspecialchars($pageOgImageUrl, ENT_QUOTES, 'UTF-8') ?>">
+  <title><?= htmlspecialchars('About Us | ' . $siteBrandName, ENT_QUOTES, 'UTF-8') ?></title>
+  <link rel="canonical" href="<?= htmlspecialchars($pageCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" />
   <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebPage",
-      "name": "About Us | Commerza",
-      "url": "https://commerza.ahmershah.dev/about.php",
-      "description": "About Commerza and our premium watch craftsmanship."
+      "name": <?= json_encode('About Us | ' . $siteBrandName, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
+      "url": <?= json_encode($pageCanonicalUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
+      "description": <?= json_encode('About ' . $siteBrandName . ' and our premium watch craftsmanship.', JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>
     }
   </script>
 
-  <link rel="icon" href="frontend/assets/images/favicon/commerza-watches-icon.ico" />
+  <link rel="icon" href="<?= htmlspecialchars($siteFaviconPath, ENT_QUOTES, 'UTF-8') ?>" />
   <link rel="stylesheet" href="frontend/assets/css/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" />
@@ -223,8 +241,8 @@ $appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
       <div class="container-fluid">
         <a class="navbar-brand fw-bold" href="index.php">
-          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy" class="navbar-logo me-2" />
-          <span class="brand-text">COMMERZA</span>
+          <img src="<?= htmlspecialchars($siteLogoPath, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> Logo" loading="lazy" class="navbar-logo me-2" />
+          <span class="brand-text"><?= htmlspecialchars(strtoupper($siteBrandName), ENT_QUOTES, 'UTF-8') ?></span>
         </a>
 
         <div class="d-flex align-items-center order-lg-2">
@@ -260,8 +278,8 @@ $appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
     <div class="offcanvas offcanvas-start" tabindex="-1" id="navbarOffcanvas" aria-labelledby="offcanvasNavbarLabel">
       <div class="offcanvas-header">
         <h5 class="offcanvas-title" id="offcanvasNavbarLabel">
-          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy" class="offcanvas-logo me-2" />
-          <span class="brand-text">COMMERZA</span>
+          <img src="<?= htmlspecialchars($siteLogoPath, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> Logo" loading="lazy" class="offcanvas-logo me-2" />
+          <span class="brand-text"><?= htmlspecialchars(strtoupper($siteBrandName), ENT_QUOTES, 'UTF-8') ?></span>
         </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
       </div>
@@ -302,9 +320,9 @@ $appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
   <main class="container my-5 about-shell">
     <section class="page-hero mb-5">
       <div class="hero-content">
-        <span class="hero-badge"><i class="bi bi-gem"></i> About Commerza</span>
+        <span class="hero-badge"><i class="bi bi-gem"></i> About <?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?></span>
         <h1 class="mt-3" style="color: #ff6600">Precision Craft, Built For Real Life</h1>
-        <p class="product-desc mt-2">Commerza started with a simple goal: build premium watches that look bold, wear comfortably, and stay reliable day after day. From the first sketch to final QC, every piece is selected for durability, clarity, and timeless style.</p>
+        <p class="product-desc mt-2"><?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> started with a simple goal: build premium watches that look bold, wear comfortably, and stay reliable day after day. From the first sketch to final QC, every piece is selected for durability, clarity, and timeless style.</p>
         <div class="hero-actions d-flex flex-wrap gap-2 mt-3">
           <a href="index.php" class="btn product-btn-buy">Shop Collection</a>
           <a href="contact.php" class="btn product-btn-cart">Talk to Us</a>
@@ -333,7 +351,7 @@ $appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
     <section class="row g-4 mb-5">
       <div class="col-12 col-lg-7">
         <div class="about-story-card">
-          <h2 class="product-name mb-3">What Makes Commerza Different</h2>
+          <h2 class="product-name mb-3">What Makes <?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> Different</h2>
           <p class="product-desc">We design around real use, not just display photos. That means balanced case weight, straps you can wear all day, and dial readability that holds up in daylight and low-light conditions. Every collection goes through visual, fit, and movement checks before release.</p>
           <p class="product-desc mb-0">Our catalogs blend classic silhouettes with modern finishes, so your watch looks right in formal settings, daily work, and weekend wear. We keep the process transparent, support responsive, and product guidance practical.</p>
         </div>
@@ -367,7 +385,7 @@ $appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
     </section>
 
     <section class="mb-5">
-      <h2 class="mb-3" style="color:#ff6600;">The Commerza Standard</h2>
+      <h2 class="mb-3" style="color:#ff6600;">The <?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> Standard</h2>
       <div class="about-highlight-grid">
         <article class="about-highlight-card">
           <i class="bi bi-shield-check"></i>
@@ -394,10 +412,10 @@ $appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
 
     <section class="about-app-launch mb-5" aria-labelledby="aboutAppLaunchTitle">
       <span class="hero-badge"><i class="bi bi-phone"></i> Mobile Roadmap</span>
-      <h2 id="aboutAppLaunchTitle" class="mt-3" style="color:#ff6600;">Commerza App Is Coming Soon</h2>
+      <h2 id="aboutAppLaunchTitle" class="mt-3" style="color:#ff6600;"><?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> App Is Coming Soon</h2>
       <p class="product-desc mb-0">We are building a faster mobile experience for watch discovery, personalized recommendations, wishlist sync, and order tracking. Early access starts soon.</p>
 
-      <div class="about-app-columns" aria-label="Commerza app roadmap details">
+      <div class="about-app-columns" aria-label="<?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> app roadmap details">
         <div class="about-app-col">
           <h3>User Experience 6</h3>
           <ul class="about-app-list">
@@ -453,7 +471,7 @@ $appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
     <div class="container-fluid">
       <div class="row py-5">
         <div class="col-12 col-sm-6 col-md-6 col-lg-3 mb-4">
-          <h3 class="footer-heading">Commerza</h3>
+          <h3 class="footer-heading"><?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?></h3>
           <p class="footer-text">
             Premium watches and accessories for the modern lifestyle. Quality
             craftsmanship meets contemporary design.
@@ -483,9 +501,9 @@ $appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
         <div class="col-12 col-sm-6 col-md-6 col-lg-3 mb-4">
           <h3 class="footer-heading">Connect</h3>
           <div class="social-links">
-            <a href="https://www.facebook.com/commerza.ahmer" target="_blank" aria-label="Commerza on Facebook"><i class="bi bi-facebook"></i></a>
-            <a href="https://x.com/commerza_ahmer" target="_blank" aria-label="Commerza on X"><i class="bi bi-twitter"></i></a>
-            <a href="https://www.instagram.com/commerza.ahmer" target="_blank" aria-label="Commerza on Instagram"><i class="bi bi-instagram"></i></a>
+            <a href="https://www.facebook.com/commerza.ahmer" target="_blank" aria-label="<?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> on Facebook"><i class="bi bi-facebook"></i></a>
+            <a href="https://x.com/commerza_ahmer" target="_blank" aria-label="<?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> on X"><i class="bi bi-twitter"></i></a>
+            <a href="https://www.instagram.com/commerza.ahmer" target="_blank" aria-label="<?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> on Instagram"><i class="bi bi-instagram"></i></a>
           </div>
           <p class="footer-text mt-3">Email: commerza.ahmer@gmail.com</p>
           <p class="footer-text">Phone: +92 314 8396293</p>
@@ -494,13 +512,21 @@ $appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
       <div class="row">
         <div class="col-12 text-center py-3 border-top">
           <p class="footer-copyright">
-            &copy; 2026 Commerza. All rights reserved.
+            &copy; 2026 <?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?>. All rights reserved.
           </p>
         </div>
       </div>
     </div>
   </footer>
 
+  <script src="frontend/assets/js/modules/core/site-settings.js" defer></script>
+  <script <?= commerza_csp_nonce_attr() ?>>
+    document.addEventListener("DOMContentLoaded", function() {
+      if (typeof applySiteSettings === "function") {
+        applySiteSettings();
+      }
+    });
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>

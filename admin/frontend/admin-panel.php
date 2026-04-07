@@ -433,6 +433,29 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                     </div>
                                     <span class="step-chip">Tip: Use unique product codes and clear service details so support teams can resolve issues faster.</span>
                                 </div>
+                                <div class="row g-3 mb-4" id="productsWorkspaceSummary">
+                                    <div class="col-12 col-md-4">
+                                        <div class="product-workspace-card">
+                                            <p class="product-workspace-kicker mb-1">Active Products</p>
+                                            <h3 class="product-workspace-value mb-1" id="productWorkspaceProducts">0</h3>
+                                            <small class="field-hint">Total products currently visible in the catalog.</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-4">
+                                        <div class="product-workspace-card">
+                                            <p class="product-workspace-kicker mb-1">Sections</p>
+                                            <h3 class="product-workspace-value mb-1" id="productWorkspaceSections">0</h3>
+                                            <small class="field-hint">Categories/sections where products are grouped.</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-4">
+                                        <div class="product-workspace-card product-workspace-trash">
+                                            <p class="product-workspace-kicker mb-1">Trash Queue</p>
+                                            <h3 class="product-workspace-value mb-1" id="productWorkspaceTrash">0</h3>
+                                            <small class="field-hint">Deleted items can be restored for 7 days.</small>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div class="card admin-card border-0 shadow-sm mb-4">
                                     <div class="card-header bg-dark border-bottom border-secondary py-3">
                                         <h3 class="h5 mb-0 fw-bold text-orange">Bulk Product Upload (CSV / JSON)</h3>
@@ -552,8 +575,9 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
 
                                 <div class="card admin-card border-0 shadow-sm mt-4" id="productTrashCard">
                                     <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                                        <h3 class="h5 mb-0 fw-bold text-orange">
+                                        <h3 class="h5 mb-0 fw-bold text-orange d-flex flex-column gap-1">
                                             Product Trash (<span id="productTrashCount">0</span>)
+                                            <small class="text-secondary fw-normal">Items auto-purge after 7 days unless restored.</small>
                                         </h3>
                                         <div class="d-flex gap-2 flex-wrap">
                                             <button class="btn btn-sm btn-outline-orange" id="refreshProductTrashBtn" type="button">
@@ -761,20 +785,23 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                     <div class="card-header bg-dark border-bottom border-secondary py-3">
                                         <h3 class="h5 mb-0 fw-bold text-orange">Create / Update Coupon</h3>
                                     </div>
-                                    <div class="card-body p-4">
+                                    <div class="card-body p-4 coupon-form-panel">
                                         <input type="hidden" id="couponId">
                                         <div class="row g-3">
                                             <div class="col-12 col-md-6">
                                                 <label for="couponCode" class="form-label text-light">Coupon Code</label>
                                                 <input type="text" class="form-control bg-secondary border-0 text-light" id="couponCode" placeholder="SAVE10" maxlength="50">
+                                                <small class="field-hint d-block mt-1">Unique code customers enter at checkout.</small>
                                             </div>
                                             <div class="col-12 col-md-6">
                                                 <label for="couponTitle" class="form-label text-light">Title</label>
                                                 <input type="text" class="form-control bg-secondary border-0 text-light" id="couponTitle" placeholder="Weekend Offer" maxlength="120">
+                                                <small class="field-hint d-block mt-1">Internal display name shown in admin only.</small>
                                             </div>
                                             <div class="col-12">
                                                 <label for="couponDescription" class="form-label text-light">Description</label>
                                                 <input type="text" class="form-control bg-secondary border-0 text-light" id="couponDescription" placeholder="Optional internal note" maxlength="255">
+                                                <small class="field-hint d-block mt-1">Optional note for your team (campaign goal, audience, etc).</small>
                                             </div>
                                             <div class="col-12 col-md-4">
                                                 <label for="couponDiscountType" class="form-label text-light">Discount Type</label>
@@ -782,30 +809,37 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                                     <option value="fixed">Fixed PKR</option>
                                                     <option value="percent">Percent %</option>
                                                 </select>
+                                                <small class="field-hint d-block mt-1">Choose fixed amount or percentage-based discount.</small>
                                             </div>
                                             <div class="col-12 col-md-4">
                                                 <label for="couponDiscountValue" class="form-label text-light">Discount Value</label>
                                                 <input type="number" class="form-control bg-secondary border-0 text-light" id="couponDiscountValue" min="0.01" step="0.01" placeholder="250">
+                                                <small class="field-hint d-block mt-1">For percent type, enter number like 10 for 10%.</small>
                                             </div>
                                             <div class="col-12 col-md-4">
                                                 <label for="couponMinOrder" class="form-label text-light">Min Order (PKR)</label>
                                                 <input type="number" class="form-control bg-secondary border-0 text-light" id="couponMinOrder" min="0" step="0.01" placeholder="0">
+                                                <small class="field-hint d-block mt-1">Minimum cart amount required before coupon applies.</small>
                                             </div>
                                             <div class="col-12 col-md-4">
                                                 <label for="couponMaxDiscount" class="form-label text-light">Max Discount (PKR)</label>
                                                 <input type="number" class="form-control bg-secondary border-0 text-light" id="couponMaxDiscount" min="0" step="0.01" placeholder="Percent coupons only">
+                                                <small class="field-hint d-block mt-1">Optional safety cap for percentage discounts.</small>
                                             </div>
                                             <div class="col-12 col-md-4">
                                                 <label for="couponUsageLimit" class="form-label text-light">Usage Limit</label>
                                                 <input type="number" class="form-control bg-secondary border-0 text-light" id="couponUsageLimit" min="0" step="1" placeholder="0 for unlimited">
+                                                <small class="field-hint d-block mt-1">Total times this coupon can be redeemed.</small>
                                             </div>
                                             <div class="col-12 col-md-4">
                                                 <label for="couponPerUserLimit" class="form-label text-light">Per-User Limit</label>
                                                 <input type="number" class="form-control bg-secondary border-0 text-light" id="couponPerUserLimit" min="0" step="1" placeholder="0 for unlimited">
+                                                <small class="field-hint d-block mt-1">How many times one customer can use this code.</small>
                                             </div>
                                             <div class="col-12 col-md-8">
                                                 <label for="couponExpiresAt" class="form-label text-light">Expires At</label>
                                                 <input type="datetime-local" class="form-control bg-secondary border-0 text-light" id="couponExpiresAt">
+                                                <small class="field-hint d-block mt-1">Leave empty if the coupon should stay available until disabled.</small>
                                             </div>
                                             <div class="col-12 col-md-4 d-flex align-items-end">
                                                 <div class="form-check form-switch">
@@ -829,22 +863,26 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                     <div class="card-header bg-dark border-bottom border-secondary py-3">
                                         <h3 class="h5 mb-0 fw-bold text-orange">Send Coupon Email</h3>
                                     </div>
-                                    <div class="card-body p-4">
+                                    <div class="card-body p-4 coupon-form-panel">
                                         <div class="mb-3">
                                             <label for="couponEmailCouponId" class="form-label text-light">Select Coupon</label>
                                             <select class="form-select bg-secondary border-0 text-light" id="couponEmailCouponId"></select>
+                                            <small class="field-hint d-block mt-1">Pick which coupon details to insert into the message.</small>
                                         </div>
                                         <div class="mb-3">
                                             <label for="couponEmailRecipients" class="form-label text-light">Recipients</label>
                                             <textarea class="form-control bg-secondary border-0 text-light" id="couponEmailRecipients" rows="3" placeholder="Add emails separated by comma, space, or new line"></textarea>
+                                            <small class="field-hint d-block mt-1">You can paste multiple emails separated by comma, spaces, or new lines.</small>
                                         </div>
                                         <div class="mb-3">
                                             <label for="couponEmailSubject" class="form-label text-light">Subject</label>
                                             <input type="text" class="form-control bg-secondary border-0 text-light" id="couponEmailSubject" placeholder="Your Commerza coupon is here">
+                                            <small class="field-hint d-block mt-1">Keep it short and offer-focused to improve open rates.</small>
                                         </div>
                                         <div class="mb-3">
                                             <label for="couponEmailMessage" class="form-label text-light">Message Template</label>
                                             <textarea class="form-control bg-secondary border-0 text-light" id="couponEmailMessage" rows="5" placeholder="Use placeholders: {{code}}, {{discount}}, {{min_order}}, {{expires_at}}"></textarea>
+                                            <small class="field-hint d-block mt-1">Use placeholders so each email auto-fills coupon details.</small>
                                         </div>
                                         <button class="btn btn-orange" id="sendCouponEmailBtn" type="button">
                                             <i class="bi bi-send me-1"></i>Send Coupon Email
@@ -1193,10 +1231,16 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                     <div class="card-body p-4">
                                         <div class="mb-3">
                                             <label for="liveViewersMode" class="form-label text-light">Tracking Mode</label>
-                                            <select class="form-select bg-secondary border-0 text-light" id="liveViewersMode">
-                                                <option value="real">Real (active sessions)</option>
-                                                <option value="fake">Fake (marketing demo)</option>
-                                            </select>
+                                            <input type="hidden" id="liveViewersMode" value="real">
+                                            <div class="dropdown admin-mode-dropdown">
+                                                <button class="btn btn-dark border border-secondary text-light w-100 text-start rounded-2 dropdown-toggle" type="button" id="liveViewersModeBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    Real (active sessions)
+                                                </button>
+                                                <ul class="dropdown-menu dropdown-menu-start bg-dark border-secondary w-100" id="liveViewersModeMenu">
+                                                    <li><button class="dropdown-item" type="button" data-mode="real" data-label="Real (active sessions)">Real (active sessions)</button></li>
+                                                    <li><button class="dropdown-item" type="button" data-mode="fake" data-label="Fake (marketing demo)">Fake (marketing demo)</button></li>
+                                                </ul>
+                                            </div>
                                             <small class="field-hint">Real mode reads active sessions. Fake mode uses a configurable range.</small>
                                         </div>
 
