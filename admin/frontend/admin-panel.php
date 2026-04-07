@@ -191,7 +191,15 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                             data-bs-target=".admin-sidebar" aria-controls="sidebar" aria-expanded="false" aria-label="Open menu">
                             <i class="bi bi-list fs-5"></i>
                         </button>
-                        <h1 class="h2 mb-0 fw-bold text-light " id="pageTitle">Dashboard</h1>
+                        <div class="d-flex flex-column">
+                            <h1 class="h2 mb-1 fw-bold text-light" id="pageTitle">Dashboard</h1>
+                            <nav aria-label="Breadcrumb" id="adminBreadcrumbNav">
+                                <ol class="breadcrumb admin-breadcrumb mb-0">
+                                    <li class="breadcrumb-item"><span>Admin Panel</span></li>
+                                    <li class="breadcrumb-item active" id="adminBreadcrumbCurrent" aria-current="page">Dashboard</li>
+                                </ol>
+                            </nav>
+                        </div>
                     </div>
                     <div class="btn-toolbar mb-2 mb-md-0 gap-1" id="actionButtons">
                         <div class="btn-group">
@@ -444,6 +452,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                                 <button class="btn btn-outline-orange" id="downloadSampleProductsCsvBtn" type="button">
                                                     <i class="bi bi-file-earmark-spreadsheet me-1"></i>Download Sample CSV
                                                 </button>
+                                                <div class="w-100 small text-secondary" id="bulkImportProgress">No import in progress.</div>
                                             </div>
                                         </div>
                                     </div>
@@ -535,6 +544,45 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                                 </thead>
                                                 <tbody>
 
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="card admin-card border-0 shadow-sm mt-4" id="productTrashCard">
+                                    <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <h3 class="h5 mb-0 fw-bold text-orange">
+                                            Product Trash (<span id="productTrashCount">0</span>)
+                                        </h3>
+                                        <div class="d-flex gap-2 flex-wrap">
+                                            <button class="btn btn-sm btn-outline-orange" id="refreshProductTrashBtn" type="button">
+                                                <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-warning" id="emptyExpiredProductTrashBtn" type="button">
+                                                <i class="bi bi-hourglass-split me-1"></i>Empty Expired
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" id="emptyAllProductTrashBtn" type="button">
+                                                <i class="bi bi-trash3 me-1"></i>Empty All
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-dark table-hover align-middle mb-0" id="productTrashTable">
+                                                <thead class="border-bottom border-secondary">
+                                                    <tr>
+                                                        <th class="py-3 ps-4 text-orange fw-semibold">Product</th>
+                                                        <th class="py-3 text-orange fw-semibold">Section</th>
+                                                        <th class="py-3 text-orange fw-semibold">Deleted At</th>
+                                                        <th class="py-3 text-orange fw-semibold">Auto Purge</th>
+                                                        <th class="py-3 pe-4 text-orange fw-semibold">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td colspan="5" class="text-center py-4 text-secondary">Trash is empty.</td>
+                                                    </tr>
                                                 </tbody>
                                             </table>
                                         </div>
@@ -879,6 +927,12 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                     <h4 class="text-light fw-bold mb-0" id="reviewStatAverage">0.0</h4>
                                 </div>
                             </div>
+                            <div class="col-12 col-sm-6 col-lg-3">
+                                <div class="rounded-3 border border-secondary p-3">
+                                    <p class="text-secondary small mb-1 text-uppercase">Locked</p>
+                                    <h4 class="text-info fw-bold mb-0" id="reviewStatLocked">0</h4>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="card admin-card border-0 shadow-sm mb-4">
@@ -894,6 +948,9 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                     </select>
                                     <button class="btn btn-sm btn-orange" id="addReviewBtn" type="button">
                                         <i class="bi bi-plus-circle me-1"></i>Add Review
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-info" id="addFakeReviewBtn" type="button">
+                                        <i class="bi bi-magic me-1"></i>Add Fake
                                     </button>
                                     <button class="btn btn-sm btn-outline-orange" id="refreshReviewsBtn" type="button">
                                         <i class="bi bi-arrow-clockwise me-1"></i>Refresh
@@ -921,6 +978,45 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                         </tbody>
                                     </table>
                                 </div>
+                            </div>
+                        </div>
+
+                        <div class="card admin-card border-0 shadow-sm">
+                            <div class="card-header bg-dark border-bottom border-secondary py-3">
+                                <h3 class="h5 mb-0 fw-bold text-orange">Generate Fake Bulk Reviews</h3>
+                            </div>
+                            <div class="card-body p-4">
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-12 col-md-3">
+                                        <label for="fakeReviewProductId" class="form-label text-light">Product ID</label>
+                                        <input type="number" class="form-control bg-secondary border-0 text-light" id="fakeReviewProductId" min="1" placeholder="10">
+                                    </div>
+                                    <div class="col-12 col-md-2">
+                                        <label for="fakeReviewCount" class="form-label text-light">Count</label>
+                                        <input type="number" class="form-control bg-secondary border-0 text-light" id="fakeReviewCount" min="1" max="100" value="10">
+                                    </div>
+                                    <div class="col-6 col-md-2">
+                                        <label for="fakeReviewRatingMin" class="form-label text-light">Rating Min</label>
+                                        <input type="number" class="form-control bg-secondary border-0 text-light" id="fakeReviewRatingMin" min="1" max="5" value="3">
+                                    </div>
+                                    <div class="col-6 col-md-2">
+                                        <label for="fakeReviewRatingMax" class="form-label text-light">Rating Max</label>
+                                        <input type="number" class="form-control bg-secondary border-0 text-light" id="fakeReviewRatingMax" min="1" max="5" value="5">
+                                    </div>
+                                    <div class="col-12 col-md-3">
+                                        <label for="fakeReviewVisibility" class="form-label text-light">Visibility</label>
+                                        <select class="form-select bg-secondary border-0 text-light" id="fakeReviewVisibility">
+                                            <option value="1" selected>Visible</option>
+                                            <option value="0">Hidden</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2 mt-3 flex-wrap">
+                                    <button class="btn btn-orange" id="addFakeBulkReviewsBtn" type="button">
+                                        <i class="bi bi-lightning-charge me-1"></i>Generate Bulk Fake Reviews
+                                    </button>
+                                </div>
+                                <small class="field-hint d-block mt-2">Use this only for controlled seeding/testing scenarios.</small>
                             </div>
                         </div>
                     </div>

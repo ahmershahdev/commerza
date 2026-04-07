@@ -272,6 +272,31 @@ function account_store_refund_evidence($file, int $userId, int $orderId, array &
     return null;
   }
 
+  $isImageEvidence = strpos($mime, 'image/') === 0;
+  $imageBlob = '';
+  $outputExtension = $extension;
+
+  if ($isImageEvidence) {
+    $conversion = commerza_media_convert_upload_to_webp($tmpPath, $mime, 420, 2200);
+    if (!(bool)($conversion['ok'] ?? false)) {
+      $errors[] = (string)($conversion['message'] ?? 'Unable to parse and compress evidence image.');
+      return null;
+    }
+
+    $imageBlob = (string)($conversion['blob'] ?? '');
+    if ($imageBlob === '') {
+      $errors[] = 'Unable to save parsed evidence image.';
+      return null;
+    }
+
+    $candidateExtension = strtolower(trim((string)($conversion['output_extension'] ?? 'webp')));
+    if (!preg_match('/^[a-z0-9]{2,6}$/', $candidateExtension)) {
+      $candidateExtension = 'webp';
+    }
+
+    $outputExtension = $candidateExtension;
+  }
+
   $uploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'refunds';
   if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
     $errors[] = 'Unable to prepare refund upload directory.';
@@ -285,19 +310,31 @@ function account_store_refund_evidence($file, int $userId, int $orderId, array &
     $originalName = 'refund-evidence.' . $extension;
   }
 
-  $filename = 'refund_' . $userId . '_' . $orderId . '_' . bin2hex(random_bytes(10)) . '.' . $extension;
+  $filename = 'refund_' . $userId . '_' . $orderId . '_' . bin2hex(random_bytes(10)) . '.' . $outputExtension;
   $absolutePath = $uploadDir . DIRECTORY_SEPARATOR . $filename;
   $relativePath = 'frontend/assets/uploads/refunds/' . $filename;
+  $storedSize = $size;
 
-  if (!move_uploaded_file($tmpPath, $absolutePath)) {
-    $errors[] = 'Unable to save refund evidence file.';
-    return null;
+  if ($isImageEvidence) {
+    if (@file_put_contents($absolutePath, $imageBlob) === false) {
+      $errors[] = 'Unable to save parsed refund evidence file.';
+      return null;
+    }
+
+    $storedSize = max(0, strlen($imageBlob));
+  } else {
+    if (!move_uploaded_file($tmpPath, $absolutePath)) {
+      $errors[] = 'Unable to save refund evidence file.';
+      return null;
+    }
+
+    $storedSize = (int)(filesize($absolutePath) ?: $size);
   }
 
   return [
     'path' => $relativePath,
     'name' => $originalName,
-    'size' => $size,
+    'size' => $storedSize,
   ];
 }
 
@@ -1397,7 +1434,13 @@ if (is_array($accountDeletePending)) {
               <input type="hidden" name="action" value="update_profile_picture">
               <input type="file" name="profile_picture" id="profilePictureInput" class="form-control search-input mt-3"
                 accept="image/jpeg,image/png,image/webp,image/gif" />
-              <small class="text-secondary d-block mt-2">Upload a clear square photo. Supported formats: JPG, PNG, WebP, GIF.</small>
+              <small class="text-secondary d-block mt-2">Upload a clear square photo. Supported formats: JPG, PNG, WebP, GIF. Max 2 MB. Image is parsed/compressed before save.</small>
+              <div class="upload-progress-shell mt-2 d-none" id="profileUploadProgress">
+                <small class="text-secondary d-block" data-upload-stage>Waiting to upload...</small>
+                <div class="progress mt-1" style="height: 6px;">
+                  <div class="progress-bar bg-warning" role="progressbar" data-upload-bar style="width: 0%">0%</div>
+                </div>
+              </div>
               <button type="submit" class="btn product-btn-buy w-100 mt-2" data-loading-text="Updating Picture...">
                 Update Picture
               </button>
@@ -1774,7 +1817,7 @@ if (is_array($accountDeletePending)) {
                         <?php endif; ?>
 
                         <?php if ($canRequestRefund): ?>
-                          <form action="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" enctype="multipart/form-data" class="mt-2">
+                          <form action="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" enctype="multipart/form-data" class="mt-2 refund-request-form">
                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
                             <input type="hidden" name="action" value="request_refund">
                             <input type="hidden" name="order_id" value="<?= (int)$orderId ?>">
@@ -1796,8 +1839,15 @@ if (is_array($accountDeletePending)) {
                                 id="refund-evidence-<?= (int)$orderId ?>"
                                 type="file"
                                 name="refund_evidence"
-                                class="form-control search-input"
+                                class="form-control search-input refund-evidence-input"
                                 accept=".jpg,.jpeg,.png,.webp,.gif,.pdf">
+                              <small class="text-secondary d-block mt-1">Allowed: JPG, PNG, WebP, GIF, PDF. Max 6 MB. Images are parsed/compressed before upload.</small>
+                              <div class="upload-progress-shell mt-2 d-none" data-upload-progress-shell>
+                                <small class="text-secondary d-block" data-upload-stage>Waiting to upload...</small>
+                                <div class="progress mt-1" style="height: 6px;">
+                                  <div class="progress-bar bg-warning" role="progressbar" data-upload-bar style="width: 0%">0%</div>
+                                </div>
+                              </div>
                             </div>
                             <button type="submit" class="btn product-btn-cart" data-loading-text="Submitting Refund...">
                               Refund Me
@@ -2221,6 +2271,139 @@ if (is_array($accountDeletePending)) {
           return true;
         });
       }
+
+      const updateUploadShell = function(shell, stageText, percent, tone) {
+        if (!shell || !shell.length) {
+          return;
+        }
+
+        const safePercent = Math.max(0, Math.min(100, Math.round(percent || 0)));
+        const stage = shell.find("[data-upload-stage]").first();
+        const bar = shell.find("[data-upload-bar]").first();
+
+        shell.removeClass("d-none");
+        if (stage.length) {
+          stage.text((stageText || "Processing upload...").toString());
+        }
+
+        if (bar.length) {
+          bar.removeClass("bg-warning bg-danger bg-success");
+          bar.addClass(tone || "bg-warning");
+          bar.css("width", `${safePercent}%`);
+          bar.text(`${safePercent}%`);
+        }
+      };
+
+      const bindUploadProgressForm = function(form, fileSelector, resolveShell) {
+        if (!form || !form.length) {
+          return;
+        }
+
+        form.off("submit.uploadProgress").on("submit.uploadProgress", function(event) {
+          const activeForm = $(this);
+          const fileInput = activeForm.find(fileSelector).first();
+          if (!fileInput.length) {
+            return true;
+          }
+
+          const file = fileInput[0]?.files?.[0] || null;
+          if (!file) {
+            const shell = resolveShell(activeForm);
+            if (shell && shell.length) {
+              shell.addClass("d-none");
+            }
+            return true;
+          }
+
+          event.preventDefault();
+          event.stopImmediatePropagation();
+
+          const shell = resolveShell(activeForm);
+          updateUploadShell(shell, "Uploading file...", 0, "bg-warning");
+
+          const submitBtn = activeForm.find("button[type='submit']").first();
+          const originalText = submitBtn.text();
+          const loadingText = (submitBtn.data("loading-text") || "Uploading...").toString();
+          submitBtn.prop("disabled", true).text(loadingText);
+
+          const restoreButton = function() {
+            submitBtn.prop("disabled", false).text(originalText);
+          };
+
+          const xhr = new XMLHttpRequest();
+          xhr.open(
+            (activeForm.attr("method") || "POST").toString().toUpperCase(),
+            (activeForm.attr("action") || window.location.href).toString(),
+            true,
+          );
+
+          xhr.upload.addEventListener("progress", function(progressEvent) {
+            if (!progressEvent.lengthComputable) {
+              updateUploadShell(shell, "Uploading file...", 0, "bg-warning");
+              return;
+            }
+
+            const pct = (progressEvent.loaded / progressEvent.total) * 100;
+            updateUploadShell(shell, `Uploading file... ${Math.round(pct)}%`, pct, "bg-warning");
+          });
+
+          xhr.upload.addEventListener("load", function() {
+            updateUploadShell(
+              shell,
+              "Upload complete. Server is parsing/compressing...",
+              100,
+              "bg-warning",
+            );
+          });
+
+          xhr.onerror = function() {
+            updateUploadShell(
+              shell,
+              "Upload failed due to a network error.",
+              100,
+              "bg-danger",
+            );
+            restoreButton();
+          };
+
+          xhr.onload = function() {
+            if (xhr.status >= 200 && xhr.status < 400) {
+              updateUploadShell(shell, "Upload completed. Refreshing...", 100, "bg-success");
+              document.open();
+              document.write(xhr.responseText || "");
+              document.close();
+              return;
+            }
+
+            updateUploadShell(
+              shell,
+              "Upload failed. Please try again.",
+              100,
+              "bg-danger",
+            );
+            restoreButton();
+          };
+
+          const formData = new FormData(activeForm[0]);
+          xhr.send(formData);
+          return false;
+        });
+      };
+
+      bindUploadProgressForm(
+        $("#updateProfilePictureForm"),
+        "#profilePictureInput",
+        function() {
+          return $("#profileUploadProgress");
+        },
+      );
+
+      $(".refund-request-form").each(function() {
+        const form = $(this);
+        bindUploadProgressForm(form, ".refund-evidence-input", function(activeForm) {
+          return activeForm.find("[data-upload-progress-shell]").first();
+        });
+      });
 
       $("form").on("submit", function() {
         const btn = $(this).find("button[type='submit']").first();
