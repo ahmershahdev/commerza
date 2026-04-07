@@ -602,8 +602,22 @@ function commerza_html_meta_normalize(string $buffer): string
         $buffer
     );
 
+    $buffer = preg_replace(
+        '/frontend\/assets\/js\/global-protection\.js(?!\?v=)/i',
+        'frontend/assets/js/global-protection.js?v=20260408',
+        $buffer
+    ) ?? $buffer;
+
     if (stripos($buffer, '</head>') === false) {
         return $buffer;
+    }
+
+    if (stripos($buffer, '<base ') === false) {
+        $baseHref = htmlspecialchars(rtrim(commerza_public_base_url(), '/') . '/', ENT_QUOTES, 'UTF-8');
+        $baseTag = "\n  <base href=\"{$baseHref}\">\n";
+        $buffer = preg_replace_callback('/<head(\\s[^>]*)?>/i', static function (array $matches) use ($baseTag): string {
+            return $matches[0] . $baseTag;
+        }, $buffer, 1) ?? $buffer;
     }
 
     if (

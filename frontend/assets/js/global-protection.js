@@ -1,6 +1,7 @@
 (function () {
   if (window.__commerzaMediaProtectionEnabled) return;
   window.__commerzaMediaProtectionEnabled = true;
+  const ELEMENT_NODE = 1;
 
   function eventTargetElement(event) {
     const target = event ? event.target : null;
@@ -8,13 +9,13 @@
       return null;
     }
 
-    if (target.nodeType === Node.ELEMENT_NODE) {
+    if (target.nodeType === ELEMENT_NODE) {
       return target;
     }
 
     if (
       target.parentElement &&
-      target.parentElement.nodeType === Node.ELEMENT_NODE
+      target.parentElement.nodeType === ELEMENT_NODE
     ) {
       return target.parentElement;
     }
@@ -24,11 +25,19 @@
 
   function isProtectedMediaTarget(event) {
     const element = eventTargetElement(event);
-    if (!element || typeof element.closest !== "function") {
+    if (!element) {
       return false;
     }
 
-    return !!element.closest("img, video");
+    if (typeof element.closest === "function") {
+      return !!element.closest("img, video");
+    }
+
+    if (typeof element.matches === "function") {
+      return element.matches("img, video");
+    }
+
+    return false;
   }
 
   document.addEventListener("contextmenu", (event) => {

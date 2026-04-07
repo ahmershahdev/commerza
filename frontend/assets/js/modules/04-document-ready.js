@@ -1044,6 +1044,16 @@ $(document).ready(function () {
   ];
 
   let productsCache = null;
+  let pageFilterCache = new Map();
+  let searchIndexCache = {
+    source: null,
+    index: [],
+  };
+  let suggestionIndexCache = {
+    source: null,
+    index: [],
+  };
+  let suggestionResultCache = new Map();
   let activeSuggestRequest = null;
   let suggestDebounceTimer = null;
   let reviewsCsrfToken = "";
@@ -1184,11 +1194,29 @@ $(document).ready(function () {
   function renderEmptyResult(containerId, query) {
     const container = $(`#${containerId}`);
     if (container.length === 0) return;
+    const rawQuery = (query || "").toString().trim();
+    const isFilterState = rawQuery.toLowerCase() === "filters";
+    const safeQuery = escapeHtml(rawQuery);
+
+    const title = isFilterState
+      ? "No products match these filters"
+      : "No products found";
+    const detail = isFilterState
+      ? "Try switching Section or Movement back to All, or choose Featured sort."
+      : `No direct matches for "${safeQuery}" in this collection.`;
+    const guidance = isFilterState
+      ? "Reset filters to instantly restore full collections."
+      : "Use fewer keywords or press Enter from the search bar for deeper search.";
+
     container.html(`
-            <div class="text-center py-5">
-                <i class="bi bi-search" style="font-size: 3rem; color: #ff6600;"></i>
-                <h3 class="text-white mt-3">No results found</h3>
-                <p class="text-secondary">We couldn't find any matches for "${query}".</p>
+            <div class="search-empty-stage text-center py-5">
+                <div class="search-empty-icon-wrap">
+                  <i class="bi bi-stars"></i>
+                </div>
+                <p class="search-empty-eyebrow">Catalog Intelligence</p>
+                <h3 class="search-empty-title">${title}</h3>
+                <p class="search-empty-detail">${detail}</p>
+                <small class="search-empty-guidance">${guidance}</small>
             </div>
         `);
   }
@@ -1200,15 +1228,66 @@ $(document).ready(function () {
   function uniqueProducts(products) {
     const seen = new Set();
     return products.filter((product) => {
-      const key = `${product.name}-${product.salePrice}`;
+      const id = Number(product?.id || 0);
+      const key =
+        id > 0
+          ? `id:${id}`
+          : `${product?.name || ""}-${product?.salePrice || product?.price || 0}-${product?.image || ""}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
   }
 
+  function getSearchIndex(data) {
+    if (searchIndexCache.source === data && searchIndexCache.index.length > 0) {
+      return searchIndexCache.index;
+    }
+
+    const rows = [];
+    const seen = new Set();
+
+    (data?.sections || []).forEach((section) => {
+      const sectionId = (section?.sectionId || "").toString().trim();
+      (section?.products || []).forEach((product) => {
+        const id = Number(product?.id || 0);
+        const name = (product?.name || "").toString().trim();
+        if (!name) {
+          return;
+        }
+
+        const dedupeKey = id > 0 ? `id:${id}` : `${name}-${sectionId}`;
+        if (seen.has(dedupeKey)) {
+          return;
+        }
+        seen.add(dedupeKey);
+
+        const description = (product?.description || "").toString().trim();
+        const productCode = (product?.code || product?.productCode || "")
+          .toString()
+          .trim();
+
+        rows.push({
+          sectionId,
+          product: {
+            ...product,
+            __sectionId: sectionId,
+          },
+          searchBlob: `${name} ${description} ${productCode}`.toLowerCase(),
+        });
+      });
+    });
+
+    searchIndexCache = {
+      source: data,
+      index: rows,
+    };
+
+    return rows;
+  }
+
   function applySearchResults(query, data) {
-    const normalized = query.toLowerCase();
+    const normalized = query.toLowerCase().trim();
     const activeTargets = getActiveSearchTargets();
 
     if (activeTargets.length === 0) return;
@@ -1216,25 +1295,20 @@ $(document).ready(function () {
     const isIndexSearch =
       activeTargets.length === 1 &&
       activeTargets[0].containerId === "featured-products-container";
-    const allProducts = uniqueProducts(getAllProducts(data));
+    const indexed = getSearchIndex(data);
+    const matchedRows = indexed.filter((entry) =>
+      entry.searchBlob.includes(normalized),
+    );
 
     activeTargets.forEach((target) => {
       let matched = [];
       if (isIndexSearch) {
-        matched = allProducts.filter((p) => {
-          const haystack = `${p.name} ${p.description}`.toLowerCase();
-          return haystack.includes(normalized);
-        });
+        matched = matchedRows.map((entry) => entry.product);
       } else {
-        target.sectionIds.forEach((sectionId) => {
-          const section = data.sections.find((s) => s.sectionId === sectionId);
-          if (!section) return;
-          const filtered = section.products.filter((p) => {
-            const haystack = `${p.name} ${p.description}`.toLowerCase();
-            return haystack.includes(normalized);
-          });
-          matched = matched.concat(filtered);
-        });
+        const allowedSections = new Set(target.sectionIds || []);
+        matched = matchedRows
+          .filter((entry) => allowedSections.has(entry.sectionId))
+          .map((entry) => entry.product);
       }
 
       if (matched.length === 0) {
@@ -1266,6 +1340,16 @@ $(document).ready(function () {
   function fetchProductsData(forceRefresh = false) {
     if (forceRefresh) {
       productsCache = null;
+      pageFilterCache = new Map();
+      searchIndexCache = {
+        source: null,
+        index: [],
+      };
+      suggestionIndexCache = {
+        source: null,
+        index: [],
+      };
+      suggestionResultCache = new Map();
     }
 
     if (productsCache) {
@@ -1282,25 +1366,93 @@ $(document).ready(function () {
         sections: Array.isArray(data?.sections) ? data.sections : [],
       };
       productsCache = normalized;
+      pageFilterCache = new Map();
+      searchIndexCache = {
+        source: null,
+        index: [],
+      };
+      suggestionIndexCache = {
+        source: null,
+        index: [],
+      };
+      suggestionResultCache = new Map();
       return normalized;
     });
   }
 
   function getCurrentPageKey() {
-    const path = window.location.pathname.replace(/\\/g, "/");
-    const file = path.split("/").pop();
-    return file || "index.php";
+    const rawPath = window.location.pathname.replace(/\\/g, "/");
+    const rawBasePath = (window.CommerzaAppBasePath || "/")
+      .toString()
+      .replace(/\\/g, "/");
+    const normalizedBasePath = `/${rawBasePath
+      .replace(/^\/+|\/+$/g, "")
+      .toLowerCase()}/`;
+
+    let relativePath = rawPath;
+    if (
+      normalizedBasePath !== "//" &&
+      rawPath.toLowerCase().startsWith(normalizedBasePath)
+    ) {
+      relativePath = `/${rawPath.slice(normalizedBasePath.length)}`;
+    }
+
+    const normalizedPath = relativePath.replace(/\/+/g, "/");
+    const segments = normalizedPath.split("/").filter(Boolean);
+    if (segments.length === 0) {
+      return "index.php";
+    }
+
+    const firstSegment = (segments[0] || "").toLowerCase();
+    if (["product", "products", "prodcuts"].includes(firstSegment)) {
+      return "products.php";
+    }
+
+    if (firstSegment === "account") {
+      return "account.php";
+    }
+
+    const file = segments[segments.length - 1] || "";
+    return normalizePageFileName(file) || "index.php";
   }
 
   function normalizePageFileName(pageName) {
-    const value = (pageName || "").toString().trim();
+    const value = (pageName || "")
+      .toString()
+      .trim()
+      .split("?")[0]
+      .split("#")[0];
     if (!value) return "";
-    const file = value.split("/").pop();
+    const file = value.split("/").filter(Boolean).pop();
     if (!file) return "";
-    if (file.endsWith(".html")) {
-      return `${file.slice(0, -5)}.php`;
+
+    const lower = file.toLowerCase();
+
+    if (lower.endsWith(".php")) {
+      return lower;
     }
-    return file;
+
+    if (lower.endsWith(".html")) {
+      return `${lower.slice(0, -5)}.php`;
+    }
+
+    if (lower === "home" || lower === "index") {
+      return "index.php";
+    }
+
+    if (lower === "product" || lower === "products" || lower === "prodcuts") {
+      return "products.php";
+    }
+
+    if (lower === "account") {
+      return "account.php";
+    }
+
+    if (lower.includes(".")) {
+      return lower;
+    }
+
+    return `${lower}.php`;
   }
 
   function getSectionsForPage(data, pageKey) {
@@ -1313,17 +1465,32 @@ $(document).ready(function () {
   }
 
   function getProductsForSections(sections) {
-    return sections.flatMap((section) => section.products || []);
+    return sections.flatMap((section) => {
+      const sectionId = (section?.sectionId || "").toString().trim();
+      const sectionName = (section?.sectionName || "").toString().trim();
+      return (section.products || []).map((product) => ({
+        ...product,
+        __sectionId: sectionId,
+        __sectionName: sectionName,
+      }));
+    });
+  }
+
+  function normalizeMovementType(product) {
+    const raw = (product?.movement || "quartz").toString().trim().toLowerCase();
+    if (raw === "auto" || raw === "automatic" || raw.startsWith("auto")) {
+      return "auto";
+    }
+    if (raw === "smart" || raw.startsWith("smart") || raw === "digital") {
+      return "smart";
+    }
+    return "quartz";
   }
 
   function buildMovementOptions(products) {
     const movementSet = new Set();
     products.forEach((product) => {
-      if (product.movement) {
-        movementSet.add(product.movement);
-      } else {
-        movementSet.add("quartz");
-      }
+      movementSet.add(normalizeMovementType(product));
     });
     const order = ["auto", "smart", "quartz"];
     return order.filter((item) => movementSet.has(item));
@@ -1333,6 +1500,49 @@ $(document).ready(function () {
     if (value === "auto") return "Automatic";
     if (value === "smart") return "Smart";
     return "Quartz";
+  }
+
+  function getPageFilterData(data, pageKey) {
+    const normalizedPageKey = normalizePageFileName(pageKey);
+    const cached = pageFilterCache.get(normalizedPageKey);
+    if (cached && cached.source === data) {
+      return cached;
+    }
+
+    const sections = getSectionsForPage(data, normalizedPageKey);
+    const products = uniqueProducts(getProductsForSections(sections));
+    const sectionBuckets = new Map();
+    const movementBuckets = new Map();
+
+    products.forEach((product) => {
+      const sectionId = (product?.__sectionId || "").toString().trim();
+      const movement = normalizeMovementType(product);
+
+      if (sectionId !== "") {
+        if (!sectionBuckets.has(sectionId)) {
+          sectionBuckets.set(sectionId, []);
+        }
+        sectionBuckets.get(sectionId).push(product);
+      }
+
+      if (!movementBuckets.has(movement)) {
+        movementBuckets.set(movement, []);
+      }
+      movementBuckets.get(movement).push(product);
+    });
+
+    const built = {
+      source: data,
+      pageKey: normalizedPageKey,
+      sections,
+      products,
+      sectionBuckets,
+      movementBuckets,
+      sortedBuckets: new Map(),
+    };
+
+    pageFilterCache.set(normalizedPageKey, built);
+    return built;
   }
 
   function populateFilterOptions(data) {
@@ -1348,9 +1558,9 @@ $(document).ready(function () {
     )
       return;
 
-    const pageKey = getCurrentPageKey();
-    const sections = getSectionsForPage(data, pageKey);
-    const products = getProductsForSections(sections);
+    const pageData = getPageFilterData(data, getCurrentPageKey());
+    const sections = pageData.sections;
+    const products = pageData.products;
 
     const selectedSection = sectionInput.val();
     const selectedMovement = movementInput.val();
@@ -1397,18 +1607,41 @@ $(document).ready(function () {
 
   function getPriceValue(product) {
     const price = product.salePrice ?? product.price;
-    return price != null ? parseInt(price, 10) : 0;
+    const parsed = Number(price);
+    return Number.isFinite(parsed) ? parsed : 0;
   }
 
-  function sortProducts(products, sortValue) {
-    const copy = [...products];
+  function sortProducts(products, sortValue, cacheMap = null, cacheKey = "") {
+    if (
+      !Array.isArray(products) ||
+      products.length <= 1 ||
+      sortValue === "default"
+    ) {
+      return Array.isArray(products) ? [...products] : [];
+    }
+
+    if (cacheMap && cacheKey && cacheMap.has(cacheKey)) {
+      return [...cacheMap.get(cacheKey)];
+    }
+
+    const copy = products.slice();
     if (sortValue === "price-asc") {
       copy.sort((a, b) => getPriceValue(a) - getPriceValue(b));
     } else if (sortValue === "price-desc") {
       copy.sort((a, b) => getPriceValue(b) - getPriceValue(a));
     } else if (sortValue === "name-asc") {
-      copy.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      copy.sort((a, b) =>
+        (a.name || "").localeCompare(b.name || "", undefined, {
+          sensitivity: "base",
+          numeric: true,
+        }),
+      );
     }
+
+    if (cacheMap && cacheKey) {
+      cacheMap.set(cacheKey, copy.slice());
+    }
+
     return copy;
   }
 
@@ -1435,20 +1668,31 @@ $(document).ready(function () {
     }
 
     fetchProductsData().done((data) => {
-      const pageKey = getCurrentPageKey();
-      let sections = getSectionsForPage(data, pageKey);
-      if (sectionValue !== "all") {
-        sections = sections.filter(
-          (section) => section.sectionId === sectionValue,
-        );
-      }
-      let products = getProductsForSections(sections);
+      const pageData = getPageFilterData(data, getCurrentPageKey());
+
+      let products =
+        sectionValue === "all"
+          ? pageData.products
+          : pageData.sectionBuckets.get(sectionValue) || [];
+
       if (movementValue !== "all") {
-        products = products.filter(
-          (product) => (product.movement || "quartz") === movementValue,
-        );
+        if (sectionValue === "all") {
+          products = pageData.movementBuckets.get(movementValue) || [];
+        } else {
+          products = products.filter(
+            (product) => normalizeMovementType(product) === movementValue,
+          );
+        }
       }
-      products = sortProducts(products, sortValue);
+
+      const shouldCacheSort = sectionValue === "all" && movementValue === "all";
+      const sortCacheKey = shouldCacheSort ? `all|${sortValue}` : "";
+      products = sortProducts(
+        products,
+        sortValue,
+        shouldCacheSort ? pageData.sortedBuckets : null,
+        sortCacheKey,
+      );
 
       toggleFilteredView(true);
       if (products.length === 0) {
@@ -3080,8 +3324,15 @@ $(document).ready(function () {
   }
 
   function suggestionSearchIndex(data) {
+    if (
+      suggestionIndexCache.source === data &&
+      suggestionIndexCache.index.length > 0
+    ) {
+      return suggestionIndexCache.index;
+    }
+
     const allProducts = uniqueProducts(getAllProducts(data));
-    return allProducts
+    const indexed = allProducts
       .filter((product) => {
         const id = Number(product?.id || 0);
         const name = (product?.name || "").toString().trim();
@@ -3097,11 +3348,21 @@ $(document).ready(function () {
         return {
           id: Number(product.id || 0),
           name,
+          nameLower: name.toLowerCase(),
           image: (product?.image || "").toString().trim(),
           salePrice: Number(product?.salePrice || product?.price || 0) || 0,
+          productCode,
           searchBlob: `${name} ${description} ${productCode}`.toLowerCase(),
         };
       });
+
+    suggestionIndexCache = {
+      source: data,
+      index: indexed,
+    };
+    suggestionResultCache = new Map();
+
+    return indexed;
   }
 
   function getLocalSuggestions(query, data, limit = 8) {
@@ -3110,22 +3371,85 @@ $(document).ready(function () {
       return [];
     }
 
+    const safeLimit = Math.max(1, limit);
+    const cacheKey = `${normalized}|${safeLimit}`;
+    if (suggestionResultCache.has(cacheKey)) {
+      return suggestionResultCache.get(cacheKey).slice(0, safeLimit);
+    }
+
     const indexed = suggestionSearchIndex(data);
-    const startsWith = [];
-    const includes = [];
+    const queryTokens = normalized.split(/\s+/).filter(Boolean);
+    const ranked = [];
 
     indexed.forEach((item) => {
-      if (item.name.toLowerCase().startsWith(normalized)) {
-        startsWith.push(item);
+      const includesWhole = item.searchBlob.includes(normalized);
+      const includesTokens = queryTokens.every((token) =>
+        item.searchBlob.includes(token),
+      );
+
+      if (!includesWhole && !includesTokens) {
         return;
       }
 
-      if (item.searchBlob.includes(normalized)) {
-        includes.push(item);
+      let score = 0;
+
+      if (item.nameLower.startsWith(normalized)) {
+        score += 180;
+      } else if (item.nameLower.includes(normalized)) {
+        score += 95;
       }
+
+      queryTokens.forEach((token) => {
+        if (item.nameLower.startsWith(token)) {
+          score += 34;
+          return;
+        }
+
+        if (item.nameLower.includes(token)) {
+          score += 16;
+          return;
+        }
+
+        if (item.searchBlob.includes(token)) {
+          score += 6;
+        }
+      });
+
+      const codeLower = item.productCode.toLowerCase();
+      if (codeLower.startsWith(normalized)) {
+        score += 74;
+      } else if (codeLower.includes(normalized)) {
+        score += 22;
+      }
+
+      ranked.push({
+        item,
+        score,
+      });
     });
 
-    return startsWith.concat(includes).slice(0, Math.max(1, limit));
+    ranked.sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+
+      return a.item.name.localeCompare(b.item.name, undefined, {
+        sensitivity: "base",
+        numeric: true,
+      });
+    });
+
+    const result = ranked.slice(0, safeLimit).map((entry) => entry.item);
+
+    if (suggestionResultCache.size >= 140) {
+      const oldestKey = suggestionResultCache.keys().next().value;
+      if (oldestKey) {
+        suggestionResultCache.delete(oldestKey);
+      }
+    }
+    suggestionResultCache.set(cacheKey, result);
+
+    return result;
   }
 
   function fetchSearchSuggestions(query, limit = 6) {
@@ -3175,9 +3499,11 @@ $(document).ready(function () {
       if (normalizedQuery.length >= 2) {
         list.html(`
           <div class="suggestion-empty-state">
-            <i class="bi bi-search"></i>
-            <p class="mb-1">No quick matches for "${escapeHtml(normalizedQuery)}"</p>
-            <small>Press Enter to run advanced search across all products.</small>
+            <div class="suggestion-empty-icon">
+              <i class="bi bi-binoculars"></i>
+            </div>
+            <p class="mb-1">No instant matches for "${escapeHtml(normalizedQuery)}"</p>
+            <small>Press Enter for deep search across the full catalog.</small>
           </div>
         `);
         list.addClass("show");
@@ -3192,8 +3518,11 @@ $(document).ready(function () {
         .map(
           (p) => `
             <button type="button" class="suggestion-item" data-name="${encodeURIComponent(p.name || "")}">
-                <span class="suggestion-name">${escapeHtml(p.name || "")}</span>
-                <span class="suggestion-price">${Number(p.salePrice || 0).toLocaleString()} PKR</span>
+                <span class="suggestion-name-wrap">
+                  <span class="suggestion-name">${escapeHtml(p.name || "")}</span>
+                  <span class="suggestion-meta">Quick suggestion</span>
+                </span>
+                <span class="suggestion-price">${Number(p.salePrice || p.price || p.sale_price || 0).toLocaleString()} PKR</span>
             </button>
         `,
         )

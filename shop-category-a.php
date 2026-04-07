@@ -57,6 +57,17 @@ if ($categoryVideoStmt) {
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    .shop-category-main {
+      padding-top: clamp(92px, 10vw, 124px);
+    }
+
+    .shop-category-main .page-breadcrumb-shell {
+      position: relative;
+      z-index: 1;
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+
     .page-breadcrumb-shell {
       margin-top: 12px;
       margin-bottom: 6px;
@@ -526,7 +537,7 @@ if ($categoryVideoStmt) {
       </div>
     </div>
   </header>
-  <main class="container-fluid pt-5">
+  <main class="container-fluid shop-category-main">
     <section class="page-breadcrumb-shell">
       <nav aria-label="Breadcrumb">
         <ol class="breadcrumb page-breadcrumb mb-0">

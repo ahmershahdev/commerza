@@ -906,7 +906,7 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
                 <input type="text" class="form-control" id="fullname" name="user_full_name"
                   placeholder="Enter your full name" required autofocus autocomplete="name"
                   minlength="3" maxlength="40"
-                  pattern="[A-Za-z][A-Za-z\s\.\'\-]{2,39}"
+                  pattern="[A-Za-z][A-Za-z .'-]{2,39}"
                   title="Use 3-40 letters with spaces, dots, apostrophes, or hyphens."
                   value="<?= htmlspecialchars($full_name) ?>" />
               </div>
@@ -990,7 +990,7 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
   </div>
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="frontend/assets/js/global-protection.js"></script>
+  <script src="frontend/assets/js/global-protection.js?v=20260408"></script>
   <?= commerza_captcha_script_tag($con) ?>
   <script <?= commerza_csp_nonce_attr() ?>>
     $(function() {
