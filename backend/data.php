@@ -563,6 +563,39 @@ function commerza_optimize_stylesheet_links(string $buffer): string
     ) ?? $buffer;
 }
 
+function commerza_frontend_manual_stylesheet_links_html(): string
+{
+    static $html = null;
+
+    if (is_string($html) && $html !== '') {
+        return $html;
+    }
+
+    $paths = [
+        'frontend/assets/css/modules/base.css',
+        'frontend/assets/css/modules/navigation.css',
+        'frontend/assets/css/modules/search.css',
+        'frontend/assets/css/modules/carousel.css',
+        'frontend/assets/css/modules/products.css',
+        'frontend/assets/css/modules/footer.css',
+        'frontend/assets/css/modules/layout-sections.css',
+        'frontend/assets/css/modules/newsletter.css',
+        'frontend/assets/css/modules/wishlist-tracking.css',
+        'frontend/assets/css/modules/search-suggestions.css',
+        'frontend/assets/css/modules/offcanvas.css',
+        'frontend/assets/css/modules/breadcrumbs.css',
+        'frontend/assets/css/modules/page-hero-wishlist.css',
+    ];
+
+    $tags = [];
+    foreach ($paths as $path) {
+        $tags[] = '<link rel="stylesheet" href="' . htmlspecialchars($path, ENT_QUOTES, 'UTF-8') . '">';
+    }
+
+    $html = implode("\n  ", $tags);
+    return $html;
+}
+
 function commerza_site_settings_inline_json_tag(): string
 {
     $payload = $GLOBALS['commerza_public_site_settings_payload'] ?? null;
@@ -619,6 +652,27 @@ function commerza_html_meta_normalize(string $buffer): string
             return $matches[0] . $baseTag;
         }, $buffer, 1) ?? $buffer;
     }
+
+    $manualStyles = commerza_frontend_manual_stylesheet_links_html();
+    $buffer = preg_replace_callback(
+        '/<link\b[^>]*\brel\s*=\s*(["\'])stylesheet\1[^>]*\bhref\s*=\s*(["\'])([^"\']+)\2[^>]*>/i',
+        static function (array $matches) use ($manualStyles): string {
+            $tag = (string)($matches[0] ?? '');
+            $href = html_entity_decode(strtolower(trim((string)($matches[3] ?? ''))), ENT_QUOTES, 'UTF-8');
+
+            if ($href === '' || !str_contains($href, 'frontend/assets/css/style.css')) {
+                return $tag;
+            }
+
+            if (str_contains($href, 'admin/frontend/assets/css/style.css')) {
+                return $tag;
+            }
+
+            return $manualStyles;
+        },
+        $buffer,
+        1
+    ) ?? $buffer;
 
     if (
         stripos($buffer, 'name="twitter:card"') === false

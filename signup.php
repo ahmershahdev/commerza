@@ -976,11 +976,11 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
 
         <div class="oauth-divider"><span>or sign up with</span></div>
         <div class="d-grid gap-2">
-          <a class="btn oauth-btn oauth-google" href="oauth.php?provider=google&amp;mode=signup">
+          <a class="btn oauth-btn oauth-google" href="oauth?provider=google&amp;mode=signup">
             <i class="bi bi-google"></i>
             <span>Google</span>
           </a>
-          <a class="btn oauth-btn oauth-facebook" href="oauth.php?provider=facebook&amp;mode=signup">
+          <a class="btn oauth-btn oauth-facebook" href="oauth?provider=facebook&amp;mode=signup">
             <i class="bi bi-facebook"></i>
             <span>Facebook</span>
           </a>

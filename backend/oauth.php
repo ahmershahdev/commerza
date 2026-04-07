@@ -7,8 +7,8 @@ require_once __DIR__ . '/data.php';
 function oauth_redirect_with_error(string $message, string $mode): void
 {
     $_SESSION['oauth_error'] = $message;
-    $target = $mode === 'signup' ? '../signup.php' : '../login.php';
-    header('Location: ' . $target);
+    $target = $mode === 'signup' ? 'signup.php' : 'login.php';
+    header('Location: ' . commerza_absolute_url($target));
     exit;
 }
 
@@ -41,6 +41,10 @@ function oauth_get_setting(mysqli $con, string $key, string $fallback = ''): str
 
 function oauth_app_base_url(): string
 {
+    if (function_exists('commerza_public_base_url')) {
+        return rtrim(commerza_public_base_url(), '/');
+    }
+
     $env = trim((string)getenv('COMMERZA_APP_URL'));
     if ($env !== '') {
         return rtrim($env, '/');
@@ -588,5 +592,5 @@ if ($stateMode === 'signup') {
     $_SESSION['flash_success'] = 'Your account was created with ' . ucfirst($provider) . ' and you are now logged in.';
 }
 
-header('Location: ../account.php');
+header('Location: ' . commerza_absolute_url('account.php'));
 exit;

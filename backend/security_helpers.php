@@ -363,8 +363,8 @@ function commerza_captcha_config(mysqli $con): array
             'recaptcha_secret_key',
             commerza_env_first_non_empty(['COMMERZA_RECAPTCHA_SECRET_KEY', 'RECAPTCHA_SECRET_KEY'])
         );
-        $scriptUrl = 'https://www.google.com/recaptcha/api.js';
-        $verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
+        $scriptUrl = 'https://www.recaptcha.net/recaptcha/api.js';
+        $verifyUrl = 'https://www.recaptcha.net/recaptcha/api/siteverify';
         $responseField = 'g-recaptcha-response';
     }
 

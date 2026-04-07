@@ -158,3 +158,103 @@
   }
 }
 
+.navbar .commerza-mega-dropdown {
+  min-width: min(760px, calc(100vw - 120px));
+  padding: 14px;
+  border: 1px solid rgba(255, 98, 41, 0.34);
+  border-radius: 16px;
+  background:
+    radial-gradient(
+      circle at 12% 8%,
+      rgba(255, 163, 79, 0.18),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at 90% 96%,
+      rgba(255, 90, 42, 0.16),
+      transparent 42%
+    ),
+    linear-gradient(150deg, rgba(7, 7, 7, 0.98), rgba(20, 16, 13, 0.96));
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.52),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  margin-top: 14px;
+}
+
+.commerza-mega-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.commerza-mega-link {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid rgba(255, 126, 54, 0.2);
+  border-radius: 12px;
+  padding: 10px;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.02);
+  transition:
+    transform 0.22s ease,
+    border-color 0.22s ease,
+    background 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.commerza-mega-link:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 178, 92, 0.52);
+  background: rgba(255, 122, 41, 0.1);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.36);
+}
+
+.commerza-mega-link.is-current {
+  border-color: rgba(255, 179, 92, 0.68);
+  background: rgba(255, 130, 34, 0.2);
+}
+
+.commerza-mega-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 171, 95, 0.4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffd6a2;
+  background: rgba(58, 22, 10, 0.76);
+  flex-shrink: 0;
+}
+
+.commerza-mega-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.commerza-mega-copy strong {
+  color: #fff5e8;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-family: "Montserrat", sans-serif;
+}
+
+.commerza-mega-copy small {
+  color: #ddb998;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  font-family: "Inter", sans-serif;
+}
+
+@media (max-width: 1199px) {
+  .navbar .commerza-mega-dropdown {
+    min-width: min(620px, calc(100vw - 80px));
+  }
+
+  .commerza-mega-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

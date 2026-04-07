@@ -16,6 +16,7 @@ $(document).ready(function () {
 
   applySiteSettings();
   ensureLegalNavLinks();
+  ensureDesktopMegaDropdown();
 
   const carouselElement = document.getElementById("carouselExampleIndicators");
   const playPauseBtn = document.getElementById("carouselPlayPause");
@@ -245,6 +246,104 @@ $(document).ready(function () {
     $("header .offcanvas .offcanvas-body .navbar-nav").each(function () {
       appendLegalLinks($(this));
     });
+  }
+
+  function ensureDesktopMegaDropdown() {
+    const currentPage = getCurrentPageKey();
+    const quickLinks = [
+      {
+        href: "order-tracking.php",
+        icon: "bi-truck",
+        label: "Order Tracking",
+        desc: "Track order status",
+      },
+      {
+        href: "compare.php",
+        icon: "bi-columns-gap",
+        label: "Compare Products",
+        desc: "See watches side by side",
+      },
+      {
+        href: "wishlist.php",
+        icon: "bi-heart",
+        label: "Wishlist",
+        desc: "Saved favorites",
+      },
+      {
+        href: "cart.php",
+        icon: "bi-cart3",
+        label: "Cart",
+        desc: "Review your cart",
+      },
+      {
+        href: "products.php",
+        icon: "bi-grid-3x3-gap",
+        label: "All Products",
+        desc: "Browse full catalog",
+      },
+      {
+        href: "faq.php",
+        icon: "bi-question-circle",
+        label: "FAQ",
+        desc: "Get quick answers",
+      },
+      {
+        href: "shipping.php",
+        icon: "bi-box-seam",
+        label: "Shipping",
+        desc: "Delivery information",
+      },
+      {
+        href: "returns.php",
+        icon: "bi-arrow-counterclockwise",
+        label: "Returns",
+        desc: "Return policy",
+      },
+      {
+        href: "contact.php",
+        icon: "bi-chat-dots",
+        label: "Contact",
+        desc: "Reach support",
+      },
+    ];
+
+    $("header .collapse.navbar-collapse .navbar-nav.me-auto").each(
+      function (menuIndex) {
+        const menu = $(this);
+        if (!menu.length || menu.find(".commerza-mega-nav").length) {
+          return;
+        }
+
+        const dropdownId = `commerzaMegaMenu${menuIndex + 1}`;
+        const cardMarkup = quickLinks
+          .map((link) => {
+            const isCurrent = currentPage === link.href;
+            return `
+              <a class="commerza-mega-link${isCurrent ? " is-current" : ""}" href="${link.href}"${isCurrent ? ' aria-current="page"' : ""}>
+                <span class="commerza-mega-icon"><i class="bi ${link.icon}"></i></span>
+                <span class="commerza-mega-copy">
+                  <strong>${link.label}</strong>
+                  <small>${link.desc}</small>
+                </span>
+              </a>
+            `;
+          })
+          .join("");
+
+        menu.append(`
+          <li class="nav-item dropdown commerza-mega-nav d-none d-lg-block">
+            <a class="nav-link dropdown-toggle" href="#" id="${dropdownId}" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              Quick Access
+            </a>
+            <div class="dropdown-menu commerza-mega-dropdown" aria-labelledby="${dropdownId}">
+              <div class="commerza-mega-grid">
+                ${cardMarkup}
+              </div>
+            </div>
+          </li>
+        `);
+      },
+    );
   }
 
   function getProductImageElement(btn) {

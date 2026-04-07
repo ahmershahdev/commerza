@@ -1,7 +1,8 @@
 <?php
+
 declare(strict_types=1);
 
-// Friendly OAuth entrypoint for localhost/commerza/oauth.php usage.
+// Public OAuth entrypoint; keeps browser on /oauth.php so backend route protection remains intact.
 $provider = strtolower(trim((string)($_GET['provider'] ?? 'google')));
 $mode = strtolower(trim((string)($_GET['mode'] ?? 'login')));
 
@@ -13,9 +14,9 @@ if (!in_array($mode, ['login', 'signup'], true)) {
     $mode = 'login';
 }
 
-$query = $_GET;
-$query['provider'] = $provider;
-$query['mode'] = $mode;
+$_GET['provider'] = $provider;
+$_GET['mode'] = $mode;
+$_REQUEST['provider'] = $provider;
+$_REQUEST['mode'] = $mode;
 
-header('Location: backend/oauth.php?' . http_build_query($query));
-exit;
+require __DIR__ . '/backend/oauth.php';
