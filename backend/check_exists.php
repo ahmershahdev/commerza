@@ -4,6 +4,46 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
 include __DIR__ . '/data.php';
 
+const CHECK_EXISTS_USERNAME_CHANGE_LOCK_DAYS = 90;
+const CHECK_EXISTS_USERNAME_CHANGE_LOCK_SECONDS = CHECK_EXISTS_USERNAME_CHANGE_LOCK_DAYS * 86400;
+
+function check_exists_username_lock_state(?string $usernameChangedAt): array
+{
+    $raw = trim((string)$usernameChangedAt);
+    if ($raw === '') {
+        return [
+            'locked' => false,
+            'remaining_seconds' => 0,
+            'remaining_days' => 0,
+        ];
+    }
+
+    $changedAtTimestamp = strtotime($raw);
+    if ($changedAtTimestamp === false) {
+        return [
+            'locked' => false,
+            'remaining_seconds' => 0,
+            'remaining_days' => 0,
+        ];
+    }
+
+    $unlockTimestamp = $changedAtTimestamp + CHECK_EXISTS_USERNAME_CHANGE_LOCK_SECONDS;
+    $remainingSeconds = $unlockTimestamp - time();
+    if ($remainingSeconds <= 0) {
+        return [
+            'locked' => false,
+            'remaining_seconds' => 0,
+            'remaining_days' => 0,
+        ];
+    }
+
+    return [
+        'locked' => true,
+        'remaining_seconds' => $remainingSeconds,
+        'remaining_days' => (int)ceil($remainingSeconds / 86400),
+    ];
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['error' => 'Method not allowed']);
@@ -118,6 +158,50 @@ if ($field === 'email') {
             'message' => 'Invalid username',
         ]);
         exit;
+    }
+
+    if ($excludeCurrent && $excludeUserId > 0) {
+        $lockStmt = $con->prepare('SELECT username, username_slug, username_changed_at FROM users WHERE id = ? LIMIT 1');
+        if (!$lockStmt) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Server error']);
+            exit;
+        }
+
+        $lockStmt->bind_param('i', $excludeUserId);
+        $lockStmt->execute();
+        $lockResult = $lockStmt->get_result();
+        $lockRow = $lockResult ? $lockResult->fetch_assoc() : null;
+        $lockStmt->close();
+
+        if (!is_array($lockRow)) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Unauthorized']);
+            exit;
+        }
+
+        $currentUsername = commerza_username_slug((string)($lockRow['username_slug'] ?? ''));
+        if (!commerza_username_is_valid($currentUsername)) {
+            $currentUsername = commerza_username_slug((string)($lockRow['username'] ?? ''));
+        }
+        $isUsernameChangeAttempt = strcasecmp($currentUsername, $value) !== 0;
+
+        if ($isUsernameChangeAttempt) {
+            $lockState = check_exists_username_lock_state((string)($lockRow['username_changed_at'] ?? ''));
+            if ((bool)($lockState['locked'] ?? false)) {
+                $remainingDays = max(1, (int)($lockState['remaining_days'] ?? 1));
+                $remainingSeconds = max(1, (int)($lockState['remaining_seconds'] ?? 1));
+                echo json_encode([
+                    'exists' => true,
+                    'blocked' => true,
+                    'lock_active' => true,
+                    'retry_after' => $remainingSeconds,
+                    'retry_after_days' => $remainingDays,
+                    'message' => 'Username can only be changed once every ' . CHECK_EXISTS_USERNAME_CHANGE_LOCK_DAYS . ' days. Try again in ' . $remainingDays . ' day(s).',
+                ]);
+                exit;
+            }
+        }
     }
 
     $blocked = commerza_username_blacklist_lookup($con, $value);

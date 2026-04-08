@@ -1,6 +1,7 @@
 <?php
 include "backend/data.php";
 require_once __DIR__ . '/backend/notifications.php';
+require_once __DIR__ . '/backend/mailer.php';
 require_once __DIR__ . '/backend/media_image_helpers.php';
 
 if (!isset($_SESSION['user_id']) || !is_numeric($_SESSION['user_id'])) {
@@ -15,6 +16,7 @@ if (empty($_SESSION['csrf_token'])) {
 $user_id = (int)$_SESSION['user_id'];
 $errors = [];
 $success = [];
+$showAccountForgotPasswordPanel = false;
 
 function account_is_ajax_request(): bool
 {
@@ -34,7 +36,7 @@ function account_is_ajax_request(): bool
 
 function fetchUser(mysqli $con, int $user_id): ?array
 {
-  $stmt = $con->prepare("SELECT id, full_name, username, username_slug, profile_visibility, email, phone, address, profile_picture, password_hash FROM users WHERE id = ? LIMIT 1");
+  $stmt = $con->prepare("SELECT id, full_name, username, username_slug, profile_visibility, email, phone, address, profile_picture, password_hash, username_changed_at FROM users WHERE id = ? LIMIT 1");
 
   if (!$stmt) {
     return null;
@@ -47,6 +49,106 @@ function fetchUser(mysqli $con, int $user_id): ?array
   $stmt->close();
 
   return $user ?: null;
+}
+
+const ACCOUNT_USERNAME_CHANGE_LOCK_DAYS = 90;
+const ACCOUNT_USERNAME_CHANGE_LOCK_SECONDS = ACCOUNT_USERNAME_CHANGE_LOCK_DAYS * 86400;
+
+function account_username_change_lock_state(?string $usernameChangedAt): array
+{
+  $raw = trim((string)$usernameChangedAt);
+  if ($raw === '') {
+    return [
+      'locked' => false,
+      'remaining_seconds' => 0,
+      'remaining_days' => 0,
+      'unlock_timestamp' => 0,
+    ];
+  }
+
+  $changedAtTimestamp = strtotime($raw);
+  if ($changedAtTimestamp === false) {
+    return [
+      'locked' => false,
+      'remaining_seconds' => 0,
+      'remaining_days' => 0,
+      'unlock_timestamp' => 0,
+    ];
+  }
+
+  $unlockTimestamp = $changedAtTimestamp + ACCOUNT_USERNAME_CHANGE_LOCK_SECONDS;
+  $remainingSeconds = $unlockTimestamp - time();
+  if ($remainingSeconds <= 0) {
+    return [
+      'locked' => false,
+      'remaining_seconds' => 0,
+      'remaining_days' => 0,
+      'unlock_timestamp' => 0,
+    ];
+  }
+
+  return [
+    'locked' => true,
+    'remaining_seconds' => $remainingSeconds,
+    'remaining_days' => (int)ceil($remainingSeconds / 86400),
+    'unlock_timestamp' => $unlockTimestamp,
+  ];
+}
+
+function account_send_reset_code_email(string $recipientEmail, string $recipientName, string $code, ?string &$errorMessage = null): bool
+{
+  $subject = "Commerza Password Reset Code";
+  $logoUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.webp');
+  $resetUrl = commerza_absolute_url('/reset-password.php') . '?email=' . urlencode($recipientEmail);
+  $supportEmail = trim((string)(getenv('COMMERZA_SUPPORT_EMAIL') ?: 'support@ahmershah.dev'));
+  if (!filter_var($supportEmail, FILTER_VALIDATE_EMAIL)) {
+    $supportEmail = 'support@ahmershah.dev';
+  }
+
+  $safeName = htmlspecialchars($recipientName !== '' ? $recipientName : 'Customer', ENT_QUOTES, 'UTF-8');
+  $safeCode = htmlspecialchars($code, ENT_QUOTES, 'UTF-8');
+
+  $message = "<!DOCTYPE html>
+<html>
+  <body style=\"margin:0;padding:0;background:#080808;font-family:Arial,sans-serif;color:#f5f5f5;\">
+    <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#080808;padding:24px 0;\">
+      <tr>
+        <td align=\"center\">
+          <table role=\"presentation\" width=\"600\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width:600px;background:#121212;border:1px solid #2d2d2d;border-radius:12px;overflow:hidden;\">
+            <tr>
+              <td align=\"center\" style=\"padding:28px 20px 10px 20px;\">
+                <img src=\"{$logoUrl}\" alt=\"Commerza Logo\" style=\"height:72px;width:auto;display:block;margin:0 auto 12px auto;\" />
+                <h1 style=\"margin:0;color:#ff6600;font-size:24px;letter-spacing:1px;\">Password Reset</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style=\"padding:20px 30px 30px 30px;\">
+                <p style=\"margin:0 0 12px 0;line-height:1.6;color:#d7d7d7;\">Hello {$safeName},</p>
+                <p style=\"margin:0 0 14px 0;line-height:1.6;color:#d7d7d7;\">Use the code below to reset your Commerza account password. This code expires in <strong>15 minutes</strong>.</p>
+                <div style=\"margin:18px 0 20px 0;padding:14px 18px;background:#0b0b0b;border:1px dashed #ff6600;border-radius:8px;text-align:center;\">
+                  <span style=\"font-size:28px;font-weight:700;letter-spacing:6px;color:#ffcc00;\">{$safeCode}</span>
+                </div>
+                <p style=\"margin:0 0 18px 0;line-height:1.6;color:#bfbfbf;\">Open this page to complete reset:</p>
+                <p style=\"margin:0 0 10px 0;word-break:break-all;\"><a href=\"{$resetUrl}\" style=\"color:#ff6600;text-decoration:none;\">{$resetUrl}</a></p>
+                <p style=\"margin:18px 0 0 0;line-height:1.6;color:#8f8f8f;font-size:13px;\">If you did not request this, you can ignore this email.</p>
+                <p style=\"margin:16px 0 0 0;line-height:1.6;color:#9f9f9f;font-size:12px;\">Support: <a href=\"mailto:{$supportEmail}\" style=\"color:#ffb066;text-decoration:none;\">{$supportEmail}</a></p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>";
+
+  return commerza_send_html_mail(
+    $recipientEmail,
+    $subject,
+    $message,
+    $supportEmail,
+    'Commerza Security',
+    $errorMessage
+  );
 }
 
 function account_delete_session_key(): string
@@ -375,10 +477,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   $action = (string)($_POST['action'] ?? '');
   $isAjaxRequest = account_is_ajax_request();
+  $showAccountForgotPasswordPanel = in_array($action, ['request_password_reset_code', 'reset_password_with_code'], true);
 
   $captchaContexts = [
     'update_profile' => 'user_account_profile',
     'update_password' => 'user_account_password',
+    'request_password_reset_code' => 'user_account_forgot_password',
+    'reset_password_with_code' => 'user_account_reset_password',
     'request_delete_account_code' => 'user_account_delete_request',
     'delete_account_permanently' => 'user_account_delete_confirm',
   ];
@@ -396,6 +501,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $ratePolicies = [
     'update_profile' => ['scope' => 'user_account_update_profile', 'max' => 8, 'window' => 3600, 'block' => 1800],
     'update_password' => ['scope' => 'user_account_update_password', 'max' => 6, 'window' => 3600, 'block' => 2400],
+    'request_password_reset_code' => ['scope' => 'user_account_forgot_password', 'max' => 4, 'window' => 2700, 'block' => 2700],
+    'reset_password_with_code' => ['scope' => 'user_account_reset_password', 'max' => 6, 'window' => 1800, 'block' => 1800],
     'update_profile_picture' => ['scope' => 'user_account_update_picture', 'max' => 8, 'window' => 3600, 'block' => 1800],
     'request_refund' => ['scope' => 'user_account_request_refund', 'max' => 4, 'window' => 3600, 'block' => 3600],
     'request_delete_account_code' => ['scope' => 'user_account_delete_code', 'max' => 3, 'window' => 3600, 'block' => 3600],
@@ -449,6 +556,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phone = preg_replace('/\s+/', '', trim((string)($_POST['phone'] ?? '')));
     $phone = $phone ?? '';
     $address = trim((string)($_POST['address'] ?? ''));
+    $usernameChangedFlag = 0;
 
     if (
       strlen($full_name) < 3 ||
@@ -464,6 +572,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!commerza_username_is_valid($username)) {
       $errors[] = "Username must be 3-24 chars and use lowercase letters, numbers, or underscores.";
+    }
+
+    if (empty($errors)) {
+      $freshUsernameStmt = $con->prepare('SELECT username, username_slug, username_changed_at FROM users WHERE id = ? LIMIT 1');
+      if (!$freshUsernameStmt) {
+        $errors[] = 'Something went wrong. Please try again.';
+      } else {
+        $freshUsernameStmt->bind_param('i', $user_id);
+        $freshUsernameStmt->execute();
+        $freshUsernameResult = $freshUsernameStmt->get_result();
+        $freshUsernameRow = $freshUsernameResult ? $freshUsernameResult->fetch_assoc() : null;
+        $freshUsernameStmt->close();
+
+        if (!is_array($freshUsernameRow)) {
+          $errors[] = 'Something went wrong. Please try again.';
+        } else {
+          $currentUsername = commerza_username_slug((string)($freshUsernameRow['username_slug'] ?? ''));
+          if (!commerza_username_is_valid($currentUsername)) {
+            $currentUsername = commerza_username_slug((string)($freshUsernameRow['username'] ?? ''));
+          }
+
+          $usernameChangedFlag = strcasecmp($currentUsername, $username) !== 0 ? 1 : 0;
+
+          if ($usernameChangedFlag === 1) {
+            $usernameLock = account_username_change_lock_state((string)($freshUsernameRow['username_changed_at'] ?? ''));
+            if ((bool)($usernameLock['locked'] ?? false)) {
+              $remainingDays = max(1, (int)($usernameLock['remaining_days'] ?? 1));
+              $unlockTimestamp = max(0, (int)($usernameLock['unlock_timestamp'] ?? 0));
+              $unlockLabel = $unlockTimestamp > 0 ? date('M d, Y h:i A', $unlockTimestamp) : '';
+              $errors[] = 'Username is locked for ' . ACCOUNT_USERNAME_CHANGE_LOCK_DAYS . ' days after each change. Try again in ' . $remainingDays . ' day(s)' . ($unlockLabel !== '' ? ' (after ' . $unlockLabel . ').' : '.');
+            }
+          }
+        }
+      }
     }
 
     if (empty($errors)) {
@@ -539,7 +681,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($errors)) {
       $address_value = $address !== '' ? $address : null;
-      $usernameChangedFlag = strcasecmp((string)($user['username_slug'] ?? ''), $username) !== 0 ? 1 : 0;
       $stmt = $con->prepare("UPDATE users SET full_name = ?, username = ?, username_slug = ?, profile_visibility = ?, email = ?, phone = ?, address = ?, username_changed_at = CASE WHEN ? = 1 THEN NOW() ELSE username_changed_at END WHERE id = ? LIMIT 1");
 
       if (!$stmt) {
@@ -600,6 +741,162 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $stmt->close();
+      }
+    }
+  } elseif ($action === 'request_password_reset_code') {
+    $freshUser = fetchUser($con, $user_id);
+    $accountEmail = strtolower(trim((string)($freshUser['email'] ?? '')));
+    $emailFromRequest = strtolower(trim((string)($_POST['forgot_password_email'] ?? '')));
+
+    if (!filter_var($accountEmail, FILTER_VALIDATE_EMAIL) || strlen($accountEmail) > 150) {
+      $errors[] = 'Your account email is invalid. Please update profile email first.';
+    }
+
+    if ($emailFromRequest !== '' && strcasecmp($emailFromRequest, $accountEmail) !== 0) {
+      $errors[] = 'Reset code can only be sent to your current account email.';
+    }
+
+    $lastEmailSentAt = (int)($_SESSION['account_forgot_password_last_sent_at'] ?? 0);
+    $lastEmailTarget = (string)($_SESSION['account_forgot_password_last_sent_email'] ?? '');
+    if (empty($errors) && $lastEmailTarget === $accountEmail && (time() - $lastEmailSentAt) < 60) {
+      $errors[] = 'Please wait 60 seconds before requesting another code.';
+    }
+
+    if (empty($errors) && !$freshUser) {
+      $errors[] = 'User not found.';
+    }
+
+    if (empty($errors) && $freshUser) {
+      $resetCode = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+      $tokenHash = commerza_password_hash($resetCode);
+      $expiry = date('Y-m-d H:i:s', time() + (15 * 60));
+
+      $updateStmt = $con->prepare('UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE id = ? LIMIT 1');
+      if (!$updateStmt) {
+        $errors[] = 'Unable to process request right now.';
+      } else {
+        $updateStmt->bind_param('ssi', $tokenHash, $expiry, $user_id);
+        $updated = $updateStmt->execute();
+        $updateStmt->close();
+
+        if (!$updated) {
+          $errors[] = 'Unable to generate reset code. Please try again.';
+        } else {
+          $mailError = null;
+          $mailSent = account_send_reset_code_email(
+            $accountEmail,
+            (string)($freshUser['full_name'] ?? ''),
+            $resetCode,
+            $mailError
+          );
+
+          if ($mailSent) {
+            commerza_security_log_event($con, [
+              'event_type' => 'password_reset_code_sent_from_account',
+              'severity' => 'info',
+              'actor_type' => 'user',
+              'actor_identifier' => $accountEmail,
+              'user_id' => $user_id,
+              'ip_address' => $clientIp,
+            ]);
+
+            $_SESSION['account_forgot_password_last_sent_at'] = time();
+            $_SESSION['account_forgot_password_last_sent_email'] = $accountEmail;
+            $success[] = 'Reset code sent to your account email. Use it below to set a new password.';
+          } else {
+            commerza_security_log_event($con, [
+              'event_type' => 'password_reset_email_send_failed_from_account',
+              'severity' => 'warning',
+              'actor_type' => 'user',
+              'actor_identifier' => $accountEmail,
+              'user_id' => $user_id,
+              'ip_address' => $clientIp,
+              'details' => [
+                'mail_error' => $mailError ?? '',
+              ],
+            ]);
+
+            $errors[] = $mailError ?: 'Unable to send reset code email right now.';
+          }
+        }
+      }
+    }
+  } elseif ($action === 'reset_password_with_code') {
+    $resetCode = trim((string)($_POST['reset_code'] ?? ''));
+    $newPassword = (string)($_POST['recovery_new_password'] ?? '');
+    $confirmPassword = (string)($_POST['recovery_confirm_password'] ?? '');
+
+    if (!preg_match('/^\d{6}$/', $resetCode)) {
+      $errors[] = 'Reset code must be 6 digits.';
+    }
+
+    $passwordPolicyError = null;
+    if (!commerza_password_validate($newPassword, $passwordPolicyError)) {
+      $errors[] = $passwordPolicyError !== null ? $passwordPolicyError : commerza_password_policy_description();
+    }
+
+    if ($newPassword !== $confirmPassword) {
+      $errors[] = 'Passwords do not match.';
+    }
+
+    $resetUserStmt = $con->prepare('SELECT id, email, password_hash, reset_token, reset_token_expiry FROM users WHERE id = ? LIMIT 1');
+    if (!$resetUserStmt) {
+      $errors[] = 'Something went wrong. Please try again.';
+    } else {
+      $resetUserStmt->bind_param('i', $user_id);
+      $resetUserStmt->execute();
+      $resetUserResult = $resetUserStmt->get_result();
+      $resetUserRow = $resetUserResult ? $resetUserResult->fetch_assoc() : null;
+      $resetUserStmt->close();
+
+      if (!is_array($resetUserRow)) {
+        $errors[] = 'User not found.';
+      } elseif (commerza_password_verify($newPassword, (string)($resetUserRow['password_hash'] ?? ''))) {
+        $errors[] = 'New password must be different from current password.';
+      }
+    }
+
+    if (empty($errors) && is_array($resetUserRow ?? null)) {
+      $isValidCode = false;
+      $storedResetToken = (string)($resetUserRow['reset_token'] ?? '');
+      $expiryRaw = (string)($resetUserRow['reset_token_expiry'] ?? '');
+      $expiryTs = strtotime($expiryRaw);
+
+      if ($storedResetToken !== '' && $expiryTs !== false && $expiryTs >= time()) {
+        $isValidCode = commerza_password_verify($resetCode, $storedResetToken);
+      }
+
+      if (!$isValidCode) {
+        $errors[] = 'Invalid or expired reset code.';
+      } else {
+        $newHash = commerza_password_hash($newPassword);
+        $updateStmt = $con->prepare('UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ? AND reset_token = ? AND reset_token_expiry IS NOT NULL AND reset_token_expiry >= NOW() LIMIT 1');
+
+        if (!$updateStmt) {
+          $errors[] = 'Something went wrong. Please try again.';
+        } else {
+          $updateStmt->bind_param('sis', $newHash, $user_id, $storedResetToken);
+          $updated = $updateStmt->execute();
+          $affectedRows = $updated ? (int)$updateStmt->affected_rows : 0;
+          $updateStmt->close();
+
+          if (!$updated) {
+            $errors[] = 'Unable to reset password right now.';
+          } elseif ($affectedRows !== 1) {
+            $errors[] = 'Reset code was already used or expired. Request a new code.';
+          } else {
+            commerza_security_log_event($con, [
+              'event_type' => 'password_reset_success_from_account',
+              'severity' => 'info',
+              'actor_type' => 'user',
+              'actor_identifier' => (string)($resetUserRow['email'] ?? ''),
+              'user_id' => $user_id,
+              'ip_address' => $clientIp,
+            ]);
+
+            $success[] = 'Password reset successful. Your new password is now active.';
+          }
+        }
       }
     }
   } elseif ($action === 'update_profile_picture') {
@@ -1130,6 +1427,17 @@ if (!commerza_username_is_valid($username_value)) {
   }
 }
 
+$usernameChangeLockState = account_username_change_lock_state((string)($user['username_changed_at'] ?? ''));
+$usernameChangeLockActive = (bool)($usernameChangeLockState['locked'] ?? false);
+$usernameChangeLockRemainingDays = max(0, (int)($usernameChangeLockState['remaining_days'] ?? 0));
+$usernameChangeLockUnlockTs = max(0, (int)($usernameChangeLockState['unlock_timestamp'] ?? 0));
+$usernameChangeLockUnlockLabel = $usernameChangeLockUnlockTs > 0
+  ? date('M d, Y h:i A', $usernameChangeLockUnlockTs)
+  : '';
+$usernameChangeLockMessage = $usernameChangeLockActive
+  ? 'Username is locked for ' . ACCOUNT_USERNAME_CHANGE_LOCK_DAYS . ' days after each change. You can update it again in ' . $usernameChangeLockRemainingDays . ' day(s)' . ($usernameChangeLockUnlockLabel !== '' ? ' (after ' . $usernameChangeLockUnlockLabel . ').' : '.')
+  : '';
+
 $profile_visibility_value = strtolower(trim((string)($user['profile_visibility'] ?? 'private')));
 if (!in_array($profile_visibility_value, ['private', 'public'], true)) {
   $profile_visibility_value = 'private';
@@ -1469,6 +1777,75 @@ if (is_array($accountDeletePending)) {
       min-height: 16px;
     }
 
+    .username-lock-label {
+      margin-top: 8px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      border: 1px solid rgba(255, 171, 99, 0.45);
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: rgba(62, 27, 15, 0.55);
+      color: #ffd7b5;
+      font-size: 0.74rem;
+      line-height: 1.45;
+    }
+
+    .username-lock-label i {
+      color: #ffca8f;
+      margin-top: 1px;
+    }
+
+    .account-recovery-shell {
+      margin-top: 12px;
+      border: 1px solid rgba(255, 145, 81, 0.3);
+      border-radius: 12px;
+      padding: 12px;
+      background:
+        radial-gradient(circle at 100% 0%, rgba(255, 180, 128, 0.1), transparent 40%),
+        linear-gradient(160deg, rgba(14, 14, 14, 0.86), rgba(10, 10, 10, 0.9));
+    }
+
+    .account-recovery-shell .recovery-divider {
+      border-color: rgba(255, 173, 109, 0.24);
+      margin: 12px 0;
+    }
+
+    .account-recovery-shell .recovery-title {
+      color: #ffe2c5;
+      font-size: 0.84rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 8px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .account-recovery-shell .recovery-help {
+      color: #c9b39d;
+      font-size: 0.78rem;
+      line-height: 1.45;
+      margin-bottom: 10px;
+    }
+
+    .account-recovery-toggle {
+      border: 1px solid rgba(255, 161, 95, 0.44);
+      background: linear-gradient(132deg,
+          rgba(255, 130, 40, 0.2),
+          rgba(255, 84, 64, 0.16)) !important;
+      color: #ffe0bf !important;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-size: 0.76rem;
+    }
+
+    .account-recovery-toggle:hover,
+    .account-recovery-toggle:focus {
+      border-color: rgba(255, 205, 153, 0.72);
+      color: #fff2df !important;
+      box-shadow: 0 0 0 0.15rem rgba(255, 131, 45, 0.18);
+    }
+
     @media (max-width: 767.98px) {
       .account-personal-form .account-field {
         padding: 12px;
@@ -1687,6 +2064,108 @@ if (is_array($accountDeletePending)) {
                 Update Password
               </button>
             </form>
+
+            <button
+              type="button"
+              class="btn account-recovery-toggle w-100 mt-3"
+              data-bs-toggle="collapse"
+              data-bs-target="#accountForgotPasswordPanel"
+              aria-expanded="<?= $showAccountForgotPasswordPanel ? 'true' : 'false' ?>"
+              aria-controls="accountForgotPasswordPanel">
+              Forgot Current Password?
+            </button>
+
+            <div class="collapse<?= $showAccountForgotPasswordPanel ? ' show' : '' ?>" id="accountForgotPasswordPanel">
+              <div class="account-recovery-shell">
+                <p class="recovery-help mb-2">If you do not remember your current password, request a secure reset code for your account email, then set a new password here.</p>
+
+                <p class="recovery-title mb-1">Step 1: Send Reset Code</p>
+                <form action="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" class="mb-2">
+                  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                  <input type="hidden" name="action" value="request_password_reset_code">
+
+                  <div class="mb-2">
+                    <label for="forgot-password-email" class="form-label">Account Email</label>
+                    <input
+                      type="email"
+                      id="forgot-password-email"
+                      name="forgot_password_email"
+                      class="form-control search-input"
+                      value="<?= htmlspecialchars((string)$user['email'], ENT_QUOTES, 'UTF-8') ?>"
+                      maxlength="150"
+                      required>
+                    <small class="text-secondary d-block mt-1">Code will only be sent to your current account email.</small>
+                  </div>
+
+                  <?= commerza_captcha_widget_html($con, 'user_account_forgot_password') ?>
+
+                  <button type="submit" class="btn product-btn-buy w-100 mt-2" data-loading-text="Sending Code...">
+                    Send Reset Code
+                  </button>
+                </form>
+
+                <hr class="recovery-divider">
+
+                <p class="recovery-title mb-1">Step 2: Set New Password</p>
+                <form action="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" class="mb-2">
+                  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                  <input type="hidden" name="action" value="reset_password_with_code">
+
+                  <div class="mb-2">
+                    <label for="account-reset-code" class="form-label">6-digit Reset Code</label>
+                    <input
+                      type="text"
+                      id="account-reset-code"
+                      name="reset_code"
+                      class="form-control search-input"
+                      inputmode="numeric"
+                      pattern="[0-9]{6}"
+                      minlength="6"
+                      maxlength="6"
+                      placeholder="Enter 6-digit code"
+                      required>
+                  </div>
+
+                  <div class="mb-2">
+                    <label for="account-recovery-new-password" class="form-label">New Password</label>
+                    <input
+                      type="password"
+                      id="account-recovery-new-password"
+                      name="recovery_new_password"
+                      class="form-control search-input"
+                      minlength="6"
+                      maxlength="20"
+                      pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[@$!%*?&]).{6,}"
+                      title="Minimum 6 chars, 1 number, 1 capital, 1 special char"
+                      autocomplete="new-password"
+                      required>
+                  </div>
+
+                  <div class="mb-2">
+                    <label for="account-recovery-confirm-password" class="form-label">Confirm New Password</label>
+                    <input
+                      type="password"
+                      id="account-recovery-confirm-password"
+                      name="recovery_confirm_password"
+                      class="form-control search-input"
+                      minlength="6"
+                      maxlength="20"
+                      pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[@$!%*?&]).{6,}"
+                      title="Minimum 6 chars, 1 number, 1 capital, 1 special char"
+                      autocomplete="new-password"
+                      required>
+                  </div>
+
+                  <?= commerza_captcha_widget_html($con, 'user_account_reset_password') ?>
+
+                  <button type="submit" class="btn product-btn-buy w-100 mt-2" data-loading-text="Resetting Password...">
+                    Reset Password With Code
+                  </button>
+                </form>
+
+                <a href="reset-password.php?email=<?= urlencode((string)$user['email']) ?>" class="btn btn-outline-secondary w-100 mt-1">Open Full Reset Page</a>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1783,11 +2262,22 @@ if (is_array($accountDeletePending)) {
                     <label for="username" class="form-label"><i class="bi bi-at"></i><span>Username</span></label>
                     <input type="text" id="username" name="username" class="form-control search-input"
                       value="<?= htmlspecialchars($username_value) ?>" required
+                      data-current-username="<?= htmlspecialchars($username_value, ENT_QUOTES, 'UTF-8') ?>"
+                      data-username-lock-active="<?= $usernameChangeLockActive ? '1' : '0' ?>"
+                      data-username-lock-message="<?= htmlspecialchars($usernameChangeLockMessage, ENT_QUOTES, 'UTF-8') ?>"
                       autocomplete="username" minlength="3" maxlength="24"
                       pattern="[a-zA-Z][a-zA-Z0-9_]{2,23}"
                       title="Use 3-24 characters: letters, numbers, underscore." />
                     <div id="usernameLiveFeedback" class="account-live-feedback" aria-live="polite"></div>
-                    <small class="account-help text-secondary">This username may appear publicly in reviews when profile is public.</small>
+                    <?php if ($usernameChangeLockActive): ?>
+                      <div class="username-lock-label" role="note" aria-label="Username change cooldown information">
+                        <i class="bi bi-lock-fill"></i>
+                        <span><?= htmlspecialchars($usernameChangeLockMessage, ENT_QUOTES, 'UTF-8') ?></span>
+                      </div>
+                    <?php endif; ?>
+                    <small class="account-help text-secondary">
+                      This username may appear publicly in reviews when profile is public. Username updates are limited to once every <?= (int)ACCOUNT_USERNAME_CHANGE_LOCK_DAYS ?> days.
+                    </small>
                   </div>
                 </div>
 
@@ -2187,6 +2677,8 @@ if (is_array($accountDeletePending)) {
       const profileCsrf = profileForm.find('input[name="csrf_token"]').val() || "";
 
       let usernameTaken = false;
+      let usernameLocked = false;
+      let usernameLockFromServer = false;
       let emailTaken = false;
       let phoneTaken = false;
       let usernameTimer = null;
@@ -2222,6 +2714,12 @@ if (is_array($accountDeletePending)) {
         return /^\d{11,15}$/.test(value);
       };
 
+      const lockActiveFlag = (usernameInput.attr("data-username-lock-active") || "") === "1";
+      const usernameLockMessage = (usernameInput.attr("data-username-lock-message") || "").toString().trim();
+      const currentUsername = normalizeUsername(
+        (usernameInput.attr("data-current-username") || usernameInput.val() || "").toString(),
+      );
+
       const setLiveFeedback = function(target, message, color) {
         if (!target.length) {
           return;
@@ -2236,6 +2734,25 @@ if (is_array($accountDeletePending)) {
         }
 
         setLiveFeedback(feedback, message, color);
+      };
+
+      const updateUsernameLockState = function(value) {
+        const normalized = normalizeUsername(value);
+        const isChangeAttempt = normalized !== "" && normalized !== currentUsername;
+        usernameLocked = (lockActiveFlag || usernameLockFromServer) && isChangeAttempt;
+
+        if (usernameLocked) {
+          setFieldState(
+            usernameInput,
+            usernameFeedback,
+            usernameLockMessage || "Username can only be changed once every 90 days.",
+            "#ef4444",
+            "#ef4444",
+          );
+          return true;
+        }
+
+        return false;
       };
 
       const runExistsCheck = function(field, value, onDone, onFail) {
@@ -2281,8 +2798,14 @@ if (is_array($accountDeletePending)) {
           const normalized = normalizeUsername(usernameInput.val());
           usernameInput.val(normalized);
           usernameTaken = false;
+          usernameLocked = false;
+          usernameLockFromServer = false;
           clearTimeout(usernameTimer);
           setFieldState(usernameInput, usernameFeedback, "", "#9ca3af", "");
+
+          if (updateUsernameLockState(normalized)) {
+            return;
+          }
 
           if (normalized.length < 3) {
             setLiveFeedback(usernameFeedback, "Use at least 3 characters.", "#9ca3af");
@@ -2295,6 +2818,18 @@ if (is_array($accountDeletePending)) {
               normalized,
               function(res) {
                 const blocked = !!res?.blocked;
+                usernameLockFromServer = !!res?.lock_active;
+                usernameLocked = usernameLockFromServer;
+                if (usernameLocked) {
+                  usernameTaken = true;
+                  const lockMessage =
+                    typeof res?.message === "string" && res.message.trim() !== "" ?
+                    res.message :
+                    (usernameLockMessage || "Username can only be changed once every 90 days.");
+                  setFieldState(usernameInput, usernameFeedback, lockMessage, "#ef4444", "#ef4444");
+                  return;
+                }
+
                 usernameTaken = !!res?.exists;
                 if (usernameTaken) {
                   const blockedMessage =
@@ -2310,6 +2845,8 @@ if (is_array($accountDeletePending)) {
               },
               function() {
                 usernameTaken = false;
+                usernameLocked = false;
+                usernameLockFromServer = false;
                 setFieldState(usernameInput, usernameFeedback, "", "#9ca3af", "");
               },
             );
@@ -2418,6 +2955,14 @@ if (is_array($accountDeletePending)) {
           usernameInput.val(normalized);
           emailInput.val(normalizedEmail);
           phoneInput.val(normalizedPhone);
+
+          const lockTriggered = updateUsernameLockState(normalized);
+          if (lockTriggered || usernameLocked) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            usernameInput.focus();
+            return false;
+          }
 
           if (usernameTaken) {
             event.preventDefault();

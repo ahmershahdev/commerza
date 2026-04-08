@@ -47,9 +47,29 @@
 .suggestion-empty-state {
   padding: 14px 16px;
   display: grid;
-  gap: 6px;
-  justify-items: start;
+  gap: 10px;
+  justify-items: stretch;
   color: #ffd9b3;
+  border: 1px solid rgba(255, 157, 86, 0.3);
+  border-radius: 12px;
+  background:
+    radial-gradient(
+      circle at 8% 12%,
+      rgba(255, 167, 96, 0.16),
+      transparent 38%
+    ),
+    linear-gradient(155deg, rgba(18, 14, 11, 0.96), rgba(8, 8, 8, 0.94));
+}
+
+.suggestion-empty-shell {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.suggestion-empty-copy {
+  display: grid;
+  gap: 4px;
 }
 
 .suggestion-empty-icon {
@@ -77,6 +97,59 @@
 .suggestion-empty-state small {
   color: #e6be99;
   font-size: 0.75rem;
+}
+
+.suggestion-empty-state.suggestion-empty-simple {
+  gap: 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 12px 14px;
+  color: #f4dcc5;
+}
+
+.suggestion-empty-state.suggestion-empty-simple p {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #ffe8d3;
+}
+
+.suggestion-empty-state.suggestion-empty-simple small {
+  color: #d0af93;
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.suggestion-empty-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.suggestion-keyword-chip {
+  border: 1px solid rgba(255, 170, 106, 0.42);
+  border-radius: 999px;
+  background: rgba(255, 124, 45, 0.14);
+  color: #ffd9b3;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-family: "JetBrains Mono", monospace;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.suggestion-keyword-chip:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 145, 55, 0.24);
+  border-color: rgba(255, 202, 138, 0.64);
+  color: #fff2e4;
 }
 
 @media (max-width: 768px) {
@@ -135,20 +208,56 @@
 }
 
 .search-empty-stage {
+  --search-empty-orb-x: 50%;
+  --search-empty-orb-y: 50%;
+  position: relative;
+  overflow: hidden;
   border: 1px solid rgba(255, 145, 85, 0.28);
-  border-radius: 18px;
+  border-radius: 14px;
   background:
-    radial-gradient(circle at 8% 6%, rgba(255, 173, 109, 0.2), transparent 34%),
     radial-gradient(
-      circle at 88% 96%,
-      rgba(255, 99, 35, 0.14),
-      transparent 38%
+      circle at 86% 4%,
+      rgba(255, 177, 102, 0.12),
+      transparent 44%
     ),
-    linear-gradient(150deg, rgba(10, 10, 10, 0.96), rgba(23, 17, 12, 0.94));
-  padding: 24px 16px;
+    linear-gradient(150deg, rgba(14, 14, 14, 0.98), rgba(8, 8, 8, 0.96));
+  padding: 26px 18px;
   box-shadow:
-    0 24px 44px rgba(0, 0, 0, 0.42),
+    0 18px 36px rgba(0, 0, 0, 0.4),
     inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.search-empty-stage > * {
+  position: relative;
+  z-index: 1;
+}
+
+.search-empty-cursor-ball {
+  position: absolute;
+  z-index: 0;
+  left: var(--search-empty-orb-x);
+  top: var(--search-empty-orb-y);
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    circle,
+    rgba(255, 181, 111, 0.48) 0%,
+    rgba(255, 112, 34, 0.2) 52%,
+    rgba(255, 112, 34, 0) 74%
+  );
+  opacity: 0.18;
+  filter: blur(1px);
+  transition:
+    left 0.14s linear,
+    top 0.14s linear,
+    opacity 0.2s ease;
+}
+
+.search-empty-stage.is-pointer-active .search-empty-cursor-ball {
+  opacity: 0.38;
 }
 
 .search-empty-icon-wrap {
@@ -205,6 +314,40 @@
   margin-top: 8px;
   color: #cca483;
   font-size: 0.74rem;
+}
+
+.search-empty-keywords {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 9px;
+}
+
+.search-empty-chip {
+  border: 1px solid rgba(255, 188, 128, 0.44);
+  border-radius: 999px;
+  background: rgba(255, 145, 51, 0.14);
+  color: #ffdcb8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: "JetBrains Mono", monospace;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition:
+    transform 0.22s ease,
+    background 0.22s ease,
+    border-color 0.22s ease,
+    color 0.22s ease;
+}
+
+.search-empty-chip:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 212, 159, 0.74);
+  background: rgba(255, 145, 51, 0.26);
+  color: #fff4e6;
 }
 
 .product-focus {

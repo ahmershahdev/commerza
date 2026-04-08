@@ -306,44 +306,61 @@ $(document).ready(function () {
         desc: "Reach support",
       },
     ];
+    const quickAccessTags = ["smart", "quartz", "chronograph", "automatic"];
 
-    $("header .collapse.navbar-collapse .navbar-nav.me-auto").each(
-      function (menuIndex) {
-        const menu = $(this);
-        if (!menu.length || menu.find(".commerza-mega-nav").length) {
-          return;
-        }
+    const navMenus = $(
+      "header nav.navbar .collapse.navbar-collapse ul.navbar-nav",
+    ).filter(function () {
+      const menu = $(this);
+      if (!menu.length || menu.find(".commerza-mega-nav").length) {
+        return false;
+      }
 
-        const dropdownId = `commerzaMegaMenu${menuIndex + 1}`;
-        const cardMarkup = quickLinks
-          .map((link) => {
-            const isCurrent = currentPage === link.href;
-            return `
-              <a class="commerza-mega-link${isCurrent ? " is-current" : ""}" href="${link.href}"${isCurrent ? ' aria-current="page"' : ""}>
-                <span class="commerza-mega-icon"><i class="bi ${link.icon}"></i></span>
-                <span class="commerza-mega-copy">
-                  <strong>${link.label}</strong>
-                  <small>${link.desc}</small>
-                </span>
-              </a>
-            `;
-          })
-          .join("");
+      const navLinks = menu.find("a.nav-link");
+      return navLinks.length >= 3 && menu.closest(".offcanvas").length === 0;
+    });
 
-        menu.append(`
-          <li class="nav-item dropdown commerza-mega-nav d-none d-lg-block">
-            <a class="nav-link dropdown-toggle" href="#" id="${dropdownId}" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-              Quick Access
+    navMenus.each(function (menuIndex) {
+      const menu = $(this);
+      const dropdownId = `commerzaMegaMenu${menuIndex + 1}`;
+      const cardMarkup = quickLinks
+        .map((link) => {
+          const isCurrent = currentPage === link.href;
+          return `
+            <a class="commerza-mega-link${isCurrent ? " is-current" : ""}" href="${link.href}"${isCurrent ? ' aria-current="page"' : ""}>
+              <span class="commerza-mega-icon"><i class="bi ${link.icon}"></i></span>
+              <span class="commerza-mega-copy">
+                <strong>${link.label}</strong>
+                <small>${link.desc}</small>
+              </span>
             </a>
-            <div class="dropdown-menu commerza-mega-dropdown" aria-labelledby="${dropdownId}">
-              <div class="commerza-mega-grid">
-                ${cardMarkup}
-              </div>
+          `;
+        })
+        .join("");
+      const quickTagMarkup = quickAccessTags
+        .map(
+          (tag) => `<span class="commerza-mega-tag">${escapeHtml(tag)}</span>`,
+        )
+        .join("");
+
+      menu.append(`
+        <li class="nav-item dropdown commerza-mega-nav" data-commerza-quick-access="1">
+          <a class="nav-link dropdown-toggle" href="#" id="${dropdownId}" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Quick Access
+          </a>
+          <div class="dropdown-menu commerza-mega-dropdown" aria-labelledby="${dropdownId}">
+            <div class="commerza-mega-header">
+              <p class="commerza-mega-eyebrow">Quick Navigation</p>
+              <h6 class="commerza-mega-title">Premium Shortcuts</h6>
+              <div class="commerza-mega-tags">${quickTagMarkup}</div>
             </div>
-          </li>
-        `);
-      },
-    );
+            <div class="commerza-mega-grid">
+              ${cardMarkup}
+            </div>
+          </div>
+        </li>
+      `);
+    });
   }
 
   function getProductImageElement(btn) {
@@ -465,9 +482,6 @@ $(document).ready(function () {
       return;
 
     if (!hasProductContext) {
-      if (isPlaceholderAnchor) {
-        showNotif("Unable to add this product right now.", "warning");
-      }
       return;
     }
 
@@ -1305,13 +1319,11 @@ $(document).ready(function () {
       : `No direct matches for "${safeQuery}" in this collection.`;
     const guidance = isFilterState
       ? "Reset filters to instantly restore full collections."
-      : "Use fewer keywords or press Enter from the search bar for deeper search.";
+      : "Use fewer keywords or press Enter from the search bar for deeper search. Try keywords like smart, quartz, chronograph, or automatic.";
 
     container.html(`
             <div class="search-empty-stage text-center py-5">
-                <div class="search-empty-icon-wrap">
-                  <i class="bi bi-stars"></i>
-                </div>
+                <span class="search-empty-cursor-ball" aria-hidden="true"></span>
                 <p class="search-empty-eyebrow">Catalog Intelligence</p>
                 <h3 class="search-empty-title">${title}</h3>
                 <p class="search-empty-detail">${detail}</p>
@@ -3597,12 +3609,9 @@ $(document).ready(function () {
     if (products.length === 0) {
       if (normalizedQuery.length >= 2) {
         list.html(`
-          <div class="suggestion-empty-state">
-            <div class="suggestion-empty-icon">
-              <i class="bi bi-binoculars"></i>
-            </div>
-            <p class="mb-1">No instant matches for "${escapeHtml(normalizedQuery)}"</p>
-            <small>Press Enter for deep search across the full catalog.</small>
+          <div class="suggestion-empty-state suggestion-empty-simple">
+            <p class="mb-1">No products found</p>
+            <small>No direct matches for "${escapeHtml(normalizedQuery)}". Press Enter for deeper search.</small>
           </div>
         `);
         list.addClass("show");
@@ -3710,6 +3719,33 @@ $(document).ready(function () {
     form.find('input[type="search"]').val(name);
     clearSearchSuggestions(form);
     handleSearch(name);
+  });
+
+  $(document).on("mousemove", ".search-empty-stage", function (e) {
+    if (
+      window.matchMedia &&
+      !window.matchMedia("(hover: hover) and (pointer: fine)").matches
+    ) {
+      return;
+    }
+
+    const rect = this.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return;
+    }
+
+    const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+    const y = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
+
+    this.style.setProperty("--search-empty-orb-x", `${x.toFixed(1)}px`);
+    this.style.setProperty("--search-empty-orb-y", `${y.toFixed(1)}px`);
+    this.classList.add("is-pointer-active");
+  });
+
+  $(document).on("mouseleave", ".search-empty-stage", function () {
+    this.classList.remove("is-pointer-active");
+    this.style.removeProperty("--search-empty-orb-x");
+    this.style.removeProperty("--search-empty-orb-y");
   });
 
   $(document).on("click", function (e) {
