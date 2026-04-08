@@ -254,6 +254,89 @@ if ($homeVideoStmt) {
       color: #ff9640;
     }
 
+    .hero-typing-shell {
+      margin-top: 12px;
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 1px solid rgba(255, 177, 118, 0.38);
+      border-radius: 999px;
+      background:
+        radial-gradient(circle at 0% 0%, rgba(255, 193, 138, 0.16), transparent 45%),
+        linear-gradient(132deg, rgba(30, 14, 10, 0.9), rgba(10, 10, 10, 0.92));
+      box-shadow:
+        0 14px 30px rgba(0, 0, 0, 0.35),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+      max-width: 100%;
+    }
+
+    .hero-typing-prefix {
+      color: #ffcea0;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.11em;
+      font-family: 'JetBrains Mono', monospace;
+      white-space: nowrap;
+    }
+
+    .hero-typing-track {
+      display: inline-flex;
+      align-items: center;
+      gap: 1px;
+      min-height: 1.45rem;
+      max-width: min(100%, 360px);
+    }
+
+    .hero-typing-text {
+      font-family: 'Montserrat', sans-serif;
+      font-size: clamp(0.78rem, 1.4vw, 0.92rem);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #fff2df;
+      text-shadow: 0 0 20px rgba(255, 177, 122, 0.26);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      animation: heroTypeGlow 2.4s ease-in-out infinite;
+    }
+
+    .hero-typing-caret {
+      width: 2px;
+      height: 1.1em;
+      border-radius: 2px;
+      background: linear-gradient(180deg, #ffdcbb, #ff8d45);
+      box-shadow: 0 0 10px rgba(255, 162, 98, 0.68);
+      animation: heroCaretBlink 0.92s steps(1, end) infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes heroTypeGlow {
+
+      0%,
+      100% {
+        filter: brightness(1);
+      }
+
+      50% {
+        filter: brightness(1.12);
+      }
+    }
+
+    @keyframes heroCaretBlink {
+
+      0%,
+      49% {
+        opacity: 1;
+      }
+
+      50%,
+      100% {
+        opacity: 0.12;
+      }
+    }
+
     .store-row {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -668,6 +751,13 @@ if ($homeVideoStmt) {
             <h1 class="hero-title">Premium Automatic Watches by Commerza</h1>
             <p class="hero-subtitle">Discover hand finished timepieces crafted for modern life. Bold
               silhouettes, luminous dials, and movements engineered to last.</p>
+            <div class="hero-typing-shell" aria-live="polite" aria-label="Commerza featured highlights">
+              <span class="hero-typing-prefix">Now Live</span>
+              <span class="hero-typing-track">
+                <span id="heroTypingText" class="hero-typing-text"></span>
+                <span class="hero-typing-caret" aria-hidden="true"></span>
+              </span>
+            </div>
             <div class="hero-actions">
               <a href="shop-category-b.php" class="btn hero-btn-outline text-white">Explore Signature Series</a>
             </div>
@@ -1369,6 +1459,57 @@ if ($homeVideoStmt) {
       window.commerzaOnReady(function() {
         loadProductsBySection("featured-collection", "featured-products-container");
       });
+
+      const heroTypingNode = document.getElementById("heroTypingText");
+      if (heroTypingNode) {
+        const typingPhrases = [
+          "Skeleton Dials • Collector Grade",
+          "24k Accents • Limited Drops",
+          "Precision Caliber • Hand Finished",
+          "Express Dispatch • Insured Delivery",
+        ];
+
+        const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (reduceMotion || typingPhrases.length === 0) {
+          heroTypingNode.textContent = typingPhrases[0] || "Premium Commerza Highlights";
+          return;
+        }
+
+        let phraseIndex = 0;
+        let charIndex = 0;
+        let deleting = false;
+
+        const randomDelay = function(base, variance) {
+          return base + Math.floor(Math.random() * variance);
+        };
+
+        const runTypingLoop = function() {
+          const phrase = typingPhrases[phraseIndex] || "";
+
+          if (!deleting) {
+            charIndex = Math.min(phrase.length, charIndex + 1);
+          } else {
+            charIndex = Math.max(0, charIndex - 1);
+          }
+
+          heroTypingNode.textContent = phrase.slice(0, charIndex);
+
+          let nextDelay = deleting ? randomDelay(38, 36) : randomDelay(68, 56);
+
+          if (!deleting && charIndex >= phrase.length) {
+            deleting = true;
+            nextDelay = 1450;
+          } else if (deleting && charIndex === 0) {
+            deleting = false;
+            phraseIndex = (phraseIndex + 1) % typingPhrases.length;
+            nextDelay = 330;
+          }
+
+          window.setTimeout(runTypingLoop, nextDelay);
+        };
+
+        runTypingLoop();
+      }
     });
   </script>
 </body>

@@ -142,7 +142,41 @@ function commerza_captcha_is_local_request(): bool
 
     $host = explode(':', $host)[0];
 
-    return in_array($host, ['localhost', '127.0.0.1', '::1', '[::1]'], true);
+    if (in_array($host, ['localhost', '127.0.0.1', '::1', '[::1]'], true)) {
+        return true;
+    }
+
+    if (filter_var($host, FILTER_VALIDATE_IP)) {
+        $isPublicIp = filter_var(
+            $host,
+            FILTER_VALIDATE_IP,
+            FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+        ) !== false;
+
+        return !$isPublicIp;
+    }
+
+    if (strpos($host, '.') === false) {
+        return true;
+    }
+
+    foreach (['.local', '.localhost', '.test', '.invalid', '.lan', '.home', '.internal'] as $suffix) {
+        if (str_ends_with($host, $suffix)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function commerza_captcha_local_bypass_enabled(): bool
+{
+    $raw = strtolower(trim((string)getenv('COMMERZA_CAPTCHA_BYPASS_LOCAL')));
+    if ($raw === '') {
+        return true;
+    }
+
+    return in_array($raw, ['1', 'true', 'on', 'yes'], true);
 }
 
 function commerza_captcha_normalize_provider(string $value): string
@@ -406,6 +440,10 @@ function commerza_captcha_script_tag(mysqli $con): string
         return '';
     }
 
+    if (commerza_captcha_is_local_request() && commerza_captcha_local_bypass_enabled()) {
+        return '';
+    }
+
     if ((string)($config['provider'] ?? '') !== 'recaptcha') {
         return '';
     }
@@ -537,6 +575,10 @@ function commerza_captcha_widget_html(mysqli $con, string $context = ''): string
         return '';
     }
 
+    if (commerza_captcha_is_local_request() && commerza_captcha_local_bypass_enabled()) {
+        return '';
+    }
+
     $provider = (string)$config['provider'];
     $siteKey = htmlspecialchars((string)$config['site_key'], ENT_QUOTES, 'UTF-8');
     if ($provider !== 'recaptcha') {
@@ -628,10 +670,7 @@ function commerza_captcha_verify_submission(mysqli $con, array $request, string 
         ];
     }
 
-    if (
-        commerza_captcha_is_local_request()
-        && trim((string)getenv('COMMERZA_CAPTCHA_BYPASS_LOCAL')) === '1'
-    ) {
+    if (commerza_captcha_is_local_request() && commerza_captcha_local_bypass_enabled()) {
         return [
             'ok' => true,
             'message' => '',

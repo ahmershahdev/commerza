@@ -79,12 +79,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         admin_clear_reset_code($con, (int)$admin['id']);
         $errors[] = $mailError ?: 'Could not send reset email. Please verify server mail settings.';
       } else {
-        commerza_rate_limit_reset(
-          $con,
-          'admin_forgot_password_send',
-          (string)($admin['email'] ?? 'admin'),
-          $clientIp
-        );
         $success = 'A password reset code has been sent to the registered admin email.';
       }
     }

@@ -441,7 +441,7 @@ $logoUrl = commerza_absolute_url('/' . ltrim($logoPath, '/'));
             <div class="grid">
                 <div class="left-pane">
                     <div class="logo-badge" aria-hidden="true">
-                        <img src="<?= htmlspecialchars($logoPath, ENT_QUOTES, 'UTF-8') ?>" alt="" loading="lazy" />
+                        <img src="<?= htmlspecialchars($logoPath, ENT_QUOTES, 'UTF-8') ?>" alt="Logo" loading="lazy" style="user-select: none; pointer-events:none" />
                     </div>
 
                     <p class="code" aria-label="404" style="user-select: none;">4<span class="code-glow">0</span>4</p>

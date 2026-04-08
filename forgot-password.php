@@ -3,7 +3,7 @@ include "backend/data.php";
 require_once "backend/mailer.php";
 
 if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+  $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
 $errors = [];
@@ -12,18 +12,18 @@ $email_value = '';
 
 function send_reset_code_email(string $recipientEmail, string $recipientName, string $code, ?string &$errorMessage = null): bool
 {
-    $subject = "Commerza Password Reset Code";
-  $logoUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.webp');
+  $subject = "Commerza Password Reset Code";
+  $logoUrl = commerza_mail_logo_src(commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.webp'));
   $resetUrl = commerza_absolute_url('/reset-password.php') . '?email=' . urlencode($recipientEmail);
   $supportEmail = trim((string)(getenv('COMMERZA_SUPPORT_EMAIL') ?: 'support@ahmershah.dev'));
   if (!filter_var($supportEmail, FILTER_VALIDATE_EMAIL)) {
     $supportEmail = 'support@ahmershah.dev';
   }
 
-    $safeName = htmlspecialchars($recipientName !== '' ? $recipientName : 'Customer', ENT_QUOTES, 'UTF-8');
-    $safeCode = htmlspecialchars($code, ENT_QUOTES, 'UTF-8');
+  $safeName = htmlspecialchars($recipientName !== '' ? $recipientName : 'Customer', ENT_QUOTES, 'UTF-8');
+  $safeCode = htmlspecialchars($code, ENT_QUOTES, 'UTF-8');
 
-    $message = "<!DOCTYPE html>
+  $message = "<!DOCTYPE html>
 <html>
   <body style=\"margin:0;padding:0;background:#080808;font-family:Arial,sans-serif;color:#f5f5f5;\">
     <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#080808;padding:24px 0;\">
@@ -57,165 +57,159 @@ function send_reset_code_email(string $recipientEmail, string $recipientName, st
   </body>
 </html>";
 
-    return commerza_send_html_mail(
-      $recipientEmail,
-      $subject,
-      $message,
-      $supportEmail,
-      'Commerza Security',
-      $errorMessage
-    );
+  return commerza_send_html_mail(
+    $recipientEmail,
+    $subject,
+    $message,
+    $supportEmail,
+    'Commerza Security',
+    $errorMessage
+  );
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (
-        empty($_POST['csrf_token']) ||
-        empty($_SESSION['csrf_token']) ||
-        !hash_equals($_SESSION['csrf_token'], (string)$_POST['csrf_token'])
-    ) {
-        http_response_code(403);
-        exit("Forbidden.");
-    }
+  if (
+    empty($_POST['csrf_token']) ||
+    empty($_SESSION['csrf_token']) ||
+    !hash_equals($_SESSION['csrf_token'], (string)$_POST['csrf_token'])
+  ) {
+    http_response_code(403);
+    exit("Forbidden.");
+  }
 
-    $captchaCheck = commerza_captcha_verify_submission($con, $_POST, 'user_forgot_password');
-    if (!(bool)$captchaCheck['ok']) {
-      $errors[] = (string)$captchaCheck['message'];
-    }
+  $captchaCheck = commerza_captcha_verify_submission($con, $_POST, 'user_forgot_password');
+  if (!(bool)$captchaCheck['ok']) {
+    $errors[] = (string)$captchaCheck['message'];
+  }
 
-    $email_value = strtolower(trim((string)($_POST['forgot_password_email'] ?? '')));
+  $email_value = strtolower(trim((string)($_POST['forgot_password_email'] ?? '')));
 
-    if (!filter_var($email_value, FILTER_VALIDATE_EMAIL) || strlen($email_value) > 150) {
-        $errors[] = "Please enter a valid email address.";
-    }
+  if (!filter_var($email_value, FILTER_VALIDATE_EMAIL) || strlen($email_value) > 150) {
+    $errors[] = "Please enter a valid email address.";
+  }
 
-    $clientIp = commerza_client_ip();
+  $clientIp = commerza_client_ip();
 
-    if (empty($errors)) {
-      $rate = commerza_rate_limit_check(
+  if (empty($errors)) {
+    $rate = commerza_rate_limit_check(
+      $con,
+      'user_forgot_password',
+      $email_value !== '' ? $email_value : 'anonymous',
+      $clientIp,
+      4,
+      2700,
+      2700,
+      14400,
+      86400
+    );
+    if (!$rate['allowed']) {
+      $retrySeconds = max(1, (int)$rate['retry_after']);
+      $retryMinutes = (int)ceil($retrySeconds / 60);
+      commerza_security_log_rate_limit_block(
         $con,
         'user_forgot_password',
+        'user',
         $email_value !== '' ? $email_value : 'anonymous',
         $clientIp,
-        4,
-        2700,
-        2700,
-        14400,
-        86400
+        $retrySeconds
       );
-      if (!$rate['allowed']) {
-        $retrySeconds = max(1, (int)$rate['retry_after']);
-        $retryMinutes = (int)ceil($retrySeconds / 60);
-        commerza_security_log_rate_limit_block(
-          $con,
-          'user_forgot_password',
-          'user',
-          $email_value !== '' ? $email_value : 'anonymous',
-          $clientIp,
-          $retrySeconds
-        );
-        $errors[] = "Too many reset requests. Try again in " . $retryMinutes . " minute(s) (" . $retrySeconds . " seconds).";
-      }
+      $errors[] = "Too many reset requests. Try again in " . $retryMinutes . " minute(s) (" . $retrySeconds . " seconds).";
     }
+  }
 
-    if (empty($errors)) {
-        $stmt = $con->prepare("SELECT id, full_name, email FROM users WHERE email = ? LIMIT 1");
+  if (empty($errors)) {
+    $stmt = $con->prepare("SELECT id, full_name, email FROM users WHERE email = ? LIMIT 1");
 
-      if (!$stmt) {
-        $errors[] = "Something went wrong. Please try again.";
+    if (!$stmt) {
+      $errors[] = "Something went wrong. Please try again.";
+    } else {
+      $stmt->bind_param("s", $email_value);
+      $stmt->execute();
+      $result = $stmt->get_result();
+      $user = $result ? $result->fetch_assoc() : null;
+      $stmt->close();
+
+      if (!$user) {
+        commerza_security_log_event($con, [
+          'event_type' => 'password_reset_requested_unknown_email',
+          'severity' => 'warning',
+          'actor_type' => 'user',
+          'actor_identifier' => $email_value,
+          'ip_address' => $clientIp,
+        ]);
+
+        $success = "If an account exists for this email, a reset code has been sent.";
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        $canSend = false;
       } else {
-        $stmt->bind_param("s", $email_value);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $user = $result ? $result->fetch_assoc() : null;
-        $stmt->close();
+        $canSend = empty($errors);
+      }
 
-        if (!$user) {
-          commerza_security_log_event($con, [
-            'event_type' => 'password_reset_requested_unknown_email',
-            'severity' => 'warning',
-            'actor_type' => 'user',
-            'actor_identifier' => $email_value,
-            'ip_address' => $clientIp,
-          ]);
+      $lastEmailSentAt = (int)($_SESSION['forgot_password_last_sent_at'] ?? 0);
+      $lastEmailTarget = (string)($_SESSION['forgot_password_last_sent_email'] ?? '');
 
-          $success = "If an account exists for this email, a reset code has been sent.";
-          $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-          $canSend = false;
+      if ($canSend && $lastEmailTarget === $email_value && (time() - $lastEmailSentAt) < 60) {
+        $errors[] = "Please wait 60 seconds before requesting another code.";
+        $canSend = false;
+      }
+
+      if ($canSend && $user) {
+        $resetCode = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $tokenHash = commerza_password_hash($resetCode);
+        $expiry = date('Y-m-d H:i:s', time() + (15 * 60));
+
+        $updateStmt = $con->prepare("UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE id = ? LIMIT 1");
+        if (!$updateStmt) {
+          $errors[] = "Unable to process request right now.";
         } else {
-          $canSend = empty($errors);
-        }
+          $userId = (int)$user['id'];
+          $updateStmt->bind_param("ssi", $tokenHash, $expiry, $userId);
+          $updated = $updateStmt->execute();
+          $updateStmt->close();
 
-        $lastEmailSentAt = (int)($_SESSION['forgot_password_last_sent_at'] ?? 0);
-        $lastEmailTarget = (string)($_SESSION['forgot_password_last_sent_email'] ?? '');
-
-        if ($canSend && $lastEmailTarget === $email_value && (time() - $lastEmailSentAt) < 60) {
-          $errors[] = "Please wait 60 seconds before requesting another code.";
-          $canSend = false;
-        }
-
-        if ($canSend && $user) {
-          $resetCode = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-          $tokenHash = commerza_password_hash($resetCode);
-          $expiry = date('Y-m-d H:i:s', time() + (15 * 60));
-
-          $updateStmt = $con->prepare("UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE id = ? LIMIT 1");
-          if (!$updateStmt) {
-            $errors[] = "Unable to process request right now.";
+          if (!$updated) {
+            $errors[] = "Unable to generate reset code. Please try again.";
           } else {
-            $userId = (int)$user['id'];
-            $updateStmt->bind_param("ssi", $tokenHash, $expiry, $userId);
-            $updated = $updateStmt->execute();
-            $updateStmt->close();
+            $mailError = null;
+            $mailSent = send_reset_code_email(
+              (string)$user['email'],
+              (string)$user['full_name'],
+              $resetCode,
+              $mailError
+            );
 
-            if (!$updated) {
-              $errors[] = "Unable to generate reset code. Please try again.";
+            if ($mailSent) {
+              commerza_security_log_event($con, [
+                'event_type' => 'password_reset_code_sent',
+                'severity' => 'info',
+                'actor_type' => 'user',
+                'actor_identifier' => $email_value,
+                'user_id' => (int)$user['id'],
+                'ip_address' => $clientIp,
+              ]);
+              $_SESSION['forgot_password_last_sent_at'] = time();
+              $_SESSION['forgot_password_last_sent_email'] = $email_value;
+              $success = "Reset code sent successfully. Please check your inbox.";
+              $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
             } else {
-              $mailError = null;
-              $mailSent = send_reset_code_email(
-                (string)$user['email'],
-                (string)$user['full_name'],
-                $resetCode,
-                $mailError
-              );
-
-              if ($mailSent) {
-                commerza_security_log_event($con, [
-                  'event_type' => 'password_reset_code_sent',
-                  'severity' => 'info',
-                  'actor_type' => 'user',
-                  'actor_identifier' => $email_value,
-                  'user_id' => (int)$user['id'],
-                  'ip_address' => $clientIp,
-                ]);
-                $_SESSION['forgot_password_last_sent_at'] = time();
-                $_SESSION['forgot_password_last_sent_email'] = $email_value;
-                commerza_rate_limit_reset(
-                  $con,
-                  'user_forgot_password',
-                  $email_value !== '' ? $email_value : 'anonymous',
-                  $clientIp
-                );
-                $success = "Reset code sent successfully. Please check your inbox.";
-                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-              } else {
-                commerza_security_log_event($con, [
-                  'event_type' => 'password_reset_email_send_failed',
-                  'severity' => 'warning',
-                  'actor_type' => 'user',
-                  'actor_identifier' => $email_value,
-                  'user_id' => (int)$user['id'],
-                  'ip_address' => $clientIp,
-                  'details' => [
-                    'mail_error' => $mailError ?? '',
-                  ],
-                ]);
-                $errors[] = $mailError ?: "Unable to send reset email right now.";
-              }
+              commerza_security_log_event($con, [
+                'event_type' => 'password_reset_email_send_failed',
+                'severity' => 'warning',
+                'actor_type' => 'user',
+                'actor_identifier' => $email_value,
+                'user_id' => (int)$user['id'],
+                'ip_address' => $clientIp,
+                'details' => [
+                  'mail_error' => $mailError ?? '',
+                ],
+              ]);
+              $errors[] = $mailError ?: "Unable to send reset email right now.";
             }
           }
         }
       }
     }
+  }
 }
 ?>
 <!DOCTYPE html>
@@ -504,16 +498,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <script src="frontend/assets/js/global-protection.js"></script>
   <?= commerza_captcha_script_tag($con) ?>
   <script <?= commerza_csp_nonce_attr() ?>>
-    $(function () {
-      $("#serverAlert, #successAlert").each(function () {
+    $(function() {
+      $("#serverAlert, #successAlert").each(function() {
         const element = $(this);
-        setTimeout(function () {
+        setTimeout(function() {
           element.fadeOut(400);
         }, 3500);
       });
 
       let submitted = false;
-      $("#forgotPasswordForm").on("submit", function () {
+      $("#forgotPasswordForm").on("submit", function() {
         if (submitted) {
           return false;
         }

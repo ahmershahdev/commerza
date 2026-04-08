@@ -71,7 +71,8 @@
 }
 
 .form-control::placeholder {
-  color: #666;
+  color: #98a2b3;
+  opacity: 1;
 }
 
 .form-check-input {

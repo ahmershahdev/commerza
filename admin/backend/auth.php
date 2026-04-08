@@ -580,7 +580,7 @@ function admin_store_reset_code(mysqli $con, int $adminId, string $code): bool
 
     $stmt = $con->prepare(
         'UPDATE admin_users
-         SET reset_token = ?, reset_token_expiry = DATE_ADD(NOW(), INTERVAL 30 MINUTE)
+            SET reset_token = ?, reset_token_expiry = DATE_ADD(NOW(), INTERVAL 15 MINUTE)
          WHERE id = ?
          LIMIT 1'
     );
@@ -827,7 +827,11 @@ function admin_email_layout(string $title, string $intro, string $bodyHtml): str
     $safeTitle = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
     $safeIntro = htmlspecialchars($intro, ENT_QUOTES, 'UTF-8');
     $safeSiteName = htmlspecialchars((string)($context['site_name'] ?? 'Commerza'), ENT_QUOTES, 'UTF-8');
-    $safeLogo = htmlspecialchars(admin_public_url('/frontend/assets/images/logo/commerza-logo.webp'), ENT_QUOTES, 'UTF-8');
+    $safeLogo = htmlspecialchars(
+        commerza_mail_logo_src(admin_public_url('/frontend/assets/images/logo/commerza-logo.webp')),
+        ENT_QUOTES,
+        'UTF-8'
+    );
     $safeHome = htmlspecialchars(admin_public_url('/'), ENT_QUOTES, 'UTF-8');
     $safeSupportEmail = htmlspecialchars((string)($context['support_email'] ?? 'support@ahmershah.dev'), ENT_QUOTES, 'UTF-8');
     $socialLinks = '<a href="https://instagram.com/commerza" style="color:#ffb066;text-decoration:none;">Instagram</a> <span style="color:#666;">|</span> <a href="https://facebook.com/commerza" style="color:#ffb066;text-decoration:none;">Facebook</a> <span style="color:#666;">|</span> <a href="https://www.linkedin.com/in/syedahmershah" style="color:#ffb066;text-decoration:none;">LinkedIn</a> <span style="color:#666;">|</span> <a href="https://github.com/ahmershahdev" style="color:#ffb066;text-decoration:none;">GitHub</a>';

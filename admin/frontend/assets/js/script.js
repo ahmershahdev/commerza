@@ -65,20 +65,28 @@ let securityEventsState = {
   if (window.__commerzaMediaProtectionEnabled) return;
   window.__commerzaMediaProtectionEnabled = true;
 
+  const isMediaTarget = (target) => {
+    if (!target || typeof Element === "undefined") {
+      return false;
+    }
+
+    return target instanceof Element && !!target.closest("img, video");
+  };
+
   document.addEventListener("contextmenu", (event) => {
-    if (event.target.closest("img, video")) {
+    if (isMediaTarget(event.target)) {
       event.preventDefault();
     }
   });
 
   document.addEventListener("dragstart", (event) => {
-    if (event.target.closest("img, video")) {
+    if (isMediaTarget(event.target)) {
       event.preventDefault();
     }
   });
 
   document.addEventListener("selectstart", (event) => {
-    if (event.target.closest("img, video")) {
+    if (isMediaTarget(event.target)) {
       event.preventDefault();
     }
   });
@@ -3329,6 +3337,28 @@ function syncProductWorkspaceSummary() {
   );
 }
 
+function syncProductTrashMeta(items) {
+  const safeItems = Array.isArray(items) ? items : [];
+  let expiringSoon = 0;
+  let expired = 0;
+
+  safeItems.forEach((item) => {
+    const seconds = Math.max(0, parseInt(item?.expiresInSeconds, 10) || 0);
+    if (seconds <= 0) {
+      expired += 1;
+      return;
+    }
+
+    if (seconds <= 86400) {
+      expiringSoon += 1;
+    }
+  });
+
+  $("#productTrashTotalBadge").text(`Total: ${safeItems.length}`);
+  $("#productTrashExpiringBadge").text(`Expiring < 24h: ${expiringSoon}`);
+  $("#productTrashExpiredBadge").text(`Expired: ${expired}`);
+}
+
 function hydrateProductTrashItems(items) {
   productTrashItems = Array.isArray(items) ? items : [];
   syncProductWorkspaceSummary();
@@ -3361,6 +3391,7 @@ function renderProductTrashTable() {
   tbody.empty();
   const items = Array.isArray(productTrashItems) ? productTrashItems : [];
   $("#productTrashCount").text(items.length);
+  syncProductTrashMeta(items);
 
   if (!items.length) {
     tbody.append(
@@ -3376,8 +3407,24 @@ function renderProductTrashTable() {
     const image = escapeHtml((item?.image || "").toString());
     const deletedAt = escapeHtml(formatDateTime(item?.deletedAt || ""));
     const purgeAfter = escapeHtml(formatDateTime(item?.purgeAfter || ""));
-    const countdown = formatTrashCountdown(item?.expiresInSeconds || 0);
+    const expiresInSeconds = Math.max(
+      0,
+      parseInt(item?.expiresInSeconds, 10) || 0,
+    );
+    const countdown = formatTrashCountdown(expiresInSeconds);
     const trashId = Number(item?.id || 0);
+    const isExpired = expiresInSeconds <= 0;
+    const isExpiringSoon = !isExpired && expiresInSeconds <= 86400;
+    const statusLabel = isExpired
+      ? "Expired"
+      : isExpiringSoon
+        ? "Expiring Soon"
+        : "Safe Window";
+    const statusClass = isExpired
+      ? "is-expired"
+      : isExpiringSoon
+        ? "is-warning"
+        : "is-safe";
 
     const imageCell = image
       ? `<img src="../../${image}" alt="${name}" class="rounded" width="44" height="44" style="object-fit:cover;">`
@@ -3397,13 +3444,14 @@ function renderProductTrashTable() {
         <td class="py-3 text-secondary small">${section}</td>
         <td class="py-3 text-secondary small">${deletedAt}</td>
         <td class="py-3 text-secondary small">
-          <div class="text-warning fw-semibold">${countdown}</div>
+          <div class="trash-countdown-time text-warning fw-semibold">${countdown}</div>
+          <div class="trash-status-pill ${statusClass}">${statusLabel}</div>
           <div>${purgeAfter}</div>
         </td>
         <td class="pe-4 py-3">
           <div class="d-flex gap-1 flex-wrap">
-            <button class="btn btn-sm btn-outline-success" onclick="restoreTrashProductById(${trashId})">Restore</button>
-            <button class="btn btn-sm btn-outline-danger" onclick="deleteTrashItemById(${trashId})">Delete</button>
+            <button class="btn btn-sm btn-outline-success" type="button" title="Restore this item to catalog" onclick="restoreTrashProductById(${trashId})">Restore</button>
+            <button class="btn btn-sm btn-outline-danger" type="button" title="Permanently delete this trash item" onclick="deleteTrashItemById(${trashId})">Delete</button>
           </div>
         </td>
       </tr>
@@ -5290,6 +5338,15 @@ $(document).ready(function () {
   $("#bulkDeleteCustomersBtn").off("click").on("click", bulkDeleteCustomers);
   $("#saveShippingConfigBtn").off("click").on("click", saveShippingConfig);
   $("#addBlacklistBtn").off("click").on("click", addBlacklistFromForm);
+  $("#whitelistContactBtn").off("click").on("click", whitelistContactFromForm);
+  $("#saveSeoMetaBtn").off("click").on("click", saveSeoMetaFromForm);
+  $("#resetSeoMetaBtn").off("click").on("click", resetSeoMetaForm);
+  $("#deleteSeoMetaBtn")
+    .off("click")
+    .on("click", function () {
+      deleteSeoMetaForPage("");
+    });
+  $("#seoPageSelect").off("change").on("change", refreshSeoMetaEditor);
 
   $(document)
     .off("click", ".delete-customer-btn")
@@ -5369,6 +5426,29 @@ $(document).ready(function () {
     .on("click", ".remove-blacklist-btn", function () {
       const blacklistId = parseInt($(this).data("blacklistId"), 10) || 0;
       removeBlacklistById(blacklistId);
+    });
+
+  $(document)
+    .off("click", ".seo-meta-edit-btn")
+    .on("click", ".seo-meta-edit-btn", function () {
+      const page = ($(this).data("seoPage") || "").toString().trim();
+      if (!page) {
+        return;
+      }
+
+      $("#seoPageSelect").val(page.toLowerCase());
+      refreshSeoMetaEditor();
+    });
+
+  $(document)
+    .off("click", ".seo-meta-delete-btn")
+    .on("click", ".seo-meta-delete-btn", function () {
+      const page = ($(this).data("seoPage") || "").toString().trim();
+      if (!page) {
+        return;
+      }
+
+      deleteSeoMetaForPage(page);
     });
 
   $(document)
@@ -6860,18 +6940,38 @@ function renderBlacklistTable() {
     return;
   }
 
+  const riskBadgeForReason = (reasonValue) => {
+    const reasonText = (reasonValue || "").toString().trim().toLowerCase();
+    if (/fraud|chargeback|stolen|scam|abuse/i.test(reasonText)) {
+      return { label: "Critical", badgeClass: "bg-danger" };
+    }
+
+    if (/spam|bot|fake|duplicate|suspicious/i.test(reasonText)) {
+      return { label: "High", badgeClass: "bg-warning text-dark" };
+    }
+
+    return { label: "Watchlist", badgeClass: "bg-secondary" };
+  };
+
   entries.forEach((entry) => {
     const id = Number(entry?.id || 0);
     const email = escapeHtml((entry?.email || "-").toString().trim() || "-");
     const phone = escapeHtml((entry?.phone || "-").toString().trim() || "-");
-    const reason = escapeHtml((entry?.reason || "-").toString().trim() || "-");
+    const reasonRaw = (entry?.reason || "").toString().trim();
+    const reason = escapeHtml(reasonRaw || "-");
+    const risk = riskBadgeForReason(reasonRaw);
+    const riskLabel = escapeHtml(risk.label);
+    const riskBadgeClass = escapeHtml(risk.badgeClass);
     const createdAt = escapeHtml(formatDateTime(entry?.createdAt || ""));
 
     tbody.append(`
       <tr class="border-bottom border-secondary">
         <td class="ps-4 py-3 text-light">${email}</td>
         <td class="py-3 text-secondary">${phone}</td>
-        <td class="py-3 text-secondary small">${reason}</td>
+        <td class="py-3 text-secondary small">
+          <span class="badge ${riskBadgeClass} text-uppercase">${riskLabel}</span>
+          <div class="small mt-1">${reason}</div>
+        </td>
         <td class="py-3 text-secondary small">${createdAt}</td>
         <td class="pe-4 py-3">
           <button class="btn btn-sm btn-outline-success remove-blacklist-btn" data-blacklist-id="${id}">
@@ -6983,6 +7083,42 @@ async function addBlacklistFromForm() {
   } catch (error) {
     showNotification(
       error?.message || "Unable to blacklist contact.",
+      "danger",
+    );
+  }
+}
+
+async function whitelistContactFromForm() {
+  const email = (($("#whitelistEmailInput").val() || "") + "").trim();
+  const phone = (($("#whitelistPhoneInput").val() || "") + "").trim();
+
+  if (email === "" && phone === "") {
+    showNotification("Enter an email or phone number to whitelist.", "warning");
+    return;
+  }
+
+  try {
+    const result = await adminPostJson(ADMIN_ORDERS_API, {
+      action: "remove-blacklist-contact",
+      email,
+      phone,
+    });
+
+    applyOrdersSummaryPayload(result?.payload || {});
+    showNotification(result?.message || "Contact whitelisted.", "success");
+    $("#whitelistEmailInput").val("");
+    $("#whitelistPhoneInput").val("");
+  } catch (error) {
+    const localMatch = findBlacklistEntryByContact(email, phone);
+    if (localMatch && Number(localMatch.id || 0) > 0) {
+      await removeBlacklistById(localMatch.id);
+      $("#whitelistEmailInput").val("");
+      $("#whitelistPhoneInput").val("");
+      return;
+    }
+
+    showNotification(
+      error?.message || "Unable to whitelist contact.",
       "danger",
     );
   }
@@ -7477,6 +7613,7 @@ function buildDefaultSiteSettings() {
       categoryA:
         "frontend/assets/videos/products/smart/automatic_watches_carousel.mp4",
     },
+    pageMeta: [],
   };
 }
 
@@ -7511,6 +7648,9 @@ function loadSiteSettings() {
         ...defaults.featuredVideos,
         ...(parsed.featuredVideos || {}),
       },
+      pageMeta: normalizeSeoPageMetaList(
+        Array.isArray(parsed.pageMeta) ? parsed.pageMeta : defaults.pageMeta,
+      ),
     };
   } catch (error) {
     console.warn("Invalid site settings, using defaults");
@@ -7549,6 +7689,9 @@ function applyWebsiteSettingsPayload(payload) {
       ...defaults.featuredVideos,
       ...(source.featuredVideos || {}),
     },
+    pageMeta: normalizeSeoPageMetaList(
+      Array.isArray(source.pageMeta) ? source.pageMeta : defaults.pageMeta,
+    ),
   };
 
   nextSocialId =
@@ -7568,6 +7711,9 @@ function applyWebsiteSettingsPayload(payload) {
   $("#homeFeatureVideo").val(siteSettings.featuredVideos?.home || "");
   $("#categoryAFeatureVideo").val(siteSettings.featuredVideos?.categoryA || "");
 
+  renderSeoPageOptions();
+  renderSeoMetaTable();
+  refreshSeoMetaEditor();
   renderSocialLinksTable();
   renderSliderTable();
   saveSiteSettings();
@@ -7614,6 +7760,251 @@ function resetTickerForm() {
   const defaults = buildDefaultSiteSettings();
   $("#tickerEnabled").prop("checked", defaults.ticker.enabled);
   $("#tickerMessages").val(defaults.ticker.messages.join("\n"));
+}
+
+function normalizeSeoPageMetaEntry(entry) {
+  const source = entry && typeof entry === "object" ? entry : {};
+  return {
+    page: (source.page || "").toString().trim().toLowerCase(),
+    meta_title: (source.meta_title || "").toString().trim(),
+    meta_description: (source.meta_description || "").toString().trim(),
+    canonical_url: (source.canonical_url || "").toString().trim(),
+    og_title: (source.og_title || "").toString().trim(),
+    og_description: (source.og_description || "").toString().trim(),
+    og_image: (source.og_image || "").toString().trim(),
+    json_ld: (source.json_ld || "").toString().trim(),
+    updated_at: (source.updated_at || "").toString().trim(),
+  };
+}
+
+function normalizeSeoPageMetaList(list) {
+  if (!Array.isArray(list)) {
+    return [];
+  }
+
+  const unique = [];
+  const seen = new Set();
+  list.forEach((entry) => {
+    const normalized = normalizeSeoPageMetaEntry(entry);
+    if (!normalized.page || seen.has(normalized.page)) {
+      return;
+    }
+
+    seen.add(normalized.page);
+    unique.push(normalized);
+  });
+
+  return unique;
+}
+
+function getSeoPageLabel(pageKey) {
+  const key = (pageKey || "").toString().trim().toLowerCase();
+  const match = ADMIN_PAGES.find(
+    (page) => (page.id || "").toString().toLowerCase() === key,
+  );
+
+  return match ? match.label : key;
+}
+
+function renderSeoPageOptions() {
+  const select = $("#seoPageSelect");
+  if (!select.length) {
+    return;
+  }
+
+  const currentValue = (select.val() || "").toString().trim().toLowerCase();
+  select.empty();
+
+  ADMIN_PAGES.forEach((page) => {
+    const pageId = (page.id || "").toString().trim();
+    if (!pageId) {
+      return;
+    }
+
+    const label = (page.label || pageId).toString();
+    select.append(
+      `<option value="${escapeHtml(pageId)}">${escapeHtml(label)} (${escapeHtml(pageId)})</option>`,
+    );
+  });
+
+  const fallback = (ADMIN_PAGES[0]?.id || "").toString();
+  const nextValue = currentValue || fallback;
+  if (nextValue) {
+    select.val(nextValue);
+  }
+
+  if (!select.val() && fallback) {
+    select.val(fallback);
+  }
+}
+
+function getSelectedSeoPage() {
+  const selectValue = ($("#seoPageSelect").val() || "").toString().trim();
+  if (selectValue) {
+    return selectValue.toLowerCase();
+  }
+
+  return ((ADMIN_PAGES[0] && ADMIN_PAGES[0].id) || "").toString().toLowerCase();
+}
+
+function setSeoFormValues(entry) {
+  const source = normalizeSeoPageMetaEntry(entry);
+  $("#seoMetaTitleInput").val(source.meta_title || "");
+  $("#seoMetaDescriptionInput").val(source.meta_description || "");
+  $("#seoCanonicalInput").val(source.canonical_url || "");
+  $("#seoOgTitleInput").val(source.og_title || "");
+  $("#seoOgDescriptionInput").val(source.og_description || "");
+  $("#seoOgImageInput").val(source.og_image || "");
+
+  let jsonLd = source.json_ld || "";
+  if (jsonLd) {
+    try {
+      jsonLd = JSON.stringify(JSON.parse(jsonLd), null, 2);
+    } catch (error) {
+      jsonLd = source.json_ld || "";
+    }
+  }
+
+  $("#seoJsonLdInput").val(jsonLd);
+}
+
+function refreshSeoMetaEditor() {
+  if (!$("#seoPageSelect").length) {
+    return;
+  }
+
+  const page = getSelectedSeoPage();
+  const entries = normalizeSeoPageMetaList(siteSettings?.pageMeta || []);
+  const currentEntry = entries.find((entry) => entry.page === page) || null;
+
+  setSeoFormValues(currentEntry || {});
+
+  const pageLabel = getSeoPageLabel(page);
+  const message = currentEntry
+    ? `Editing SEO metadata for ${pageLabel}. Last update: ${formatDateTime(currentEntry.updated_at || "") || "recent"}.`
+    : `No saved SEO metadata for ${pageLabel}. Fill details and click Save SEO Meta.`;
+
+  $("#seoMetaPreview").text(message);
+}
+
+function renderSeoMetaTable() {
+  const tbody = $("#seoMetaTable tbody");
+  if (!tbody.length) {
+    return;
+  }
+
+  const rows = normalizeSeoPageMetaList(siteSettings?.pageMeta || []).sort(
+    (a, b) => a.page.localeCompare(b.page),
+  );
+
+  tbody.empty();
+  if (!rows.length) {
+    tbody.append(
+      '<tr><td colspan="3" class="text-center py-4 text-secondary">No page metadata configured.</td></tr>',
+    );
+    return;
+  }
+
+  rows.forEach((entry) => {
+    const page = escapeHtml(entry.page || "");
+    const pageLabel = escapeHtml(getSeoPageLabel(entry.page || ""));
+    const metaTitle = escapeHtml(entry.meta_title || "-");
+    tbody.append(`
+      <tr class="border-bottom border-secondary">
+        <td class="ps-4 py-3 text-light">
+          <div class="fw-semibold">${pageLabel}</div>
+          <small class="text-secondary">${page}</small>
+        </td>
+        <td class="py-3 text-secondary small">${metaTitle}</td>
+        <td class="pe-4 py-3">
+          <button class="btn btn-sm btn-outline-orange me-1 seo-meta-edit-btn" data-seo-page="${page}"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-sm btn-outline-danger seo-meta-delete-btn" data-seo-page="${page}"><i class="bi bi-trash"></i></button>
+        </td>
+      </tr>
+    `);
+  });
+}
+
+function getSeoMetaPayloadFromForm() {
+  return {
+    page: getSelectedSeoPage(),
+    meta_title: ($("#seoMetaTitleInput").val() || "").toString().trim(),
+    meta_description: ($("#seoMetaDescriptionInput").val() || "")
+      .toString()
+      .trim(),
+    canonical_url: ($("#seoCanonicalInput").val() || "").toString().trim(),
+    og_title: ($("#seoOgTitleInput").val() || "").toString().trim(),
+    og_description: ($("#seoOgDescriptionInput").val() || "").toString().trim(),
+    og_image: ($("#seoOgImageInput").val() || "").toString().trim(),
+    json_ld: ($("#seoJsonLdInput").val() || "").toString().trim(),
+  };
+}
+
+async function saveSeoMetaFromForm() {
+  const payload = getSeoMetaPayloadFromForm();
+  if (!payload.page) {
+    showNotification("Select a page first.", "warning");
+    return;
+  }
+
+  try {
+    const result = await adminPostJson(ADMIN_WEBSITE_API, {
+      action: "save-page-meta",
+      ...payload,
+    });
+
+    applyWebsiteSettingsPayload(result?.payload || null);
+    $("#seoPageSelect").val(payload.page);
+    refreshSeoMetaEditor();
+    showNotification(result?.message || "SEO metadata saved.", "success");
+  } catch (error) {
+    showNotification(
+      error?.message || "Unable to save SEO metadata.",
+      "danger",
+    );
+  }
+}
+
+async function deleteSeoMetaForPage(pageKey = "") {
+  const page = (pageKey || getSelectedSeoPage())
+    .toString()
+    .trim()
+    .toLowerCase();
+  if (!page) {
+    showNotification("Select a page first.", "warning");
+    return;
+  }
+
+  const pageLabel = getSeoPageLabel(page);
+  const confirmed = await showCustomConfirmDialog(
+    `Delete SEO metadata for ${pageLabel}?`,
+    "Delete SEO Meta",
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const result = await adminPostJson(ADMIN_WEBSITE_API, {
+      action: "delete-page-meta",
+      page,
+    });
+
+    applyWebsiteSettingsPayload(result?.payload || null);
+    $("#seoPageSelect").val(page);
+    refreshSeoMetaEditor();
+    showNotification(result?.message || "SEO metadata deleted.", "success");
+  } catch (error) {
+    showNotification(
+      error?.message || "Unable to delete SEO metadata.",
+      "danger",
+    );
+  }
+}
+
+function resetSeoMetaForm() {
+  refreshSeoMetaEditor();
 }
 
 function renderSocialIconPreview(iconValue) {

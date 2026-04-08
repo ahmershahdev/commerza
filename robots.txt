@@ -1,16 +1,20 @@
+# Commerza crawler policy
+Sitemap: https://commerza.ahmershah.dev/sitemap.xml
+Host: commerza.ahmershah.dev
+
 User-agent: *
 Allow: /
 Allow: /frontend/assets/
 Allow: /llms.txt
 
-# Sensitive/admin routes
+# Sensitive/admin and private operational surfaces
 Disallow: /admin/
 Disallow: /backend/
 Disallow: /private/
-Disallow: /admin-panel
-Disallow: /admin-panel.php
+Disallow: /oauth
+Disallow: /oauth.php
 
-# Auth and account-sensitive routes
+# Auth, account, and transactional pages
 Disallow: /login
 Disallow: /login.php
 Disallow: /signup
@@ -19,6 +23,16 @@ Disallow: /forgot-password
 Disallow: /forgot-password.php
 Disallow: /reset-password
 Disallow: /reset-password.php
+Disallow: /admin-panel
+Disallow: /admin-panel.php
+Disallow: /admin-login
+Disallow: /admin-login.php
+Disallow: /admin-forgot-password
+Disallow: /admin-forgot-password.php
+Disallow: /admin-forgot-email
+Disallow: /admin-forgot-email.php
+Disallow: /admin-verify-2fa
+Disallow: /admin-verify-2fa.php
 Disallow: /account
 Disallow: /account.php
 Disallow: /cart
@@ -29,100 +43,85 @@ Disallow: /compare
 Disallow: /compare.php
 Disallow: /order-tracking
 Disallow: /order-tracking.php
-Disallow: /oauth
-Disallow: /oauth.php
+Disallow: /invoice
+Disallow: /invoice.php
 
-Sitemap: https://commerza.ahmershah.dev/sitemap.xml
-Host: commerza.ahmershah.dev
 Crawl-delay: 1
 
+# AI crawlers: allow public content + llms.txt, block sensitive surfaces.
 User-agent: GPTBot
 Allow: /llms.txt
 Allow: /
-Allow: /about
-Allow: /contact
-Allow: /products
-Allow: /shop-category-a
-Allow: /shop-category-b
-Allow: /faq
-Allow: /shipping
-Allow: /returns
-Allow: /warranty
-Allow: /privacy-policy
-Allow: /terms-of-service
 Disallow: /admin/
 Disallow: /backend/
 Disallow: /private/
+Disallow: /oauth
 Disallow: /login
 Disallow: /signup
 Disallow: /forgot-password
 Disallow: /reset-password
-Disallow: /cart
 Disallow: /account
-Disallow: /order-tracking
+Disallow: /cart
 Disallow: /wishlist
 Disallow: /compare
+Disallow: /order-tracking
+Disallow: /invoice
 
 User-agent: ClaudeBot
 Allow: /llms.txt
 Allow: /
-Allow: /about
-Allow: /contact
-Allow: /products
-Allow: /shop-category-a
-Allow: /shop-category-b
-Allow: /faq
-Allow: /shipping
-Allow: /returns
-Allow: /warranty
-Allow: /privacy-policy
-Allow: /terms-of-service
 Disallow: /admin/
 Disallow: /backend/
 Disallow: /private/
+Disallow: /oauth
 Disallow: /login
 Disallow: /signup
 Disallow: /forgot-password
 Disallow: /reset-password
-Disallow: /cart
 Disallow: /account
-Disallow: /order-tracking
+Disallow: /cart
 Disallow: /wishlist
 Disallow: /compare
+Disallow: /order-tracking
+Disallow: /invoice
 
-User-agent: Googlebot
+User-agent: CCBot
+Allow: /llms.txt
 Allow: /
 Disallow: /admin/
 Disallow: /backend/
 Disallow: /private/
+Disallow: /oauth
 Disallow: /login
 Disallow: /signup
 Disallow: /forgot-password
 Disallow: /reset-password
-Disallow: /cart
 Disallow: /account
-Disallow: /order-tracking
+Disallow: /cart
 Disallow: /wishlist
 Disallow: /compare
+Disallow: /order-tracking
+Disallow: /invoice
 
-User-agent: Bingbot
+User-agent: PerplexityBot
+Allow: /llms.txt
 Allow: /
 Disallow: /admin/
 Disallow: /backend/
 Disallow: /private/
+Disallow: /oauth
 Disallow: /login
 Disallow: /signup
 Disallow: /forgot-password
 Disallow: /reset-password
-Disallow: /cart
 Disallow: /account
-Disallow: /order-tracking
+Disallow: /cart
 Disallow: /wishlist
 Disallow: /compare
+Disallow: /order-tracking
+Disallow: /invoice
 
-User-agent: MJ12bot
-Disallow: /
-
+# Block aggressive SEO scrapers.
 User-agent: AhrefsBot
 Disallow: /
 
@@ -133,4 +132,7 @@ User-agent: DotBot
 Disallow: /
 
 User-agent: DataForSeoBot
+Disallow: /
+
+User-agent: MJ12bot
 Disallow: /

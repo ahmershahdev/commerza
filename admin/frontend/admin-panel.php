@@ -217,8 +217,8 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                 <span class="d-none d-sm-inline">Export</span>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end bg-dark border-secondary">
-                                <li><a class="dropdown-item text-light" href="#" onclick="exportProductsData(); return false;"><i class="bi bi-file-earmark-json me-2"></i>Export as JSON</a></li>
-                                <li><a class="dropdown-item text-light" href="#" onclick="exportProductsAsCSV(); return false;"><i class="bi bi-file-earmark-spreadsheet me-2"></i>Export as CSV</a></li>
+                                <li><a class="dropdown-item text-light" href="#" onclick="exportProductsData(); return false;"><i class="bi bi-filetype-json me-2"></i>Export as JSON</a></li>
+                                <li><a class="dropdown-item text-light" href="#" onclick="exportProductsAsCSV(); return false;"><i class="bi bi-filetype-csv me-2"></i>Export as CSV</a></li>
                             </ul>
                             <button type="button" class="btn btn-sm btn-orange" id="addBtn" style="display:none;">
                                 <i class="bi bi-plus-circle me-1"></i>
@@ -259,6 +259,43 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                 </button>
                             </div>
                         </div>
+                        <section class="dashboard-spotlight mb-4" aria-label="Dashboard mission pulse">
+                            <div class="dashboard-spotlight-grid">
+                                <div class="dashboard-spotlight-copy">
+                                    <p class="dashboard-spotlight-kicker">Mission Pulse</p>
+                                    <h2 class="dashboard-spotlight-title">Command Center Is Live</h2>
+                                    <p class="dashboard-spotlight-text">Track revenue, monitor fulfillment, and move from alerts to action without switching context.</p>
+                                    <div class="dashboard-spotlight-strips" aria-hidden="true">
+                                        <span>Realtime Order Insights</span>
+                                        <span>Security Event Monitoring</span>
+                                        <span>Faster Catalog Decisions</span>
+                                    </div>
+                                </div>
+                                <div class="dashboard-spotlight-pulse" aria-label="Operational status indicators">
+                                    <div class="dashboard-pulse-chip">
+                                        <span class="pulse-dot pulse-dot-live"></span>
+                                        <div>
+                                            <strong>Live Queue</strong>
+                                            <small>Orders and events update in place</small>
+                                        </div>
+                                    </div>
+                                    <div class="dashboard-pulse-chip">
+                                        <span class="pulse-dot pulse-dot-guard"></span>
+                                        <div>
+                                            <strong>Security Guard</strong>
+                                            <small>Rate-limit and incident triage active</small>
+                                        </div>
+                                    </div>
+                                    <div class="dashboard-pulse-chip">
+                                        <span class="pulse-dot pulse-dot-growth"></span>
+                                        <div>
+                                            <strong>Growth Radar</strong>
+                                            <small>Revenue and conversion visibility</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
                         <div class="row g-3 mb-4">
                             <div class="col-12 col-md-4">
                                 <div class="action-tile">
@@ -596,10 +633,16 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                         </div>
                         <div class="card admin-card border-0 shadow-sm" id="productTrashCard">
                             <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                                <h3 class="h5 mb-0 fw-bold text-orange d-flex flex-column gap-1">
-                                    Product Trash (<span id="productTrashCount">0</span>)
-                                    <small class="text-secondary fw-normal">Items auto-purge after 7 days unless restored.</small>
-                                </h3>
+                                <div class="product-trash-title-wrap">
+                                    <h3 class="h5 mb-0 fw-bold text-orange product-trash-title d-flex align-items-center gap-2 flex-wrap">
+                                        <span>Product Trash</span>
+                                        <span class="product-trash-count-chip" id="productTrashCountChip">
+                                            <i class="bi bi-trash3-fill"></i>
+                                            <span id="productTrashCount">0</span>
+                                        </span>
+                                    </h3>
+                                    <small class="text-secondary fw-normal product-trash-subline">Items auto-purge after 7 days unless restored.</small>
+                                </div>
                                 <div class="d-flex gap-2 flex-wrap">
                                     <button class="btn btn-sm btn-outline-orange" id="refreshProductTrashBtn" type="button">
                                         <i class="bi bi-arrow-clockwise me-1"></i>Refresh
@@ -613,6 +656,14 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                 </div>
                             </div>
                             <div class="card-body p-0">
+                                <div class="product-trash-toolbar border-bottom border-secondary px-3 py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <div class="product-trash-meta d-flex align-items-center gap-2 flex-wrap" aria-live="polite">
+                                        <span class="badge rounded-pill text-bg-secondary" id="productTrashTotalBadge">Total: 0</span>
+                                        <span class="badge rounded-pill text-bg-warning text-dark" id="productTrashExpiringBadge">Expiring &lt; 24h: 0</span>
+                                        <span class="badge rounded-pill text-bg-danger" id="productTrashExpiredBadge">Expired: 0</span>
+                                    </div>
+                                    <small class="text-secondary">Restore keeps product data and media paths intact.</small>
+                                </div>
                                 <div class="table-responsive">
                                     <table class="table table-dark table-hover align-middle mb-0" id="productTrashTable">
                                         <thead class="border-bottom border-secondary">
@@ -800,7 +851,10 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                 <div class="card admin-card border-0 shadow-sm" id="customerBlacklistCard">
                                     <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                                         <h3 class="h5 mb-0 fw-bold text-orange">Customer Blacklist</h3>
-                                        <span class="text-secondary small">Blocked email/phone cannot be used for signup or profile updates</span>
+                                        <div class="d-flex align-items-center flex-wrap gap-2">
+                                            <span class="badge bg-warning text-dark text-uppercase">Premium Risk Labels</span>
+                                            <span class="text-secondary small">Blocked email/phone cannot be used for signup or profile updates</span>
+                                        </div>
                                     </div>
                                     <div class="card-body p-4">
                                         <div class="row g-3 align-items-end">
@@ -824,6 +878,24 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                                 </button>
                                             </div>
                                         </div>
+                                        <div class="row g-3 align-items-end mt-1">
+                                            <div class="col-12 col-md-4">
+                                                <label for="whitelistEmailInput" class="form-label text-light">Whitelist by Email</label>
+                                                <input type="email" class="form-control bg-secondary border-0 text-light" id="whitelistEmailInput" placeholder="user@example.com">
+                                            </div>
+                                            <div class="col-12 col-md-3">
+                                                <label for="whitelistPhoneInput" class="form-label text-light">Whitelist by Phone</label>
+                                                <input type="text" class="form-control bg-secondary border-0 text-light" id="whitelistPhoneInput" placeholder="03123456789">
+                                            </div>
+                                            <div class="col-12 col-md-3">
+                                                <small class="field-hint d-block">Use this for quick unblocking without opening each row action.</small>
+                                            </div>
+                                            <div class="col-12 col-md-2 d-grid">
+                                                <button class="btn btn-outline-success" id="whitelistContactBtn" type="button">
+                                                    <i class="bi bi-shield-check me-1"></i>Whitelist
+                                                </button>
+                                            </div>
+                                        </div>
                                         <small class="field-hint d-block mt-3">Tip: Use customer row actions for quick Blacklist + Delete on abusive accounts.</small>
                                         <div class="table-responsive mt-3">
                                             <table class="table table-dark table-hover align-middle mb-0" id="blacklistTable">
@@ -831,7 +903,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                                     <tr>
                                                         <th class="py-3 ps-4 text-orange fw-semibold">Email</th>
                                                         <th class="py-3 text-orange fw-semibold">Phone</th>
-                                                        <th class="py-3 text-orange fw-semibold">Reason</th>
+                                                        <th class="py-3 text-orange fw-semibold">Reason / Label</th>
                                                         <th class="py-3 text-orange fw-semibold">Added</th>
                                                         <th class="py-3 pe-4 text-orange fw-semibold">Actions</th>
                                                     </tr>
@@ -1721,6 +1793,89 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                             <button class="btn btn-orange" id="saveBrandBtn">
                                                 <i class="bi bi-save2 me-1"></i>Save Branding
                                             </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-4 mb-4 mt-3" id="seoMetaManagerRow">
+                            <div class="col-12 col-xl-7">
+                                <div class="card admin-card border-0 shadow-sm h-100">
+                                    <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <h3 class="h5 mb-0 fw-bold text-orange">SEO Meta Manager</h3>
+                                        <span class="badge bg-warning text-dark text-uppercase">Premium Control</span>
+                                    </div>
+                                    <div class="card-body p-4">
+                                        <div class="row g-3">
+                                            <div class="col-12 col-md-6">
+                                                <label for="seoPageSelect" class="form-label text-light">Page</label>
+                                                <select class="form-select bg-secondary border-0 text-light" id="seoPageSelect"></select>
+                                            </div>
+                                            <div class="col-12 col-md-6">
+                                                <label for="seoMetaTitleInput" class="form-label text-light">Meta Title</label>
+                                                <input type="text" class="form-control bg-secondary border-0 text-light" id="seoMetaTitleInput" maxlength="150" placeholder="Page title for search results">
+                                            </div>
+                                            <div class="col-12">
+                                                <label for="seoMetaDescriptionInput" class="form-label text-light">Meta Description</label>
+                                                <textarea class="form-control bg-secondary border-0 text-light" id="seoMetaDescriptionInput" rows="2" maxlength="255" placeholder="Page description for search and social previews"></textarea>
+                                            </div>
+                                            <div class="col-12">
+                                                <label for="seoCanonicalInput" class="form-label text-light">Canonical URL</label>
+                                                <input type="text" class="form-control bg-secondary border-0 text-light" id="seoCanonicalInput" maxlength="255" placeholder="https://example.com/page or /page">
+                                            </div>
+                                            <div class="col-12 col-md-6">
+                                                <label for="seoOgTitleInput" class="form-label text-light">OG Title</label>
+                                                <input type="text" class="form-control bg-secondary border-0 text-light" id="seoOgTitleInput" maxlength="150" placeholder="Open Graph title">
+                                            </div>
+                                            <div class="col-12 col-md-6">
+                                                <label for="seoOgImageInput" class="form-label text-light">OG Image</label>
+                                                <input type="text" class="form-control bg-secondary border-0 text-light" id="seoOgImageInput" maxlength="255" placeholder="https://example.com/image.webp or frontend/assets/...">
+                                            </div>
+                                            <div class="col-12">
+                                                <label for="seoOgDescriptionInput" class="form-label text-light">OG Description</label>
+                                                <textarea class="form-control bg-secondary border-0 text-light" id="seoOgDescriptionInput" rows="2" maxlength="255" placeholder="Open Graph description"></textarea>
+                                            </div>
+                                            <div class="col-12">
+                                                <label for="seoJsonLdInput" class="form-label text-light">JSON-LD</label>
+                                                <textarea class="form-control bg-secondary border-0 text-light" id="seoJsonLdInput" rows="5" placeholder='{"@context":"https://schema.org"}'></textarea>
+                                                <small class="field-hint d-block mt-1">Add valid JSON object or array only.</small>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex flex-wrap gap-2 mt-3">
+                                            <button class="btn btn-orange" id="saveSeoMetaBtn" type="button">
+                                                <i class="bi bi-save2 me-1"></i>Save SEO Meta
+                                            </button>
+                                            <button class="btn btn-outline-secondary" id="resetSeoMetaBtn" type="button">Reset Fields</button>
+                                            <button class="btn btn-outline-danger" id="deleteSeoMetaBtn" type="button">
+                                                <i class="bi bi-trash me-1"></i>Delete Page Meta
+                                            </button>
+                                        </div>
+                                        <small class="field-hint d-block mt-2" id="seoMetaPreview">Select a page to edit search and social metadata.</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-xl-5">
+                                <div class="card admin-card border-0 shadow-sm h-100">
+                                    <div class="card-header bg-dark border-bottom border-secondary py-3">
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Configured SEO Pages</h3>
+                                    </div>
+                                    <div class="card-body p-4">
+                                        <div class="table-responsive">
+                                            <table class="table table-dark table-hover align-middle mb-0" id="seoMetaTable">
+                                                <thead class="border-bottom border-secondary">
+                                                    <tr>
+                                                        <th class="py-3 ps-4 text-orange fw-semibold">Page</th>
+                                                        <th class="py-3 text-orange fw-semibold">Meta Title</th>
+                                                        <th class="py-3 pe-4 text-orange fw-semibold">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td colspan="3" class="text-center py-4 text-secondary">No page metadata configured.</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
                                         </div>
                                     </div>
                                 </div>

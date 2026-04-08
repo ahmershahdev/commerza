@@ -159,7 +159,7 @@
 }
 
 .navbar .dropdown-menu.commerza-mega-dropdown {
-  min-width: min(820px, calc(100vw - 92px));
+  min-width: min(700px, calc(100vw - 120px));
   background:
     radial-gradient(circle at 0% 0%, rgba(255, 160, 84, 0.24), transparent 36%),
     radial-gradient(
@@ -381,10 +381,46 @@
 
 @media (max-width: 1199px) {
   .navbar .dropdown-menu.commerza-mega-dropdown {
-    min-width: min(660px, calc(100vw - 80px));
+    min-width: min(580px, calc(100vw - 88px));
   }
 
   .commerza-mega-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 992px) and (max-width: 1299px) {
+  .navbar {
+    padding: 12px 0;
+  }
+
+  .navbar-brand {
+    font-size: 1.3rem;
+    letter-spacing: 1px;
+  }
+
+  .navbar-logo {
+    height: 34px;
+  }
+
+  .navbar-nav .nav-link {
+    margin: 0 7px;
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    padding: 8px 9px;
+  }
+
+  .commerza-mega-nav > .nav-link {
+    padding: 7px 11px !important;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) and (min-width: 992px) {
+  .navbar .commerza-mega-nav:hover > .commerza-mega-dropdown {
+    display: none !important;
+  }
+
+  .navbar .commerza-mega-nav.show > .commerza-mega-dropdown {
+    display: block !important;
   }
 }

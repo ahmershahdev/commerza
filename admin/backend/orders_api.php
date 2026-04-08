@@ -1205,6 +1205,71 @@ if ($action === 'remove-blacklist') {
     ]);
 }
 
+if ($action === 'remove-blacklist-contact') {
+    if ($method !== 'POST') {
+        orders_api_json(['ok' => false, 'message' => 'Method not allowed.'], 405);
+    }
+
+    $csrfToken = (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($_POST['csrf_token'] ?? ''));
+    if ($csrfToken === '') {
+        $csrfToken = (string)($requestBody['csrf_token'] ?? '');
+    }
+
+    if (!admin_validate_csrf_token($csrfToken)) {
+        orders_api_json(['ok' => false, 'message' => 'Forbidden.'], 403);
+    }
+
+    $email = orders_api_normalize_blacklist_email((string)($requestBody['email'] ?? ($_POST['email'] ?? '')));
+    $phone = orders_api_normalize_blacklist_phone((string)($requestBody['phone'] ?? ($_POST['phone'] ?? '')));
+
+    if ($email === '' && $phone === '') {
+        orders_api_json(['ok' => false, 'message' => 'Provide an email or phone to whitelist.'], 422);
+    }
+
+    orders_api_ensure_blacklist_table($con);
+
+    $stmt = null;
+    if ($email !== '' && $phone !== '') {
+        $stmt = $con->prepare('UPDATE customer_blacklist SET is_active = 0 WHERE is_active = 1 AND (email = ? OR phone = ?)');
+        if (!$stmt) {
+            orders_api_json(['ok' => false, 'message' => 'Unable to update blacklist entries.'], 500);
+        }
+        $stmt->bind_param('ss', $email, $phone);
+    } elseif ($email !== '') {
+        $stmt = $con->prepare('UPDATE customer_blacklist SET is_active = 0 WHERE is_active = 1 AND email = ?');
+        if (!$stmt) {
+            orders_api_json(['ok' => false, 'message' => 'Unable to update blacklist entries.'], 500);
+        }
+        $stmt->bind_param('s', $email);
+    } else {
+        $stmt = $con->prepare('UPDATE customer_blacklist SET is_active = 0 WHERE is_active = 1 AND phone = ?');
+        if (!$stmt) {
+            orders_api_json(['ok' => false, 'message' => 'Unable to update blacklist entries.'], 500);
+        }
+        $stmt->bind_param('s', $phone);
+    }
+
+    $ok = $stmt->execute();
+    $affected = (int)$stmt->affected_rows;
+    $stmt->close();
+
+    if (!$ok) {
+        orders_api_json(['ok' => false, 'message' => 'Unable to update blacklist entries.'], 500);
+    }
+
+    admin_api_log_security_event($con, $admin, 'customer.blacklist_removed_contact', 'info', [
+        'email' => $email,
+        'phone' => $phone,
+        'affected_rows' => $affected,
+    ]);
+
+    orders_api_json([
+        'ok' => true,
+        'message' => $affected > 0 ? 'Contact whitelisted successfully.' : 'No active blacklist entries found for this contact.',
+        'payload' => orders_api_summary_payload($con),
+    ]);
+}
+
 if ($action === 'update-status') {
     if ($method !== 'POST') {
         orders_api_json(['ok' => false, 'message' => 'Method not allowed.'], 405);

@@ -134,6 +134,22 @@
     return parsed.toString();
   }
 
+  function closestFromEventTarget(target, selector) {
+    if (!selector || typeof Element === "undefined") {
+      return null;
+    }
+
+    if (!(target instanceof Element)) {
+      return null;
+    }
+
+    if (typeof target.closest !== "function") {
+      return null;
+    }
+
+    return target.closest(selector);
+  }
+
   function installMalformedLinkGuard() {
     if (document.documentElement.dataset.commerzaLinkGuardInstalled === "1") {
       return;
@@ -144,10 +160,7 @@
     document.addEventListener(
       "click",
       function (event) {
-        const anchor =
-          event.target && event.target.closest
-            ? event.target.closest("a[href]")
-            : null;
+        const anchor = closestFromEventTarget(event.target, "a[href]");
 
         if (!anchor) {
           return;
@@ -181,10 +194,10 @@
     document.addEventListener(
       "click",
       function (event) {
-        const anchor =
-          event.target && event.target.closest
-            ? event.target.closest("a.product-btn-cart, a.product-btn-buy")
-            : null;
+        const anchor = closestFromEventTarget(
+          event.target,
+          "a.product-btn-cart, a.product-btn-buy",
+        );
 
         if (!anchor) {
           return;
@@ -255,10 +268,7 @@
     document.documentElement.dataset.commerzaCardTrackingInstalled = "1";
 
     document.addEventListener("mousemove", function (event) {
-      const card =
-        event.target && event.target.closest
-          ? event.target.closest(".product-card")
-          : null;
+      const card = closestFromEventTarget(event.target, ".product-card");
       if (!card) {
         return;
       }
@@ -267,10 +277,7 @@
     });
 
     document.addEventListener("mouseout", function (event) {
-      const card =
-        event.target && event.target.closest
-          ? event.target.closest(".product-card")
-          : null;
+      const card = closestFromEventTarget(event.target, ".product-card");
       if (!card) {
         return;
       }

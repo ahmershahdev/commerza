@@ -157,6 +157,22 @@
   box-shadow: 0 0 0 0.2rem rgba(255, 69, 0, 0.3);
 }
 
+@media (max-width: 991px) {
+  .offcanvas {
+    width: min(340px, 88vw) !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .offcanvas {
+    width: min(320px, 92vw) !important;
+  }
+
+  .offcanvas-body {
+    padding: 18px;
+  }
+}
+
 @media (max-width: 576px) {
   .hero-block {
     padding: 24px;
@@ -170,4 +186,3 @@
     grid-template-columns: 1fr;
   }
 }
-

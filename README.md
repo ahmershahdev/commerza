@@ -140,7 +140,99 @@ SEO signals are distributed across page templates and shared runtime helpers.
 
 - Baseline schema for local provisioning and parity checks.
 
-## 7. Local Setup (XAMPP)
+## 7. Admin Panel Capability Map (Complete)
+
+The admin panel is anchored in admin/frontend/admin-panel.php with behavior implemented in admin/frontend/assets/js/script.js and APIs under admin/backend/.
+
+Primary admin tabs and responsibilities:
+
+1. Dashboard
+
+- KPI cards (revenue, orders, products, customers, refund summary).
+- Recent order snapshots.
+- Quick navigation actions to operations tabs.
+
+2. Products
+
+- Section management (create/update/delete).
+- Product CRUD and stock/price metadata updates.
+- Bulk import (CSV/JSON) with overwrite behavior.
+- Product Trash queue with restore, delete, and empty actions.
+
+3. Orders
+
+- Full order table and status management.
+- Bulk order deletion.
+- Shipping rules configuration (flat fee, free-shipping threshold).
+- Refund request moderation and status updates.
+
+4. Customers
+
+- Customer directory search and bulk removal.
+- Account-level actions.
+- Blacklist management for blocked email/phone identifiers.
+
+5. Coupons
+
+- Coupon CRUD (fixed/percent discounts, usage caps, expiry, active flag).
+- Coupon statistics and refreshable listing.
+- Coupon email send workflow.
+
+6. Reviews
+
+- Review moderation (visible/hidden filtering).
+- Review creation and test-seeding helpers.
+- Fake bulk review generation controls.
+
+7. Analytics
+
+- Revenue/order/AOV/repeat-customer summaries.
+- Profit/loss chart and weekly performance rows.
+- Store-health checklist and action recommendations.
+- Live product viewers mode (real/fake) and snapshot leaderboard.
+
+8. Email Center
+
+- Recipient source filtering and selection.
+- Template save/reset flow.
+- Compose + preview with attachment handoff guidance.
+
+9. Website Settings
+
+- Branding (site name, logo, favicon).
+- Contact details.
+- Social links and icon uploads.
+- Admin security controls (email/password/reset key updates).
+
+10. Security Events
+
+- Event log viewing with severity/date/type filters.
+- Pagination and refresh controls for incident triage.
+
+11. Homepage Content
+
+- Ticker management.
+- Featured videos.
+- Slider image configuration.
+
+Admin backend API ownership (quick map):
+
+1. admin/backend/products_sync_api.php: sections/products/trash workflows.
+2. admin/backend/orders_api.php: order operations, statuses, shipping/refunds.
+3. admin/backend/reviews_api.php: moderation and generation actions.
+4. admin/backend/coupons_api.php: coupon CRUD and coupon email operations.
+5. admin/backend/viewers_api.php: live-viewer analytics settings/data.
+6. admin/backend/website_api.php: branding/contact/social/homepage/security settings.
+7. admin/backend/security_api.php + backend/security_events.php: event ingestion and retrieval.
+8. admin/backend/media_api.php: admin media upload and file management.
+
+Operational note:
+
+1. Keep admin UI labels and API payload fields in sync whenever new controls are introduced.
+2. For destructive actions, preserve confirm dialogs plus security event logs.
+3. Maintain CSRF/rate-limit checks on all mutating admin routes.
+
+## 8. Local Setup (XAMPP)
 
 1. Place project in C:/xampp/htdocs/commerza.
 2. Import backend/database/commerza.sql into MySQL database commerza.
@@ -148,7 +240,7 @@ SEO signals are distributed across page templates and shared runtime helpers.
 4. Start Apache + MySQL from XAMPP control panel.
 5. Open http://localhost/commerza/.
 
-## 8. Useful Commands
+## 9. Useful Commands
 
 1. PHP lint example:
 
@@ -160,7 +252,7 @@ SEO signals are distributed across page templates and shared runtime helpers.
 - C:/xampp/php/php.exe C:/xampp/htdocs/commerza/backend/monthly_profit_report.php
 - C:/xampp/php/php.exe C:/xampp/htdocs/commerza/backend/weekly_analytics_report.php
 
-## 9. Deployment/Release Checklist
+## 10. Deployment/Release Checklist
 
 1. Verify canonical URLs and clean routes work on target host.
 2. Confirm robots.txt and sitemap.xml point to production domain.
@@ -168,7 +260,7 @@ SEO signals are distributed across page templates and shared runtime helpers.
 4. Run PHP lint on touched files.
 5. Manually test key auth/order/admin flows before release.
 
-## 10. Documentation and Policies
+## 11. Documentation and Policies
 
 1. Security policy: SECURITY.md
 2. Agent/LLM guidance: llms.txt

@@ -87,6 +87,22 @@
   backdrop-filter: blur(8px);
 }
 
+#actionButtons {
+  align-items: center;
+  row-gap: 8px;
+}
+
+#actionButtons .btn-group,
+#actionButtons .dropdown {
+  flex-shrink: 0;
+}
+
+#notificationList {
+  min-width: min(360px, 92vw);
+  max-height: min(65vh, 420px);
+  overflow-y: auto;
+}
+
 .admin-backdrop {
   position: fixed;
   inset: 0;
@@ -168,10 +184,49 @@ body.sidebar-open .admin-backdrop {
   min-height: 260px;
 }
 
+@media (max-width: 1200px) {
+  .admin-topbar {
+    row-gap: 10px;
+  }
+
+  #actionButtons {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  #actionButtons .btn-group .btn {
+    white-space: nowrap;
+  }
+}
+
 @media (max-width: 992px) {
   .tab-content {
     padding-left: 1rem !important;
     padding-right: 1rem !important;
+  }
+
+  .admin-topbar {
+    gap: 12px;
+  }
+
+  .admin-topbar > .d-flex.align-items-center {
+    width: 100%;
+    min-width: 0;
+  }
+
+  #actionButtons {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  #actionButtons .btn-group {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  #actionButtons .btn-group .btn {
+    flex: 1 1 auto;
   }
 }
 
@@ -198,6 +253,10 @@ body.sidebar-open .admin-backdrop {
     padding: 16px;
   }
 
+  .dashboard-spotlight-grid {
+    grid-template-columns: 1fr;
+  }
+
   .analytics-chart-shell {
     height: 260px;
     min-height: 220px;
@@ -216,8 +275,36 @@ body.sidebar-open .admin-backdrop {
     padding-right: 0.75rem !important;
   }
 
+  #actionButtons {
+    gap: 6px;
+  }
+
+  #actionButtons .btn-group {
+    width: 100%;
+  }
+
+  #actionButtons .btn-group .btn {
+    min-width: 0;
+  }
+
+  #actionButtons .dropdown {
+    width: 100%;
+  }
+
+  #actionButtons .dropdown > .btn {
+    width: 100%;
+  }
+
   .helper-actions .btn {
     width: 100%;
+  }
+
+  .dashboard-spotlight {
+    padding: 14px;
+  }
+
+  .dashboard-spotlight-copy {
+    padding: 12px;
   }
 
   .tab-playbook {

@@ -249,6 +249,14 @@ $(document).ready(function () {
   }
 
   function ensureDesktopMegaDropdown() {
+    if (
+      window.matchMedia &&
+      (!window.matchMedia("(min-width: 1200px)").matches ||
+        !window.matchMedia("(hover: hover) and (pointer: fine)").matches)
+    ) {
+      return;
+    }
+
     const currentPage = getCurrentPageKey();
     const quickLinks = [
       {

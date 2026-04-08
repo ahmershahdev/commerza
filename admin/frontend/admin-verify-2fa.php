@@ -38,12 +38,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   $action = strtolower(trim((string)($_POST['action'] ?? 'verify')));
 
-  $captchaContext = 'admin_2fa_action';
-  $captchaCheck = commerza_captcha_verify_submission($con, $_POST, $captchaContext);
-  if (!(bool)$captchaCheck['ok']) {
-    $errors[] = (string)$captchaCheck['message'];
-  }
-
   if (empty($errors) && $action === 'resend') {
     $rate = commerza_rate_limit_check(
       $con,
@@ -353,8 +347,6 @@ function admin_mask_email(string $email): string
           value="<?= htmlspecialchars($codeValue) ?>">
       </div>
 
-      <?= commerza_captcha_widget_html($con, 'admin_2fa_action') ?>
-
       <div class="d-grid mb-2">
         <button type="submit" name="action" value="verify" class="btn btn-primary">Verify & Login</button>
       </div>
@@ -363,7 +355,6 @@ function admin_mask_email(string $email): string
       <a href="admin-login.php" class="btn-link">Back to login</a>
     </form>
   </main>
-  <?= commerza_captcha_script_tag($con) ?>
 </body>
 
 </html>

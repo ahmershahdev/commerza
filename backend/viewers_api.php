@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require_once __DIR__ . '/data.php';
@@ -145,7 +146,13 @@ function viewers_real_count(mysqli $con, int $productId, int $windowSeconds): in
 
     try {
         $stmt = $con->prepare(
-            'SELECT COUNT(*) AS total
+            'SELECT COUNT(DISTINCT (
+                CASE
+                    WHEN user_id IS NOT NULL THEN CONCAT("u:", user_id)
+                    WHEN NULLIF(TRIM(ip_address), "") IS NOT NULL THEN CONCAT("i:", TRIM(ip_address))
+                    ELSE CONCAT("s:", session_key)
+                END
+             )) AS total
              FROM live_product_viewers
              WHERE product_id = ?
                AND last_seen_at >= ?'

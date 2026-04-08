@@ -475,6 +475,11 @@ CREATE TABLE `page_meta` (
   `page` varchar(100) NOT NULL COMMENT 'Filename, e.g. index.php or about.php',
   `meta_title` varchar(150) DEFAULT NULL,
   `meta_description` varchar(255) DEFAULT NULL,
+  `canonical_url` varchar(255) DEFAULT NULL,
+  `og_title` varchar(150) DEFAULT NULL,
+  `og_description` varchar(255) DEFAULT NULL,
+  `og_image` varchar(255) DEFAULT NULL,
+  `json_ld` mediumtext DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -1575,7 +1580,8 @@ ALTER TABLE `page_content`
 --
 ALTER TABLE `page_meta`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `page` (`page`);
+  ADD UNIQUE KEY `page` (`page`),
+  ADD KEY `idx_page_meta_updated` (`updated_at`);
 
 --
 -- Indexes for table `products`

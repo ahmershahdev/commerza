@@ -191,19 +191,27 @@ function commerza_csp_nonce_attr(): string
 
 function commerza_content_security_policy_header(): string
 {
-    return implode('; ', [
+    $directives = [
         "default-src 'self'",
         "base-uri 'self'",
         "frame-ancestors 'self'",
         "object-src 'none'",
+        "manifest-src 'self'",
+        "worker-src 'self' blob:",
         "img-src 'self' data: blob: https:",
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com https://cdnjs.cloudflare.com",
         "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.jquery.com https://js.stripe.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com https://maps.googleapis.com https://www.googletagmanager.com",
         "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net",
-        "connect-src 'self' https://api.stripe.com https://r.stripe.com https://cdn.jsdelivr.net https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://maps.googleapis.com https://maps.gstatic.com https://www.google-analytics.com https://www.googletagmanager.com",
+        "connect-src 'self' https://api.stripe.com https://r.stripe.com https://cdn.jsdelivr.net https://code.jquery.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com https://maps.googleapis.com https://maps.gstatic.com https://www.google-analytics.com https://www.googletagmanager.com",
         "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.google.com https://www.google.com/maps https://maps.google.com https://www.recaptcha.net https://challenges.cloudflare.com",
         "form-action 'self'",
-    ]);
+    ];
+
+    if (commerza_request_is_https()) {
+        $directives[] = 'upgrade-insecure-requests';
+    }
+
+    return implode('; ', $directives);
 }
 
 function commerza_public_base_url(): string
@@ -532,8 +540,192 @@ function commerza_apply_cache_headers(): void
         return;
     }
 
-    header('Cache-Control: public, max-age=300, stale-while-revalidate=600');
-    header('Vary: Accept-Encoding');
+    header('Cache-Control: public, max-age=900, s-maxage=900, stale-while-revalidate=1800, stale-if-error=86400');
+    header('Surrogate-Control: max-age=900');
+    header('Vary: Accept-Encoding, Accept');
+}
+
+function commerza_local_vendor_prefix(): string
+{
+    static $prefix = null;
+
+    if (is_string($prefix)) {
+        return $prefix;
+    }
+
+    $script = strtolower(str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? '')));
+    $prefix = str_contains($script, '/admin/frontend/') ? '../../' : '';
+
+    return $prefix;
+}
+
+function commerza_cdn_fallback_asset_for_url(string $url): string
+{
+    $normalized = strtolower(trim(html_entity_decode($url, ENT_QUOTES, 'UTF-8')));
+    if ($normalized === '') {
+        return '';
+    }
+
+    $prefix = commerza_local_vendor_prefix();
+
+    if (
+        str_contains($normalized, 'cdn.jsdelivr.net/npm/bootstrap@')
+        && str_contains($normalized, '/dist/css/bootstrap.min.css')
+    ) {
+        return $prefix . 'frontend/assets/vendor/bootstrap/bootstrap.min.css';
+    }
+
+    if (
+        str_contains($normalized, 'cdn.jsdelivr.net/npm/bootstrap@')
+        && str_contains($normalized, '/dist/js/bootstrap.bundle.min.js')
+    ) {
+        return $prefix . 'frontend/assets/vendor/bootstrap/bootstrap.bundle.min.js';
+    }
+
+    if (
+        str_contains($normalized, 'cdn.jsdelivr.net/npm/bootstrap-icons@')
+        && str_contains($normalized, '/font/bootstrap-icons.min.css')
+    ) {
+        return $prefix . 'frontend/assets/vendor/bootstrap-icons/bootstrap-icons.min.css';
+    }
+
+    if (str_contains($normalized, 'code.jquery.com/jquery-')) {
+        return $prefix . 'frontend/assets/vendor/jquery/jquery-3.7.1.min.js';
+    }
+
+    return '';
+}
+
+function commerza_insert_tag_attribute(string $tag, string $attribute): string
+{
+    $attr = trim($attribute);
+    if ($tag === '' || $attr === '') {
+        return $tag;
+    }
+
+    $tagEnd = strpos($tag, '>');
+    if ($tagEnd === false) {
+        return $tag;
+    }
+
+    return substr($tag, 0, $tagEnd)
+        . ' '
+        . $attr
+        . substr($tag, $tagEnd);
+}
+
+function commerza_collect_preload_assets(string $buffer): array
+{
+    $assets = [];
+    $seen = [];
+
+    $styleTags = [];
+    if (preg_match_all('/<link\b[^>]*\brel\s*=\s*(["\'])stylesheet\1[^>]*\bhref\s*=\s*(["\'])([^"\']+)\2[^>]*>/i', $buffer, $styleTags, PREG_SET_ORDER) === 1 || !empty($styleTags)) {
+        foreach ($styleTags as $tag) {
+            $href = trim((string)($tag[3] ?? ''));
+            if ($href === '') {
+                continue;
+            }
+
+            $key = 'style|' . strtolower($href);
+            if (isset($seen[$key])) {
+                continue;
+            }
+
+            $seen[$key] = true;
+            $assets[] = [
+                'as' => 'style',
+                'href' => $href,
+            ];
+
+            if (count($assets) >= 3) {
+                break;
+            }
+        }
+    }
+
+    $scriptTags = [];
+    if (preg_match_all('/<script\b[^>]*\bsrc\s*=\s*(["\'])([^"\']+)\1[^>]*>\s*<\/script>/i', $buffer, $scriptTags, PREG_SET_ORDER) === 1 || !empty($scriptTags)) {
+        $scriptCount = 0;
+        foreach ($scriptTags as $tag) {
+            $src = trim((string)($tag[2] ?? ''));
+            $normalized = strtolower($src);
+            $isExternalScript = preg_match('#^(https?:)?//#i', $src) === 1;
+
+            if (
+                $src === ''
+                || $isExternalScript
+                || str_contains($normalized, 'recaptcha')
+                || str_contains($normalized, 'captcha')
+                || str_contains($normalized, 'googletagmanager')
+                || str_contains($normalized, 'google-analytics')
+                || str_contains($normalized, 'maps.googleapis')
+                || str_contains($normalized, 'stripe.com')
+            ) {
+                continue;
+            }
+
+            $key = 'script|' . strtolower($src);
+            if (isset($seen[$key])) {
+                continue;
+            }
+
+            $seen[$key] = true;
+            $assets[] = [
+                'as' => 'script',
+                'href' => $src,
+            ];
+
+            $scriptCount++;
+            if ($scriptCount >= 3) {
+                break;
+            }
+        }
+    }
+
+    return $assets;
+}
+
+function commerza_inject_preload_links(string $buffer): string
+{
+    if ($buffer === '' || stripos($buffer, '</head>') === false) {
+        return $buffer;
+    }
+
+    if (stripos($buffer, 'rel="preload"') !== false) {
+        return $buffer;
+    }
+
+    $assets = commerza_collect_preload_assets($buffer);
+    if (empty($assets)) {
+        return $buffer;
+    }
+
+    $tags = [];
+    foreach ($assets as $asset) {
+        $href = trim((string)($asset['href'] ?? ''));
+        $as = strtolower(trim((string)($asset['as'] ?? '')));
+
+        if ($href === '' || !in_array($as, ['style', 'script', 'image', 'font'], true)) {
+            continue;
+        }
+
+        $isExternal = preg_match('#^(https?:)?//#i', $href) === 1;
+        $needsCrossOrigin = $isExternal && in_array($as, ['font', 'fetch'], true);
+        $tag = '<link rel="preload" as="' . htmlspecialchars($as, ENT_QUOTES, 'UTF-8') . '" href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '"';
+        if ($needsCrossOrigin) {
+            $tag .= ' crossorigin="anonymous"';
+        }
+        $tag .= '>';
+        $tags[] = $tag;
+    }
+
+    if (empty($tags)) {
+        return $buffer;
+    }
+
+    $html = "\n  " . implode("\n  ", $tags) . "\n";
+    return preg_replace('/<\/head>/i', $html . '</head>', $buffer, 1) ?? $buffer;
 }
 
 function commerza_optimize_stylesheet_links(string $buffer): string
@@ -544,6 +736,20 @@ function commerza_optimize_stylesheet_links(string $buffer): string
             $tag = (string)($matches[0] ?? '');
             if ($tag === '') {
                 return $tag;
+            }
+
+            $href = '';
+            if (preg_match('/\bhref\s*=\s*(["\'])([^"\']+)\1/i', $tag, $hrefMatch) === 1) {
+                $href = (string)($hrefMatch[2] ?? '');
+            }
+
+            $fallbackHref = $href !== '' ? commerza_cdn_fallback_asset_for_url($href) : '';
+            if ($fallbackHref !== '' && preg_match('/\bonerror\s*=\s*(["\']).*?\1/i', $tag) !== 1) {
+                $safeFallback = htmlspecialchars($fallbackHref, ENT_QUOTES, 'UTF-8');
+                $tag = commerza_insert_tag_attribute(
+                    $tag,
+                    'onerror="this.onerror=null;this.href=\'' . $safeFallback . '\'"'
+                );
             }
 
             if (
@@ -557,10 +763,275 @@ function commerza_optimize_stylesheet_links(string $buffer): string
                 return $tag;
             }
 
-            return preg_replace('/\s*\/?>$/', ' media="print" onload="this.media=\'all\'">', $tag, 1) ?? $tag;
+            $tag = commerza_insert_tag_attribute($tag, 'media="print"');
+            $tag = commerza_insert_tag_attribute($tag, 'onload="this.media=\'all\'"');
+
+            return $tag;
         },
         $buffer
     ) ?? $buffer;
+}
+
+function commerza_optimize_head_script_defer(string $buffer): string
+{
+    if ($buffer === '') {
+        return $buffer;
+    }
+
+    $headMatch = [];
+    if (preg_match('/<head\b[^>]*>.*<\/head>/is', $buffer, $headMatch, PREG_OFFSET_CAPTURE) !== 1) {
+        return $buffer;
+    }
+
+    $headHtml = (string)($headMatch[0][0] ?? '');
+    $headOffset = (int)($headMatch[0][1] ?? 0);
+    if ($headHtml === '') {
+        return $buffer;
+    }
+
+    $optimizedHead = preg_replace_callback(
+        '/<script\b[^>]*\bsrc\s*=\s*(["\'])([^"\']+)\1[^>]*>\s*<\/script>/i',
+        static function (array $matches): string {
+            $tag = (string)($matches[0] ?? '');
+            if ($tag === '') {
+                return $tag;
+            }
+
+            $srcRaw = (string)($matches[2] ?? '');
+            $fallbackSrc = commerza_cdn_fallback_asset_for_url($srcRaw);
+            if ($fallbackSrc !== '' && preg_match('/\bonerror\s*=\s*(["\']).*?\1/i', $tag) !== 1) {
+                $safeFallback = htmlspecialchars($fallbackSrc, ENT_QUOTES, 'UTF-8');
+                $tag = commerza_insert_tag_attribute(
+                    $tag,
+                    'onerror="this.onerror=null;this.src=\'' . $safeFallback . '\'"'
+                );
+            }
+
+            if (
+                preg_match('/\b(?:defer|async)\b/i', $tag) === 1
+                || preg_match('/\btype\s*=\s*(["\'])module\1/i', $tag) === 1
+            ) {
+                return $tag;
+            }
+
+            $src = strtolower(trim(html_entity_decode($srcRaw, ENT_QUOTES, 'UTF-8')));
+            if (
+                $src === ''
+                || str_contains($src, 'jquery')
+                || str_contains($src, 'recaptcha')
+                || str_contains($src, 'captcha')
+                || str_contains($src, 'googletagmanager.com')
+                || str_contains($src, 'google-analytics.com')
+            ) {
+                return $tag;
+            }
+
+            $tagEnd = strpos($tag, '>');
+            if ($tagEnd === false) {
+                return $tag;
+            }
+
+            return substr($tag, 0, $tagEnd) . ' defer' . substr($tag, $tagEnd);
+        },
+        $headHtml
+    ) ?? $headHtml;
+
+    if ($optimizedHead === $headHtml) {
+        return $buffer;
+    }
+
+    return substr($buffer, 0, $headOffset)
+        . $optimizedHead
+        . substr($buffer, $headOffset + strlen($headHtml));
+}
+
+function commerza_guess_image_alt_from_src(string $src): string
+{
+    $path = (string)(parse_url($src, PHP_URL_PATH) ?? $src);
+    $filename = basename($path);
+    $name = preg_replace('/\.[a-z0-9]+$/i', '', $filename);
+    $name = is_string($name) ? $name : '';
+    $name = trim(str_replace(['-', '_'], ' ', $name));
+    $name = preg_replace('/\s+/', ' ', $name) ?: '';
+
+    if ($name === '') {
+        return 'Image';
+    }
+
+    $name = ucwords(strtolower($name));
+    return $name !== '' ? $name : 'Image';
+}
+
+function commerza_optimize_image_loading(string $buffer): string
+{
+    return preg_replace_callback(
+        '/<img\b[^>]*>/i',
+        static function (array $matches): string {
+            $tag = (string)($matches[0] ?? '');
+            if ($tag === '') {
+                return $tag;
+            }
+
+            $insert = '';
+            if (preg_match('/\bloading\s*=\s*(["\']).*?\1/i', $tag) !== 1) {
+                $insert .= ' loading="lazy"';
+            }
+            if (preg_match('/\bdecoding\s*=\s*(["\']).*?\1/i', $tag) !== 1) {
+                $insert .= ' decoding="async"';
+            }
+
+            if (preg_match('/\balt\s*=\s*(["\']).*?\1/i', $tag) !== 1) {
+                $src = '';
+                if (preg_match('/\bsrc\s*=\s*(["\'])([^"\']+)\1/i', $tag, $srcMatch) === 1) {
+                    $src = (string)($srcMatch[2] ?? '');
+                }
+                $alt = commerza_guess_image_alt_from_src($src);
+                $insert .= ' alt="' . htmlspecialchars($alt, ENT_QUOTES, 'UTF-8') . '"';
+            }
+
+            if ($insert === '') {
+                return $tag;
+            }
+
+            if (preg_match('/\s*\/>$/', $tag) === 1) {
+                return preg_replace('/\s*\/>$/', $insert . ' />', $tag, 1) ?? $tag;
+            }
+
+            return preg_replace('/\s*>$/', $insert . '>', $tag, 1) ?? $tag;
+        },
+        $buffer
+    ) ?? $buffer;
+}
+
+function commerza_placeholder_enhancer_style_tag(): string
+{
+    return '<style ' . commerza_csp_nonce_attr() . ' id="commerzaPlaceholderStyle">'
+        . 'input::placeholder,textarea::placeholder{color:rgba(186,194,208,.92)!important;opacity:1;font-style:italic;}'
+        . '</style>';
+}
+
+function commerza_placeholder_enhancer_script_tag(): string
+{
+    $script = <<<'JS'
+(function () {
+    function normalizeText(value) {
+        return (value || "")
+            .toString()
+            .replace(/\*/g, "")
+            .replace(/\s+/g, " ")
+            .replace(/[\s:]+$/g, "")
+            .trim();
+    }
+
+    function findLabelText(field) {
+        var fieldId = (field.getAttribute("id") || "").trim();
+        if (!fieldId) {
+            return "";
+        }
+
+        if (window.CSS && typeof window.CSS.escape === "function") {
+            var escapedId = window.CSS.escape(fieldId);
+            var escapedLabel = document.querySelector('label[for="' + escapedId + '"]');
+            if (escapedLabel) {
+                return normalizeText(escapedLabel.textContent);
+            }
+        }
+
+        var labels = document.querySelectorAll("label[for]");
+        for (var index = 0; index < labels.length; index += 1) {
+            var current = labels[index];
+            if ((current.getAttribute("for") || "") === fieldId) {
+                return normalizeText(current.textContent);
+            }
+        }
+
+        return "";
+    }
+
+    function placeholderByType(type) {
+        var presets = {
+            email: "Enter your email",
+            password: "Enter your password",
+            tel: "Enter your phone number",
+            search: "Search here",
+            url: "Enter a valid URL",
+            number: "Enter a value"
+        };
+        return presets[type] || "";
+    }
+
+    function placeholderForField(field) {
+        var type = (field.getAttribute("type") || "text").toLowerCase();
+        var byType = placeholderByType(type);
+        if (byType) {
+            return byType;
+        }
+
+        var byLabel = findLabelText(field);
+        if (byLabel) {
+            return "Enter " + byLabel.toLowerCase();
+        }
+
+        var ariaLabel = normalizeText(field.getAttribute("aria-label") || "");
+        if (ariaLabel) {
+            return "Enter " + ariaLabel.toLowerCase();
+        }
+
+        var fieldName = normalizeText(field.getAttribute("name") || "").replace(/[_-]+/g, " ");
+        if (fieldName) {
+            return "Enter " + fieldName.toLowerCase();
+        }
+
+        return "Enter value";
+    }
+
+    function applyPlaceholders() {
+        var skipped = {
+            hidden: true,
+            submit: true,
+            button: true,
+            checkbox: true,
+            radio: true,
+            file: true,
+            image: true,
+            reset: true,
+            color: true,
+            range: true,
+            date: true,
+            time: true,
+            "datetime-local": true,
+            month: true,
+            week: true
+        };
+
+        document.querySelectorAll("input,textarea").forEach(function (field) {
+            if (!field || field.hasAttribute("placeholder") || field.disabled) {
+                return;
+            }
+
+            if (field.tagName === "INPUT") {
+                var type = (field.getAttribute("type") || "text").toLowerCase();
+                if (skipped[type]) {
+                    return;
+                }
+            }
+
+            field.setAttribute("placeholder", placeholderForField(field));
+            field.dataset.commerzaPlaceholderAuto = "1";
+        });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", applyPlaceholders, { once: true });
+    } else {
+        applyPlaceholders();
+    }
+})();
+JS;
+
+    return '<script ' . commerza_csp_nonce_attr() . ' id="commerzaPlaceholderEnhancer">'
+        . $script
+        . '</script>';
 }
 
 function commerza_frontend_manual_stylesheet_links_html(): string
@@ -622,6 +1093,149 @@ function commerza_site_settings_inline_json_tag(): string
         . '</script>';
 }
 
+function commerza_head_upsert_title(string $buffer, string $title): string
+{
+    $value = trim($title);
+    if ($value === '') {
+        return $buffer;
+    }
+
+    $safe = htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    if (preg_match('/<title>.*?<\/title>/is', $buffer) === 1) {
+        return preg_replace('/<title>.*?<\/title>/is', '<title>' . $safe . '</title>', $buffer, 1) ?? $buffer;
+    }
+
+    return preg_replace('/<\/head>/i', "\n  <title>{$safe}</title>\n</head>", $buffer, 1) ?? $buffer;
+}
+
+function commerza_head_upsert_meta_name(string $buffer, string $name, string $content): string
+{
+    $metaName = strtolower(trim($name));
+    $value = trim($content);
+    if ($metaName === '' || $value === '') {
+        return $buffer;
+    }
+
+    $safeName = preg_replace('/[^a-z0-9:_-]/i', '', $metaName) ?: '';
+    if ($safeName === '') {
+        return $buffer;
+    }
+
+    $tag = '<meta name="' . htmlspecialchars($safeName, ENT_QUOTES, 'UTF-8') . '" content="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '">';
+    $pattern = '/<meta\b[^>]*\bname\s*=\s*(["\'])' . preg_quote($safeName, '/') . '\1[^>]*>/i';
+
+    if (preg_match($pattern, $buffer) === 1) {
+        return preg_replace($pattern, $tag, $buffer, 1) ?? $buffer;
+    }
+
+    return preg_replace('/<\/head>/i', "\n  {$tag}\n</head>", $buffer, 1) ?? $buffer;
+}
+
+function commerza_head_upsert_meta_property(string $buffer, string $property, string $content): string
+{
+    $metaProperty = strtolower(trim($property));
+    $value = trim($content);
+    if ($metaProperty === '' || $value === '') {
+        return $buffer;
+    }
+
+    $safeProperty = preg_replace('/[^a-z0-9:_-]/i', '', $metaProperty) ?: '';
+    if ($safeProperty === '') {
+        return $buffer;
+    }
+
+    $tag = '<meta property="' . htmlspecialchars($safeProperty, ENT_QUOTES, 'UTF-8') . '" content="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '">';
+    $pattern = '/<meta\b[^>]*\bproperty\s*=\s*(["\'])' . preg_quote($safeProperty, '/') . '\1[^>]*>/i';
+
+    if (preg_match($pattern, $buffer) === 1) {
+        return preg_replace($pattern, $tag, $buffer, 1) ?? $buffer;
+    }
+
+    return preg_replace('/<\/head>/i', "\n  {$tag}\n</head>", $buffer, 1) ?? $buffer;
+}
+
+function commerza_head_upsert_canonical(string $buffer, string $canonical): string
+{
+    $value = trim($canonical);
+    if ($value === '') {
+        return $buffer;
+    }
+
+    $tag = '<link rel="canonical" href="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '">';
+    $pattern = '/<link\b[^>]*\brel\s*=\s*(["\'])canonical\1[^>]*>/i';
+
+    if (preg_match($pattern, $buffer) === 1) {
+        return preg_replace($pattern, $tag, $buffer, 1) ?? $buffer;
+    }
+
+    return preg_replace('/<\/head>/i', "\n  {$tag}\n</head>", $buffer, 1) ?? $buffer;
+}
+
+function commerza_current_page_meta_key(): string
+{
+    $script = strtolower(trim((string)basename((string)($_SERVER['SCRIPT_NAME'] ?? ''))));
+    return $script !== '' ? $script : 'index.php';
+}
+
+function commerza_page_meta_overrides(): array
+{
+    static $cached = null;
+
+    if (is_array($cached)) {
+        return $cached;
+    }
+
+    $cached = [];
+    $con = $GLOBALS['con'] ?? null;
+    if (!($con instanceof mysqli)) {
+        return $cached;
+    }
+
+    $page = commerza_current_page_meta_key();
+
+    $stmt = $con->prepare(
+        'SELECT page, meta_title, meta_description, canonical_url, og_title, og_description, og_image, json_ld
+         FROM page_meta
+         WHERE page = ?
+         LIMIT 1'
+    );
+
+    if (!$stmt) {
+        $stmt = $con->prepare(
+            'SELECT page, meta_title, meta_description
+             FROM page_meta
+             WHERE page = ?
+             LIMIT 1'
+        );
+    }
+
+    if (!$stmt) {
+        return $cached;
+    }
+
+    $stmt->bind_param('s', $page);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    if (!is_array($row)) {
+        return $cached;
+    }
+
+    $cached = [
+        'meta_title' => trim((string)($row['meta_title'] ?? '')),
+        'meta_description' => trim((string)($row['meta_description'] ?? '')),
+        'canonical_url' => trim((string)($row['canonical_url'] ?? '')),
+        'og_title' => trim((string)($row['og_title'] ?? '')),
+        'og_description' => trim((string)($row['og_description'] ?? '')),
+        'og_image' => trim((string)($row['og_image'] ?? '')),
+        'json_ld' => trim((string)($row['json_ld'] ?? '')),
+    ];
+
+    return $cached;
+}
+
 function commerza_html_meta_normalize(string $buffer): string
 {
     if ($buffer === '') {
@@ -673,6 +1287,100 @@ function commerza_html_meta_normalize(string $buffer): string
         $buffer,
         1
     ) ?? $buffer;
+
+    $buffer = commerza_optimize_stylesheet_links($buffer);
+    $buffer = commerza_optimize_head_script_defer($buffer);
+    $buffer = commerza_optimize_image_loading($buffer);
+    $buffer = commerza_inject_preload_links($buffer);
+
+    if (stripos($buffer, 'id="commerzaPlaceholderStyle"') === false) {
+        $placeholderStyle = commerza_placeholder_enhancer_style_tag();
+        $buffer = preg_replace('/<\/head>/i', "\n  {$placeholderStyle}\n</head>", $buffer, 1) ?? $buffer;
+    }
+
+    if (stripos($buffer, 'id="commerzaPlaceholderEnhancer"') === false) {
+        $placeholderScript = commerza_placeholder_enhancer_script_tag();
+        if (stripos($buffer, '</body>') !== false) {
+            $buffer = preg_replace('/<\/body>/i', "\n  {$placeholderScript}\n</body>", $buffer, 1) ?? $buffer;
+        } else {
+            $buffer = preg_replace('/<\/head>/i', "\n  {$placeholderScript}\n</head>", $buffer, 1) ?? $buffer;
+        }
+    }
+
+    $metaOverrides = commerza_page_meta_overrides();
+    if (!empty($metaOverrides)) {
+        $titleOverride = trim((string)($metaOverrides['meta_title'] ?? ''));
+        $descriptionOverride = trim((string)($metaOverrides['meta_description'] ?? ''));
+        $canonicalOverride = trim((string)($metaOverrides['canonical_url'] ?? ''));
+        $ogTitleOverride = trim((string)($metaOverrides['og_title'] ?? ''));
+        $ogDescriptionOverride = trim((string)($metaOverrides['og_description'] ?? ''));
+        $ogImageOverride = trim((string)($metaOverrides['og_image'] ?? ''));
+        $jsonLdOverride = trim((string)($metaOverrides['json_ld'] ?? ''));
+
+        if ($canonicalOverride !== '' && preg_match('#^https?://#i', $canonicalOverride) !== 1) {
+            $canonicalOverride = commerza_absolute_url('/' . ltrim($canonicalOverride, '/'));
+        }
+
+        if ($ogImageOverride !== '' && preg_match('#^https?://#i', $ogImageOverride) !== 1) {
+            $ogImageOverride = commerza_absolute_url('/' . ltrim($ogImageOverride, '/'));
+        }
+
+        if ($titleOverride !== '') {
+            $buffer = commerza_head_upsert_title($buffer, $titleOverride);
+        }
+
+        if ($descriptionOverride !== '') {
+            $buffer = commerza_head_upsert_meta_name($buffer, 'description', $descriptionOverride);
+        }
+
+        if ($canonicalOverride !== '') {
+            $buffer = commerza_head_upsert_canonical($buffer, $canonicalOverride);
+            $buffer = commerza_head_upsert_meta_property($buffer, 'og:url', $canonicalOverride);
+        }
+
+        if ($ogTitleOverride === '' && $titleOverride !== '') {
+            $ogTitleOverride = $titleOverride;
+        }
+        if ($ogDescriptionOverride === '' && $descriptionOverride !== '') {
+            $ogDescriptionOverride = $descriptionOverride;
+        }
+
+        if ($ogTitleOverride !== '') {
+            $buffer = commerza_head_upsert_meta_property($buffer, 'og:title', $ogTitleOverride);
+        }
+
+        if ($ogDescriptionOverride !== '') {
+            $buffer = commerza_head_upsert_meta_property($buffer, 'og:description', $ogDescriptionOverride);
+        }
+
+        if ($ogImageOverride !== '') {
+            $buffer = commerza_head_upsert_meta_property($buffer, 'og:image', $ogImageOverride);
+        }
+
+        if ($jsonLdOverride !== '') {
+            $decodedJsonLd = json_decode($jsonLdOverride, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decodedJsonLd)) {
+                $jsonLd = json_encode(
+                    $decodedJsonLd,
+                    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT
+                );
+
+                if (is_string($jsonLd) && $jsonLd !== '') {
+                    $buffer = preg_replace(
+                        '/<script\b[^>]*\bid="commerzaSeoJsonLd"[^>]*>.*?<\/script>/is',
+                        '',
+                        $buffer
+                    ) ?? $buffer;
+
+                    $customJsonLdTag = "\n  <script " . commerza_csp_nonce_attr() . " id=\"commerzaSeoJsonLd\" type=\"application/ld+json\">\n"
+                        . $jsonLd
+                        . "\n  </script>\n";
+
+                    $buffer = preg_replace('/<\/head>/i', $customJsonLdTag . '</head>', $buffer, 1) ?? $buffer;
+                }
+            }
+        }
+    }
 
     if (
         stripos($buffer, 'name="twitter:card"') === false
@@ -848,8 +1556,11 @@ commerza_maybe_redirect_clean_route();
 if (!headers_sent()) {
     header('X-Frame-Options: SAMEORIGIN');
     header('X-Content-Type-Options: nosniff');
+    header('X-DNS-Prefetch-Control: off');
+    header('X-Download-Options: noopen');
+    header('Origin-Agent-Cluster: ?1');
     header('Referrer-Policy: strict-origin-when-cross-origin');
-    header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
+    header('Permissions-Policy: accelerometer=(), autoplay=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), browsing-topics=()');
     header('Content-Security-Policy: ' . commerza_content_security_policy_header());
     header('Cross-Origin-Opener-Policy: same-origin');
     header('Cross-Origin-Resource-Policy: same-site');

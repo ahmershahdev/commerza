@@ -130,11 +130,19 @@ function commerza_media_convert_upload_to_webp(
     string $tmpPath,
     string $mime,
     int $targetKb = 280,
-    int $maxDimension = 2200
+    int $maxDimension = 2200,
+    bool $allowUnparsedPassThrough = true
 ): array {
     $allowedMimes = commerza_media_allowed_image_mimes();
 
     if (!extension_loaded('gd') || !function_exists('imagewebp')) {
+        if (!$allowUnparsedPassThrough) {
+            return [
+                'ok' => false,
+                'message' => 'Image compressor is unavailable on this server.',
+            ];
+        }
+
         $fallbackBinary = @file_get_contents($tmpPath);
         if (!is_string($fallbackBinary) || $fallbackBinary === '') {
             return [
@@ -158,6 +166,13 @@ function commerza_media_convert_upload_to_webp(
 
     $image = commerza_media_image_from_upload($tmpPath, $mime);
     if (!$image) {
+        if (!$allowUnparsedPassThrough) {
+            return [
+                'ok' => false,
+                'message' => 'Unable to parse uploaded image.',
+            ];
+        }
+
         $fallbackBinary = @file_get_contents($tmpPath);
         if (is_string($fallbackBinary) && $fallbackBinary !== '') {
             return [

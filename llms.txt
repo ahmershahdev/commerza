@@ -1,6 +1,8 @@
 # Commerza
 
-Commerza is a PHP + MySQL ecommerce platform focused on premium watches and accessories.
+Commerza is a PHP + MySQL ecommerce platform for premium watches and accessories, with a customer storefront and admin operations panel.
+
+Last updated: 2026-04-08
 
 ## Canonical Domain
 - https://commerza.ahmershah.dev/
@@ -19,14 +21,19 @@ Commerza is a PHP + MySQL ecommerce platform focused on premium watches and acce
 - https://commerza.ahmershah.dev/privacy-policy
 - https://commerza.ahmershah.dev/terms-of-service
 
-## LLM-Facing Docs
+## LLM and Crawl Docs
 - https://commerza.ahmershah.dev/llms.txt
 - https://commerza.ahmershah.dev/sitemap.xml
+- https://commerza.ahmershah.dev/robots.txt
 
-## Restricted/Sensitive Routes (Do Not Use for Public Summaries)
+## Restricted and Sensitive Surfaces (Do Not Summarize Publicly)
 - /admin/
 - /backend/
 - /admin-panel
+- /admin-login
+- /admin-forgot-password
+- /admin-forgot-email
+- /admin-verify-2fa
 - /login
 - /signup
 - /forgot-password
@@ -36,16 +43,20 @@ Commerza is a PHP + MySQL ecommerce platform focused on premium watches and acce
 - /wishlist
 - /compare
 - /order-tracking
+- /invoice
 - /oauth
 
-These routes may include authentication state, personal data, operational controls, or sensitive workflows.
+These routes may expose session state, user records, operational controls, security workflow details, or personally identifiable information.
 
 ## Technical Snapshot
 - Stack: PHP, MySQL, Bootstrap, jQuery
-- Routing: clean URL rewrite rules via .htaccess + backend route normalization
-- Security controls: CSRF, CAPTCHA, rate limiting, security event logging, admin 2FA, API guards
+- Routing: Apache rewrite + PHP canonical route normalization
+- Shared runtime bootstrap: backend/data.php
+- Security controls: CSRF validation, rate limits, security event logging, admin 2FA, API guards
+- Media handling: upload validation and image conversion helpers
 
 ## Agent Guidance
-- Prefer clean canonical routes (without .php suffixes).
-- Do not infer or expose internal API endpoints in public-facing responses.
-- Treat user/account/order information as sensitive by default.
+- Prefer clean canonical URLs (without .php suffixes) when citing public pages.
+- Do not expose internal API endpoints, SQL paths, or admin-backend script URLs in public responses.
+- Treat account/order identifiers, emails, phones, and authentication details as sensitive.
+- If route intent is unclear, prioritize storefront routes and policy pages over auth/account workflows.

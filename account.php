@@ -98,7 +98,7 @@ function account_username_change_lock_state(?string $usernameChangedAt): array
 function account_send_reset_code_email(string $recipientEmail, string $recipientName, string $code, ?string &$errorMessage = null): bool
 {
   $subject = "Commerza Password Reset Code";
-  $logoUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.webp');
+  $logoUrl = commerza_mail_logo_src(commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.webp'));
   $resetUrl = commerza_absolute_url('/reset-password.php') . '?email=' . urlencode($recipientEmail);
   $supportEmail = trim((string)(getenv('COMMERZA_SUPPORT_EMAIL') ?: 'support@ahmershah.dev'));
   if (!filter_var($supportEmail, FILTER_VALIDATE_EMAIL)) {
@@ -934,7 +934,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
               $errors[] = "Failed to create upload directory.";
             } else {
-              $conversion = commerza_media_convert_upload_to_webp($tmp_path, $mime, 220, 1400);
+              $conversion = commerza_media_convert_upload_to_webp($tmp_path, $mime, 220, 1400, true);
               if (!(bool)($conversion['ok'] ?? false)) {
                 $errors[] = (string)($conversion['message'] ?? 'Failed to parse and compress profile picture.');
               } else {
@@ -954,6 +954,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   $updateStmt = $con->prepare("UPDATE users SET profile_picture = ? WHERE id = ? LIMIT 1");
 
                   if (!$updateStmt) {
+                    if (is_file($destination)) {
+                      @unlink($destination);
+                    }
                     $errors[] = "Something went wrong. Please try again.";
                   } else {
                     $updateStmt->bind_param("si", $publicPath, $user_id);
@@ -969,6 +972,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                       $success[] = "Profile picture updated successfully.";
                     } else {
+                      if (is_file($destination)) {
+                        @unlink($destination);
+                      }
                       $errors[] = "Something went wrong. Please try again.";
                     }
 
@@ -1288,7 +1294,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errors[] = "Invalid request.";
   }
 
-  if (empty($errors) && $rateScopeUsed !== '') {
+  $rateResetAllowedActions = [
+    'update_profile',
+    'update_password',
+    'update_profile_picture',
+    'request_refund',
+    'request_delete_account_code',
+    'delete_account_permanently',
+  ];
+
+  if (empty($errors) && $rateScopeUsed !== '' && in_array($action, $rateResetAllowedActions, true)) {
     commerza_rate_limit_reset($con, $rateScopeUsed, $rateIdentifier, $clientIp);
   }
 
@@ -2251,7 +2266,7 @@ if (is_array($accountDeletePending)) {
                     <input type="text" id="full-name" name="full_name" class="form-control search-input"
                       value="<?= htmlspecialchars((string)$user['full_name']) ?>" required
                       autocomplete="name" minlength="3" maxlength="40"
-                      pattern="[A-Za-z][A-Za-z\s\.\'\-]{2,39}"
+                      pattern="[A-Za-z][A-Za-z .'-]{2,39}"
                       title="Use 3-40 letters with spaces, dots, apostrophes, or hyphens." />
                     <small class="account-help text-secondary">Use your real name for invoices and delivery records.</small>
                   </div>
@@ -2606,8 +2621,8 @@ if (is_array($accountDeletePending)) {
   </footer>
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="frontend/assets/js/global-protection.js"></script>
-  <script src="frontend/assets/js/script.js"></script>
+  <script src="frontend/assets/js/global-protection.js" defer></script>
+  <script src="frontend/assets/js/script.js" defer></script>
   <?= commerza_captcha_script_tag($con) ?>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
@@ -2717,7 +2732,7 @@ if (is_array($accountDeletePending)) {
       const lockActiveFlag = (usernameInput.attr("data-username-lock-active") || "") === "1";
       const usernameLockMessage = (usernameInput.attr("data-username-lock-message") || "").toString().trim();
       const currentUsername = normalizeUsername(
-        (usernameInput.attr("data-current-username") || usernameInput.val() || "").toString(),
+        (usernameInput.attr("data-current-username") || usernameInput.val() || "").toString()
       );
 
       const setLiveFeedback = function(target, message, color) {
@@ -2747,7 +2762,7 @@ if (is_array($accountDeletePending)) {
             usernameFeedback,
             usernameLockMessage || "Username can only be changed once every 90 days.",
             "#ef4444",
-            "#ef4444",
+            "#ef4444"
           );
           return true;
         }
@@ -2848,7 +2863,7 @@ if (is_array($accountDeletePending)) {
                 usernameLocked = false;
                 usernameLockFromServer = false;
                 setFieldState(usernameInput, usernameFeedback, "", "#9ca3af", "");
-              },
+              }
             );
           }, 420);
         });
@@ -2894,7 +2909,7 @@ if (is_array($accountDeletePending)) {
               function() {
                 emailTaken = false;
                 setFieldState(emailInput, emailFeedback, "", "#9ca3af", "");
-              },
+              }
             );
           }, 420);
         });
@@ -2940,7 +2955,7 @@ if (is_array($accountDeletePending)) {
               function() {
                 phoneTaken = false;
                 setFieldState(phoneInput, phoneFeedback, "", "#9ca3af", "");
-              },
+              }
             );
           }, 420);
         });
@@ -3202,7 +3217,7 @@ if (is_array($accountDeletePending)) {
           xhr.open(
             (activeForm.attr("method") || "POST").toString().toUpperCase(),
             (activeForm.attr("action") || window.location.href).toString(),
-            true,
+            true
           );
           xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
 
@@ -3228,7 +3243,7 @@ if (is_array($accountDeletePending)) {
               90,
               "bg-warning", {
                 duration: 420,
-              },
+              }
             );
           });
 
@@ -3239,7 +3254,7 @@ if (is_array($accountDeletePending)) {
               100,
               "bg-danger", {
                 duration: 220,
-              },
+              }
             );
             restoreButton();
           };
@@ -3312,7 +3327,7 @@ if (is_array($accountDeletePending)) {
               100,
               "bg-danger", {
                 duration: 240,
-              },
+              }
             );
             restoreButton();
           };
@@ -3334,7 +3349,7 @@ if (is_array($accountDeletePending)) {
         }, {
           expectJsonResponse: true,
           onJsonSuccess: applyProfilePictureResponse,
-        },
+        }
       );
 
       $(".refund-request-form").each(function() {
@@ -3358,5 +3373,4 @@ if (is_array($accountDeletePending)) {
     });
   </script>
 </body>
-
 </html>

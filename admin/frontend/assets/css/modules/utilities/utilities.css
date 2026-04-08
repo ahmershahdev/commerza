@@ -43,6 +43,146 @@
   font-size: 1.2rem;
 }
 
+.dashboard-spotlight {
+  border: 1px solid rgba(255, 122, 26, 0.3);
+  border-radius: 18px;
+  padding: 18px;
+  background:
+    radial-gradient(
+      circle at 4% 10%,
+      rgba(255, 167, 104, 0.18),
+      transparent 36%
+    ),
+    radial-gradient(
+      circle at 96% 94%,
+      rgba(255, 122, 26, 0.14),
+      transparent 42%
+    ),
+    linear-gradient(132deg, rgba(19, 15, 13, 0.95), rgba(9, 9, 13, 0.96));
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.32),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.dashboard-spotlight-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  align-items: stretch;
+}
+
+.dashboard-spotlight-copy {
+  border: 1px solid rgba(255, 154, 84, 0.22);
+  border-radius: 14px;
+  padding: 14px;
+  background: rgba(12, 12, 15, 0.62);
+}
+
+.dashboard-spotlight-kicker {
+  margin-bottom: 6px;
+  color: #ffc48f;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.dashboard-spotlight-title {
+  margin: 0 0 8px;
+  color: #fff3e8;
+  font-size: 1.2rem;
+  line-height: 1.28;
+}
+
+.dashboard-spotlight-text {
+  color: #d8d1cb;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.dashboard-spotlight-strips {
+  margin-top: 11px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dashboard-spotlight-strips span {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 178, 117, 0.3);
+  padding: 5px 10px;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ffe1c3;
+  background: rgba(71, 31, 14, 0.42);
+}
+
+.dashboard-spotlight-pulse {
+  display: grid;
+  gap: 9px;
+}
+
+.dashboard-pulse-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 164, 92, 0.24);
+  padding: 11px;
+  background: rgba(10, 10, 12, 0.74);
+}
+
+.dashboard-pulse-chip strong {
+  display: block;
+  color: #fff1df;
+  font-size: 0.81rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dashboard-pulse-chip small {
+  display: block;
+  color: #c8b8aa;
+  font-size: 0.74rem;
+}
+
+.pulse-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 0 rgba(255, 122, 26, 0.55);
+  animation: adminPulse 1.65s ease-in-out infinite;
+}
+
+.pulse-dot-live {
+  background: #38d978;
+}
+
+.pulse-dot-guard {
+  background: #ffb020;
+}
+
+.pulse-dot-growth {
+  background: #53a6ff;
+}
+
+@keyframes adminPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 122, 26, 0.48);
+  }
+
+  70% {
+    box-shadow: 0 0 0 8px rgba(255, 122, 26, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 122, 26, 0);
+  }
+}
+
 .step-chip {
   background: rgba(0, 0, 0, 0.5);
   border: 1px dashed rgba(255, 122, 26, 0.4);
@@ -206,6 +346,80 @@
     rgba(40, 30, 8, 0.96),
     rgba(23, 17, 6, 0.96)
   );
+}
+
+.product-trash-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.product-trash-title {
+  line-height: 1.2;
+}
+
+.product-trash-count-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 122, 26, 0.42);
+  background: rgba(255, 122, 26, 0.12);
+  color: #ffd9b7;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.product-trash-subline {
+  font-size: 0.78rem;
+}
+
+.product-trash-toolbar {
+  background: linear-gradient(
+    180deg,
+    rgba(16, 16, 22, 0.9),
+    rgba(12, 12, 17, 0.96)
+  );
+}
+
+.product-trash-meta .badge {
+  letter-spacing: 0.25px;
+}
+
+.trash-countdown-time {
+  letter-spacing: 0.2px;
+}
+
+.trash-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  margin: 4px 0;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+
+.trash-status-pill.is-safe {
+  color: #9ff7c8;
+  background: rgba(40, 167, 69, 0.14);
+  border-color: rgba(40, 167, 69, 0.46);
+}
+
+.trash-status-pill.is-warning {
+  color: #ffe08a;
+  background: rgba(255, 193, 7, 0.16);
+  border-color: rgba(255, 193, 7, 0.42);
+}
+
+.trash-status-pill.is-expired {
+  color: #ffb6bf;
+  background: rgba(220, 53, 69, 0.2);
+  border-color: rgba(220, 53, 69, 0.5);
 }
 
 .coupon-form-panel .form-control,

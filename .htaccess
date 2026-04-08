@@ -3,6 +3,42 @@
 Options -Indexes
 ErrorDocument 404 /error
 
+<IfModule mod_expires.c>
+ExpiresActive On
+ExpiresDefault "access plus 10 minutes"
+ExpiresByType text/css "access plus 1 month"
+ExpiresByType application/javascript "access plus 1 month"
+ExpiresByType text/javascript "access plus 1 month"
+ExpiresByType image/png "access plus 1 month"
+ExpiresByType image/jpeg "access plus 1 month"
+ExpiresByType image/webp "access plus 1 month"
+ExpiresByType image/gif "access plus 1 month"
+ExpiresByType image/svg+xml "access plus 1 month"
+ExpiresByType image/x-icon "access plus 1 month"
+ExpiresByType font/woff "access plus 1 month"
+ExpiresByType font/woff2 "access plus 1 month"
+ExpiresByType application/font-woff "access plus 1 month"
+ExpiresByType video/mp4 "access plus 1 month"
+ExpiresByType video/webm "access plus 1 month"
+</IfModule>
+
+FileETag MTime Size
+
+<IfModule mod_deflate.c>
+AddOutputFilterByType DEFLATE text/plain text/html text/css text/javascript application/javascript application/json application/xml image/svg+xml font/ttf font/otf
+</IfModule>
+
+<IfModule mod_brotli.c>
+AddOutputFilterByType BROTLI_COMPRESS text/plain text/html text/css text/javascript application/javascript application/json application/xml image/svg+xml
+</IfModule>
+
+<IfModule mod_headers.c>
+<FilesMatch "\.(?:css|js|mjs|png|jpe?g|gif|webp|svg|ico|avif|woff2?|ttf|eot|mp4|webm)$">
+Header set Cache-Control "public, max-age=2592000, immutable"
+</FilesMatch>
+Header append Vary Accept-Encoding
+</IfModule>
+
 <IfModule mod_rewrite.c>
 RewriteEngine On
 

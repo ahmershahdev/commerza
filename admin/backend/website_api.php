@@ -48,6 +48,53 @@ function website_api_column_exists(mysqli $con, string $table, string $column): 
     return (int)($row['total'] ?? 0) > 0;
 }
 
+function website_api_index_exists(mysqli $con, string $table, string $indexName): bool
+{
+    $sql = 'SELECT COUNT(*) AS total
+            FROM information_schema.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = ?
+              AND INDEX_NAME = ?';
+
+    $stmt = $con->prepare($sql);
+    if (!$stmt) {
+        return false;
+    }
+
+    $stmt->bind_param('ss', $table, $indexName);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    return (int)($row['total'] ?? 0) > 0;
+}
+
+function website_api_page_meta_has_unique_page_index(mysqli $con): bool
+{
+    $sql = 'SELECT COUNT(*) AS total
+            FROM information_schema.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = ?
+              AND COLUMN_NAME = ?
+              AND NON_UNIQUE = 0';
+
+    $table = 'page_meta';
+    $column = 'page';
+    $stmt = $con->prepare($sql);
+    if (!$stmt) {
+        return false;
+    }
+
+    $stmt->bind_param('ss', $table, $column);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    return (int)($row['total'] ?? 0) > 0;
+}
+
 function website_api_ensure_slider_compatibility(mysqli $con): void
 {
     if (!website_api_column_exists($con, 'slider', 'subtitle')) {
@@ -68,6 +115,56 @@ function website_api_ensure_slider_compatibility(mysqli $con): void
 
     if (website_api_column_exists($con, 'slider', 'page')) {
         $con->query('ALTER TABLE slider MODIFY page VARCHAR(100) NULL');
+    }
+}
+
+function website_api_ensure_page_meta_schema(mysqli $con): void
+{
+    $con->query(
+        'CREATE TABLE IF NOT EXISTS page_meta (
+            id INT NOT NULL AUTO_INCREMENT,
+            page VARCHAR(100) NOT NULL,
+            meta_title VARCHAR(150) DEFAULT NULL,
+            meta_description VARCHAR(255) DEFAULT NULL,
+            canonical_url VARCHAR(255) DEFAULT NULL,
+            og_title VARCHAR(150) DEFAULT NULL,
+            og_description VARCHAR(255) DEFAULT NULL,
+            og_image VARCHAR(255) DEFAULT NULL,
+            json_ld MEDIUMTEXT DEFAULT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_page_meta_page (page),
+            KEY idx_page_meta_updated (updated_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci'
+    );
+
+    if (!website_api_column_exists($con, 'page_meta', 'canonical_url')) {
+        $con->query('ALTER TABLE page_meta ADD COLUMN canonical_url VARCHAR(255) DEFAULT NULL AFTER meta_description');
+    }
+
+    if (!website_api_column_exists($con, 'page_meta', 'og_title')) {
+        $con->query('ALTER TABLE page_meta ADD COLUMN og_title VARCHAR(150) DEFAULT NULL AFTER canonical_url');
+    }
+
+    if (!website_api_column_exists($con, 'page_meta', 'og_description')) {
+        $con->query('ALTER TABLE page_meta ADD COLUMN og_description VARCHAR(255) DEFAULT NULL AFTER og_title');
+    }
+
+    if (!website_api_column_exists($con, 'page_meta', 'og_image')) {
+        $con->query('ALTER TABLE page_meta ADD COLUMN og_image VARCHAR(255) DEFAULT NULL AFTER og_description');
+    }
+
+    if (!website_api_column_exists($con, 'page_meta', 'json_ld')) {
+        $con->query('ALTER TABLE page_meta ADD COLUMN json_ld MEDIUMTEXT DEFAULT NULL AFTER og_image');
+    }
+
+    if (!website_api_page_meta_has_unique_page_index($con)) {
+        $con->query('ALTER TABLE page_meta ADD UNIQUE KEY uq_page_meta_page (page)');
+    }
+
+    if (!website_api_index_exists($con, 'page_meta', 'idx_page_meta_updated')) {
+        $con->query('ALTER TABLE page_meta ADD KEY idx_page_meta_updated (updated_at)');
     }
 }
 
@@ -124,6 +221,7 @@ function website_api_ensure_schema(mysqli $con): void
     );
 
     website_api_ensure_slider_compatibility($con);
+    website_api_ensure_page_meta_schema($con);
 }
 
 function website_api_get_setting(mysqli $con, string $key, string $fallback = ''): string
@@ -200,6 +298,25 @@ function website_api_valid_path(string $value): bool
     }
 
     return preg_match('#^[a-zA-Z0-9/_\-.]+$#', $value) === 1;
+}
+
+function website_api_valid_meta_url(string $value): bool
+{
+    $value = trim($value);
+    if ($value === '') {
+        return true;
+    }
+
+    if (preg_match('#^https?://#i', $value) === 1) {
+        return filter_var($value, FILTER_VALIDATE_URL) !== false;
+    }
+
+    return website_api_valid_path($value);
+}
+
+function website_api_valid_page_key(string $value): bool
+{
+    return preg_match('/^[a-z0-9][a-z0-9\-]*\.php$/i', $value) === 1;
 }
 
 function website_api_project_root(): string
@@ -397,6 +514,36 @@ function website_api_ticker_rows(mysqli $con): array
     return $rows;
 }
 
+function website_api_page_meta_rows(mysqli $con): array
+{
+    $rows = [];
+    $result = $con->query(
+        'SELECT page, meta_title, meta_description, canonical_url, og_title, og_description, og_image, json_ld, updated_at
+         FROM page_meta
+         ORDER BY page ASC'
+    );
+
+    if (!$result) {
+        return $rows;
+    }
+
+    while ($row = $result->fetch_assoc()) {
+        $rows[] = [
+            'page' => (string)($row['page'] ?? ''),
+            'meta_title' => (string)($row['meta_title'] ?? ''),
+            'meta_description' => (string)($row['meta_description'] ?? ''),
+            'canonical_url' => (string)($row['canonical_url'] ?? ''),
+            'og_title' => (string)($row['og_title'] ?? ''),
+            'og_description' => (string)($row['og_description'] ?? ''),
+            'og_image' => (string)($row['og_image'] ?? ''),
+            'json_ld' => (string)($row['json_ld'] ?? ''),
+            'updated_at' => (string)($row['updated_at'] ?? ''),
+        ];
+    }
+
+    return $rows;
+}
+
 function website_api_payload(mysqli $con): array
 {
     return [
@@ -418,6 +565,7 @@ function website_api_payload(mysqli $con): array
             ),
         ],
         'socialLinks' => website_api_social_rows($con),
+        'pageMeta' => website_api_page_meta_rows($con),
         'sliderImages' => website_api_slider_rows($con),
         'featuredVideos' => [
             'home' => website_api_get_setting(
@@ -573,6 +721,158 @@ if ($action === 'save-contact') {
     website_api_json([
         'ok' => true,
         'message' => 'Contact details saved.',
+        'payload' => website_api_payload($con),
+    ]);
+}
+
+if ($action === 'save-page-meta') {
+    $page = strtolower(trim((string)($body['page'] ?? '')));
+    $metaTitle = website_api_clean_text((string)($body['meta_title'] ?? ''), 150);
+    $metaDescription = website_api_clean_text((string)($body['meta_description'] ?? ''), 255);
+    $canonicalUrl = trim((string)($body['canonical_url'] ?? ''));
+    $ogTitle = website_api_clean_text((string)($body['og_title'] ?? ''), 150);
+    $ogDescription = website_api_clean_text((string)($body['og_description'] ?? ''), 255);
+    $ogImage = trim((string)($body['og_image'] ?? ''));
+    $jsonLd = trim((string)($body['json_ld'] ?? ''));
+
+    if (!website_api_valid_page_key($page)) {
+        website_api_json([
+            'ok' => false,
+            'message' => 'Invalid page key. Use a page filename like about.php.',
+        ], 422);
+    }
+
+    if (!website_api_valid_meta_url($canonicalUrl)) {
+        website_api_json([
+            'ok' => false,
+            'message' => 'Canonical URL must be a valid absolute URL or local path.',
+        ], 422);
+    }
+
+    if (!website_api_valid_meta_url($ogImage)) {
+        website_api_json([
+            'ok' => false,
+            'message' => 'OG image must be a valid absolute URL or local path.',
+        ], 422);
+    }
+
+    if ($jsonLd !== '') {
+        if (strlen($jsonLd) > 20000) {
+            website_api_json([
+                'ok' => false,
+                'message' => 'JSON-LD content is too long.',
+            ], 422);
+        }
+
+        $decodedJsonLd = json_decode($jsonLd, true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($decodedJsonLd)) {
+            website_api_json([
+                'ok' => false,
+                'message' => 'JSON-LD must be valid JSON object or array.',
+            ], 422);
+        }
+
+        $jsonLd = (string)json_encode($decodedJsonLd, JSON_UNESCAPED_SLASHES);
+    }
+
+    $metaTitleValue = $metaTitle !== '' ? $metaTitle : null;
+    $metaDescriptionValue = $metaDescription !== '' ? $metaDescription : null;
+    $canonicalValue = $canonicalUrl !== '' ? $canonicalUrl : null;
+    $ogTitleValue = $ogTitle !== '' ? $ogTitle : null;
+    $ogDescriptionValue = $ogDescription !== '' ? $ogDescription : null;
+    $ogImageValue = $ogImage !== '' ? $ogImage : null;
+    $jsonLdValue = $jsonLd !== '' ? $jsonLd : null;
+
+    $stmt = $con->prepare(
+        'INSERT INTO page_meta (page, meta_title, meta_description, canonical_url, og_title, og_description, og_image, json_ld)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+            meta_title = VALUES(meta_title),
+            meta_description = VALUES(meta_description),
+            canonical_url = VALUES(canonical_url),
+            og_title = VALUES(og_title),
+            og_description = VALUES(og_description),
+            og_image = VALUES(og_image),
+            json_ld = VALUES(json_ld)'
+    );
+
+    if (!$stmt) {
+        website_api_json([
+            'ok' => false,
+            'message' => 'Unable to save page SEO settings.',
+        ], 500);
+    }
+
+    $stmt->bind_param(
+        'ssssssss',
+        $page,
+        $metaTitleValue,
+        $metaDescriptionValue,
+        $canonicalValue,
+        $ogTitleValue,
+        $ogDescriptionValue,
+        $ogImageValue,
+        $jsonLdValue
+    );
+    $ok = $stmt->execute();
+    $stmt->close();
+
+    if (!$ok) {
+        website_api_json([
+            'ok' => false,
+            'message' => 'Unable to save page SEO settings.',
+        ], 500);
+    }
+
+    admin_api_log_security_event($con, $admin, 'website.page_meta_saved', 'info', [
+        'page' => $page,
+        'canonical_url' => $canonicalUrl,
+    ]);
+
+    website_api_json([
+        'ok' => true,
+        'message' => 'Page SEO settings saved.',
+        'payload' => website_api_payload($con),
+    ]);
+}
+
+if ($action === 'delete-page-meta') {
+    $page = strtolower(trim((string)($body['page'] ?? '')));
+    if (!website_api_valid_page_key($page)) {
+        website_api_json([
+            'ok' => false,
+            'message' => 'Invalid page key.',
+        ], 422);
+    }
+
+    $stmt = $con->prepare('DELETE FROM page_meta WHERE page = ? LIMIT 1');
+    if (!$stmt) {
+        website_api_json([
+            'ok' => false,
+            'message' => 'Unable to delete page SEO settings.',
+        ], 500);
+    }
+
+    $stmt->bind_param('s', $page);
+    $ok = $stmt->execute();
+    $affected = (int)$stmt->affected_rows;
+    $stmt->close();
+
+    if (!$ok) {
+        website_api_json([
+            'ok' => false,
+            'message' => 'Unable to delete page SEO settings.',
+        ], 500);
+    }
+
+    admin_api_log_security_event($con, $admin, 'website.page_meta_deleted', 'warning', [
+        'page' => $page,
+        'affected_rows' => $affected,
+    ]);
+
+    website_api_json([
+        'ok' => true,
+        'message' => $affected > 0 ? 'Page SEO settings deleted.' : 'No SEO settings found for this page.',
         'payload' => website_api_payload($con),
     ]);
 }

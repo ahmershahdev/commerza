@@ -104,7 +104,11 @@ function commerza_send_expiry_notice(string $email, string $name, string $typeLa
     $safeType = htmlspecialchars($typeLabel, ENT_QUOTES, 'UTF-8');
     $subject = 'Commerza ' . $typeLabel . ' Expiry Notice';
     $continueShoppingUrl = htmlspecialchars(commerza_expiry_public_url('/index.php'), ENT_QUOTES, 'UTF-8');
-    $logoUrl = htmlspecialchars(commerza_expiry_public_url('/frontend/assets/images/logo/commerza-logo.webp'), ENT_QUOTES, 'UTF-8');
+    $logoUrl = htmlspecialchars(
+        commerza_mail_logo_src(commerza_expiry_public_url('/frontend/assets/images/logo/commerza-logo.webp')),
+        ENT_QUOTES,
+        'UTF-8'
+    );
 
     $sender = commerza_mail_default_sender();
     $fromEmail = filter_var((string)($sender['email'] ?? ''), FILTER_VALIDATE_EMAIL)

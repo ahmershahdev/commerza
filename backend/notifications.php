@@ -160,7 +160,9 @@ function commerza_notifications_public_url(string $path = ''): string
 
 function commerza_notifications_logo_url(): string
 {
-        return commerza_notifications_public_url('/frontend/assets/images/logo/commerza-logo.webp');
+    return commerza_mail_logo_src(
+        commerza_notifications_public_url('/frontend/assets/images/logo/commerza-logo.webp')
+    );
 }
 
 function commerza_notifications_social_links_html(): string
@@ -184,16 +186,16 @@ function commerza_notifications_social_links_html(): string
 
 function commerza_notifications_present_ip_label(string $ipAddress): string
 {
-        $ip = trim($ipAddress);
-        if (!filter_var($ip, FILTER_VALIDATE_IP)) {
-                return 'Not available';
-        }
+    $ip = trim($ipAddress);
+    if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+        return 'Not available';
+    }
 
-        if (in_array($ip, ['0.0.0.0', '127.0.0.1', '::1', '::'], true)) {
-                return 'Not available';
-        }
+    if (in_array($ip, ['0.0.0.0', '127.0.0.1', '::1', '::'], true)) {
+        return 'Not available';
+    }
 
-        return $ip;
+    return $ip;
 }
 
 function commerza_notifications_layout(string $title, string $intro, string $bodyHtml, string $siteName, string $supportEmail): string
@@ -201,10 +203,10 @@ function commerza_notifications_layout(string $title, string $intro, string $bod
     $safeTitle = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
     $safeIntro = htmlspecialchars($intro, ENT_QUOTES, 'UTF-8');
     $safeSiteName = htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8');
-        $safeSupportEmail = htmlspecialchars($supportEmail, ENT_QUOTES, 'UTF-8');
-        $safeLogoUrl = htmlspecialchars(commerza_notifications_logo_url(), ENT_QUOTES, 'UTF-8');
-        $safeHomeUrl = htmlspecialchars(commerza_notifications_public_url('/'), ENT_QUOTES, 'UTF-8');
-        $socialLinks = commerza_notifications_social_links_html();
+    $safeSupportEmail = htmlspecialchars($supportEmail, ENT_QUOTES, 'UTF-8');
+    $safeLogoUrl = htmlspecialchars(commerza_notifications_logo_url(), ENT_QUOTES, 'UTF-8');
+    $safeHomeUrl = htmlspecialchars(commerza_notifications_public_url('/'), ENT_QUOTES, 'UTF-8');
+    $socialLinks = commerza_notifications_social_links_html();
 
     return '<!DOCTYPE html>
 <html>
