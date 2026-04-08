@@ -82,11 +82,12 @@ Major controls used across the codebase:
 
 1. Session + CSRF protections for form and API actions.
 2. Rate limiting on sensitive workflows (auth, reset, verification, etc.).
-3. CAPTCHA checks on selected high-risk forms.
+3. Hybrid CAPTCHA checks on high-risk forms (reCAPTCHA v2 + reCAPTCHA v3 score/action + custom fallback challenge).
 4. Security event logging in admin-facing audit streams.
 5. Permission checks for admin APIs.
 6. Input validation/sanitization and prepared SQL statements.
-7. Content Security Policy and defensive headers emitted from shared bootstrap.
+7. Upload validation with strict MIME checks, parser-based image conversion, malware signature scans, and optional ClamAV checks.
+8. Content Security Policy and defensive headers emitted from shared bootstrap.
 
 Operational guidance:
 
@@ -118,7 +119,36 @@ SEO signals are distributed across page templates and shared runtime helpers.
 
 - Pages include JSON-LD snippets (WebPage/FAQPage/etc.) where relevant.
 
-## 6. Key Runtime Files You Should Know
+## 6. Caching and Performance Strategy
+
+Commerza now uses layered caching controls:
+
+1. Browser/CDN caching
+
+- Static assets are served with long-lived immutable cache headers via .htaccess.
+- Dynamic storefront pages use controlled cache headers from backend/data.php for safe public caching.
+
+2. Object/query caching
+
+- Shared cache helpers in backend/cache_helpers.php support Redis, APCu, and runtime in-process fallback.
+- Site setting lookups are cached to reduce repetitive database reads.
+
+3. Fragment caching
+
+- Fragment cache helpers are available for expensive static-render sections in PHP templates.
+- Home page uses fragment caching for static marketing sections to reduce repeated render cost.
+
+Relevant environment keys:
+
+- COMMERZA_CACHE_ENABLED
+- COMMERZA_CACHE_NAMESPACE
+- COMMERZA_REDIS_HOST, COMMERZA_REDIS_PORT, COMMERZA_REDIS_DB, COMMERZA_REDIS_PASSWORD
+- COMMERZA_SITE_SETTINGS_CACHE_TTL
+- COMMERZA_UPLOAD_SCAN_ENABLED
+- COMMERZA_UPLOAD_SCAN_FAIL_CLOSED
+- COMMERZA_CLAMSCAN_PATH
+
+## 7. Key Runtime Files You Should Know
 
 1. backend/data.php
 
@@ -140,7 +170,7 @@ SEO signals are distributed across page templates and shared runtime helpers.
 
 - Baseline schema for local provisioning and parity checks.
 
-## 7. Admin Panel Capability Map (Complete)
+## 8. Admin Panel Capability Map (Complete)
 
 The admin panel is anchored in admin/frontend/admin-panel.php with behavior implemented in admin/frontend/assets/js/script.js and APIs under admin/backend/.
 
@@ -232,7 +262,7 @@ Operational note:
 2. For destructive actions, preserve confirm dialogs plus security event logs.
 3. Maintain CSRF/rate-limit checks on all mutating admin routes.
 
-## 8. Local Setup (XAMPP)
+## 9. Local Setup (XAMPP)
 
 1. Place project in C:/xampp/htdocs/commerza.
 2. Import backend/database/commerza.sql into MySQL database commerza.
@@ -240,7 +270,7 @@ Operational note:
 4. Start Apache + MySQL from XAMPP control panel.
 5. Open http://localhost/commerza/.
 
-## 9. Useful Commands
+## 10. Useful Commands
 
 1. PHP lint example:
 
@@ -252,15 +282,16 @@ Operational note:
 - C:/xampp/php/php.exe C:/xampp/htdocs/commerza/backend/monthly_profit_report.php
 - C:/xampp/php/php.exe C:/xampp/htdocs/commerza/backend/weekly_analytics_report.php
 
-## 10. Deployment/Release Checklist
+## 11. Deployment/Release Checklist
 
 1. Verify canonical URLs and clean routes work on target host.
 2. Confirm robots.txt and sitemap.xml point to production domain.
 3. Verify SMTP, CAPTCHA, and environment secrets are configured.
-4. Run PHP lint on touched files.
-5. Manually test key auth/order/admin flows before release.
+4. If using Redis/ClamAV, verify COMMERZA_REDIS_* and COMMERZA_CLAMSCAN_PATH values are set correctly.
+5. Run PHP lint on touched files.
+6. Manually test key auth/order/admin flows before release.
 
-## 11. Documentation and Policies
+## 12. Documentation and Policies
 
 1. Security policy: SECURITY.md
 2. Agent/LLM guidance: llms.txt

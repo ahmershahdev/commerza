@@ -5,6 +5,7 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/../../backend/media_image_helpers.php';
 
 function admin_media_fail(int $status, string $message, array $payload = []): void
 {
@@ -275,6 +276,11 @@ function admin_media_process_one_upload(
     $tmpPath = (string)($upload['tmp_name'] ?? '');
     if ($tmpPath === '' || !is_uploaded_file($tmpPath)) {
         throw new RuntimeException('Invalid uploaded file.');
+    }
+
+    $scanReason = null;
+    if (!commerza_upload_scan_file($tmpPath, $scanReason)) {
+        throw new RuntimeException($scanReason !== null ? $scanReason : 'Upload blocked by malware scanner.');
     }
 
     $size = (int)($upload['size'] ?? 0);

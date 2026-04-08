@@ -4,6 +4,45 @@ require_once __DIR__ . '/mailer.php';
 
 function commerza_notifications_get_setting(mysqli $con, string $key, string $fallback = ''): string
 {
+    $normalizedKey = strtolower(trim($key));
+    if ($normalizedKey === '') {
+        return $fallback;
+    }
+
+    if (function_exists('commerza_cache_remember')) {
+        $cached = commerza_cache_remember(
+            'notification-setting:' . $normalizedKey,
+            300,
+            static function () use ($con, $normalizedKey): string {
+                $stmt = $con->prepare(
+                    'SELECT setting_val
+                     FROM site_settings
+                     WHERE setting_key = ?
+                     LIMIT 1'
+                );
+
+                if (!$stmt) {
+                    return '';
+                }
+
+                $stmt->bind_param('s', $normalizedKey);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $row = $result ? $result->fetch_assoc() : null;
+                $stmt->close();
+
+                if (!$row) {
+                    return '';
+                }
+
+                return trim((string)($row['setting_val'] ?? ''));
+            }
+        );
+
+        $value = trim((string)$cached);
+        return $value !== '' ? $value : $fallback;
+    }
+
     $stmt = $con->prepare(
         'SELECT setting_val
          FROM site_settings
@@ -15,7 +54,7 @@ function commerza_notifications_get_setting(mysqli $con, string $key, string $fa
         return $fallback;
     }
 
-    $stmt->bind_param('s', $key);
+    $stmt->bind_param('s', $normalizedKey);
     $stmt->execute();
     $result = $stmt->get_result();
     $row = $result ? $result->fetch_assoc() : null;
@@ -130,20 +169,33 @@ function commerza_notifications_public_url(string $path = ''): string
         if ($configuredBase !== '' && filter_var($configuredBase, FILTER_VALIDATE_URL)) {
             $base = rtrim($configuredBase, '/');
         } else {
-            $https = strtolower(trim((string)($_SERVER['HTTPS'] ?? '')));
-            $forwardedProto = strtolower(trim((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')));
-            $cfVisitor = strtolower((string)($_SERVER['HTTP_CF_VISITOR'] ?? ''));
-            $isHttps = ($https !== '' && $https !== 'off')
-                || ($forwardedProto !== '' && str_contains($forwardedProto, 'https'))
-                || ($cfVisitor !== '' && str_contains($cfVisitor, '"https"'))
-                || ((int)($_SERVER['SERVER_PORT'] ?? 0) === 443);
-            $scheme = $isHttps ? 'https' : 'http';
-            $host = trim((string)($_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? 'localhost')));
-            if ($host === '') {
-                $host = 'localhost';
-            }
+            $canonicalBase = trim((string)(getenv('COMMERZA_CANONICAL_URL') ?: getenv('COMMERZA_PUBLIC_BASE_URL') ?: ''));
+            if ($canonicalBase !== '' && filter_var($canonicalBase, FILTER_VALIDATE_URL)) {
+                $base = rtrim($canonicalBase, '/');
+            } else {
+                $https = strtolower(trim((string)($_SERVER['HTTPS'] ?? '')));
+                $forwardedProto = strtolower(trim((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')));
+                $cfVisitor = strtolower((string)($_SERVER['HTTP_CF_VISITOR'] ?? ''));
+                $isHttps = ($https !== '' && $https !== 'off')
+                    || ($forwardedProto !== '' && str_contains($forwardedProto, 'https'))
+                    || ($cfVisitor !== '' && str_contains($cfVisitor, '"https"'))
+                    || ((int)($_SERVER['SERVER_PORT'] ?? 0) === 443);
+                $scheme = $isHttps ? 'https' : 'http';
+                $host = trim((string)($_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? '')));
 
-            $base = $scheme . '://' . $host;
+                $canonicalHost = trim((string)getenv('COMMERZA_CANONICAL_HOST'));
+                $usingFallbackHost = false;
+                if ($host === '' || in_array(strtolower($host), ['localhost', '127.0.0.1'], true)) {
+                    $host = $canonicalHost !== '' ? $canonicalHost : 'commerza.ahmershah.dev';
+                    $usingFallbackHost = true;
+                }
+
+                if ($usingFallbackHost) {
+                    $scheme = 'https';
+                }
+
+                $base = $scheme . '://' . $host;
+            }
         }
     }
 

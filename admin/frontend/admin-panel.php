@@ -32,9 +32,11 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
     <meta property="og:image" content="<?= htmlspecialchars($adminOgImageUrl, ENT_QUOTES, 'UTF-8') ?>">
     <title>Admin Panel | Commerza</title>
     <link rel="icon" href="assets/images/favicon/commerza-watches-icon.ico">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+    <link id="bootstrapCssCdn" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous"
+        onerror="this.onerror=null;this.href='../../frontend/assets/vendor/bootstrap/bootstrap.min.css'">
+    <link id="bootstrapIconsCdn" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"
+        onerror="this.onerror=null;this.href='../../frontend/assets/vendor/bootstrap-icons/bootstrap-icons.min.css'">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -210,13 +212,13 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                             </nav>
                         </div>
                     </div>
-                    <div class="btn-toolbar mb-2 mb-md-0 gap-1" id="actionButtons">
-                        <div class="btn-group">
-                            <button type="button" class="btn btn-sm btn-outline-orange dropdown-toggle" id="exportBtn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Export options">
+                    <div class="btn-toolbar mb-2 mb-md-0 gap-2 admin-action-toolbar" id="actionButtons">
+                        <div class="btn-group admin-export-group">
+                            <button type="button" class="btn btn-sm btn-outline-orange dropdown-toggle" id="exportBtn" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" aria-label="Export options">
                                 <i class="bi bi-download me-1"></i>
                                 <span class="d-none d-sm-inline">Export</span>
                             </button>
-                            <ul class="dropdown-menu dropdown-menu-end bg-dark border-secondary">
+                            <ul class="dropdown-menu dropdown-menu-end bg-dark border-secondary admin-header-dropdown">
                                 <li><a class="dropdown-item text-light" href="#" onclick="exportProductsData(); return false;"><i class="bi bi-filetype-json me-2"></i>Export as JSON</a></li>
                                 <li><a class="dropdown-item text-light" href="#" onclick="exportProductsAsCSV(); return false;"><i class="bi bi-filetype-csv me-2"></i>Export as CSV</a></li>
                             </ul>
@@ -225,16 +227,16 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                 <span class="d-none d-sm-inline">Add Product</span>
                             </button>
                         </div>
-                        <div class="dropdown">
+                        <div class="dropdown admin-notification-group">
                             <button class="btn btn-sm btn-outline-orange dropdown-toggle position-relative"
-                                type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications">
+                                type="button" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" aria-label="Notifications">
                                 <i class="bi bi-bell"></i>
                                 <span id="notificationCount"
                                     class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">
                                     0
                                 </span>
                             </button>
-                            <ul class="dropdown-menu dropdown-menu-end bg-dark border-secondary" id="notificationList">
+                            <ul class="dropdown-menu dropdown-menu-end bg-dark border-secondary admin-header-dropdown admin-notification-menu" id="notificationList">
                             </ul>
                         </div>
                     </div>
@@ -753,6 +755,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                                 <button class="btn btn-orange" id="saveShippingConfigBtn" type="button">
                                                     <i class="bi bi-truck me-1"></i>Save Shipping Rules
                                                 </button>
+                                                <small class="field-hint d-block mt-1">Apply Shipping Rules</small>
                                             </div>
                                         </div>
                                         <div class="text-secondary small mt-3" id="shippingRulesPreview">Current checkout rules will appear here.</div>
@@ -2356,9 +2359,11 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
 
     <script <?= commerza_csp_nonce_attr() ?> src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
-        crossorigin="anonymous"></script>
-    <script <?= commerza_csp_nonce_attr() ?> src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script <?= commerza_csp_nonce_attr() ?> src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+        crossorigin="anonymous" onerror="this.onerror=null;this.src='../../frontend/assets/vendor/bootstrap/bootstrap.bundle.min.js'"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="https://code.jquery.com/jquery-3.7.1.min.js"
+        onerror="this.onerror=null;this.src='../../frontend/assets/vendor/jquery/jquery-3.7.1.min.js'"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
+        onerror="this.onerror=null;this.src='../../frontend/assets/vendor/chart/chart.umd.min.js'"></script>
     <script <?= commerza_csp_nonce_attr() ?>>
         window.CommerzaAdminRuntime = {
             csrfToken: <?= json_encode($adminCsrfToken, JSON_UNESCAPED_SLASHES) ?>,

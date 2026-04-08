@@ -6,6 +6,7 @@ $baseDir = dirname(__DIR__);
 
 $preloadFiles = [
     $baseDir . '/backend/data.php',
+    $baseDir . '/backend/cache_helpers.php',
     $baseDir . '/backend/security_helpers.php',
     $baseDir . '/backend/rate_limit.php',
     $baseDir . '/backend/security_events.php',

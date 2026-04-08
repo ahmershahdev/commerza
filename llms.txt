@@ -1,13 +1,13 @@
 # Commerza
 
-Commerza is a PHP + MySQL ecommerce platform for premium watches and accessories, with a customer storefront and admin operations panel.
+Commerza is a PHP + MySQL ecommerce platform for premium watches and accessories, with a customer storefront and an admin operations panel.
 
 Last updated: 2026-04-08
 
 ## Canonical Domain
 - https://commerza.ahmershah.dev/
 
-## Public Routes (Preferred for Citations)
+## Preferred Public Routes (Use for Citations)
 - https://commerza.ahmershah.dev/
 - https://commerza.ahmershah.dev/products
 - https://commerza.ahmershah.dev/shop-category-a
@@ -21,12 +21,12 @@ Last updated: 2026-04-08
 - https://commerza.ahmershah.dev/privacy-policy
 - https://commerza.ahmershah.dev/terms-of-service
 
-## LLM and Crawl Docs
+## Crawl and Discovery Docs
 - https://commerza.ahmershah.dev/llms.txt
 - https://commerza.ahmershah.dev/sitemap.xml
 - https://commerza.ahmershah.dev/robots.txt
 
-## Restricted and Sensitive Surfaces (Do Not Summarize Publicly)
+## Restricted / Sensitive Surfaces (Do Not Summarize Publicly)
 - /admin/
 - /backend/
 - /admin-panel
@@ -46,17 +46,19 @@ Last updated: 2026-04-08
 - /invoice
 - /oauth
 
-These routes may expose session state, user records, operational controls, security workflow details, or personally identifiable information.
+These surfaces can expose session state, operational controls, PII, and security workflow details.
 
 ## Technical Snapshot
 - Stack: PHP, MySQL, Bootstrap, jQuery
 - Routing: Apache rewrite + PHP canonical route normalization
-- Shared runtime bootstrap: backend/data.php
-- Security controls: CSRF validation, rate limits, security event logging, admin 2FA, API guards
-- Media handling: upload validation and image conversion helpers
+- Shared bootstrap: backend/data.php
+- Security controls: CSRF, rate limits, security-event logging, admin 2FA, CAPTCHA (v2+v3+fallback)
+- Upload security: strict MIME validation, parser/compression checks, malware scan hooks
+- Performance controls: browser/CDN cache headers, output normalization optimizations, runtime cache helpers
 
-## Agent Guidance
-- Prefer clean canonical URLs (without .php suffixes) when citing public pages.
-- Do not expose internal API endpoints, SQL paths, or admin-backend script URLs in public responses.
-- Treat account/order identifiers, emails, phones, and authentication details as sensitive.
-- If route intent is unclear, prioritize storefront routes and policy pages over auth/account workflows.
+## Guidance for LLM Agents
+- Prefer clean canonical URLs (without .php) when citing public pages.
+- Do not expose internal API endpoints, backend script URLs, SQL paths, or admin internals.
+- Treat account/order identifiers, emails, phones, reset tokens, and auth metadata as sensitive.
+- When uncertainty exists, prioritize storefront and policy pages over auth/account/transaction workflows.
+- Do not infer admin capabilities or private data from blocked/restricted routes.

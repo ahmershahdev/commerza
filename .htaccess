@@ -34,7 +34,7 @@ AddOutputFilterByType BROTLI_COMPRESS text/plain text/html text/css text/javascr
 
 <IfModule mod_headers.c>
 <FilesMatch "\.(?:css|js|mjs|png|jpe?g|gif|webp|svg|ico|avif|woff2?|ttf|eot|mp4|webm)$">
-Header set Cache-Control "public, max-age=2592000, immutable"
+Header set Cache-Control "public, max-age=2592000, immutable, stale-while-revalidate=604800, stale-if-error=2592000"
 </FilesMatch>
 Header append Vary Accept-Encoding
 </IfModule>

@@ -72,6 +72,7 @@ function commerza_bootstrap_env(): void
 }
 
 commerza_bootstrap_env();
+require_once __DIR__ . '/cache_helpers.php';
 
 function commerza_request_is_browser_navigation(): bool
 {
@@ -593,6 +594,17 @@ function commerza_cdn_fallback_asset_for_url(string $url): string
         return $prefix . 'frontend/assets/vendor/jquery/jquery-3.7.1.min.js';
     }
 
+    if (
+        str_contains($normalized, 'cdn.jsdelivr.net/npm/chart.js@')
+        && str_contains($normalized, '/dist/chart.umd.min.js')
+    ) {
+        return $prefix . 'frontend/assets/vendor/chart/chart.umd.min.js';
+    }
+
+    if (str_contains($normalized, 'fonts.googleapis.com/css2?')) {
+        return $prefix . 'frontend/assets/vendor/fonts/google-fallback.css';
+    }
+
     return '';
 }
 
@@ -843,6 +855,40 @@ function commerza_optimize_head_script_defer(string $buffer): string
     return substr($buffer, 0, $headOffset)
         . $optimizedHead
         . substr($buffer, $headOffset + strlen($headHtml));
+}
+
+function commerza_optimize_script_tag_fallbacks(string $buffer): string
+{
+    if ($buffer === '') {
+        return $buffer;
+    }
+
+    return preg_replace_callback(
+        '/<script\b[^>]*\bsrc\s*=\s*(["\'])([^"\']+)\1[^>]*>\s*<\/script>/i',
+        static function (array $matches): string {
+            $tag = (string)($matches[0] ?? '');
+            if ($tag === '' || preg_match('/\bonerror\s*=\s*(["\']).*?\1/i', $tag) === 1) {
+                return $tag;
+            }
+
+            $srcRaw = (string)($matches[2] ?? '');
+            if ($srcRaw === '') {
+                return $tag;
+            }
+
+            $fallbackSrc = commerza_cdn_fallback_asset_for_url($srcRaw);
+            if ($fallbackSrc === '') {
+                return $tag;
+            }
+
+            $safeFallback = htmlspecialchars($fallbackSrc, ENT_QUOTES, 'UTF-8');
+            return commerza_insert_tag_attribute(
+                $tag,
+                'onerror="this.onerror=null;this.src=\'' . $safeFallback . '\'"'
+            );
+        },
+        $buffer
+    ) ?? $buffer;
 }
 
 function commerza_guess_image_alt_from_src(string $src): string
@@ -1290,6 +1336,7 @@ function commerza_html_meta_normalize(string $buffer): string
 
     $buffer = commerza_optimize_stylesheet_links($buffer);
     $buffer = commerza_optimize_head_script_defer($buffer);
+    $buffer = commerza_optimize_script_tag_fallbacks($buffer);
     $buffer = commerza_optimize_image_loading($buffer);
     $buffer = commerza_inject_preload_links($buffer);
 
@@ -1595,7 +1642,29 @@ if (!$con) {
 
 mysqli_set_charset($con, "utf8mb4");
 
-function commerza_site_setting_value(mysqli $con, string $key, string $fallback = ''): string
+function commerza_site_setting_cache_ttl(): int
+{
+    static $ttl = null;
+
+    if (is_int($ttl) && $ttl > 0) {
+        return $ttl;
+    }
+
+    $raw = getenv('COMMERZA_SITE_SETTINGS_CACHE_TTL');
+    $candidate = $raw === false ? 300 : (int)$raw;
+    if ($candidate < 30) {
+        $candidate = 30;
+    }
+
+    if ($candidate > 3600) {
+        $candidate = 3600;
+    }
+
+    $ttl = $candidate;
+    return $ttl;
+}
+
+function commerza_site_setting_query_value(mysqli $con, string $normalizedKey): string
 {
     $stmt = $con->prepare(
         'SELECT setting_val
@@ -1605,20 +1674,45 @@ function commerza_site_setting_value(mysqli $con, string $key, string $fallback 
     );
 
     if (!$stmt) {
-        return $fallback;
+        return '';
     }
 
-    $stmt->bind_param('s', $key);
+    $stmt->bind_param('s', $normalizedKey);
     $stmt->execute();
     $result = $stmt->get_result();
     $row = $result ? $result->fetch_assoc() : null;
     $stmt->close();
 
     if (!is_array($row)) {
-        return $fallback;
+        return '';
     }
 
     $value = trim((string)($row['setting_val'] ?? ''));
+    return $value;
+}
+
+function commerza_site_setting_value(mysqli $con, string $key, string $fallback = ''): string
+{
+    $normalizedKey = strtolower(trim($key));
+    if ($normalizedKey === '') {
+        return $fallback;
+    }
+
+    $value = '';
+    if (function_exists('commerza_cache_remember')) {
+        $cached = commerza_cache_remember(
+            'site-setting:' . $normalizedKey,
+            commerza_site_setting_cache_ttl(),
+            static function () use ($con, $normalizedKey): string {
+                return commerza_site_setting_query_value($con, $normalizedKey);
+            }
+        );
+
+        $value = trim((string)$cached);
+    } else {
+        $value = commerza_site_setting_query_value($con, $normalizedKey);
+    }
+
     return $value !== '' ? $value : $fallback;
 }
 

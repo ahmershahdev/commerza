@@ -198,6 +198,58 @@ function commerza_mail_default_sender(): array
     ];
 }
 
+function commerza_mail_preferred_logo_relative_path(): string
+{
+    static $cachedRelativePath = null;
+
+    if (is_string($cachedRelativePath)) {
+        return $cachedRelativePath;
+    }
+
+    $projectRoot = dirname(__DIR__);
+    $logoDir = $projectRoot
+        . DIRECTORY_SEPARATOR . 'frontend'
+        . DIRECTORY_SEPARATOR . 'assets'
+        . DIRECTORY_SEPARATOR . 'images'
+        . DIRECTORY_SEPARATOR . 'logo';
+
+    $webpPath = $logoDir . DIRECTORY_SEPARATOR . 'commerza-logo.webp';
+    $pngPath = $logoDir . DIRECTORY_SEPARATOR . 'commerza-logo-email.png';
+
+    if (is_file($pngPath) && (int)filesize($pngPath) > 0) {
+        $cachedRelativePath = '/frontend/assets/images/logo/commerza-logo-email.png';
+        return $cachedRelativePath;
+    }
+
+    if (
+        is_file($webpPath)
+        && extension_loaded('gd')
+        && function_exists('imagecreatefromwebp')
+        && function_exists('imagepng')
+    ) {
+        $image = @imagecreatefromwebp($webpPath);
+        if ($image !== false) {
+            imagesavealpha($image, true);
+            $written = @imagepng($image, $pngPath, 6);
+            imagedestroy($image);
+
+            if ($written && is_file($pngPath) && (int)filesize($pngPath) > 0) {
+                @chmod($pngPath, 0644);
+                $cachedRelativePath = '/frontend/assets/images/logo/commerza-logo-email.png';
+                return $cachedRelativePath;
+            }
+        }
+    }
+
+    if (is_file($webpPath) && (int)filesize($webpPath) > 0) {
+        $cachedRelativePath = '/frontend/assets/images/logo/commerza-logo.webp';
+        return $cachedRelativePath;
+    }
+
+    $cachedRelativePath = '';
+    return $cachedRelativePath;
+}
+
 function commerza_mail_inline_logo_data_uri(): string
 {
     static $cachedDataUri = null;
@@ -207,12 +259,17 @@ function commerza_mail_inline_logo_data_uri(): string
     }
 
     $projectRoot = dirname(__DIR__);
-    $logoPath = $projectRoot
-        . DIRECTORY_SEPARATOR . 'frontend'
-        . DIRECTORY_SEPARATOR . 'assets'
-        . DIRECTORY_SEPARATOR . 'images'
-        . DIRECTORY_SEPARATOR . 'logo'
-        . DIRECTORY_SEPARATOR . 'commerza-logo.webp';
+    $relativePath = commerza_mail_preferred_logo_relative_path();
+    $logoPath = $relativePath !== ''
+        ? ($projectRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, ltrim($relativePath, '/')))
+        : (
+            $projectRoot
+            . DIRECTORY_SEPARATOR . 'frontend'
+            . DIRECTORY_SEPARATOR . 'assets'
+            . DIRECTORY_SEPARATOR . 'images'
+            . DIRECTORY_SEPARATOR . 'logo'
+            . DIRECTORY_SEPARATOR . 'commerza-logo.webp'
+        );
 
     if (!is_file($logoPath) || !is_readable($logoPath)) {
         $cachedDataUri = '';
@@ -225,24 +282,7 @@ function commerza_mail_inline_logo_data_uri(): string
         return $cachedDataUri;
     }
 
-    $mime = 'image/webp';
-
-    // PNG fallback improves compatibility in mail clients that do not render WebP.
-    if (extension_loaded('gd') && function_exists('imagecreatefromwebp') && function_exists('imagepng')) {
-        $image = @imagecreatefromwebp($logoPath);
-        if ($image !== false) {
-            ob_start();
-            imagesavealpha($image, true);
-            $converted = imagepng($image, null, 6);
-            $pngBinary = ob_get_clean();
-            imagedestroy($image);
-
-            if ($converted && is_string($pngBinary) && $pngBinary !== '') {
-                $binary = $pngBinary;
-                $mime = 'image/png';
-            }
-        }
-    }
+    $mime = str_ends_with(strtolower($logoPath), '.png') ? 'image/png' : 'image/webp';
 
     $cachedDataUri = 'data:' . $mime . ';base64,' . base64_encode($binary);
     return $cachedDataUri;
@@ -250,18 +290,30 @@ function commerza_mail_inline_logo_data_uri(): string
 
 function commerza_mail_logo_src(string $fallbackAbsoluteUrl = ''): string
 {
-    $inline = commerza_mail_inline_logo_data_uri();
-    if ($inline !== '') {
-        return $inline;
+    $preferredRelative = commerza_mail_preferred_logo_relative_path();
+    if ($preferredRelative !== '' && function_exists('commerza_absolute_url')) {
+        $absolute = (string)commerza_absolute_url($preferredRelative);
+        if (filter_var($absolute, FILTER_VALIDATE_URL)) {
+            return $absolute;
+        }
     }
 
     $fallback = trim($fallbackAbsoluteUrl);
     if ($fallback !== '') {
+        if ($preferredRelative !== '' && str_ends_with($preferredRelative, '.png')) {
+            $fallback = preg_replace(
+                '#/frontend/assets/images/logo/commerza-logo\.webp$#i',
+                '/frontend/assets/images/logo/commerza-logo-email.png',
+                $fallback
+            ) ?: $fallback;
+        }
+
         return $fallback;
     }
 
-    if (function_exists('commerza_absolute_url')) {
-        return (string)commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.webp');
+    $inline = commerza_mail_inline_logo_data_uri();
+    if ($inline !== '') {
+        return $inline;
     }
 
     return '';

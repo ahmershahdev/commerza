@@ -12,6 +12,127 @@ function commerza_media_allowed_image_mimes(): array
     ];
 }
 
+function commerza_upload_scan_enabled(): bool
+{
+    $raw = strtolower(trim((string)getenv('COMMERZA_UPLOAD_SCAN_ENABLED')));
+    if ($raw === '') {
+        return true;
+    }
+
+    return !in_array($raw, ['0', 'false', 'off', 'no', 'disabled'], true);
+}
+
+function commerza_upload_scan_fail_closed(): bool
+{
+    $raw = strtolower(trim((string)getenv('COMMERZA_UPLOAD_SCAN_FAIL_CLOSED')));
+    return in_array($raw, ['1', 'true', 'on', 'yes'], true);
+}
+
+function commerza_upload_signature_scan(string $filePath, ?string &$reason = null): bool
+{
+    $reason = null;
+
+    if (!is_file($filePath) || !is_readable($filePath)) {
+        $reason = 'Uploaded file is unreadable for malware checks.';
+        return false;
+    }
+
+    $sampleBytes = 2 * 1024 * 1024;
+    $handle = @fopen($filePath, 'rb');
+    if ($handle === false) {
+        $reason = 'Unable to open uploaded file for malware scan.';
+        return false;
+    }
+
+    $sample = '';
+    try {
+        $sample = (string)fread($handle, $sampleBytes);
+    } finally {
+        fclose($handle);
+    }
+
+    if ($sample === '') {
+        return true;
+    }
+
+    $signatures = [
+        '/<\?php/i' => 'php-open-tag-signature',
+        '/<\?=/i' => 'php-short-echo-signature',
+        '/\beval\s*\(/i' => 'eval-signature',
+        '/\bbase64_decode\s*\(/i' => 'base64-decode-signature',
+        '/\bgzinflate\s*\(/i' => 'gzinflate-signature',
+        '/\bshell_exec\s*\(/i' => 'shell-exec-signature',
+        '/\bpassthru\s*\(/i' => 'passthru-signature',
+        '/\bproc_open\s*\(/i' => 'proc-open-signature',
+    ];
+
+    foreach ($signatures as $pattern => $label) {
+        if (preg_match($pattern, $sample) === 1) {
+            $reason = 'Suspicious upload signature detected: ' . $label . '.';
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function commerza_upload_clamav_scan(string $filePath, ?string &$reason = null): bool
+{
+    $reason = null;
+
+    $clamPath = trim((string)getenv('COMMERZA_CLAMSCAN_PATH'));
+    if ($clamPath === '') {
+        return true;
+    }
+
+    $binary = $clamPath;
+    $isAbsolutePath = str_contains($binary, '/') || str_contains($binary, '\\');
+    if ($isAbsolutePath && !is_file($binary)) {
+        $reason = 'Configured clamscan binary was not found.';
+        return !commerza_upload_scan_fail_closed();
+    }
+
+    $quotedBinary = $isAbsolutePath
+        ? '"' . str_replace('"', '\\"', $binary) . '"'
+        : escapeshellcmd($binary);
+
+    $command = $quotedBinary . ' --no-summary --infected ' . escapeshellarg($filePath) . ' 2>&1';
+    $outputLines = [];
+    $exitCode = 0;
+    @exec($command, $outputLines, $exitCode);
+
+    if ($exitCode === 0) {
+        return true;
+    }
+
+    if ($exitCode === 1) {
+        $reason = 'Malware scan detected a suspicious file.';
+        return false;
+    }
+
+    $reason = 'Malware scanner is unavailable right now.';
+    return !commerza_upload_scan_fail_closed();
+}
+
+function commerza_upload_scan_file(string $filePath, ?string &$reason = null): bool
+{
+    $reason = null;
+
+    if (!commerza_upload_scan_enabled()) {
+        return true;
+    }
+
+    if (!commerza_upload_signature_scan($filePath, $reason)) {
+        return false;
+    }
+
+    if (!commerza_upload_clamav_scan($filePath, $reason)) {
+        return false;
+    }
+
+    return true;
+}
+
 function commerza_media_normalize_upload_name(string $name, string $fallback = 'image.webp'): string
 {
     $trimmed = trim($name);

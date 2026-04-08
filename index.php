@@ -9,25 +9,19 @@ if (empty($_SESSION['csrf_token'])) {
 
 $appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
 
-$home_feature_video = 'frontend/assets/videos/slider/steel_watch_1.mp4';
-$homeVideoStmt = $con->prepare('SELECT setting_val FROM site_settings WHERE setting_key = ? LIMIT 1');
-if ($homeVideoStmt) {
-  $settingKey = 'home_feature_video';
-  $homeVideoStmt->bind_param('s', $settingKey);
-  $homeVideoStmt->execute();
-  $homeVideoResult = $homeVideoStmt->get_result();
-  $homeVideoRow = $homeVideoResult ? $homeVideoResult->fetch_assoc() : null;
-  $homeVideoStmt->close();
+$canonicalHomeUrl = commerza_absolute_url('/');
+$logoShareImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.webp');
 
-  $savedVideo = trim((string)($homeVideoRow['setting_val'] ?? ''));
-  if (
-    $savedVideo !== '' &&
-    strpos($savedVideo, '..') === false &&
-    strpos($savedVideo, '\\') === false &&
-    preg_match('#^[a-zA-Z0-9/_\-.]+$#', $savedVideo) === 1
-  ) {
-    $home_feature_video = $savedVideo;
-  }
+$home_feature_video = commerza_site_setting_value($con, 'home_feature_video', 'frontend/assets/videos/slider/steel_watch_1.mp4');
+if (
+  $home_feature_video !== '' &&
+  strpos($home_feature_video, '..') === false &&
+  strpos($home_feature_video, '\\') === false &&
+  preg_match('#^[a-zA-Z0-9/_\-.]+$#', $home_feature_video) === 1
+) {
+  $home_feature_video = trim($home_feature_video);
+} else {
+  $home_feature_video = 'frontend/assets/videos/slider/steel_watch_1.mp4';
 }
 ?>
 <!DOCTYPE html>
@@ -44,15 +38,15 @@ if ($homeVideoStmt) {
   <meta property="og:title" content="Commerza Premium Automatic Watches">
   <meta property="og:description"
     content="Explore Commerza's collection of premium automatic watches with elegant leather and gold dials.">
-  <meta property="og:url" content="https://commerza.ahmershah.dev/">
+  <meta property="og:url" content="<?= htmlspecialchars($canonicalHomeUrl, ENT_QUOTES, 'UTF-8') ?>">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
+  <meta property="og:image" content="<?= htmlspecialchars($logoShareImageUrl, ENT_QUOTES, 'UTF-8') ?>">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Commerza Premium Automatic Watches">
   <meta name="twitter:description" content="Explore Commerza's collection of premium automatic watches with elegant leather and gold dials.">
-  <meta name="twitter:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
+  <meta name="twitter:image" content="<?= htmlspecialchars($logoShareImageUrl, ENT_QUOTES, 'UTF-8') ?>">
   <title>Commerza | Full-Stack Ecommerce</title>
-  <link rel="canonical" href="https://commerza.ahmershah.dev/" />
+  <link rel="canonical" href="<?= htmlspecialchars($canonicalHomeUrl, ENT_QUOTES, 'UTF-8') ?>" />
   <link rel="icon" href="frontend/assets/images/favicon/commerza-watches-icon.ico">
   <link rel="stylesheet" href="frontend/assets/css/style.css">
 
@@ -1238,6 +1232,8 @@ if ($homeVideoStmt) {
         </div>
       </section>
 
+      <?php $renderAppComingSection = function_exists('commerza_fragment_cache_start') ? commerza_fragment_cache_start('home:app-coming-section:v1', 900) : true; ?>
+      <?php if ($renderAppComingSection): ?>
       <section class="app-coming-home mt-5" aria-labelledby="homeAppSoonTitle">
         <div class="app-coming-stage-glow" aria-hidden="true"></div>
         <div class="app-coming-grid">
@@ -1301,6 +1297,12 @@ if ($homeVideoStmt) {
           </div>
         </div>
       </section>
+      <?php
+      if (function_exists('commerza_fragment_cache_end')) {
+        commerza_fragment_cache_end();
+      }
+      endif;
+      ?>
 
       <div class="modal fade" id="newsletterModal" tabindex="-1" aria-labelledby="newsletterModalLabel"
         aria-hidden="true">

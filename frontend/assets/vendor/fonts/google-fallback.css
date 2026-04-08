@@ -1,0 +1,33 @@
+/* Local fallback stack when Google Fonts CDN is unavailable. */
+:root {
+  --commerza-font-sans: "Inter", "Segoe UI", Roboto, Arial, sans-serif;
+  --commerza-font-heading: "Montserrat", "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+  --commerza-font-mono: "JetBrains Mono", "Cascadia Mono", Consolas, "Courier New", monospace;
+}
+
+body,
+input,
+select,
+textarea,
+button {
+  font-family: var(--commerza-font-sans);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.brand-text {
+  font-family: var(--commerza-font-heading);
+}
+
+code,
+pre,
+kbd,
+samp,
+.hero-typing-prefix,
+.hero-typing-text {
+  font-family: var(--commerza-font-mono);
+}

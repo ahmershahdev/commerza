@@ -1,20 +1,21 @@
 # Commerza crawler policy
+# Updated: 2026-04-08
+
 Sitemap: https://commerza.ahmershah.dev/sitemap.xml
 Host: commerza.ahmershah.dev
 
+# Default policy: allow public storefront, block sensitive/auth/ops routes.
 User-agent: *
 Allow: /
 Allow: /frontend/assets/
 Allow: /llms.txt
 
-# Sensitive/admin and private operational surfaces
 Disallow: /admin/
 Disallow: /backend/
 Disallow: /private/
 Disallow: /oauth
 Disallow: /oauth.php
 
-# Auth, account, and transactional pages
 Disallow: /login
 Disallow: /login.php
 Disallow: /signup
@@ -23,6 +24,7 @@ Disallow: /forgot-password
 Disallow: /forgot-password.php
 Disallow: /reset-password
 Disallow: /reset-password.php
+
 Disallow: /admin-panel
 Disallow: /admin-panel.php
 Disallow: /admin-login
@@ -33,6 +35,7 @@ Disallow: /admin-forgot-email
 Disallow: /admin-forgot-email.php
 Disallow: /admin-verify-2fa
 Disallow: /admin-verify-2fa.php
+
 Disallow: /account
 Disallow: /account.php
 Disallow: /cart
@@ -46,9 +49,14 @@ Disallow: /order-tracking.php
 Disallow: /invoice
 Disallow: /invoice.php
 
+# Prevent crawling sensitive query-string surfaces.
+Disallow: /*?*token=
+Disallow: /*?*reset=
+Disallow: /*?*session=
+
 Crawl-delay: 1
 
-# AI crawlers: allow public content + llms.txt, block sensitive surfaces.
+# AI crawlers: allow public content + llms.txt, block restricted workflows.
 User-agent: GPTBot
 Allow: /llms.txt
 Allow: /
@@ -121,7 +129,7 @@ Disallow: /compare
 Disallow: /order-tracking
 Disallow: /invoice
 
-# Block aggressive SEO scrapers.
+# Block aggressive SEO/scraper bots.
 User-agent: AhrefsBot
 Disallow: /
 

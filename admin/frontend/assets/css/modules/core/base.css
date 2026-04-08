@@ -48,6 +48,9 @@ html {
   --admin-accent-2: #ffcc00;
   --admin-text: #e6e6e6;
   --admin-muted: #9a9a9a;
+  --admin-font-body: "Inter", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  --admin-font-heading: "Montserrat", "Trebuchet MS", "Segoe UI", sans-serif;
+  --admin-font-mono: "JetBrains Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
 }
 
 body.dark-theme {
@@ -60,7 +63,7 @@ body.dark-theme {
   color: var(--admin-text);
   margin: 0;
   padding: 0;
-  font-family: "Inter", sans-serif;
+  font-family: var(--admin-font-body);
   font-weight: 400;
   animation: bodyFadeIn 1.2s ease;
 }
@@ -81,7 +84,7 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: "Montserrat", sans-serif;
+  font-family: var(--admin-font-heading);
   font-weight: 700;
   letter-spacing: -0.5px;
 }

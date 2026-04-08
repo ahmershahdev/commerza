@@ -286,6 +286,11 @@ function reviews_api_validate_uploaded_images(array $files): array
             return [false, [], 'Invalid uploaded image file.'];
         }
 
+        $scanReason = null;
+        if (!commerza_upload_scan_file($tmpName, $scanReason)) {
+            return [false, [], $scanReason !== null ? $scanReason : 'Uploaded image failed security scan.'];
+        }
+
         if ($size <= 0 || $size >= $maxBytes) {
             return [false, [], 'Each image must be less than 6 MB.'];
         }

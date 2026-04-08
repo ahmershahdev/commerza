@@ -370,6 +370,12 @@ function account_store_refund_evidence($file, int $userId, int $orderId, array &
     return null;
   }
 
+  $scanReason = null;
+  if (!commerza_upload_scan_file($tmpPath, $scanReason)) {
+    $errors[] = $scanReason !== null ? $scanReason : 'Refund evidence failed security scan.';
+    return null;
+  }
+
   $finfo = finfo_open(FILEINFO_MIME_TYPE);
   $mime = $finfo ? (string)finfo_file($finfo, $tmpPath) : '';
   if ($finfo) {
@@ -917,68 +923,75 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!is_uploaded_file($tmp_path)) {
           $errors[] = "Invalid upload.";
         } else {
-          $finfo = finfo_open(FILEINFO_MIME_TYPE);
-          $mime = $finfo ? (string)finfo_file($finfo, $tmp_path) : '';
-
-          if ($finfo) {
-            finfo_close($finfo);
+          $scanReason = null;
+          if (!commerza_upload_scan_file($tmp_path, $scanReason)) {
+            $errors[] = $scanReason !== null ? $scanReason : "Upload failed security scan.";
           }
 
-          $allowed = commerza_media_allowed_image_mimes();
+          if (empty($errors)) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime = $finfo ? (string)finfo_file($finfo, $tmp_path) : '';
 
-          if (!isset($allowed[$mime])) {
-            $errors[] = "Only JPG, PNG, WEBP, and GIF are allowed.";
-          } else {
-            $uploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'images' . DIRECTORY_SEPARATOR . 'users';
+            if ($finfo) {
+              finfo_close($finfo);
+            }
 
-            if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
-              $errors[] = "Failed to create upload directory.";
+            $allowed = commerza_media_allowed_image_mimes();
+
+            if (!isset($allowed[$mime])) {
+              $errors[] = "Only JPG, PNG, WEBP, and GIF are allowed.";
             } else {
-              $conversion = commerza_media_convert_upload_to_webp($tmp_path, $mime, 220, 1400, true);
-              if (!(bool)($conversion['ok'] ?? false)) {
-                $errors[] = (string)($conversion['message'] ?? 'Failed to parse and compress profile picture.');
+              $uploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'images' . DIRECTORY_SEPARATOR . 'users';
+
+              if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
+                $errors[] = "Failed to create upload directory.";
               } else {
-                $outputExtension = strtolower(trim((string)($conversion['extension'] ?? '')));
-                if ($outputExtension === '') {
-                  $outputExtension = 'webp';
-                }
-
-                $filename = 'user_' . $user_id . '_' . bin2hex(random_bytes(12)) . '.' . $outputExtension;
-                $destination = $uploadDir . DIRECTORY_SEPARATOR . $filename;
-                $publicPath = 'frontend/assets/images/users/' . $filename;
-                $binary = (string)($conversion['binary'] ?? '');
-
-                if ($binary === '' || file_put_contents($destination, $binary) === false) {
-                  $errors[] = "Failed to save uploaded image.";
+                $conversion = commerza_media_convert_upload_to_webp($tmp_path, $mime, 220, 1400, true);
+                if (!(bool)($conversion['ok'] ?? false)) {
+                  $errors[] = (string)($conversion['message'] ?? 'Failed to parse and compress profile picture.');
                 } else {
-                  $updateStmt = $con->prepare("UPDATE users SET profile_picture = ? WHERE id = ? LIMIT 1");
+                  $outputExtension = strtolower(trim((string)($conversion['extension'] ?? '')));
+                  if ($outputExtension === '') {
+                    $outputExtension = 'webp';
+                  }
 
-                  if (!$updateStmt) {
-                    if (is_file($destination)) {
-                      @unlink($destination);
-                    }
-                    $errors[] = "Something went wrong. Please try again.";
+                  $filename = 'user_' . $user_id . '_' . bin2hex(random_bytes(12)) . '.' . $outputExtension;
+                  $destination = $uploadDir . DIRECTORY_SEPARATOR . $filename;
+                  $publicPath = 'frontend/assets/images/users/' . $filename;
+                  $binary = (string)($conversion['binary'] ?? '');
+
+                  if ($binary === '' || file_put_contents($destination, $binary) === false) {
+                    $errors[] = "Failed to save uploaded image.";
                   } else {
-                    $updateStmt->bind_param("si", $publicPath, $user_id);
+                    $updateStmt = $con->prepare("UPDATE users SET profile_picture = ? WHERE id = ? LIMIT 1");
 
-                    if ($updateStmt->execute()) {
-                      if (!empty($user['profile_picture']) && strpos((string)$user['profile_picture'], 'frontend/assets/images/users/') === 0) {
-                        $oldPath = __DIR__ . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string)$user['profile_picture']);
-
-                        if (is_file($oldPath)) {
-                          @unlink($oldPath);
-                        }
-                      }
-
-                      $success[] = "Profile picture updated successfully.";
-                    } else {
+                    if (!$updateStmt) {
                       if (is_file($destination)) {
                         @unlink($destination);
                       }
                       $errors[] = "Something went wrong. Please try again.";
-                    }
+                    } else {
+                      $updateStmt->bind_param("si", $publicPath, $user_id);
 
-                    $updateStmt->close();
+                      if ($updateStmt->execute()) {
+                        if (!empty($user['profile_picture']) && strpos((string)$user['profile_picture'], 'frontend/assets/images/users/') === 0) {
+                          $oldPath = __DIR__ . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string)$user['profile_picture']);
+
+                          if (is_file($oldPath)) {
+                            @unlink($oldPath);
+                          }
+                        }
+
+                        $success[] = "Profile picture updated successfully.";
+                      } else {
+                        if (is_file($destination)) {
+                          @unlink($destination);
+                        }
+                        $errors[] = "Something went wrong. Please try again.";
+                      }
+
+                      $updateStmt->close();
+                    }
                   }
                 }
               }
@@ -1144,10 +1157,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
           $insertRefund->bind_param('iisssi', $orderId, $user_id, $refundReason, $evidencePath, $evidenceName, $evidenceSize);
           $persisted = $insertRefund->execute();
+          $insertErrno = (int)$insertRefund->errno;
           $insertRefund->close();
 
           if (!$persisted) {
-            $errors[] = 'Unable to submit refund request right now.';
+            if ($insertErrno === 1062) {
+              $errors[] = 'A refund request for this order was just submitted. Please refresh and check status.';
+            } else {
+              $errors[] = 'Unable to submit refund request right now.';
+            }
           }
         }
       }
