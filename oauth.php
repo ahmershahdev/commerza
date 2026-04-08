@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/backend/data.php';
+
 // Public OAuth entrypoint; keeps browser on /oauth.php so backend route protection remains intact.
 $provider = strtolower(trim((string)($_GET['provider'] ?? 'google')));
 $mode = strtolower(trim((string)($_GET['mode'] ?? 'login')));

@@ -1278,7 +1278,10 @@ $(document).ready(function () {
         updateLiveViewerBadge(result.count);
 
         if (!liveViewerIntervalId) {
-          const intervalMs = Math.max(result.windowSeconds * 1000, 30000);
+          const intervalMs = Math.max(
+            30000,
+            Math.min(60000, Math.floor((result.windowSeconds * 1000) / 3)),
+          );
           liveViewerIntervalId = setInterval(() => {
             syncCount(true);
           }, intervalMs);

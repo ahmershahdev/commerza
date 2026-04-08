@@ -287,13 +287,14 @@ const ADMIN_TAB_PLAYBOOKS = {
   },
   reviewsSection: {
     title: "Review Moderation Steps",
-    intro: "Keep feedback useful while removing harmful content.",
+    intro:
+      "Use quick-add and moderation controls without guessing IDs or flow.",
     steps: [
-      "Check newest reviews and filter by visibility.",
-      "Hide abusive or unrelated text instead of deleting immediately.",
-      "Track rating trends so product teams can spot quality issues.",
+      "Use Quick Add Review to submit manual reviews in one form.",
+      "Use Quick Fake x1 for one seed review, or Bulk for larger test sets.",
+      "Moderate with Hide/Show or Lock/Unlock, then refresh to verify updates.",
     ],
-    tip: "Use Refresh after moderation so the table reflects final state.",
+    tip: "Prefer Hide + Lock for suspicious content so audit history stays visible.",
   },
   analyticsSection: {
     title: "Analytics Reading Guide",
@@ -1766,6 +1767,167 @@ function fakeReviewVisibilityLabel(value) {
   return (value || "1").toString() === "0" ? "Hidden" : "Visible";
 }
 
+function parseAdminProductIdInput(value) {
+  const raw = (value || "").toString().trim();
+  if (raw === "") {
+    return 0;
+  }
+
+  const direct = parseInt(raw, 10);
+  if (Number.isInteger(direct) && direct > 0) {
+    return direct;
+  }
+
+  const leadingMatch = raw.match(/^(\d+)/);
+  if (leadingMatch && leadingMatch[1]) {
+    const parsed = parseInt(leadingMatch[1], 10);
+    if (Number.isInteger(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  return 0;
+}
+
+function reviewProductOptions(limit = 300) {
+  if (!Array.isArray(productsData) || productsData.length === 0) {
+    return [];
+  }
+
+  const deduped = new Map();
+  productsData.forEach((item) => {
+    const id = parseInt(item?.id, 10) || 0;
+    if (id <= 0 || deduped.has(id)) {
+      return;
+    }
+
+    const name = (item?.name || "").toString().trim();
+    deduped.set(id, {
+      id,
+      name: name === "" ? `Product ${id}` : name,
+    });
+  });
+
+  return Array.from(deduped.values())
+    .sort((left, right) => {
+      const leftName = (left.name || "").toLowerCase();
+      const rightName = (right.name || "").toLowerCase();
+      const cmp = leftName.localeCompare(rightName);
+      if (cmp !== 0) {
+        return cmp;
+      }
+      return left.id - right.id;
+    })
+    .slice(0, Math.max(0, limit));
+}
+
+function renderReviewProductSuggestions() {
+  const datalist = document.getElementById("reviewProductSuggestions");
+  if (!datalist) {
+    return;
+  }
+
+  const options = reviewProductOptions(400);
+  datalist.innerHTML = "";
+
+  options.forEach((option) => {
+    const node = document.createElement("option");
+    node.value = `${option.id} - ${option.name}`;
+    datalist.appendChild(node);
+  });
+}
+
+function resetReviewQuickAddForm() {
+  $("#reviewAddUserId").val("");
+  $("#reviewAddProductId").val("");
+  $("#reviewAddOrderId").val("");
+  $("#reviewAddRating").val("5");
+  $("#reviewAddVisible").val("1");
+  $("#reviewAddText").val("");
+  $("#reviewAddNote").val("");
+}
+
+function focusReviewQuickForm() {
+  const card = document.getElementById("reviewQuickAddCard");
+  if (card) {
+    card.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  window.setTimeout(() => {
+    const input = document.getElementById("reviewAddUserId");
+    if (input) {
+      input.focus();
+    }
+  }, 120);
+}
+
+function collectReviewQuickAddPayload() {
+  const userId = parseInt($("#reviewAddUserId").val(), 10) || 0;
+  const productId = parseAdminProductIdInput($("#reviewAddProductId").val());
+  const orderRaw = ($("#reviewAddOrderId").val() || "").toString().trim();
+  const rating = parseInt($("#reviewAddRating").val(), 10) || 0;
+  const isVisible =
+    ($("#reviewAddVisible").val() || "1").toString() === "0" ? 0 : 1;
+  const reviewText = ($("#reviewAddText").val() || "").toString().trim();
+  const adminNote = ($("#reviewAddNote").val() || "").toString().trim();
+
+  if (userId <= 0) {
+    throw new Error("Enter a valid User ID.");
+  }
+
+  if (productId <= 0) {
+    throw new Error("Enter a valid Product ID.");
+  }
+
+  let orderId = 0;
+  if (orderRaw !== "") {
+    orderId = parseInt(orderRaw, 10) || 0;
+    if (orderId <= 0) {
+      throw new Error("Order ID must be a positive number.");
+    }
+  }
+
+  if (rating < 1 || rating > 5) {
+    throw new Error("Rating must be between 1 and 5.");
+  }
+
+  if (reviewText.length < 10 || reviewText.length > 500) {
+    throw new Error("Review text must be 10 to 500 characters.");
+  }
+
+  if (adminNote.length > 500) {
+    throw new Error("Admin note can be up to 500 characters.");
+  }
+
+  return {
+    action: "add-review",
+    user_id: userId,
+    product_id: productId,
+    order_id: orderId,
+    rating,
+    review_text: reviewText,
+    is_visible: isVisible,
+    admin_note: adminNote,
+  };
+}
+
+async function submitReviewQuickAddForm() {
+  try {
+    const payload = collectReviewQuickAddPayload();
+    const result = await adminPostJson(ADMIN_REVIEWS_API, payload);
+
+    adminReviews = Array.isArray(result?.payload?.reviews)
+      ? result.payload.reviews
+      : adminReviews;
+    renderReviewsStats(result?.payload?.stats || {});
+    renderReviewsTable();
+    resetReviewQuickAddForm();
+    showNotification(result?.message || "Review added.", "success");
+  } catch (error) {
+    showNotification(error?.message || "Unable to add review.", "danger");
+  }
+}
+
 function securitySeverityLabel(value) {
   const normalized = (value || "").toString();
   if (normalized === "info") return "Info";
@@ -2503,140 +2665,14 @@ async function deleteReviewById(reviewId) {
   }
 }
 
-async function addReviewByAdmin() {
-  const userIdInput = await showCustomPromptDialog(
-    "User ID:",
-    "",
-    "Add Review",
-  );
-  if (userIdInput === null) {
-    return;
-  }
-
-  const userId = parseInt((userIdInput || "").toString().trim(), 10);
-  if (!Number.isInteger(userId) || userId <= 0) {
-    showNotification("Enter a valid User ID.", "danger");
-    return;
-  }
-
-  const productIdInput = await showCustomPromptDialog(
-    "Product ID:",
-    "",
-    "Add Review",
-  );
-  if (productIdInput === null) {
-    return;
-  }
-
-  const productId = parseInt((productIdInput || "").toString().trim(), 10);
-  if (!Number.isInteger(productId) || productId <= 0) {
-    showNotification("Enter a valid Product ID.", "danger");
-    return;
-  }
-
-  const orderIdInput = await showCustomPromptDialog(
-    "Order ID (optional, leave empty for none):",
-    "",
-    "Add Review",
-  );
-  if (orderIdInput === null) {
-    return;
-  }
-
-  let orderId = 0;
-  const orderValue = (orderIdInput || "").toString().trim();
-  if (orderValue !== "") {
-    orderId = parseInt(orderValue, 10);
-    if (!Number.isInteger(orderId) || orderId <= 0) {
-      showNotification("Order ID must be a positive number.", "danger");
-      return;
-    }
-  }
-
-  const ratingInput = await showCustomPromptDialog(
-    "Rating (1-5):",
-    "5",
-    "Add Review",
-  );
-  if (ratingInput === null) {
-    return;
-  }
-
-  const rating = parseInt((ratingInput || "").toString().trim(), 10);
-  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
-    showNotification("Rating must be between 1 and 5.", "danger");
-    return;
-  }
-
-  const reviewTextInput = await showCustomPromptDialog(
-    "Review text:",
-    "",
-    "Add Review",
-  );
-  if (reviewTextInput === null) {
-    return;
-  }
-
-  const reviewText = (reviewTextInput || "").toString().trim();
-  if (reviewText.length < 10 || reviewText.length > 500) {
-    showNotification("Review text must be 10 to 500 characters.", "danger");
-    return;
-  }
-
-  const visibilityInput = await showCustomPromptDialog(
-    "Visible? (yes/no)",
-    "yes",
-    "Add Review",
-  );
-  if (visibilityInput === null) {
-    return;
-  }
-
-  const normalizedVisibility = (visibilityInput || "yes")
-    .toString()
-    .trim()
-    .toLowerCase();
-  const isVisible = !["no", "n", "0", "false", "hidden"].includes(
-    normalizedVisibility,
-  );
-
-  const adminNoteInput = await showCustomPromptDialog(
-    "Admin note (optional):",
-    "",
-    "Add Review",
-  );
-
-  const adminNote = (adminNoteInput || "").toString().trim();
-  if (adminNote.length > 500) {
-    showNotification("Admin note can be up to 500 characters.", "danger");
-    return;
-  }
-
-  try {
-    const result = await adminPostJson(ADMIN_REVIEWS_API, {
-      action: "add-review",
-      user_id: userId,
-      product_id: productId,
-      order_id: orderId,
-      rating,
-      review_text: reviewText,
-      is_visible: isVisible ? 1 : 0,
-      admin_note: adminNote,
-    });
-
-    adminReviews = Array.isArray(result?.payload?.reviews)
-      ? result.payload.reviews
-      : adminReviews;
-    renderReviewsStats(result?.payload?.stats || {});
-    renderReviewsTable();
-    showNotification(result?.message || "Review added.", "success");
-  } catch (error) {
-    showNotification(error?.message || "Unable to add review.", "danger");
-  }
+function addReviewByAdmin() {
+  focusReviewQuickForm();
 }
 
 async function addFakeBulkReviewsByAdmin(forcedCount = null) {
-  const inputProductId = parseInt($("#fakeReviewProductId").val(), 10) || 0;
+  const inputProductId = parseAdminProductIdInput(
+    $("#fakeReviewProductId").val(),
+  );
   let productId = inputProductId;
 
   if (productId <= 0) {
@@ -2650,7 +2686,7 @@ async function addFakeBulkReviewsByAdmin(forcedCount = null) {
       return;
     }
 
-    productId = parseInt((productIdPrompt || "").toString().trim(), 10) || 0;
+    productId = parseAdminProductIdInput(productIdPrompt);
   }
 
   if (productId <= 0) {
@@ -2706,6 +2742,9 @@ function initReviewsSection() {
     return;
   }
 
+  renderReviewProductSuggestions();
+  resetReviewQuickAddForm();
+
   setAdminDropdownSelection(
     "reviewVisibilityFilter",
     $("#reviewVisibilityFilter").val() || "all",
@@ -2735,6 +2774,18 @@ function initReviewsSection() {
       addReviewByAdmin();
     });
 
+  $("#submitAddReviewBtn")
+    .off("click")
+    .on("click", function () {
+      submitReviewQuickAddForm();
+    });
+
+  $("#clearAddReviewBtn")
+    .off("click")
+    .on("click", function () {
+      resetReviewQuickAddForm();
+    });
+
   $("#addFakeReviewBtn")
     .off("click")
     .on("click", function () {
@@ -2745,6 +2796,12 @@ function initReviewsSection() {
     .off("click")
     .on("click", function () {
       addFakeBulkReviewsByAdmin();
+    });
+
+  $("#addSingleFakeReviewBtn")
+    .off("click")
+    .on("click", function () {
+      addFakeBulkReviewsByAdmin(1);
     });
 }
 
@@ -3418,6 +3475,7 @@ function hydrateProductsData(data) {
   renderSectionDropdowns();
   renderSectionsTable();
   renderProductsTable();
+  renderReviewProductSuggestions();
   calculateDashboardMetrics();
   updateNotifications();
 }
@@ -5143,9 +5201,37 @@ function injectAdminTabPlaybooks() {
 
 $(document).ready(function () {
   const adminIdentity = ADMIN_RUNTIME.admin || {};
-  if (adminIdentity?.email) {
-    $("#securityPasswordEmail, #securityKeyEmail").val(adminIdentity.email);
+
+  function normalizeAdminEmail(value) {
+    return (value || "").toString().trim().toLowerCase();
   }
+
+  function syncAdminIdentityUi(nextIdentity = {}) {
+    if (!window.CommerzaAdminRuntime) {
+      window.CommerzaAdminRuntime = {};
+    }
+
+    if (!window.CommerzaAdminRuntime.admin) {
+      window.CommerzaAdminRuntime.admin = {};
+    }
+
+    if (nextIdentity?.name) {
+      const safeName = nextIdentity.name.toString().trim();
+      if (safeName !== "") {
+        window.CommerzaAdminRuntime.admin.name = safeName;
+        $("#adminSidebarName").text(safeName);
+      }
+    }
+
+    const normalizedEmail = normalizeAdminEmail(nextIdentity?.email || "");
+    if (normalizedEmail !== "") {
+      window.CommerzaAdminRuntime.admin.email = normalizedEmail;
+      $("#adminSidebarEmail").text(normalizedEmail);
+      $("#securityPasswordEmail, #securityKeyEmail").val(normalizedEmail);
+    }
+  }
+
+  syncAdminIdentityUi(adminIdentity);
 
   const sidebar = document.getElementById("sidebarMenu");
   if (sidebar) {
@@ -5297,6 +5383,10 @@ $(document).ready(function () {
   applyButtonCooldown("#sendCouponEmailBtn");
   applyButtonCooldown("#refreshCouponsBtn");
   applyButtonCooldown("#refreshReviewsBtn");
+  applyButtonCooldown("#submitAddReviewBtn");
+  applyButtonCooldown("#addFakeReviewBtn");
+  applyButtonCooldown("#addSingleFakeReviewBtn");
+  applyButtonCooldown("#addFakeBulkReviewsBtn");
   applyButtonCooldown("#securityEventsApplyBtn");
   applyButtonCooldown("#securityEventsClearBtn");
   applyButtonCooldown("#securityEventsRefreshBtn");
@@ -6063,9 +6153,9 @@ $(document).ready(function () {
       confirmEmail,
     })
       .then((result) => {
-        if (result?.email) {
-          $("#securityPasswordEmail, #securityKeyEmail").val(result.email);
-        }
+        syncAdminIdentityUi({
+          email: result?.email || newEmail,
+        });
         $(
           "#securityEmailPassword, #securityEmailResetKey, #securityEmailNew, #securityEmailConfirm",
         ).val("");

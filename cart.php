@@ -242,6 +242,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
     }
 
     $grand_total = round(max(0, $subtotal + $shipping_cost - $discount_total), 2);
+
+    $checkout_items_signature = [];
+    foreach ($normalized_items as $signature_row) {
+      $checkout_items_signature[] = [
+        'product_id' => (int)($signature_row['product_id'] ?? 0),
+        'quantity' => (int)($signature_row['quantity'] ?? 0),
+        'unit_price' => round((float)($signature_row['unit_price'] ?? 0), 2),
+        'line_total' => round((float)($signature_row['line_total'] ?? 0), 2),
+      ];
+    }
+
+    $checkout_guard_payload = [
+      'user_id' => $user_id,
+      'customer_email' => $customer_email,
+      'customer_phone' => $customer_phone,
+      'customer_address' => $customer_address,
+      'payment_method' => $payment_method_label,
+      'subtotal' => round($subtotal, 2),
+      'shipping_cost' => round($shipping_cost, 2),
+      'discount_total' => round($discount_total, 2),
+      'grand_total' => round($grand_total, 2),
+      'coupon_code' => $coupon_code,
+      'items' => $checkout_items_signature,
+    ];
+
+    $checkout_guard_json = json_encode($checkout_guard_payload, JSON_UNESCAPED_SLASHES);
+    if (!is_string($checkout_guard_json) || $checkout_guard_json === '') {
+      $checkout_guard_json = json_encode([
+        'fallback' => true,
+        'ts' => microtime(true),
+        'user_id' => $user_id,
+      ]);
+    }
+
+    $checkout_guard_request_id = hash('sha256', (string)$checkout_guard_json);
+    $checkout_guard = commerza_idempotency_consume(
+      $con,
+      'checkout_recent_cart_' . $user_id,
+      $checkout_guard_request_id,
+      30
+    );
+
+    if (!(bool)($checkout_guard['ok'] ?? false)) {
+      $errors[] = (bool)($checkout_guard['duplicate'] ?? false)
+        ? 'Duplicate order submission detected from the same cart within 30 seconds. Please wait and try again.'
+        : (string)($checkout_guard['message'] ?? 'Unable to verify duplicate checkout protection.');
+    }
+
     $order_number = generate_order_number($con);
 
     $order_notes_text = implode("\n", array_filter($payment_notes));

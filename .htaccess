@@ -42,9 +42,14 @@ Header append Vary Accept-Encoding
 <IfModule mod_rewrite.c>
 RewriteEngine On
 
+# Deny uncommon HTTP methods that should never be used by the storefront.
+RewriteCond %{REQUEST_METHOD} ^(?:TRACE|TRACK)$ [NC]
+RewriteRule ^ - [F,L]
+
 # Protect environment, dumps, docs, and VCS metadata from direct access.
-RewriteRule (^|/)(?:\.env(?:\..*)?|composer\.(?:json|lock)|package(?:-lock)?\.json|phpunit\.xml|README\.md|SECURITY\.md|instructions\.md|llms\.txt|backend/database/.*\.sql|.*\.(?:sql|bak|log|ini|ps1|sh))$ - [F,L,NC]
+RewriteRule (^|/)(?:\.env(?:\..*)?|\.ht(?:access|passwd)|web\.config|Thumbs\.db|Desktop\.ini|\.DS_Store|composer\.(?:json|lock)|package(?:-lock)?\.json|phpunit\.xml|README\.md|SECURITY\.md|instructions\.md|llms\.txt|backend/database/.*\.sql|.*\.(?:sql|bak|log|ini|ps1|sh))$ - [F,L,NC]
 RewriteRule (^|/)\.(?:git|svn|hg)(?:/|$) - [F,L,NC]
+RewriteRule ^backend/database(?:/|$) - [F,L,NC]
 RewriteRule ^backend/(?:data|mailer|nav_state|notifications|rate_limit|cart_helpers|coupon_helpers|payment_helpers|security_helpers|security_events|products_schema_helpers|expiry_cleanup|send_engagement_reminders|weekly_analytics_report|monthly_profit_report)\.php$ - [F,L,NC]
 RewriteRule ^admin/backend/auth\.php$ - [F,L,NC]
 

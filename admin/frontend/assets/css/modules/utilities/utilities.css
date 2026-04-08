@@ -263,6 +263,36 @@
   font-size: 0.9rem;
 }
 
+.review-workbench-card {
+  border: 1px solid rgba(255, 160, 96, 0.32) !important;
+  background:
+    radial-gradient(
+      circle at 6% 10%,
+      rgba(255, 168, 102, 0.14),
+      transparent 40%
+    ),
+    linear-gradient(150deg, rgba(17, 17, 22, 0.98), rgba(9, 9, 13, 0.98));
+}
+
+.review-workbench-card .card-header {
+  background: linear-gradient(
+    110deg,
+    rgba(41, 26, 14, 0.9),
+    rgba(12, 12, 16, 0.98)
+  ) !important;
+}
+
+.review-workbench-card .form-control,
+.review-workbench-card .form-select {
+  border: 1px solid rgba(255, 154, 88, 0.25);
+  background: rgba(16, 16, 20, 0.92) !important;
+}
+
+#reviewQuickHint {
+  color: #d3cabf !important;
+  font-size: 0.8rem;
+}
+
 .coupon-overview-card {
   border: 1px solid rgba(255, 122, 26, 0.24);
   border-radius: 16px;

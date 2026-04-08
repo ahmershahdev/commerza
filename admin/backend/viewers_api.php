@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 header('Content-Type: application/json; charset=utf-8');
@@ -157,7 +158,13 @@ function admin_viewers_stats(mysqli $con, int $windowSeconds): array
 
     try {
         $activeStmt = $con->prepare(
-            'SELECT COUNT(DISTINCT session_key) AS total
+            'SELECT COUNT(DISTINCT (
+                CASE
+                    WHEN user_id IS NOT NULL THEN CONCAT("u:", user_id)
+                    WHEN NULLIF(TRIM(ip_address), "") IS NOT NULL THEN CONCAT("i:", TRIM(ip_address))
+                    ELSE CONCAT("s:", session_key)
+                END
+             )) AS total
              FROM live_product_viewers
              WHERE last_seen_at >= ?'
         );
@@ -203,7 +210,14 @@ function admin_viewers_stats(mysqli $con, int $windowSeconds): array
 
     try {
         $topStmt = $con->prepare(
-            'SELECT p.id, p.name, COUNT(*) AS viewers
+            'SELECT p.id, p.name,
+                    COUNT(DISTINCT (
+                        CASE
+                            WHEN v.user_id IS NOT NULL THEN CONCAT("u:", v.user_id)
+                            WHEN NULLIF(TRIM(v.ip_address), "") IS NOT NULL THEN CONCAT("i:", TRIM(v.ip_address))
+                            ELSE CONCAT("s:", v.session_key)
+                        END
+                    )) AS viewers
              FROM live_product_viewers v
              INNER JOIN products p ON p.id = v.product_id
              WHERE v.last_seen_at >= ?

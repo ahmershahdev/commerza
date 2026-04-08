@@ -14,6 +14,30 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
 $adminFrontendBaseHref = rtrim(admin_public_url('/admin/frontend/'), '/') . '/';
 $adminPanelCanonicalUrl = admin_public_url('/admin-panel');
 $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.webp');
+$adminDisplayNameRaw = trim((string)($adminUser['full_name'] ?? 'Admin User'));
+if ($adminDisplayNameRaw === '') {
+    $adminDisplayNameRaw = 'Admin User';
+}
+$adminDisplayName = $adminDisplayNameRaw;
+if ($adminDisplayNameRaw !== '') {
+    $nameParts = preg_split('/\s+/', $adminDisplayNameRaw) ?: [];
+    $normalizedNameParts = [];
+    foreach ($nameParts as $part) {
+        $token = (string)$part;
+        if (preg_match('/^[A-Z]{3,}$/', $token) === 1) {
+            $normalizedNameParts[] = ucfirst(strtolower($token));
+            continue;
+        }
+
+        $normalizedNameParts[] = $token;
+    }
+
+    $adminDisplayName = trim(implode(' ', $normalizedNameParts));
+    if ($adminDisplayName === '') {
+        $adminDisplayName = 'Admin User';
+    }
+}
+$adminDisplayEmail = strtolower(trim((string)($adminUser['email'] ?? '')));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -185,9 +209,9 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                 <img src="https://ui-avatars.com/api/?name=Admin+User&background=ff6600&color=000"
                                     alt="Admin" class="rounded-circle border border-3 border-orange mb-3" width="60"
                                     height="60">
-                                <p class="mb-1 fw-bold text-light"><?= htmlspecialchars((string)($adminUser['full_name'] ?? 'Admin User')) ?></p>
-                                <small class="text-secondary d-block mb-2"><?= htmlspecialchars((string)($adminUser['email'] ?? '')) ?></small>
-                                <small class="text-white d-block">Administrator</small>
+                                <p class="mb-1 fw-bold text-light" id="adminSidebarName"><?= htmlspecialchars($adminDisplayName, ENT_QUOTES, 'UTF-8') ?></p>
+                                <small class="text-secondary d-block mb-2" id="adminSidebarEmail"><?= htmlspecialchars($adminDisplayEmail, ENT_QUOTES, 'UTF-8') ?></small>
+                                <small class="text-white d-block" id="adminSidebarRole">Administrator</small>
                             </div>
                         </div>
                     </div>
@@ -1243,15 +1267,18 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                     </div>
                                     <input type="hidden" id="reviewVisibilityFilter" value="all">
                                     <button class="btn btn-sm btn-orange" id="addReviewBtn" type="button">
-                                        <i class="bi bi-plus-circle me-1"></i>Add Review
+                                        <i class="bi bi-layout-text-window-reverse me-1"></i>Use Quick Form
                                     </button>
                                     <button class="btn btn-sm btn-outline-info" id="addFakeReviewBtn" type="button">
-                                        <i class="bi bi-magic me-1"></i>Add Fake
+                                        <i class="bi bi-magic me-1"></i>Quick Fake x1
                                     </button>
                                     <button class="btn btn-sm btn-outline-orange" id="refreshReviewsBtn" type="button">
                                         <i class="bi bi-arrow-clockwise me-1"></i>Refresh
                                     </button>
                                 </div>
+                            </div>
+                            <div class="card-body border-bottom border-secondary px-4 py-3">
+                                <small class="field-hint mb-0 d-block" id="reviewQuickHint">Use the quick form below to add reviews without popup prompts.</small>
                             </div>
                             <div class="card-body p-0">
                                 <div class="table-responsive">
@@ -1277,15 +1304,72 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                             </div>
                         </div>
 
+                        <div class="card admin-card border-0 shadow-sm mb-4 review-workbench-card" id="reviewQuickAddCard">
+                            <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <h3 class="h5 mb-0 fw-bold text-orange">Quick Add Review (Manual)</h3>
+                                <span class="badge bg-dark border border-secondary text-light">Clear form workflow</span>
+                            </div>
+                            <div class="card-body p-4">
+                                <div class="row g-3">
+                                    <div class="col-12 col-md-3">
+                                        <label for="reviewAddUserId" class="form-label text-light">User ID</label>
+                                        <input type="number" class="form-control bg-secondary border-0 text-light" id="reviewAddUserId" min="1" placeholder="15">
+                                    </div>
+                                    <div class="col-12 col-md-5">
+                                        <label for="reviewAddProductId" class="form-label text-light">Product (ID or ID - Name)</label>
+                                        <input type="text" class="form-control bg-secondary border-0 text-light" id="reviewAddProductId" list="reviewProductSuggestions" placeholder="12 or 12 - Chrono Steel">
+                                    </div>
+                                    <div class="col-12 col-md-4">
+                                        <label for="reviewAddOrderId" class="form-label text-light">Order ID (optional)</label>
+                                        <input type="number" class="form-control bg-secondary border-0 text-light" id="reviewAddOrderId" min="1" placeholder="1024">
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <label for="reviewAddRating" class="form-label text-light">Rating</label>
+                                        <select class="form-select bg-secondary border-0 text-light" id="reviewAddRating">
+                                            <option value="5">5 - Excellent</option>
+                                            <option value="4">4 - Good</option>
+                                            <option value="3">3 - Average</option>
+                                            <option value="2">2 - Poor</option>
+                                            <option value="1">1 - Bad</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <label for="reviewAddVisible" class="form-label text-light">Visibility</label>
+                                        <select class="form-select bg-secondary border-0 text-light" id="reviewAddVisible">
+                                            <option value="1">Visible</option>
+                                            <option value="0">Hidden</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <label for="reviewAddNote" class="form-label text-light">Admin Note (optional)</label>
+                                        <input type="text" class="form-control bg-secondary border-0 text-light" id="reviewAddNote" maxlength="500" placeholder="Internal moderation note">
+                                    </div>
+                                    <div class="col-12">
+                                        <label for="reviewAddText" class="form-label text-light">Review Text</label>
+                                        <textarea class="form-control bg-secondary border-0 text-light" id="reviewAddText" rows="3" maxlength="500" placeholder="Write 10 to 500 characters."></textarea>
+                                    </div>
+                                </div>
+                                <datalist id="reviewProductSuggestions"></datalist>
+                                <div class="d-flex gap-2 mt-3 flex-wrap">
+                                    <button class="btn btn-orange" id="submitAddReviewBtn" type="button">
+                                        <i class="bi bi-plus-circle me-1"></i>Add Review Now
+                                    </button>
+                                    <button class="btn btn-outline-secondary" id="clearAddReviewBtn" type="button">
+                                        <i class="bi bi-eraser me-1"></i>Clear Fields
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="card admin-card border-0 shadow-sm">
                             <div class="card-header bg-dark border-bottom border-secondary py-3">
-                                <h3 class="h5 mb-0 fw-bold text-orange">Generate Fake Bulk Reviews</h3>
+                                <h3 class="h5 mb-0 fw-bold text-orange">Generate Fake Reviews</h3>
                             </div>
                             <div class="card-body p-4">
                                 <div class="row g-3 align-items-end">
                                     <div class="col-12 col-md-3">
                                         <label for="fakeReviewProductId" class="form-label text-light">Product ID</label>
-                                        <input type="number" class="form-control bg-secondary border-0 text-light" id="fakeReviewProductId" min="1" placeholder="10">
+                                        <input type="text" class="form-control bg-secondary border-0 text-light" id="fakeReviewProductId" list="reviewProductSuggestions" placeholder="10 or 10 - Product Name">
                                     </div>
                                     <div class="col-12 col-md-2">
                                         <label for="fakeReviewCount" class="form-label text-light">Count</label>
@@ -1314,6 +1398,9 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                     </div>
                                 </div>
                                 <div class="d-flex gap-2 mt-3 flex-wrap">
+                                    <button class="btn btn-outline-info" id="addSingleFakeReviewBtn" type="button">
+                                        <i class="bi bi-magic me-1"></i>Generate 1 Fake Review
+                                    </button>
                                     <button class="btn btn-orange" id="addFakeBulkReviewsBtn" type="button">
                                         <i class="bi bi-lightning-charge me-1"></i>Generate Bulk Fake Reviews
                                     </button>
@@ -2426,8 +2513,8 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
             csrfToken: <?= json_encode($adminCsrfToken, JSON_UNESCAPED_SLASHES) ?>,
             admin: {
                 id: <?= (int)($adminUser['id'] ?? 0) ?>,
-                name: <?= json_encode((string)($adminUser['full_name'] ?? ''), JSON_UNESCAPED_SLASHES) ?>,
-                email: <?= json_encode((string)($adminUser['email'] ?? ''), JSON_UNESCAPED_SLASHES) ?>,
+                name: <?= json_encode($adminDisplayName, JSON_UNESCAPED_SLASHES) ?>,
+                email: <?= json_encode($adminDisplayEmail, JSON_UNESCAPED_SLASHES) ?>,
             }
         };
     </script>

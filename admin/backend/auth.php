@@ -770,6 +770,21 @@ function admin_email_setting(mysqli $con, string $key, string $fallback = ''): s
     return $value !== '' ? $value : $fallback;
 }
 
+function admin_normalize_site_name_for_display(string $value, string $fallback = 'Commerza'): string
+{
+    $name = trim($value);
+    if ($name === '') {
+        return $fallback;
+    }
+
+    $lettersOnly = preg_replace('/[^a-z]/i', '', $name);
+    if (is_string($lettersOnly) && $lettersOnly !== '' && strtoupper($lettersOnly) === $lettersOnly) {
+        return ucwords(strtolower($name));
+    }
+
+    return $name;
+}
+
 function admin_email_context(): array
 {
     global $con;
@@ -785,6 +800,8 @@ function admin_email_context(): array
             $supportEmail = $siteEmail;
         }
     }
+
+    $siteName = admin_normalize_site_name_for_display($siteName, 'Commerza');
 
     if (!filter_var($supportEmail, FILTER_VALIDATE_EMAIL)) {
         $supportEmail = 'support@ahmershah.dev';
