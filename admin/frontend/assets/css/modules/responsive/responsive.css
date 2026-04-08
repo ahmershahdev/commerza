@@ -391,6 +391,14 @@ body.sidebar-open .admin-backdrop {
     min-height: auto;
   }
 
+  .coupon-preset-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .coupon-search-group {
+    width: 100%;
+  }
+
   .analytics-chart-shell {
     height: 220px;
     min-height: 180px;

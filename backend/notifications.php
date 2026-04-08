@@ -210,13 +210,6 @@ function commerza_notifications_public_url(string $path = ''): string
     return $base . $path;
 }
 
-function commerza_notifications_logo_url(): string
-{
-    return commerza_mail_logo_src(
-        commerza_notifications_public_url('/frontend/assets/images/logo/commerza-logo.webp')
-    );
-}
-
 function commerza_notifications_social_links_html(): string
 {
     $links = [
@@ -256,7 +249,6 @@ function commerza_notifications_layout(string $title, string $intro, string $bod
     $safeIntro = htmlspecialchars($intro, ENT_QUOTES, 'UTF-8');
     $safeSiteName = htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8');
     $safeSupportEmail = htmlspecialchars($supportEmail, ENT_QUOTES, 'UTF-8');
-    $safeLogoUrl = htmlspecialchars(commerza_notifications_logo_url(), ENT_QUOTES, 'UTF-8');
     $safeHomeUrl = htmlspecialchars(commerza_notifications_public_url('/'), ENT_QUOTES, 'UTF-8');
     $socialLinks = commerza_notifications_social_links_html();
 
@@ -273,7 +265,6 @@ function commerza_notifications_layout(string $title, string $intro, string $bod
                                     <tr>
                                         <td style="vertical-align:middle;">
                                             <a href="' . $safeHomeUrl . '" style="text-decoration:none;display:inline-flex;align-items:center;gap:10px;">
-                                                <img src="' . $safeLogoUrl . '" alt="Commerza" width="44" height="44" style="display:block;border-radius:8px;object-fit:cover;">
                                                 <span style="color:#ff8a2b;font-size:18px;font-weight:800;letter-spacing:.6px;">' . $safeSiteName . '</span>
                                             </a>
                                         </td>

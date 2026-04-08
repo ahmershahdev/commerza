@@ -19,11 +19,93 @@ function getSiteSettings() {
   }
 }
 
+function escapeHtml(value) {
+  return (value || "")
+    .toString()
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function sanitizeRelativeAssetPath(value) {
+  const raw = (value || "").toString().trim();
+  if (!raw) return "";
+  if (raw.includes("..") || raw.includes("\\")) return "";
+  if (!/^[a-zA-Z0-9/_\-.]+$/.test(raw)) return "";
+  return raw;
+}
+
+function sanitizeHttpUrl(value) {
+  const raw = (value || "").toString().trim();
+  if (!raw) return "";
+
+  if (!/^https?:\/\//i.test(raw)) {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return parsed.href;
+    }
+  } catch (error) {
+    return "";
+  }
+
+  return "";
+}
+
+function sanitizeMediaSource(value) {
+  const asHttp = sanitizeHttpUrl(value);
+  if (asHttp) {
+    return asHttp;
+  }
+
+  return sanitizeRelativeAssetPath(value);
+}
+
+function sanitizeLinkUrl(value) {
+  const asHttp = sanitizeHttpUrl(value);
+  if (asHttp) {
+    return asHttp;
+  }
+
+  const raw = (value || "").toString().trim();
+  if (!raw) {
+    return "";
+  }
+
+  if (raw.includes("..") || raw.includes("\\")) {
+    return "";
+  }
+
+  if (/^javascript:/i.test(raw)) {
+    return "";
+  }
+
+  if (!/^[a-zA-Z0-9/_\-.?#=&%]+$/.test(raw)) {
+    return "";
+  }
+
+  return raw;
+}
+
+function sanitizeIconClass(value) {
+  const raw = (value || "").toString().trim();
+  if (/^bi\s+bi-[a-z0-9-]+$/i.test(raw)) {
+    return raw;
+  }
+
+  return "bi bi-link-45deg";
+}
+
 function applyBrandSettings(brand) {
   if (!brand) return;
   const name = (brand.name || "").trim();
-  const logo = (brand.logo || "").trim();
-  const favicon = (brand.favicon || "").trim();
+  const logo = sanitizeMediaSource(brand.logo || "");
+  const favicon = sanitizeMediaSource(brand.favicon || "");
 
   if (name) {
     updateMetaForBrand(name);
@@ -183,14 +265,24 @@ function applySocialSettings(socialLinks) {
     if (url.includes("youtube")) return "YouTube";
     return "Social link";
   };
+
   const html = socialLinks
-    .map(
-      (link) => `
-        <a href="${link.url}" target="_blank" rel="noopener" aria-label="Follow on ${getSocialLabel(link)}">
-            <i class="${link.icon}"></i>
+    .map((link) => {
+      const safeUrl = sanitizeLinkUrl(link?.url || "");
+      if (!safeUrl) {
+        return "";
+      }
+
+      const safeLabel = escapeHtml(getSocialLabel(link));
+      const safeIcon = sanitizeIconClass(link?.icon || "");
+
+      return `
+        <a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener" aria-label="Follow on ${safeLabel}">
+            <i class="${escapeHtml(safeIcon)}"></i>
         </a>
-    `,
-    )
+      `;
+    })
+    .filter(Boolean)
     .join("");
 
   document.querySelectorAll(".social-links").forEach((container) => {
@@ -217,23 +309,36 @@ function applySliderSettings(sliderImages) {
 
   inner.innerHTML = sliderImages
     .map((slide, index) => {
+      const safeImage = sanitizeMediaSource(slide?.image || "");
+      if (!safeImage) {
+        return "";
+      }
+
+      const safeLabelText = escapeHtml(slide?.label || "");
+      const safeTextBody = escapeHtml(slide?.text || "");
+      const safeHeading = escapeHtml(slide?.heading || "");
+      const safeAlt = escapeHtml(slide?.alt || "carousel image");
+      const safeButtonText = escapeHtml(slide?.buttonText || "");
+      const safeButtonLink = sanitizeLinkUrl(slide?.buttonLink || "");
+
       const label = slide.label
-        ? `<span class="carousel-label">${slide.label}</span>`
+        ? `<span class="carousel-label">${safeLabelText}</span>`
         : "";
       const text = slide.text
-        ? `<p class="carousel-text">${slide.text}</p>`
+        ? `<p class="carousel-text">${safeTextBody}</p>`
         : "";
       const button =
-        slide.buttonText && slide.buttonLink
-          ? `<a href="${slide.buttonLink}" class="btn carousel-btn">${slide.buttonText}</a>`
+        safeButtonText && safeButtonLink
+          ? `<a href="${escapeHtml(safeButtonLink)}" class="btn carousel-btn">${safeButtonText}</a>`
           : "";
+
       return `
             <div class="carousel-item ${index === 0 ? "active" : ""}">
-                <img src="${slide.image}" class="d-block w-100 c-img" loading="lazy" alt="${slide.alt || "carousel image"}">
+                <img src="${escapeHtml(safeImage)}" class="d-block w-100 c-img" loading="lazy" alt="${safeAlt}">
                 <div class="carousel-overlay">
                     <div class="carousel-content">
                         ${label}
-                        <h2 class="carousel-heading">${slide.heading || ""}</h2>
+                        <h2 class="carousel-heading">${safeHeading}</h2>
                         ${text}
                         ${button}
                     </div>
@@ -241,6 +346,7 @@ function applySliderSettings(sliderImages) {
             </div>
         `;
     })
+    .filter(Boolean)
     .join("");
 }
 
@@ -264,7 +370,7 @@ function applyTickerSettings(ticker) {
   if (messages.length === 0) return;
   const repeated = messages.concat(messages);
   scroll.innerHTML = repeated
-    .map((message) => `<span>${message}</span>`)
+    .map((message) => `<span>${escapeHtml(message)}</span>`)
     .join("");
 }
 

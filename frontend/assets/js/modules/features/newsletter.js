@@ -31,9 +31,10 @@ function initNewsletterModal() {
   $("#newsletterForm").on("submit", async function (e) {
     e.preventDefault();
     const email = $("#newsletterEmail").val().trim();
+    const csrfToken = resolveNewsletterCsrfToken(this);
     if (!email) return;
 
-    const ok = await upsertNewsletterSubscriber(email, "modal");
+    const ok = await upsertNewsletterSubscriber(email, "modal", csrfToken);
     if (!ok) {
       showNotif("Unable to subscribe right now.", "warning");
       return;
@@ -69,13 +70,32 @@ function normalizeNewsletterEmail(email) {
   return (email || "").toString().trim().toLowerCase();
 }
 
-async function upsertNewsletterSubscriber(email, source) {
+function resolveNewsletterCsrfToken(formElement = null) {
+  const formToken = formElement?.querySelector(
+    'input[name="csrf_token"]',
+  )?.value;
+  if ((formToken || "").toString().trim()) {
+    return formToken.toString().trim();
+  }
+
+  const fallbackField = document.querySelector(
+    '#newsletterForm input[name="csrf_token"], .newsletter-form input[name="csrf_token"]',
+  );
+  const fallbackToken = (fallbackField?.value || "").toString().trim();
+  if (fallbackToken) {
+    return fallbackToken;
+  }
+
+  return (window.CommerzaCsrfToken || "").toString().trim();
+}
+
+async function upsertNewsletterSubscriber(email, source, csrfOverride = "") {
   const normalized = normalizeNewsletterEmail(email);
   if (!normalized || !normalized.includes("@")) {
     return false;
   }
 
-  const csrfToken = (window.CommerzaCsrfToken || "").toString().trim();
+  const csrfToken = (csrfOverride || "").toString().trim();
   if (!csrfToken) {
     return false;
   }
@@ -115,8 +135,9 @@ function initNewsletterInlineForm() {
     event.preventDefault();
     const input = form.querySelector('input[type="email"]');
     const email = input ? input.value.trim() : "";
+    const csrfToken = resolveNewsletterCsrfToken(form);
 
-    const ok = await upsertNewsletterSubscriber(email, "inline");
+    const ok = await upsertNewsletterSubscriber(email, "inline", csrfToken);
     if (!ok) {
       showNotif("Please enter a valid email address.", "warning");
       return;

@@ -233,6 +233,17 @@ function commerza_captcha_normalize_answer(string $value): string
     return substr(trim($normalized), 0, 64);
 }
 
+function commerza_secure_nonce_hex(int $byteLength = 16): string
+{
+    $byteLength = max(16, $byteLength);
+
+    try {
+        return bin2hex(random_bytes($byteLength));
+    } catch (Throwable $exception) {
+        throw new RuntimeException('Unable to generate a secure nonce.', 0, $exception);
+    }
+}
+
 function commerza_captcha_builtin_question_bank(): array
 {
     return [
@@ -423,11 +434,7 @@ function commerza_captcha_builtin_issue(string $context): array
         $answers[] = 'paris';
     }
 
-    try {
-        $nonce = bin2hex(random_bytes(8));
-    } catch (Throwable $exception) {
-        $nonce = substr(hash('sha256', microtime(true) . '|' . mt_rand()), 0, 16);
-    }
+    $nonce = commerza_secure_nonce_hex(16);
 
     $answerHashes = [];
     foreach ($answers as $answer) {
@@ -798,6 +805,44 @@ function commerza_captcha_script_tag(mysqli $con): string
         });
     }
 
+    function hardenFallbackInput(container) {
+        if (!container || container.dataset.captchaInputHardened === '1') {
+            return;
+        }
+
+        container.dataset.captchaInputHardened = '1';
+
+        var noSelectNodes = container.querySelectorAll(
+            '.commerza-captcha-fallback label, [data-commerza-captcha-fallback-message]'
+        );
+        noSelectNodes.forEach(function (node) {
+            node.style.userSelect = 'none';
+            node.style.webkitUserSelect = 'none';
+            node.style.msUserSelect = 'none';
+        });
+
+        var answerInput = container.querySelector('input[data-commerza-captcha-answer]');
+        if (!answerInput) {
+            return;
+        }
+
+        answerInput.style.userSelect = 'none';
+        answerInput.style.webkitUserSelect = 'none';
+        answerInput.style.msUserSelect = 'none';
+
+        ['paste', 'copy', 'cut', 'drop', 'contextmenu'].forEach(function (eventName) {
+            answerInput.addEventListener(eventName, function (event) {
+                event.preventDefault();
+            });
+        });
+
+        answerInput.addEventListener('keydown', function (event) {
+            if ((event.ctrlKey || event.metaKey) && ['c', 'v', 'x'].indexOf((event.key || '').toLowerCase()) !== -1) {
+                event.preventDefault();
+            }
+        });
+    }
+
     function contextToAction(context) {
         var normalized = (context || 'default').toString().trim().toLowerCase();
         normalized = normalized.replace(/[^a-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '');
@@ -857,6 +902,7 @@ function commerza_captcha_script_tag(mysqli $con): string
     function attachFormSubmitGuards() {
         eachCaptchaContainer(function (container) {
             bindFallbackToggle(container);
+            hardenFallbackInput(container);
 
             var form = container.closest('form');
             if (!form || form.dataset.commerzaCaptchaSubmitBound === '1') {
@@ -1100,9 +1146,9 @@ function commerza_captcha_widget_html(mysqli $con, string $context = ''): string
         . $widget
         . '<button type="button" data-commerza-fallback-toggle style="display:' . $toggleDisplay . ';align-items:center;justify-content:center;margin-top:10px;padding:8px 10px;border-radius:10px;border:1px solid rgba(255,165,110,.35);background:rgba(255,122,26,.08);color:#ffd3ab;font:600 12px/1.35 Inter,Arial,sans-serif;cursor:pointer;">Use backup challenge</button>'
         . '<div class="commerza-captcha-fallback" style="display:' . $fallbackDisplay . ';margin-top:10px;padding:10px;border-radius:12px;border:1px solid rgba(255,168,96,.35);background:rgba(22,22,22,.74);">'
-        . '<div data-commerza-captcha-fallback-message style="color:#ffd8b6;font-size:12px;line-height:1.45;margin-bottom:8px;">' . htmlspecialchars($fallbackMessage, ENT_QUOTES, 'UTF-8') . '</div>'
-        . '<label style="display:block;color:#f3e7da;font-size:13px;font-weight:600;margin-bottom:6px;">Security check: ' . $question . ' = ?</label>'
-        . '<input type="text" name="' . $answerField . '" inputmode="numeric" pattern="-?[0-9]{1,4}" maxlength="4" autocomplete="off" class="form-control bg-secondary border-0 text-light" style="min-height:42px;">'
+        . '<div data-commerza-captcha-fallback-message style="color:#ffd8b6;font-size:12px;line-height:1.45;margin-bottom:8px;user-select:none;-webkit-user-select:none;">' . htmlspecialchars($fallbackMessage, ENT_QUOTES, 'UTF-8') . '</div>'
+        . '<label style="display:block;color:#f3e7da;font-size:13px;font-weight:600;margin-bottom:6px;user-select:none;-webkit-user-select:none;">Security check: ' . $question . ' = ?</label>'
+        . '<input type="text" name="' . $answerField . '" inputmode="text" pattern="[-A-Za-z0-9 ]{1,64}" maxlength="64" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-commerza-captcha-answer="1" class="form-control bg-secondary border-0 text-light" style="min-height:42px;user-select:none;-webkit-user-select:none;">'
         . '<input type="hidden" name="' . $tokenField . '" value="' . $token . '">'
         . '</div>'
         . '</div>'

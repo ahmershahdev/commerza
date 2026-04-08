@@ -765,6 +765,7 @@ $productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza
         <p id="reviewEligibilityMessage" class="small text-secondary mb-3">Login and place an eligible order to review this product.</p>
         <p id="reviewLockNotice" class="small text-warning mb-3 d-none"></p>
         <form id="productReviewForm" class="row g-3">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string)$_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
           <input type="hidden" id="reviewProductId" value="">
           <div class="col-12 col-md-4">
             <label for="reviewRating" class="form-label text-light">Rating</label>

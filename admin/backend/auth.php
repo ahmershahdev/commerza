@@ -844,11 +844,6 @@ function admin_email_layout(string $title, string $intro, string $bodyHtml): str
     $safeTitle = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
     $safeIntro = htmlspecialchars($intro, ENT_QUOTES, 'UTF-8');
     $safeSiteName = htmlspecialchars((string)($context['site_name'] ?? 'Commerza'), ENT_QUOTES, 'UTF-8');
-    $safeLogo = htmlspecialchars(
-        commerza_mail_logo_src(admin_public_url('/frontend/assets/images/logo/commerza-logo.webp')),
-        ENT_QUOTES,
-        'UTF-8'
-    );
     $safeHome = htmlspecialchars(admin_public_url('/'), ENT_QUOTES, 'UTF-8');
     $safeSupportEmail = htmlspecialchars((string)($context['support_email'] ?? 'support@ahmershah.dev'), ENT_QUOTES, 'UTF-8');
     $socialLinks = '<a href="https://instagram.com/commerza" style="color:#ffb066;text-decoration:none;">Instagram</a> <span style="color:#666;">|</span> <a href="https://facebook.com/commerza" style="color:#ffb066;text-decoration:none;">Facebook</a> <span style="color:#666;">|</span> <a href="https://www.linkedin.com/in/syedahmershah" style="color:#ffb066;text-decoration:none;">LinkedIn</a> <span style="color:#666;">|</span> <a href="https://github.com/ahmershahdev" style="color:#ffb066;text-decoration:none;">GitHub</a>';
@@ -863,7 +858,6 @@ function admin_email_layout(string $title, string $intro, string $bodyHtml): str
                         <tr>
                             <td style="padding:18px 24px;background:linear-gradient(90deg,#161616,#101010);border-bottom:1px solid #2b2b2b;">
                                 <a href="' . $safeHome . '" style="text-decoration:none;display:inline-flex;align-items:center;gap:10px;">
-                                    <img src="' . $safeLogo . '" alt="Commerza" width="44" height="44" style="display:block;border-radius:8px;object-fit:cover;">
                                     <span style="color:#ff8a2b;font-size:18px;font-weight:800;letter-spacing:.6px;">' . $safeSiteName . ' Admin Security</span>
                                 </a>
                             </td>

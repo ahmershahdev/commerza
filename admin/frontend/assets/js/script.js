@@ -37,6 +37,7 @@ let adminShippingConfig = {
   freeShippingOver: 500,
 };
 let adminCoupons = [];
+let couponSearchQuery = "";
 let adminReviews = [];
 let productTrashItems = [];
 let notificationsPausedUntil = 0;
@@ -277,13 +278,14 @@ const ADMIN_TAB_PLAYBOOKS = {
   },
   couponsSection: {
     title: "Coupon Campaign Steps",
-    intro: "Build safe offers that customers can redeem without confusion.",
+    intro:
+      "Use the campaign studio to launch cleaner offers with fewer support issues.",
     steps: [
-      "Create a simple code with clear discount type and value.",
-      "Set expiry date, usage limit, and per-user limit before saving.",
-      "Send test email copy first, then launch to customer lists.",
+      "Pick a preset and generate a readable code from your campaign seed.",
+      "Validate min order, max discount, and usage limits in the live preview.",
+      "Prefill email copy, test with small recipients, then launch at scale.",
     ],
-    tip: "Short codes like SAVE10 are easier for users and support teams.",
+    tip: "Keep code length short and set per-user limits for high-traffic events.",
   },
   reviewsSection: {
     title: "Review Moderation Steps",
@@ -1943,9 +1945,307 @@ function securityActorTypeLabel(value) {
   return "All";
 }
 
+const COUPON_SAMPLE_CART_TOTAL = 5000;
+const COUPON_PRESETS = {
+  flash10: {
+    seed: "FLASH",
+    title: "Flash Deal 10%",
+    description: "24-hour conversion campaign",
+    discountType: "percent",
+    discountValue: 10,
+    minOrder: 2000,
+    maxDiscount: 900,
+    usageLimit: 200,
+    perUserLimit: 1,
+    expiresInHours: 24,
+  },
+  welcome250: {
+    seed: "WELCOME",
+    title: "Welcome PKR 250",
+    description: "First-order welcome incentive",
+    discountType: "fixed",
+    discountValue: 250,
+    minOrder: 1500,
+    maxDiscount: null,
+    usageLimit: 1000,
+    perUserLimit: 1,
+    expiresInHours: 168,
+  },
+  vip15: {
+    seed: "VIP",
+    title: "VIP 15% Capped",
+    description: "High-intent returning customer offer",
+    discountType: "percent",
+    discountValue: 15,
+    minOrder: 5000,
+    maxDiscount: 1500,
+    usageLimit: 300,
+    perUserLimit: 2,
+    expiresInHours: 120,
+  },
+};
+
+function couponNormalizeCodeInput(value) {
+  const cleaned = (value || "")
+    .toString()
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9_-]+/g, "");
+  return cleaned.slice(0, 50);
+}
+
+function couponBuildCode(seed = "") {
+  const normalizedSeed = couponNormalizeCodeInput(
+    (seed || "").toString().replace(/\s+/g, "_").replace(/_+/g, "_"),
+  );
+
+  const datePart = new Date().toISOString().slice(5, 10).replace("-", "");
+  const randomPart = Math.floor(100 + Math.random() * 900);
+
+  if (normalizedSeed.length >= 3) {
+    return `${normalizedSeed.slice(0, 18)}${datePart}`;
+  }
+
+  return `DEAL${datePart}${randomPart}`;
+}
+
+function couponCurrentFormState() {
+  const discountType =
+    ($("#couponDiscountType").val() || "fixed").toString() === "percent"
+      ? "percent"
+      : "fixed";
+
+  const discountValue = Math.max(
+    0,
+    parseFloat($("#couponDiscountValue").val()) || 0,
+  );
+  const minOrder = Math.max(0, parseFloat($("#couponMinOrder").val()) || 0);
+  const maxDiscountRaw = parseFloat($("#couponMaxDiscount").val());
+  const maxDiscount =
+    discountType === "percent" && Number.isFinite(maxDiscountRaw)
+      ? Math.max(0, maxDiscountRaw)
+      : 0;
+
+  return {
+    code: couponNormalizeCodeInput($("#couponCode").val()),
+    title: ($("#couponTitle").val() || "").toString().trim(),
+    discountType,
+    discountValue,
+    minOrder,
+    maxDiscount,
+    usageLimit: Math.max(0, parseInt($("#couponUsageLimit").val(), 10) || 0),
+    perUserLimit: Math.max(
+      0,
+      parseInt($("#couponPerUserLimit").val(), 10) || 0,
+    ),
+    expiresAt: ($("#couponExpiresAt").val() || "").toString().trim(),
+    isActive: $("#couponIsActive").is(":checked"),
+  };
+}
+
+function couponSimulationLabel(state) {
+  const sampleSubtotal = COUPON_SAMPLE_CART_TOTAL;
+  let discount = 0;
+
+  if (sampleSubtotal >= state.minOrder && state.discountValue > 0) {
+    if (state.discountType === "percent") {
+      discount = sampleSubtotal * (state.discountValue / 100);
+      if (state.maxDiscount > 0) {
+        discount = Math.min(discount, state.maxDiscount);
+      }
+    } else {
+      discount = state.discountValue;
+    }
+  }
+
+  discount = Math.max(0, Math.min(discount, sampleSubtotal));
+  return `Sample: On ${formatPkr(sampleSubtotal)} cart, discount is ${formatPkr(discount)}.`;
+}
+
+function updateCouponPreview() {
+  if (!$("#couponPreviewCode").length) {
+    return;
+  }
+
+  const state = couponCurrentFormState();
+  const codeLabel = state.code || "NO-CODE";
+  const typeLabel =
+    state.discountType === "percent"
+      ? "Percent discount"
+      : "Fixed PKR discount";
+  const valueLabel =
+    state.discountType === "percent"
+      ? `${state.discountValue.toFixed(2)}%`
+      : formatPkr(state.discountValue);
+  const limitsLabel = [
+    state.usageLimit > 0 ? `Total ${state.usageLimit}` : "Total unlimited",
+    state.perUserLimit > 0
+      ? `Per-user ${state.perUserLimit}`
+      : "Per-user unlimited",
+  ].join(" | ");
+
+  let expiryLabel = "No expiry";
+  if (state.expiresAt) {
+    const parsed = new Date(state.expiresAt);
+    if (!Number.isNaN(parsed.getTime())) {
+      expiryLabel = formatDateTime(parsed.toISOString());
+    }
+  }
+
+  $("#couponPreviewCode").text(codeLabel);
+  $("#couponPreviewType").text(typeLabel);
+  $("#couponPreviewValue").text(valueLabel);
+  $("#couponPreviewMinOrder").text(formatPkr(state.minOrder));
+  $("#couponPreviewLimits").text(limitsLabel);
+  $("#couponPreviewExpiry").text(expiryLabel);
+  $("#couponPreviewStatus").text(state.isActive ? "Active" : "Inactive");
+  $("#couponPreviewSimulation").text(couponSimulationLabel(state));
+}
+
+function applyCouponPreset(presetKey) {
+  const preset = COUPON_PRESETS[(presetKey || "").toString()];
+  if (!preset) {
+    return;
+  }
+
+  const generatedCode = couponBuildCode(preset.seed);
+  const expiresAt = new Date(Date.now() + preset.expiresInHours * 3600000);
+  const localValue = new Date(
+    expiresAt.getTime() - expiresAt.getTimezoneOffset() * 60000,
+  )
+    .toISOString()
+    .slice(0, 16);
+
+  $("#couponCodeSeed").val(preset.seed);
+  $("#couponCode").val(generatedCode);
+  $("#couponTitle").val(preset.title);
+  $("#couponDescription").val(preset.description);
+  setAdminDropdownSelection(
+    "couponDiscountType",
+    preset.discountType,
+    couponDiscountTypeLabel(preset.discountType),
+  );
+  $("#couponDiscountType").trigger("change");
+  $("#couponDiscountValue").val(preset.discountValue);
+  $("#couponMinOrder").val(preset.minOrder);
+  $("#couponMaxDiscount").val(preset.maxDiscount || "");
+  $("#couponUsageLimit").val(preset.usageLimit);
+  $("#couponPerUserLimit").val(preset.perUserLimit);
+  $("#couponExpiresAt").val(localValue);
+  $("#couponIsActive").prop("checked", true);
+
+  updateCouponPreview();
+  showNotification("Coupon preset applied. Review and save.", "success");
+}
+
+function generateCouponCodeFromSeed() {
+  const seed =
+    ($("#couponCodeSeed").val() || $("#couponTitle").val() || "")
+      .toString()
+      .trim() || "DEAL";
+  const generated = couponBuildCode(seed);
+  $("#couponCode").val(generated);
+  updateCouponPreview();
+}
+
+async function copyCouponCodeToClipboard() {
+  const code = couponNormalizeCodeInput($("#couponCode").val());
+  if (!code) {
+    showNotification("Generate or type a coupon code first.", "warning");
+    return;
+  }
+
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(code);
+      showNotification("Coupon code copied.", "success");
+      return;
+    }
+  } catch (error) {
+    // Fallback to legacy copy flow below.
+  }
+
+  const tempInput = document.createElement("input");
+  tempInput.value = code;
+  document.body.appendChild(tempInput);
+  tempInput.select();
+  document.execCommand("copy");
+  document.body.removeChild(tempInput);
+  showNotification("Coupon code copied.", "success");
+}
+
+function prefillCouponEmailTemplateFromForm() {
+  const code = couponNormalizeCodeInput($("#couponCode").val()) || "{{code}}";
+  const discountType =
+    ($("#couponDiscountType").val() || "fixed").toString() === "percent"
+      ? "percent"
+      : "fixed";
+  const discountValue = Math.max(
+    0,
+    parseFloat($("#couponDiscountValue").val()) || 0,
+  );
+  const minOrder = Math.max(0, parseFloat($("#couponMinOrder").val()) || 0);
+  const expiresRaw = ($("#couponExpiresAt").val() || "").toString().trim();
+  const title =
+    ($("#couponTitle").val() || "").toString().trim() ||
+    "Commerza exclusive offer";
+
+  const discountLabel =
+    discountType === "percent"
+      ? `${discountValue.toFixed(2)}% OFF`
+      : `${formatPkr(discountValue)} OFF`;
+
+  let expiryLine = "Expires: No expiry";
+  if (expiresRaw) {
+    const parsed = new Date(expiresRaw);
+    if (!Number.isNaN(parsed.getTime())) {
+      expiryLine = `Expires: ${formatDateTime(parsed.toISOString())}`;
+    }
+  }
+
+  const subject = `${title} - ${code}`;
+
+  const message = [
+    "Hi there,",
+    "",
+    `Use coupon code ${code} to get ${discountLabel}.`,
+    `Minimum order: ${formatPkr(minOrder)}`,
+    expiryLine,
+    "",
+    "You can also keep placeholders: {{code}}, {{discount}}, {{min_order}}, {{expires_at}}",
+    "",
+    "Thanks for shopping with Commerza.",
+  ].join("\n");
+
+  $("#couponEmailSubject").val(subject);
+  $("#couponEmailMessage").val(message);
+  showNotification("Email subject and template prefilled.", "success");
+}
+
+function couponFilteredCollection() {
+  const query = couponSearchQuery.trim().toLowerCase();
+  if (!query) {
+    return adminCoupons;
+  }
+
+  return adminCoupons.filter((coupon) => {
+    const haystack = [
+      coupon.code || "",
+      coupon.title || "",
+      coupon.description || "",
+      coupon.discountLabel || "",
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(query);
+  });
+}
+
 function resetCouponForm() {
   $("#couponId").val("");
   $("#couponCode").val("");
+  $("#couponCodeSeed").val("");
   $("#couponTitle").val("");
   $("#couponDescription").val("");
   setAdminDropdownSelection("couponDiscountType", "fixed", "Fixed PKR");
@@ -1956,6 +2256,8 @@ function resetCouponForm() {
   $("#couponPerUserLimit").val("");
   $("#couponExpiresAt").val("");
   $("#couponIsActive").prop("checked", true);
+  $("#saveCouponBtn").html('<i class="bi bi-save2 me-1"></i>Save Coupon');
+  updateCouponPreview();
 }
 
 function populateCouponEmailSelect() {
@@ -2013,6 +2315,8 @@ function renderCouponsTable() {
 
   tbody.empty();
 
+  const filteredCoupons = couponFilteredCollection();
+
   const total = adminCoupons.length;
   const active = adminCoupons.filter(
     (coupon) => coupon.isActive && !coupon.isExpired,
@@ -2025,6 +2329,7 @@ function renderCouponsTable() {
   $("#couponStatsTotal").text(total);
   $("#couponStatsActive").text(active);
   $("#couponStatsUsed").text(used);
+  $("#couponStatsShowing").text(filteredCoupons.length);
 
   if (!adminCoupons.length) {
     tbody.append(
@@ -2033,7 +2338,14 @@ function renderCouponsTable() {
     return;
   }
 
-  adminCoupons.forEach((coupon) => {
+  if (!filteredCoupons.length) {
+    tbody.append(
+      '<tr><td colspan="6" class="text-center py-4 text-secondary">No coupons match your search.</td></tr>',
+    );
+    return;
+  }
+
+  filteredCoupons.forEach((coupon) => {
     const usageLimit = parseInt(coupon.usageLimit, 10) || 0;
     const perUserLimit = parseInt(coupon.perUserLimit, 10) || 0;
     const minOrder = Number(coupon.minOrder || 0);
@@ -2133,6 +2445,18 @@ function editCouponById(couponId) {
   } else {
     $("#couponExpiresAt").val("");
   }
+
+  $("#couponCodeSeed").val(coupon.title || coupon.code || "");
+  $("#saveCouponBtn").html(
+    '<i class="bi bi-pencil-square me-1"></i>Update Coupon',
+  );
+  updateCouponPreview();
+
+  const codeInput = document.getElementById("couponCode");
+  if (codeInput) {
+    codeInput.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => codeInput.focus(), 120);
+  }
 }
 
 async function loadCouponsData(silent = false) {
@@ -2169,7 +2493,7 @@ async function loadCouponsData(silent = false) {
 
 async function saveCouponFromForm() {
   const id = parseInt($("#couponId").val(), 10) || 0;
-  const code = ($("#couponCode").val() || "").toString().trim().toUpperCase();
+  const code = couponNormalizeCodeInput($("#couponCode").val());
   const discountType = ($("#couponDiscountType").val() || "fixed").toString();
   const discountValue = parseFloat($("#couponDiscountValue").val()) || 0;
 
@@ -2210,6 +2534,7 @@ async function saveCouponFromForm() {
     renderCouponsTable();
     populateCouponEmailSelect();
     resetCouponForm();
+    updateCouponPreview();
     showNotification(
       result?.message || "Coupon saved successfully.",
       "success",
@@ -2357,8 +2682,49 @@ function initCouponsSection() {
       if (!isPercent) {
         $("#couponMaxDiscount").val("");
       }
+
+      updateCouponPreview();
     })
     .trigger("change");
+
+  const previewFields = [
+    "#couponCode",
+    "#couponTitle",
+    "#couponDescription",
+    "#couponDiscountValue",
+    "#couponMinOrder",
+    "#couponMaxDiscount",
+    "#couponUsageLimit",
+    "#couponPerUserLimit",
+    "#couponExpiresAt",
+    "#couponIsActive",
+  ].join(",");
+
+  $(previewFields)
+    .off("input.couponPreview change.couponPreview")
+    .on("input.couponPreview change.couponPreview", updateCouponPreview);
+
+  $("#couponPresetQuickActions")
+    .off("click.couponPreset", ".coupon-preset-btn")
+    .on("click.couponPreset", ".coupon-preset-btn", function () {
+      const presetKey = ($(this).data("couponPreset") || "").toString().trim();
+      applyCouponPreset(presetKey);
+    });
+
+  $("#couponGenerateCodeBtn")
+    .off("click")
+    .on("click", generateCouponCodeFromSeed);
+  $("#couponCopyCodeBtn").off("click").on("click", copyCouponCodeToClipboard);
+  $("#couponPrefillEmailBtn")
+    .off("click")
+    .on("click", prefillCouponEmailTemplateFromForm);
+
+  $("#couponTableSearch")
+    .off("input")
+    .on("input", function () {
+      couponSearchQuery = ($(this).val() || "").toString().trim().toLowerCase();
+      renderCouponsTable();
+    });
 
   $("#saveCouponBtn").off("click").on("click", saveCouponFromForm);
   $("#resetCouponBtn").off("click").on("click", resetCouponForm);
@@ -2367,7 +2733,12 @@ function initCouponsSection() {
     .on("click", () => loadCouponsData(false));
   $("#sendCouponEmailBtn").off("click").on("click", sendCouponEmail);
 
+  couponSearchQuery = ($("#couponTableSearch").val() || "")
+    .toString()
+    .trim()
+    .toLowerCase();
   resetCouponForm();
+  updateCouponPreview();
 }
 
 function renderReviewsStats(stats = {}) {
@@ -6611,11 +6982,13 @@ function renderRefundRequests() {
     const evidenceName = escapeHtml(
       refund.evidenceName || "View uploaded file",
     );
-    const evidenceUrl = evidencePath
+    const evidenceUrlCandidate = evidencePath
       ? evidencePath.startsWith("http")
         ? evidencePath
         : `../../${encodeURI(evidencePath)}`
       : "";
+    const evidenceUrl = sanitizeAdminMediaUrl(evidenceUrlCandidate);
+    const safeEvidenceUrl = escapeHtml(evidenceUrl);
     const status = (refund.status || "pending").toLowerCase();
     const statusLabel =
       status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
@@ -6633,7 +7006,7 @@ function renderRefundRequests() {
       <td class="py-3"><span class="badge ${refundBadgeClass(status)} rounded-pill">${escapeHtml(statusLabel)}</span></td>
       <td class="py-3"><span class="badge ${paymentBadge.className} rounded-pill">${escapeHtml(paymentBadge.label)}</span></td>
       <td class="py-3 text-secondary small">${reason}</td>
-      <td class="py-3 text-secondary small">${evidenceUrl ? `<a href="${evidenceUrl}" target="_blank" rel="noopener" class="text-warning text-decoration-underline">${evidenceName}</a>` : "No file"}</td>
+      <td class="py-3 text-secondary small">${evidenceUrl ? `<a href="${safeEvidenceUrl}" target="_blank" rel="noopener" class="text-warning text-decoration-underline">${evidenceName}</a>` : "No file"}</td>
       <td class="pe-4 py-3">
         <div class="d-flex flex-wrap gap-1">
           <button class="btn btn-sm btn-outline-warning refund-status-btn" data-refund-id="${Number(refund.id || 0)}" data-status="pending">Pending</button>

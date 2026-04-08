@@ -1234,73 +1234,73 @@ if (
 
       <?php $renderAppComingSection = function_exists('commerza_fragment_cache_start') ? commerza_fragment_cache_start('home:app-coming-section:v1', 900) : true; ?>
       <?php if ($renderAppComingSection): ?>
-      <section class="app-coming-home mt-5" aria-labelledby="homeAppSoonTitle">
-        <div class="app-coming-stage-glow" aria-hidden="true"></div>
-        <div class="app-coming-grid">
-          <div class="app-coming-copy">
-            <p class="section-kicker">Mobile App Update</p>
-            <h2 id="homeAppSoonTitle" class="section-title">Commerza Mobile App Is Coming Soon</h2>
-            <p>We are building the Commerza mobile app to make watch discovery, wishlist sync, and checkout much faster on mobile.</p>
-            <p>Launch announcements will be shared with our community first, followed by full availability on both major app stores.</p>
-            <div class="app-bullet-row" aria-hidden="true">
-              <span class="app-bullet">Wishlist Sync</span>
-              <span class="app-bullet">Order Tracking</span>
-              <span class="app-bullet">Smart Checkout</span>
-              <span class="app-bullet">Drop Alerts</span>
+        <section class="app-coming-home mt-5" aria-labelledby="homeAppSoonTitle">
+          <div class="app-coming-stage-glow" aria-hidden="true"></div>
+          <div class="app-coming-grid">
+            <div class="app-coming-copy">
+              <p class="section-kicker">Mobile App Update</p>
+              <h2 id="homeAppSoonTitle" class="section-title">Commerza Mobile App Is Coming Soon</h2>
+              <p>We are building the Commerza mobile app to make watch discovery, wishlist sync, and checkout much faster on mobile.</p>
+              <p>Launch announcements will be shared with our community first, followed by full availability on both major app stores.</p>
+              <div class="app-bullet-row" aria-hidden="true">
+                <span class="app-bullet">Wishlist Sync</span>
+                <span class="app-bullet">Order Tracking</span>
+                <span class="app-bullet">Smart Checkout</span>
+                <span class="app-bullet">Drop Alerts</span>
+              </div>
+              <div class="app-launch-timeline" aria-label="Mobile app rollout timeline">
+                <div class="app-launch-step"><span>1</span>Closed beta testing and stability tuning</div>
+                <div class="app-launch-step"><span>2</span>Final polish for checkout, notifications, and support</div>
+                <div class="app-launch-step"><span>3</span>Public release on Google Play Store and Apple App Store</div>
+              </div>
             </div>
-            <div class="app-launch-timeline" aria-label="Mobile app rollout timeline">
-              <div class="app-launch-step"><span>1</span>Closed beta testing and stability tuning</div>
-              <div class="app-launch-step"><span>2</span>Final polish for checkout, notifications, and support</div>
-              <div class="app-launch-step"><span>3</span>Public release on Google Play Store and Apple App Store</div>
+            <div class="app-device-frame">
+              <div class="app-device-head"><span class="app-live-dot"></span>Store launch status</div>
+              <div class="app-feature-columns" aria-label="Commerza app feature roadmap">
+                <div class="app-feature-col">
+                  <h3>Shopping Features</h3>
+                  <ul class="app-feature-list">
+                    <li><i class="bi bi-stars"></i><span>Personalized watch recommendations</span></li>
+                    <li><i class="bi bi-search"></i><span>Lightning filters for movement, dial, and finish</span></li>
+                    <li><i class="bi bi-heart"></i><span>One account, synced wishlist everywhere</span></li>
+                    <li><i class="bi bi-bell"></i><span>Back-in-stock and limited-drop push alerts</span></li>
+                  </ul>
+                </div>
+                <div class="app-feature-col">
+                  <h3>Checkout And Support</h3>
+                  <ul class="app-feature-list">
+                    <li><i class="bi bi-shield-lock"></i><span>Secure one-tap checkout with saved profiles</span></li>
+                    <li><i class="bi bi-truck"></i><span>Live order timeline with courier checkpoints</span></li>
+                    <li><i class="bi bi-chat-square-dots"></i><span>Direct support chat from inside order cards</span></li>
+                    <li><i class="bi bi-clock-history"></i><span>Quick reorder from purchase history</span></li>
+                  </ul>
+                </div>
+              </div>
+              <div class="store-row">
+                <div class="store-pill" aria-label="Coming soon on Google Play Store">
+                  <i class="bi bi-google-play"></i>
+                  <div>
+                    <small>Coming Soon On</small>
+                    <strong>Google Play Store</strong>
+                  </div>
+                  <span>Android</span>
+                </div>
+                <div class="store-pill" aria-label="Coming soon on Apple App Store">
+                  <i class="bi bi-apple"></i>
+                  <div>
+                    <small>Coming Soon On</small>
+                    <strong>Apple App Store</strong>
+                  </div>
+                  <span>iOS</span>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="app-device-frame">
-            <div class="app-device-head"><span class="app-live-dot"></span>Store launch status</div>
-            <div class="app-feature-columns" aria-label="Commerza app feature roadmap">
-              <div class="app-feature-col">
-                <h3>Shopping Features</h3>
-                <ul class="app-feature-list">
-                  <li><i class="bi bi-stars"></i><span>Personalized watch recommendations</span></li>
-                  <li><i class="bi bi-search"></i><span>Lightning filters for movement, dial, and finish</span></li>
-                  <li><i class="bi bi-heart"></i><span>One account, synced wishlist everywhere</span></li>
-                  <li><i class="bi bi-bell"></i><span>Back-in-stock and limited-drop push alerts</span></li>
-                </ul>
-              </div>
-              <div class="app-feature-col">
-                <h3>Checkout And Support</h3>
-                <ul class="app-feature-list">
-                  <li><i class="bi bi-shield-lock"></i><span>Secure one-tap checkout with saved profiles</span></li>
-                  <li><i class="bi bi-truck"></i><span>Live order timeline with courier checkpoints</span></li>
-                  <li><i class="bi bi-chat-square-dots"></i><span>Direct support chat from inside order cards</span></li>
-                  <li><i class="bi bi-clock-history"></i><span>Quick reorder from purchase history</span></li>
-                </ul>
-              </div>
-            </div>
-            <div class="store-row">
-              <div class="store-pill" aria-label="Coming soon on Google Play Store">
-                <i class="bi bi-google-play"></i>
-                <div>
-                  <small>Coming Soon On</small>
-                  <strong>Google Play Store</strong>
-                </div>
-                <span>Android</span>
-              </div>
-              <div class="store-pill" aria-label="Coming soon on Apple App Store">
-                <i class="bi bi-apple"></i>
-                <div>
-                  <small>Coming Soon On</small>
-                  <strong>Apple App Store</strong>
-                </div>
-                <span>iOS</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+        </section>
       <?php
-      if (function_exists('commerza_fragment_cache_end')) {
-        commerza_fragment_cache_end();
-      }
+        if (function_exists('commerza_fragment_cache_end')) {
+          commerza_fragment_cache_end();
+        }
       endif;
       ?>
 
@@ -1319,6 +1319,7 @@ if (
             <div class="modal-body newsletter-modal-body">
               <p class="newsletter-modal-text">Get early access to limited drops, launch offers, and collector updates before public release.</p>
               <form id="newsletterForm" class="newsletter-modal-form mt-3">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string)$_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
                 <label for="newsletterEmail" class="form-label newsletter-modal-label">Email Address</label>
                 <div class="newsletter-modal-input-wrap">
                   <i class="bi bi-envelope"></i>
@@ -1375,6 +1376,7 @@ if (
           </div>
           <div class="col-12 col-lg-5">
             <form class="newsletter-form newsletter-form-upgraded">
+              <input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string)$_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
               <div class="newsletter-input-wrap">
                 <i class="bi bi-envelope"></i>
                 <input type="email" class="newsletter-input" placeholder="Enter your email" aria-label="Email"

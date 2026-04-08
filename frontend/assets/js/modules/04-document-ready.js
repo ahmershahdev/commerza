@@ -1177,7 +1177,13 @@ $(document).ready(function () {
   let suggestionResultCache = new Map();
   let activeSuggestRequest = null;
   let suggestDebounceTimer = null;
-  let reviewsCsrfToken = "";
+  let reviewsCsrfToken = (
+    $("#productReviewForm input[name='csrf_token']").val() ||
+    window.CommerzaCsrfToken ||
+    ""
+  )
+    .toString()
+    .trim();
   let liveViewerIntervalId = null;
 
   function clearLiveViewerPolling() {
@@ -3181,12 +3187,32 @@ $(document).ready(function () {
       submitBtn.prop("disabled", true).text("Submitting...");
 
       try {
+        const formCsrfToken = (
+          form.find("input[name='csrf_token']").val() || ""
+        )
+          .toString()
+          .trim();
+        const requestCsrfToken = (
+          reviewsCsrfToken ||
+          formCsrfToken ||
+          window.CommerzaCsrfToken ||
+          ""
+        )
+          .toString()
+          .trim();
+
+        if (!requestCsrfToken) {
+          throw new Error(
+            "Security token missing. Refresh the page and try again.",
+          );
+        }
+
         const body = new FormData();
         body.set("action", "submit");
         body.set("product_id", String(productId));
         body.set("rating", String(rating));
         body.set("review_text", text);
-        body.set("csrf_token", reviewsCsrfToken || "");
+        body.set("csrf_token", requestCsrfToken);
 
         if (removeExistingImages) {
           body.set("remove_existing_images", "1");
@@ -3205,6 +3231,7 @@ $(document).ready(function () {
         const result = await response.json();
         if (result?.csrf_token) {
           reviewsCsrfToken = String(result.csrf_token);
+          form.find("input[name='csrf_token']").val(reviewsCsrfToken);
         }
 
         if (!response.ok || !result?.ok) {
@@ -3273,6 +3300,9 @@ $(document).ready(function () {
       .then(({ ok, result }) => {
         if (result?.csrf_token) {
           reviewsCsrfToken = String(result.csrf_token);
+          $("#productReviewForm input[name='csrf_token']").val(
+            reviewsCsrfToken,
+          );
         }
 
         if (!ok || !result?.ok) {

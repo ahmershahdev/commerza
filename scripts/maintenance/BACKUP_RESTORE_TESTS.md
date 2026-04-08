@@ -13,11 +13,11 @@ This runbook verifies that database and media backups can be restored correctly 
 
 ## Script
 
-- Primary script: `backend/backup_restore_test.ps1`
+- Primary script: `scripts/maintenance/backup_restore_test.ps1`
 
 ## Example Command
 
-`powershell -ExecutionPolicy Bypass -File backend/backup_restore_test.ps1 -MySqlBinPath "C:\xampp\mysql\bin"`
+`powershell -ExecutionPolicy Bypass -File scripts/maintenance/backup_restore_test.ps1 -MySqlBinPath "C:\xampp\mysql\bin"`
 
 ## What the Test Should Validate
 

@@ -13,7 +13,6 @@ $email_value = '';
 function send_reset_code_email(string $recipientEmail, string $recipientName, string $code, ?string &$errorMessage = null): bool
 {
   $subject = "Commerza Password Reset Code";
-  $logoUrl = commerza_mail_logo_src(commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.webp'));
   $resetUrl = commerza_absolute_url('/reset-password.php') . '?email=' . urlencode($recipientEmail);
   $supportEmail = trim((string)(getenv('COMMERZA_SUPPORT_EMAIL') ?: 'support@ahmershah.dev'));
   if (!filter_var($supportEmail, FILTER_VALIDATE_EMAIL)) {
@@ -32,7 +31,6 @@ function send_reset_code_email(string $recipientEmail, string $recipientName, st
           <table role=\"presentation\" width=\"600\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width:600px;background:#121212;border:1px solid #2d2d2d;border-radius:12px;overflow:hidden;\">
             <tr>
               <td align=\"center\" style=\"padding:28px 20px 10px 20px;\">
-                <img src=\"{$logoUrl}\" alt=\"Commerza Logo\" style=\"height:72px;width:auto;display:block;margin:0 auto 12px auto;\" />
                 <h1 style=\"margin:0;color:#ff6600;font-size:24px;letter-spacing:1px;\">Password Reset</h1>
               </td>
             </tr>

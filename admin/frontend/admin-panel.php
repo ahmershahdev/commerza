@@ -1008,32 +1008,97 @@ $adminDisplayEmail = strtolower(trim((string)($adminUser['email'] ?? '')));
                     <div class="tab-pane fade" id="couponsSection">
                         <div class="helper-banner mb-4">
                             <div>
-                                <h2 class="h5 mb-2 text-light">Coupon management</h2>
-                                <p class="mb-0 text-secondary">Create coupons, control limits, and send offer emails from one place.</p>
+                                <h2 class="h5 mb-2 text-light">Coupon Campaign Studio</h2>
+                                <p class="mb-0 text-secondary">Plan, launch, and monitor coupon campaigns with clearer guardrails and one-click actions.</p>
                             </div>
-                            <span class="step-chip">Tip: Keep coupon codes short and easy to type.</span>
+                            <span class="step-chip">Premium tip: Pair short codes with strict limits to reduce support friction.</span>
                         </div>
 
                         <div class="row g-3 mb-4">
-                            <div class="col-12 col-md-4">
+                            <div class="col-12 col-md-6 col-xl-3">
                                 <div class="coupon-overview-card">
                                     <p class="coupon-overview-kicker mb-1">Total Coupons</p>
                                     <h3 class="coupon-overview-value mb-0" id="couponStatsTotal">0</h3>
                                     <small class="field-hint">All created codes</small>
                                 </div>
                             </div>
-                            <div class="col-12 col-md-4">
+                            <div class="col-12 col-md-6 col-xl-3">
                                 <div class="coupon-overview-card coupon-overview-active">
                                     <p class="coupon-overview-kicker mb-1">Currently Active</p>
                                     <h3 class="coupon-overview-value mb-0" id="couponStatsActive">0</h3>
                                     <small class="field-hint">Live and not expired</small>
                                 </div>
                             </div>
-                            <div class="col-12 col-md-4">
+                            <div class="col-12 col-md-6 col-xl-3">
                                 <div class="coupon-overview-card coupon-overview-used">
                                     <p class="coupon-overview-kicker mb-1">Total Redemptions</p>
                                     <h3 class="coupon-overview-value mb-0" id="couponStatsUsed">0</h3>
                                     <small class="field-hint">Times customers used offers</small>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-6 col-xl-3">
+                                <div class="coupon-overview-card coupon-overview-focus">
+                                    <p class="coupon-overview-kicker mb-1">Showing In Table</p>
+                                    <h3 class="coupon-overview-value mb-0" id="couponStatsShowing">0</h3>
+                                    <small class="field-hint">After search and filters</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-4 mb-4">
+                            <div class="col-12 col-xl-8">
+                                <div class="card admin-card border-0 shadow-sm coupon-studio-card h-100">
+                                    <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Campaign Quick Actions</h3>
+                                        <span class="badge bg-warning text-dark">Preset builder + live guidance</span>
+                                    </div>
+                                    <div class="card-body p-4 coupon-studio-panel">
+                                        <p class="field-hint mb-3">Use a preset, generate a code, then tune limits before saving.</p>
+                                        <div class="coupon-preset-grid mb-3" id="couponPresetQuickActions">
+                                            <button class="btn btn-outline-orange coupon-preset-btn" type="button" data-coupon-preset="flash10">Flash 10% (24h)</button>
+                                            <button class="btn btn-outline-orange coupon-preset-btn" type="button" data-coupon-preset="welcome250">Welcome PKR 250</button>
+                                            <button class="btn btn-outline-orange coupon-preset-btn" type="button" data-coupon-preset="vip15">VIP 15% Capped</button>
+                                        </div>
+                                        <div class="row g-3 align-items-end">
+                                            <div class="col-12 col-md-6">
+                                                <label for="couponCodeSeed" class="form-label text-light">Code Seed</label>
+                                                <input type="text" class="form-control bg-secondary border-0 text-light" id="couponCodeSeed" placeholder="Weekend Drop, Eid Sale, New User">
+                                                <small class="field-hint d-block mt-1">Optional helper text used for clean code generation.</small>
+                                            </div>
+                                            <div class="col-12 col-md-6 d-flex flex-wrap gap-2">
+                                                <button class="btn btn-outline-light" id="couponGenerateCodeBtn" type="button">
+                                                    <i class="bi bi-magic me-1"></i>Generate Code
+                                                </button>
+                                                <button class="btn btn-outline-secondary" id="couponCopyCodeBtn" type="button">
+                                                    <i class="bi bi-clipboard me-1"></i>Copy Code
+                                                </button>
+                                                <button class="btn btn-outline-orange" id="couponPrefillEmailBtn" type="button">
+                                                    <i class="bi bi-envelope-check me-1"></i>Prefill Email Copy
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-xl-4">
+                                <div class="card admin-card border-0 shadow-sm coupon-preview-card h-100">
+                                    <div class="card-header bg-dark border-bottom border-secondary py-3">
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Live Coupon Preview</h3>
+                                    </div>
+                                    <div class="card-body p-4">
+                                        <div class="coupon-preview-kicker mb-1">Current Build</div>
+                                        <h4 class="coupon-preview-code mb-2" id="couponPreviewCode">NO-CODE</h4>
+                                        <div class="coupon-preview-meta mb-3" id="couponPreviewType">Fixed discount</div>
+                                        <ul class="coupon-preview-list mb-3">
+                                            <li><span>Value</span><strong id="couponPreviewValue">PKR 0.00</strong></li>
+                                            <li><span>Min Order</span><strong id="couponPreviewMinOrder">PKR 0.00</strong></li>
+                                            <li><span>Limits</span><strong id="couponPreviewLimits">Unlimited</strong></li>
+                                            <li><span>Expiry</span><strong id="couponPreviewExpiry">No expiry</strong></li>
+                                            <li><span>Status</span><strong id="couponPreviewStatus">Active</strong></li>
+                                        </ul>
+                                        <div class="coupon-preview-sim" id="couponPreviewSimulation">Sample: On PKR 5,000 cart, discount is PKR 0.00.</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1059,7 +1124,7 @@ $adminDisplayEmail = strtolower(trim((string)($adminUser['email'] ?? '')));
                                             </div>
                                             <div class="col-12">
                                                 <label for="couponDescription" class="form-label text-light">Description</label>
-                                                <input type="text" class="form-control bg-secondary border-0 text-light" id="couponDescription" placeholder="Optional internal note" maxlength="255">
+                                                <input type="text" class="form-control bg-secondary border-0 text-light" id="couponDescription" placeholder="Audience or campaign note" maxlength="255">
                                                 <small class="field-hint d-block mt-1">Optional note for your team (campaign goal, audience, etc).</small>
                                             </div>
                                             <div class="col-12 col-md-4">
@@ -1173,6 +1238,10 @@ $adminDisplayEmail = strtolower(trim((string)($adminUser['email'] ?? '')));
                                         <div class="d-flex align-items-center gap-2 flex-wrap">
                                             <span class="badge bg-secondary text-light">Live dashboard</span>
                                             <span class="badge bg-warning text-dark">Sort by status + expiry</span>
+                                            <div class="input-group input-group-sm coupon-search-group">
+                                                <span class="input-group-text bg-secondary border-0 text-light"><i class="bi bi-search"></i></span>
+                                                <input type="text" class="form-control bg-secondary border-0 text-light" id="couponTableSearch" placeholder="Search code/title">
+                                            </div>
                                             <button class="btn btn-sm btn-outline-orange" id="refreshCouponsBtn" type="button">
                                                 <i class="bi bi-arrow-clockwise me-1"></i>Refresh
                                             </button>
@@ -2385,6 +2454,7 @@ $adminDisplayEmail = strtolower(trim((string)($adminUser['email'] ?? '')));
                 </div>
                 <div class="modal-body">
                     <form id="productForm">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($adminCsrfToken, ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" id="productId">
                         <div class="row mb-3">
                             <div class="col-md-6">

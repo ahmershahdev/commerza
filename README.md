@@ -16,7 +16,7 @@ This README is the canonical engineering guide for setup, security posture, feat
 - admin/: admin panel UI and admin-only APIs
 - backend/: shared helpers, storefront APIs, cron/report scripts, schema
 - frontend/: storefront static assets (css, js, images, videos)
-- root *.php pages: storefront and auth/public entrypoints
+- root \*.php pages: storefront and auth/public entrypoints
 - infra/docs files: .htaccess, robots.txt, sitemap.xml, llms.txt, SECURITY.md
 
 ## 3. Public vs Restricted Surfaces
@@ -25,8 +25,8 @@ Public storefront routes are clean-route pages such as /, /products, /about, /co
 
 Restricted or sensitive surfaces include:
 
-- /admin/*
-- /backend/*
+- /admin/\*
+- /backend/\*
 - account and transaction flows (/account, /cart, /order-tracking, /invoice)
 - auth and recovery flows (/login, /signup, /forgot-password, /reset-password)
 
@@ -124,7 +124,7 @@ Supported providers:
 
 Configuration sources:
 
-- Environment variables (COMMERZA_* and provider aliases)
+- Environment variables (COMMERZA\_\* and provider aliases)
 - site_settings fallback keys
 
 Security properties:
@@ -267,7 +267,7 @@ Automation examples:
 
 Backup/restore verification:
 
-- powershell -ExecutionPolicy Bypass -File backend/backup_restore_test.ps1 -MySqlBinPath "C:/xampp/mysql/bin"
+- powershell -ExecutionPolicy Bypass -File scripts/maintenance/backup_restore_test.ps1 -MySqlBinPath "C:/xampp/mysql/bin"
 
 ## 20. Release Checklist
 
@@ -284,5 +284,5 @@ Backup/restore verification:
 - SECURITY.md: security policy and disclosure channel
 - llms.txt: LLM-safe discovery guidance
 - instructions.md: integration requirements reference
-- backend/BACKUP_RESTORE_TESTS.md: backup and restore runbook
-- backend/backup_restore_test.ps1: automated backup/restore verification script
+- scripts/maintenance/BACKUP_RESTORE_TESTS.md: backup and restore runbook
+- scripts/maintenance/backup_restore_test.ps1: automated backup/restore verification script

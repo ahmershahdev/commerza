@@ -344,6 +344,130 @@
   color: #ffdf80;
 }
 
+.coupon-overview-focus {
+  border-color: rgba(91, 173, 255, 0.36);
+  background: linear-gradient(
+    150deg,
+    rgba(11, 25, 41, 0.96),
+    rgba(8, 16, 28, 0.96)
+  );
+}
+
+.coupon-overview-focus .coupon-overview-value {
+  color: #9bcfff;
+}
+
+.coupon-studio-card {
+  border: 1px solid rgba(255, 166, 102, 0.26) !important;
+  background:
+    radial-gradient(
+      circle at 8% 12%,
+      rgba(255, 156, 91, 0.16),
+      transparent 44%
+    ),
+    linear-gradient(145deg, rgba(18, 15, 13, 0.96), rgba(10, 10, 14, 0.97));
+}
+
+.coupon-preview-card {
+  border: 1px solid rgba(255, 198, 120, 0.28) !important;
+  background:
+    radial-gradient(
+      circle at 92% 14%,
+      rgba(255, 211, 130, 0.16),
+      transparent 40%
+    ),
+    linear-gradient(150deg, rgba(19, 17, 13, 0.96), rgba(9, 9, 12, 0.97));
+}
+
+.coupon-studio-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.coupon-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.coupon-preset-btn {
+  border-color: rgba(255, 153, 61, 0.45);
+  color: #ffd8b2;
+  background: rgba(255, 122, 26, 0.07);
+  font-size: 0.82rem;
+  letter-spacing: 0.3px;
+}
+
+.coupon-preset-btn:hover,
+.coupon-preset-btn:focus {
+  border-color: rgba(255, 204, 0, 0.58);
+  color: #ffe5c8;
+  background: rgba(255, 166, 92, 0.16);
+}
+
+.coupon-preview-kicker {
+  color: #ffcc8d;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.coupon-preview-code {
+  font-family: "JetBrains Mono", monospace;
+  color: #fff2de;
+  letter-spacing: 0.08em;
+}
+
+.coupon-preview-meta {
+  color: #cdbba9;
+  font-size: 0.86rem;
+}
+
+.coupon-preview-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.coupon-preview-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid rgba(255, 170, 94, 0.22);
+  border-radius: 10px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 0.78rem;
+}
+
+.coupon-preview-list li span {
+  color: #c8b5a0;
+}
+
+.coupon-preview-list li strong {
+  color: #ffebd0;
+  font-weight: 700;
+}
+
+.coupon-preview-sim {
+  border: 1px dashed rgba(255, 173, 106, 0.32);
+  border-radius: 11px;
+  padding: 10px;
+  color: #f3dec4;
+  font-size: 0.78rem;
+  background: rgba(34, 23, 14, 0.35);
+}
+
+.coupon-search-group {
+  width: 220px;
+}
+
+.coupon-search-group .form-control::placeholder {
+  color: rgba(230, 230, 230, 0.75);
+}
+
 .product-workspace-card {
   border: 1px solid rgba(255, 122, 26, 0.24);
   border-radius: 16px;

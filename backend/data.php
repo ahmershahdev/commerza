@@ -158,23 +158,7 @@ function commerza_csp_nonce_value(): string
         return $nonce;
     }
 
-    if (session_status() === PHP_SESSION_ACTIVE) {
-        $existing = trim((string)($_SESSION['commerza_csp_nonce'] ?? ''));
-        if ($existing !== '') {
-            $nonce = $existing;
-            return $nonce;
-        }
-    }
-
-    try {
-        $nonce = rtrim(strtr(base64_encode(random_bytes(18)), '+/', '-_'), '=');
-    } catch (Throwable $exception) {
-        $nonce = substr(hash('sha256', microtime(true) . '|' . mt_rand()), 0, 24);
-    }
-
-    if (session_status() === PHP_SESSION_ACTIVE) {
-        $_SESSION['commerza_csp_nonce'] = $nonce;
-    }
+    $nonce = rtrim(strtr(base64_encode(random_bytes(24)), '+/', '-_'), '=');
 
     return $nonce;
 }
