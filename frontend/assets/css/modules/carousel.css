@@ -238,19 +238,50 @@
 
 .ticker-container {
   align-items: center;
-  background: linear-gradient(90deg, #050505 0%, #0c0c0c 50%, #050505 100%);
-  border-bottom: 1px solid rgba(255, 204, 0, 0.2);
+  background:
+    radial-gradient(
+      circle at 14% 50%,
+      rgba(255, 179, 82, 0.2),
+      transparent 30%
+    ),
+    linear-gradient(100deg, #060606 0%, #111114 48%, #070707 100%);
+  border-bottom: 1px solid rgba(255, 196, 102, 0.32);
+  border-top: 1px solid rgba(255, 113, 26, 0.16);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.03),
-    0 8px 24px rgba(0, 0, 0, 0.4);
+    0 10px 24px rgba(0, 0, 0, 0.45);
   display: flex;
-  height: 40px;
+  gap: 12px;
+  height: 46px;
   margin-top: 0;
   margin-bottom: 0;
   overflow: hidden;
+  padding: 0 14px;
   position: relative;
   width: 100%;
   z-index: 1020;
+}
+
+.ticker-kicker {
+  align-items: center;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 117, 20, 0.28),
+    rgba(255, 205, 122, 0.2)
+  );
+  border: 1px solid rgba(255, 191, 109, 0.45);
+  border-radius: 999px;
+  color: #ffe2bd;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  line-height: 1;
+  padding: 6px 10px;
+  text-transform: uppercase;
+  z-index: 3;
 }
 
 .ticker-container::before,
@@ -266,23 +297,25 @@
 
 .ticker-container::before {
   left: 0;
-  background: linear-gradient(90deg, #000 0%, rgba(0, 0, 0, 0) 100%);
+  background: linear-gradient(90deg, #060606 0%, rgba(6, 6, 6, 0) 100%);
 }
 
 .ticker-container::after {
   right: 0;
-  background: linear-gradient(270deg, #000 0%, rgba(0, 0, 0, 0) 100%);
+  background: linear-gradient(270deg, #060606 0%, rgba(6, 6, 6, 0) 100%);
 }
 
 .ticker-scroll {
-  animation: moveTicker 36s linear infinite;
+  animation: moveTicker 30s linear infinite;
   display: flex;
   position: absolute;
+  left: 124px;
   user-select: none;
   width: max-content;
   will-change: transform;
   transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
+  z-index: 2;
 }
 
 .ticker-container:hover .ticker-scroll {
@@ -290,21 +323,21 @@
 }
 
 .ticker-scroll span {
-  color: #efe7d2;
+  color: #f7ead6;
   flex-shrink: 0;
   font-family: "JetBrains Mono", monospace;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 2.5px;
-  padding-right: 130px;
+  letter-spacing: 1.7px;
+  padding-right: 92px;
   text-transform: uppercase;
   display: flex;
   align-items: center;
 }
 
 .ticker-scroll span:nth-child(odd) {
-  color: #ffc977;
-  text-shadow: 0 0 6px rgba(255, 169, 64, 0.35);
+  color: #ffcf8d;
+  text-shadow: 0 0 10px rgba(255, 165, 78, 0.36);
 }
 
 .ticker-scroll span::before {
@@ -316,6 +349,27 @@
   margin-right: 10px;
   display: inline-block;
   box-shadow: 0 0 8px rgba(255, 153, 0, 0.6);
+}
+
+@media (max-width: 768px) {
+  .ticker-container {
+    height: 42px;
+    padding: 0 10px;
+  }
+
+  .ticker-kicker {
+    font-size: 9px;
+    padding: 5px 8px;
+  }
+
+  .ticker-scroll {
+    left: 98px;
+  }
+
+  .ticker-scroll span {
+    letter-spacing: 1.2px;
+    padding-right: 72px;
+  }
 }
 
 .brand-text {

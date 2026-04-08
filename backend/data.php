@@ -651,6 +651,7 @@ function commerza_collect_preload_assets(string $buffer): array
             if (
                 $src === ''
                 || $isExternalScript
+                || str_contains($normalized, 'jquery')
                 || str_contains($normalized, 'recaptcha')
                 || str_contains($normalized, 'captcha')
                 || str_contains($normalized, 'googletagmanager')
@@ -935,7 +936,7 @@ function commerza_optimize_image_loading(string $buffer): string
 function commerza_placeholder_enhancer_style_tag(): string
 {
     return '<style ' . commerza_csp_nonce_attr() . ' id="commerzaPlaceholderStyle">'
-        . 'input::placeholder,textarea::placeholder{color:rgba(186,194,208,.92)!important;opacity:1;font-style:italic;}'
+        . 'input::placeholder,textarea::placeholder{color:rgba(186,194,208,.92)!important;opacity:1;font-style:normal;}'
         . '</style>';
 }
 

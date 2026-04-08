@@ -661,14 +661,15 @@ if (
             style="display:none; position:fixed; top:20px; right:0; left:0; margin:auto; width:300px; z-index:9998;">
             You cannot add more than 10 products!
           </div>
-          <div class="ticker-container bg-dark text-white">
+          <div class="ticker-container bg-dark text-white" role="status" aria-live="polite" aria-label="Commerza live updates">
+            <span class="ticker-kicker">Commerza Live</span>
             <div class="ticker-scroll">
-              <span>SALE IS LIVE: PREMIUM AUTOMATIC WATCHES UP TO 20% OFF </span>
-              <span>COLLECTION UPDATE: NEW SKELETON SERIES NOW AVAILABLE </span>
-              <span>FREE SHIPPING: NATIONWIDE DELIVERY ON ALL PREMIUM ORDERS </span>
-              <span>SALE IS LIVE: PREMIUM AUTOMATIC WATCHES UP TO 20% OFF </span>
-              <span>COLLECTION UPDATE: NEW SKELETON SERIES NOW AVAILABLE </span>
-              <span>FREE SHIPPING: NATIONWIDE DELIVERY ON ALL PREMIUM ORDERS </span>
+              <span>Private drop unlocked: signature chronographs now shipping nationwide</span>
+              <span>Members perk: free premium case with selected limited editions</span>
+              <span>New arrival: skeleton gold steel collection is now in stock</span>
+              <span>Private drop unlocked: signature chronographs now shipping nationwide</span>
+              <span>Members perk: free premium case with selected limited editions</span>
+              <span>New arrival: skeleton gold steel collection is now in stock</span>
             </div>
           </div>
           <div id="carouselExampleIndicators" class="carousel slide carousel-fade hero-carousel" data-bs-ride="carousel"
@@ -819,6 +820,46 @@ if (
               <p class="highlight-text">Premium leather, brushed steel, and gold accents for timeless
                 elegance.</p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="home-premium-tabpane mt-5" aria-labelledby="homeCollectionTabsTitle">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+          <div>
+            <p class="section-kicker">Collection Selector</p>
+            <h2 id="homeCollectionTabsTitle" class="section-title">Choose Your Signature Profile</h2>
+          </div>
+          <a class="btn hero-btn-outline text-white" href="products.php">Open Full Catalog</a>
+        </div>
+
+        <ul class="nav nav-pills home-premium-tabs" id="homeCollectionTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="home-tab-daily" data-bs-toggle="pill" data-bs-target="#home-pane-daily" type="button" role="tab" aria-controls="home-pane-daily" aria-selected="true">Daily Edge</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="home-tab-heritage" data-bs-toggle="pill" data-bs-target="#home-pane-heritage" type="button" role="tab" aria-controls="home-pane-heritage" aria-selected="false">Heritage Gold</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="home-tab-tactical" data-bs-toggle="pill" data-bs-target="#home-pane-tactical" type="button" role="tab" aria-controls="home-pane-tactical" aria-selected="false">Tactical Motion</button>
+          </li>
+        </ul>
+
+        <div class="tab-content home-premium-tab-content" id="homeCollectionTabsContent">
+          <div class="tab-pane fade show active" id="home-pane-daily" role="tabpanel" aria-labelledby="home-tab-daily" tabindex="0">
+            <p>Balanced silhouettes built for office, travel, and evening wear with polished steel and low-profile crowns.</p>
+            <div class="home-tab-meta"><span>Best for</span><strong>Everyday premium rotation</strong></div>
+            <a href="shop-category-a.php" class="home-tab-link">Explore Daily Edge</a>
+          </div>
+          <div class="tab-pane fade" id="home-pane-heritage" role="tabpanel" aria-labelledby="home-tab-heritage" tabindex="0">
+            <p>Warm gold accents, richer dial textures, and signature straps for collectors who prefer timeless statement pieces.</p>
+            <div class="home-tab-meta"><span>Best for</span><strong>Formal and special events</strong></div>
+            <a href="shop-category-b.php" class="home-tab-link">Explore Heritage Gold</a>
+          </div>
+          <div class="tab-pane fade" id="home-pane-tactical" role="tabpanel" aria-labelledby="home-tab-tactical" tabindex="0">
+            <p>Sport-forward cases, high-contrast markers, and all-day comfort built for movement, weekend drives, and active routines.</p>
+            <div class="home-tab-meta"><span>Best for</span><strong>Travel and performance styling</strong></div>
+            <a href="shop-category-b.php#tactical" class="home-tab-link">Explore Tactical Motion</a>
           </div>
         </div>
       </section>

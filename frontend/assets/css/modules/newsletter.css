@@ -49,6 +49,16 @@
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 10px;
   padding: 0 12px;
+  transition:
+    border-color 0.22s ease,
+    box-shadow 0.22s ease,
+    background 0.22s ease;
+}
+
+.newsletter-input-wrap:focus-within {
+  border-color: rgba(255, 194, 120, 0.58);
+  box-shadow: 0 0 0 0.18rem rgba(255, 122, 26, 0.16);
+  background: rgba(6, 6, 6, 0.82);
 }
 
 .newsletter-input-wrap i {
@@ -63,6 +73,11 @@
   border-radius: 0;
   padding: 12px 0;
   color: #fff;
+}
+
+.newsletter-input::placeholder {
+  color: rgba(220, 220, 220, 0.72);
+  font-style: normal;
 }
 
 .newsletter-input:focus {
@@ -162,6 +177,16 @@
   background: rgba(0, 0, 0, 0.58);
   border-radius: 10px;
   padding: 0 12px;
+  transition:
+    border-color 0.22s ease,
+    box-shadow 0.22s ease,
+    background 0.22s ease;
+}
+
+.newsletter-modal-input-wrap:focus-within {
+  border-color: rgba(255, 193, 117, 0.56);
+  box-shadow: 0 0 0 0.16rem rgba(255, 122, 26, 0.18);
+  background: rgba(7, 7, 7, 0.8);
 }
 
 .newsletter-modal-input-wrap i {
@@ -175,6 +200,11 @@
   box-shadow: none !important;
   color: #fff !important;
   padding: 12px 0 !important;
+}
+
+.newsletter-modal-input::placeholder {
+  color: rgba(222, 222, 222, 0.72);
+  font-style: normal;
 }
 
 .newsletter-modal-input:focus {

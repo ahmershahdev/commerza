@@ -1,5 +1,5 @@
 # Commerza crawler policy
-# Updated: 2026-04-08
+# Updated: 2026-04-09
 
 Sitemap: https://commerza.ahmershah.dev/sitemap.xml
 Host: commerza.ahmershah.dev
@@ -53,6 +53,9 @@ Disallow: /invoice.php
 Disallow: /*?*token=
 Disallow: /*?*reset=
 Disallow: /*?*session=
+Disallow: /*?*fbclid=
+Disallow: /*?*gclid=
+Disallow: /*?*utm_
 
 Crawl-delay: 1
 

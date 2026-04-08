@@ -801,7 +801,7 @@ function commerza_captcha_script_tag(mysqli $con): string
         }
 
         toggle.addEventListener('click', function () {
-            showFallback(container, 'Backup challenge is active. Solve the math check and submit.');
+            showFallback(container, 'Backup challenge is active. Read the question carefully and enter the exact answer.');
         });
     }
 
@@ -852,6 +852,18 @@ function commerza_captcha_script_tag(mysqli $con): string
         return 'commerza_' + normalized.substring(0, 60);
     }
 
+    function isElementVisible(element) {
+        if (!element) {
+            return false;
+        }
+
+        if (element.offsetParent !== null) {
+            return true;
+        }
+
+        return element.getClientRects && element.getClientRects().length > 0;
+    }
+
     function issueV3Token(form, action) {
         if (!v3Enabled || !form || !window.grecaptcha || typeof window.grecaptcha.execute !== 'function') {
             return Promise.resolve('');
@@ -881,6 +893,10 @@ function commerza_captcha_script_tag(mysqli $con): string
         }
 
         eachCaptchaContainer(function (container) {
+            if (!isElementVisible(container)) {
+                return;
+            }
+
             var form = container.closest('form');
             if (!form) {
                 return;
@@ -888,6 +904,10 @@ function commerza_captcha_script_tag(mysqli $con): string
 
             var tokenField = form.querySelector('input[name="g-recaptcha-v3-response"]');
             if (!tokenField) {
+                return;
+            }
+
+            if ((tokenField.value || '').trim() !== '') {
                 return;
             }
 
@@ -1015,7 +1035,6 @@ function commerza_captcha_script_tag(mysqli $con): string
         probe.onload = function () {
             window.setTimeout(function () {
                 attachFormSubmitGuards();
-                refreshV3Tokens();
                 hideNetworkAlert();
             }, 350);
         };
@@ -1035,7 +1054,6 @@ function commerza_captcha_script_tag(mysqli $con): string
 
         if (window.grecaptcha && typeof window.grecaptcha.render === 'function') {
             attachFormSubmitGuards();
-            refreshV3Tokens();
             hideNetworkAlert();
             return;
         }
@@ -1073,12 +1091,10 @@ function commerza_captcha_script_tag(mysqli $con): string
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
             attachFormSubmitGuards();
-            refreshV3Tokens();
             scheduleHealthCheck();
         }, { once: true });
     } else {
         attachFormSubmitGuards();
-        refreshV3Tokens();
         scheduleHealthCheck();
     }
 })();
@@ -1119,14 +1135,15 @@ function commerza_captcha_widget_html(mysqli $con, string $context = ''): string
     $v3Enabled = !empty($config['v3_enabled']);
 
     $widget = '';
-    if ($v2Enabled) {
+    $renderGoogleWidget = $v2Enabled && !$v3Enabled;
+    if ($renderGoogleWidget) {
         $siteKey = htmlspecialchars((string)($config['site_key'] ?? ''), ENT_QUOTES, 'UTF-8');
         $widget = '<div class="g-recaptcha captcha-widget" data-theme="dark" data-sitekey="' . $siteKey . '"></div>';
     }
 
     $fallbackMessage = $v2Enabled || $v3Enabled
-        ? 'Google CAPTCHA is unavailable. Solve this backup challenge to continue securely.'
-        : 'Google CAPTCHA keys are not configured. Solve this backup challenge to continue securely.';
+        ? 'Google verification may not always appear. Read the question carefully and enter the exact answer to continue securely.'
+        : 'Google CAPTCHA keys are not configured. Read the question carefully and enter the exact answer to continue securely.';
 
     $fallbackDisplay = (!$v2Enabled && !$v3Enabled) ? 'block' : 'none';
     $toggleDisplay = (!$v2Enabled && !$v3Enabled) ? 'none' : 'inline-flex';
@@ -1144,10 +1161,11 @@ function commerza_captcha_widget_html(mysqli $con, string $context = ''): string
         . '<input type="text" name="' . $honeypotField . '" value="" autocomplete="off" tabindex="-1">'
         . '</div>'
         . $widget
-        . '<button type="button" data-commerza-fallback-toggle style="display:' . $toggleDisplay . ';align-items:center;justify-content:center;margin-top:10px;padding:8px 10px;border-radius:10px;border:1px solid rgba(255,165,110,.35);background:rgba(255,122,26,.08);color:#ffd3ab;font:600 12px/1.35 Inter,Arial,sans-serif;cursor:pointer;">Use backup challenge</button>'
+        . '<button type="button" data-commerza-fallback-toggle style="display:' . $toggleDisplay . ';align-items:center;justify-content:center;margin-top:10px;padding:8px 10px;border-radius:10px;border:1px solid rgba(255,165,110,.35);background:rgba(255,122,26,.08);color:#ffd3ab;font:600 12px/1.35 Inter,Arial,sans-serif;cursor:pointer;">Use backup question</button>'
         . '<div class="commerza-captcha-fallback" style="display:' . $fallbackDisplay . ';margin-top:10px;padding:10px;border-radius:12px;border:1px solid rgba(255,168,96,.35);background:rgba(22,22,22,.74);">'
         . '<div data-commerza-captcha-fallback-message style="color:#ffd8b6;font-size:12px;line-height:1.45;margin-bottom:8px;user-select:none;-webkit-user-select:none;">' . htmlspecialchars($fallbackMessage, ENT_QUOTES, 'UTF-8') . '</div>'
-        . '<label style="display:block;color:#f3e7da;font-size:13px;font-weight:600;margin-bottom:6px;user-select:none;-webkit-user-select:none;">Security check: ' . $question . ' = ?</label>'
+        . '<label style="display:block;color:#f3e7da;font-size:13px;font-weight:600;margin-bottom:6px;user-select:none;-webkit-user-select:none;">Security question: ' . $question . '</label>'
+        . '<div style="color:#d0d0d0;font-size:11px;line-height:1.4;margin-bottom:8px;user-select:none;-webkit-user-select:none;">Type the exact answer and submit.</div>'
         . '<input type="text" name="' . $answerField . '" inputmode="text" pattern="[-A-Za-z0-9 ]{1,64}" maxlength="64" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-commerza-captcha-answer="1" class="form-control bg-secondary border-0 text-light" style="min-height:42px;user-select:none;-webkit-user-select:none;">'
         . '<input type="hidden" name="' . $tokenField . '" value="' . $token . '">'
         . '</div>'
@@ -1629,7 +1647,7 @@ function commerza_captcha_verify_submission(mysqli $con, array $request, string 
     }
 
     $v2Token = trim((string)($request[$v2Field] ?? ''));
-    if ($v2Enabled) {
+    if ($v2Enabled && !$v3Enabled) {
         if ($v2Token === '') {
             return [
                 'ok' => false,
@@ -1663,7 +1681,7 @@ function commerza_captcha_verify_submission(mysqli $con, array $request, string 
         'message' => '',
         'skipped' => false,
         'used_fallback' => false,
-        'v2_verified' => $v2Enabled,
+        'v2_verified' => $v2Enabled && !$v3Enabled,
         'v3_verified' => $v3Enabled,
     ];
 }

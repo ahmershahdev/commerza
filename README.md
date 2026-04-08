@@ -113,6 +113,13 @@ Fallback challenge hardening details:
 - Minimum solve-time guard
 - Attempt tracking with lockout after repeated failures
 
+CSP nonce generation details:
+
+- Nonce source: cryptographically secure `random_bytes(24)`
+- Encoding: base64url (typically 32+ characters)
+- Lifecycle: generated per HTTP request (changes on each refresh)
+- Helper: `commerza_csp_nonce_attr()` for nonce-tagged inline blocks where needed
+
 ## 10. OAuth (Google and Facebook)
 
 OAuth login supports both providers through backend/oauth.php (via public oauth.php entrypoint).

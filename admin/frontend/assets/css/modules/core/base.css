@@ -1,5 +1,5 @@
 ﻿::selection {
-   background: orangered;
+  background: orangered;
   color: black;
 }
 
@@ -50,7 +50,8 @@ html {
   --admin-muted: #9a9a9a;
   --admin-font-body: "Inter", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   --admin-font-heading: "Montserrat", "Trebuchet MS", "Segoe UI", sans-serif;
-  --admin-font-mono: "JetBrains Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+  --admin-font-mono:
+    "JetBrains Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
 }
 
 body.dark-theme {
@@ -87,6 +88,16 @@ h6 {
   font-family: var(--admin-font-heading);
   font-weight: 700;
   letter-spacing: -0.5px;
+}
+
+em,
+i,
+cite,
+dfn,
+address,
+var,
+.fst-italic {
+  font-style: normal !important;
 }
 
 .brand-text {

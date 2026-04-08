@@ -71,7 +71,7 @@ if ($securityHelpers -ne '') {
     Assert-Contains -Content $securityHelpers -Needle 'maxlength="64"' -Message 'Custom captcha input maxlength should be 64.'
     Assert-Contains -Content $securityHelpers -Needle 'data-commerza-captcha-answer="1"' -Message 'Captcha input hardening marker is missing.'
     Assert-Contains -Content $securityHelpers -Needle "['paste', 'copy', 'cut', 'drop', 'contextmenu']" -Message 'Captcha input hardening should block paste/copy/cut/drop/contextmenu events.'
-    Assert-Contains -Content $securityHelpers -Needle 'user-select:none;-webkit-user-select:none;">Security check:' -Message 'Captcha prompt should disable text selection.'
+    Assert-Contains -Content $securityHelpers -Needle 'user-select:none;-webkit-user-select:none;">Security question:' -Message 'Captcha prompt should disable text selection.'
 }
 
 $accountPhp = Read-FileSafe -Path 'account.php'
