@@ -138,6 +138,28 @@ if ($action === '') {
     $action = 'sections';
 }
 
+$hasProductTrashTable = commerza_products_has_table($con, 'product_trash');
+$hasProductsDeletedAt = commerza_products_table_has_column($con, 'products', 'deleted_at');
+
+$productsActiveClause = static function (string $alias = '') use ($hasProductTrashTable, $hasProductsDeletedAt): string {
+    $prefix = $alias !== '' ? ($alias . '.') : '';
+    $clauses = [];
+
+    if ($hasProductsDeletedAt) {
+        $clauses[] = $prefix . 'deleted_at IS NULL';
+    }
+
+    if ($hasProductTrashTable) {
+        $clauses[] = 'NOT EXISTS (SELECT 1 FROM product_trash pt WHERE pt.product_id = ' . $prefix . 'id)';
+    }
+
+    if (empty($clauses)) {
+        return '';
+    }
+
+    return ' AND ' . implode(' AND ', $clauses);
+};
+
 if ($action === 'suggest') {
     commerza_products_rate_limit_guard($con, 'products_suggest', 'suggest_bucket', 90, 60, 120, 600);
 
@@ -158,13 +180,13 @@ if ($action === 'suggest') {
     $suggestions = [];
 
     $sql =
-        'SELECT id, name, image, price, salePrice
-         FROM products
-         WHERE name LIKE ? OR description LIKE ?
+        'SELECT p.id, p.name, p.image, p.price, p.salePrice
+         FROM products p
+         WHERE (p.name LIKE ? OR p.description LIKE ?)' . $productsActiveClause('p') . '
          ORDER BY
-            CASE WHEN name LIKE ? THEN 0 ELSE 1 END,
-            updated_at DESC,
-            id DESC
+            CASE WHEN p.name LIKE ? THEN 0 ELSE 1 END,
+            p.updated_at DESC,
+            p.id DESC
          LIMIT ' . $limit;
 
     $stmt = $con->prepare($sql);
@@ -259,6 +281,7 @@ if ($hasReviewsTable) {
      FROM products p';
 }
 
+$productSql .= ' WHERE 1 = 1' . $productsActiveClause('p');
 $productSql .= ' ORDER BY p.id ASC';
 
 $productResult = $con->query($productSql);

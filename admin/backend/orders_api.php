@@ -720,6 +720,7 @@ function orders_api_fetch_metrics(mysqli $con): array
         'refundLoss' => 0.0,
         'netRevenue' => 0.0,
         'totalOrders' => 0,
+        'pendingFulfillment' => 0,
         'totalCustomers' => 0,
         'totalProducts' => 0,
         'avgOrderValue' => 0.0,
@@ -765,6 +766,17 @@ function orders_api_fetch_metrics(mysqli $con): array
     if ($ordersResult) {
         $row = $ordersResult->fetch_assoc();
         $metrics['totalOrders'] = (int)($row['total'] ?? 0);
+    }
+
+    $pendingFulfillmentResult = $con->query(
+        'SELECT COUNT(*) AS total
+         FROM orders
+         WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+           AND LOWER(TRIM(status)) IN ("pending", "confirmed", "processing")'
+    );
+    if ($pendingFulfillmentResult) {
+        $row = $pendingFulfillmentResult->fetch_assoc();
+        $metrics['pendingFulfillment'] = (int)($row['total'] ?? 0);
     }
 
     $customersResult = $con->query(

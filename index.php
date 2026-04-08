@@ -481,7 +481,7 @@ if (
           "image": "https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp",
           "priceRange": "$$",
           "currenciesAccepted": "PKR",
-          "paymentAccepted": "Cash on Delivery, Stripe",
+          "paymentAccepted": "Cash on Delivery",
           "areaServed": {
             "@type": "Country",
             "name": "Pakistan"

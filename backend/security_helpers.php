@@ -213,6 +213,153 @@ function commerza_captcha_context_key(string $context): string
     return substr($normalized, 0, 80);
 }
 
+function commerza_captcha_normalize_answer(string $value): string
+{
+    $normalized = strtolower(trim($value));
+    if ($normalized === '') {
+        return '';
+    }
+
+    $normalized = preg_replace('/\s+/', ' ', $normalized);
+    if (!is_string($normalized)) {
+        return '';
+    }
+
+    $normalized = preg_replace('/[^a-z0-9 ]+/', '', $normalized);
+    if (!is_string($normalized)) {
+        return '';
+    }
+
+    return substr(trim($normalized), 0, 64);
+}
+
+function commerza_captcha_builtin_question_bank(): array
+{
+    return [
+        [
+            'question' => 'What is the capital of France?',
+            'answers' => ['paris'],
+            'type' => 'knowledge',
+        ],
+        [
+            'question' => 'What is the capital of Pakistan?',
+            'answers' => ['islamabad'],
+            'type' => 'knowledge',
+        ],
+        [
+            'question' => 'What is the capital of Japan?',
+            'answers' => ['tokyo'],
+            'type' => 'knowledge',
+        ],
+        [
+            'question' => 'How many days are in one week?',
+            'answers' => ['7', 'seven'],
+            'type' => 'knowledge',
+        ],
+        [
+            'question' => 'Which month comes after June?',
+            'answers' => ['july'],
+            'type' => 'knowledge',
+        ],
+        [
+            'question' => 'What is the first letter of the English alphabet?',
+            'answers' => ['a'],
+            'type' => 'knowledge',
+        ],
+    ];
+}
+
+function commerza_captcha_builtin_generate_math_challenge(): array
+{
+    try {
+        $operatorSeed = random_int(0, 3);
+        if ($operatorSeed === 0) {
+            $left = random_int(13, 99);
+            $right = random_int(4, 37);
+            return [
+                'question' => 'Solve: ' . $left . ' + ' . $right,
+                'answers' => [(string)($left + $right)],
+                'type' => 'math',
+            ];
+        }
+
+        if ($operatorSeed === 1) {
+            $left = random_int(20, 140);
+            $right = random_int(5, 39);
+            if ($left < $right) {
+                $tmp = $left;
+                $left = $right;
+                $right = $tmp;
+            }
+
+            return [
+                'question' => 'Solve: ' . $left . ' - ' . $right,
+                'answers' => [(string)($left - $right)],
+                'type' => 'math',
+            ];
+        }
+
+        if ($operatorSeed === 2) {
+            $left = random_int(3, 14);
+            $right = random_int(4, 12);
+            return [
+                'question' => 'Solve: ' . $left . ' x ' . $right,
+                'answers' => [(string)($left * $right)],
+                'type' => 'math',
+            ];
+        }
+
+        $divisor = random_int(2, 12);
+        $quotient = random_int(2, 12);
+        $left = $divisor * $quotient;
+
+        return [
+            'question' => 'Solve: ' . $left . ' / ' . $divisor,
+            'answers' => [(string)$quotient],
+            'type' => 'math',
+        ];
+    } catch (Throwable $exception) {
+        $left = mt_rand(10, 70);
+        $right = mt_rand(3, 25);
+        return [
+            'question' => 'Solve: ' . $left . ' + ' . $right,
+            'answers' => [(string)($left + $right)],
+            'type' => 'math',
+        ];
+    }
+}
+
+function commerza_captcha_builtin_generate_challenge(): array
+{
+    $knowledgeBank = commerza_captcha_builtin_question_bank();
+    $useKnowledge = false;
+
+    try {
+        $useKnowledge = random_int(1, 100) <= 55;
+    } catch (Throwable $exception) {
+        $useKnowledge = mt_rand(1, 100) <= 55;
+    }
+
+    if ($useKnowledge && !empty($knowledgeBank)) {
+        try {
+            $index = random_int(0, count($knowledgeBank) - 1);
+        } catch (Throwable $exception) {
+            $index = mt_rand(0, max(0, count($knowledgeBank) - 1));
+        }
+
+        $chosen = $knowledgeBank[$index] ?? null;
+        if (is_array($chosen)) {
+            return [
+                'question' => (string)($chosen['question'] ?? 'What is the capital of France?'),
+                'answers' => (array)($chosen['answers'] ?? ['paris']),
+                'type' => (string)($chosen['type'] ?? 'knowledge'),
+            ];
+        }
+    }
+
+    return commerza_captcha_builtin_generate_math_challenge();
+}
+
 function commerza_captcha_builtin_issue(string $context): array
 {
     $contextKey = commerza_captcha_context_key($context);
@@ -222,10 +369,32 @@ function commerza_captcha_builtin_issue(string $context): array
     }
 
     $challenge = $store[$contextKey] ?? null;
-    $isReusable =
+    $isReusable = false;
+
+    if (
         is_array($challenge)
-        && isset($challenge['question'], $challenge['nonce'], $challenge['answer_hash'], $challenge['expires_at'])
-        && (int)$challenge['expires_at'] > time() + 30;
+        && isset($challenge['question'], $challenge['nonce'], $challenge['expires_at'])
+        && (int)$challenge['expires_at'] > time() + 30
+    ) {
+        $storedHashes = [];
+        if (isset($challenge['answer_hashes']) && is_array($challenge['answer_hashes'])) {
+            foreach ($challenge['answer_hashes'] as $hash) {
+                $hash = trim((string)$hash);
+                if ($hash !== '') {
+                    $storedHashes[] = $hash;
+                }
+            }
+        }
+
+        if (empty($storedHashes)) {
+            $legacyHash = trim((string)($challenge['answer_hash'] ?? ''));
+            if ($legacyHash !== '') {
+                $storedHashes[] = $legacyHash;
+            }
+        }
+
+        $isReusable = !empty($storedHashes) && (int)($challenge['attempts'] ?? 0) < 3;
+    }
 
     if ($isReusable) {
         return [
@@ -234,32 +403,46 @@ function commerza_captcha_builtin_issue(string $context): array
         ];
     }
 
+    $challengeData = commerza_captcha_builtin_generate_challenge();
+    $question = trim((string)($challengeData['question'] ?? 'What is the capital of France?'));
+    if ($question === '') {
+        $question = 'What is the capital of France?';
+    }
+
+    $answers = [];
+    if (isset($challengeData['answers']) && is_array($challengeData['answers'])) {
+        foreach ($challengeData['answers'] as $candidate) {
+            $normalizedAnswer = commerza_captcha_normalize_answer((string)$candidate);
+            if ($normalizedAnswer !== '') {
+                $answers[] = $normalizedAnswer;
+            }
+        }
+    }
+
+    if (empty($answers)) {
+        $answers[] = 'paris';
+    }
+
     try {
-        $left = random_int(2, 12);
-        $right = random_int(1, 9);
-        $operator = random_int(0, 1) === 0 ? '+' : '-';
         $nonce = bin2hex(random_bytes(8));
     } catch (Throwable $exception) {
-        $left = mt_rand(2, 12);
-        $right = mt_rand(1, 9);
-        $operator = mt_rand(0, 1) === 0 ? '+' : '-';
         $nonce = substr(hash('sha256', microtime(true) . '|' . mt_rand()), 0, 16);
     }
 
-    if ($operator === '-' && $left < $right) {
-        $tmp = $left;
-        $left = $right;
-        $right = $tmp;
+    $answerHashes = [];
+    foreach ($answers as $answer) {
+        $answerHashes[] = hash('sha256', $answer . '|' . $nonce . '|' . $contextKey);
     }
 
-    $answer = $operator === '+' ? ($left + $right) : ($left - $right);
-    $answerHash = hash('sha256', (string)$answer . '|' . $nonce . '|' . $contextKey);
-
     $store[$contextKey] = [
-        'question' => $left . ' ' . $operator . ' ' . $right,
+        'question' => $question,
         'nonce' => $nonce,
-        'answer_hash' => $answerHash,
-        'expires_at' => time() + 600,
+        'answer_hashes' => array_values(array_unique($answerHashes)),
+        'expires_at' => time() + 900,
+        'issued_at' => time(),
+        'min_solve_seconds' => 4,
+        'attempts' => 0,
+        'challenge_type' => (string)($challengeData['type'] ?? 'mixed'),
     ];
 
     $_SESSION['commerza_builtin_captcha'] = $store;
@@ -283,7 +466,8 @@ function commerza_captcha_builtin_verify(array $request, string $context, string
         ];
     }
 
-    if (preg_match('/^-?\d{1,4}$/', $answerRaw) !== 1) {
+    $normalizedAnswer = commerza_captcha_normalize_answer($answerRaw);
+    if ($normalizedAnswer === '') {
         return [
             'ok' => false,
             'message' => 'Invalid CAPTCHA answer format.',
@@ -318,8 +502,24 @@ function commerza_captcha_builtin_verify(array $request, string $context, string
     }
 
     $storedNonce = (string)($challenge['nonce'] ?? '');
-    $storedHash = (string)($challenge['answer_hash'] ?? '');
-    if ($storedNonce === '' || $storedHash === '' || !hash_equals($storedNonce, $nonce)) {
+    $storedHashes = [];
+    if (isset($challenge['answer_hashes']) && is_array($challenge['answer_hashes'])) {
+        foreach ($challenge['answer_hashes'] as $hash) {
+            $hash = trim((string)$hash);
+            if ($hash !== '') {
+                $storedHashes[] = $hash;
+            }
+        }
+    }
+
+    if (empty($storedHashes)) {
+        $legacyHash = trim((string)($challenge['answer_hash'] ?? ''));
+        if ($legacyHash !== '') {
+            $storedHashes[] = $legacyHash;
+        }
+    }
+
+    if ($storedNonce === '' || empty($storedHashes) || !hash_equals($storedNonce, $nonce)) {
         return [
             'ok' => false,
             'message' => 'CAPTCHA validation failed. Please try again.',
@@ -327,11 +527,41 @@ function commerza_captcha_builtin_verify(array $request, string $context, string
         ];
     }
 
-    $candidateHash = hash('sha256', $answerRaw . '|' . $nonce . '|' . $contextKey);
-    if (!hash_equals($storedHash, $candidateHash)) {
+    $issuedAt = (int)($challenge['issued_at'] ?? 0);
+    $minSolveSeconds = max(0, (int)($challenge['min_solve_seconds'] ?? 0));
+    if ($issuedAt > 0 && $minSolveSeconds > 0 && (time() - $issuedAt) < $minSolveSeconds) {
         return [
             'ok' => false,
-            'message' => 'CAPTCHA answer is incorrect.',
+            'message' => 'Please wait a few seconds before submitting the challenge.',
+            'skipped' => false,
+        ];
+    }
+
+    $candidateHash = hash('sha256', $normalizedAnswer . '|' . $nonce . '|' . $contextKey);
+    $answerValid = false;
+    foreach ($storedHashes as $hash) {
+        if (hash_equals($hash, $candidateHash)) {
+            $answerValid = true;
+            break;
+        }
+    }
+
+    if (!$answerValid) {
+        $attempts = (int)($challenge['attempts'] ?? 0) + 1;
+        if ($attempts >= 5) {
+            unset($store[$contextKey]);
+        } else {
+            $challenge['attempts'] = $attempts;
+            $store[$contextKey] = $challenge;
+        }
+
+        $_SESSION['commerza_builtin_captcha'] = $store;
+
+        return [
+            'ok' => false,
+            'message' => $attempts >= 5
+                ? 'Too many incorrect CAPTCHA attempts. Please reload and try again.'
+                : 'CAPTCHA answer is incorrect. Please try again.',
             'skipped' => false,
         ];
     }
@@ -384,7 +614,7 @@ function commerza_captcha_config(mysqli $con): array
     $secretKey = '';
     $v3SiteKey = '';
     $v3SecretKey = '';
-    $v3MinScore = 0.45;
+    $v3MinScore = 0.65;
     $scriptUrl = '';
     $verifyUrl = '';
     $responseField = '';
@@ -423,7 +653,7 @@ function commerza_captcha_config(mysqli $con): array
         if ($v3MinScoreRaw !== '') {
             $parsedScore = (float)$v3MinScoreRaw;
             if ($parsedScore >= 0.1 && $parsedScore <= 0.99) {
-                $v3MinScore = $parsedScore;
+                $v3MinScore = max(0.55, $parsedScore);
             }
         }
 
@@ -992,6 +1222,61 @@ function commerza_captcha_error_codes(array $verificationData): array
     return $errorCodes;
 }
 
+function commerza_captcha_normalize_host(string $host): string
+{
+    $normalized = strtolower(trim($host));
+    if ($normalized === '') {
+        return '';
+    }
+
+    if (strlen($normalized) > 2 && $normalized[0] === '[' && substr($normalized, -1) === ']') {
+        $normalized = trim($normalized, '[]');
+    }
+
+    $normalized = preg_replace('/:\d+$/', '', $normalized);
+    if (!is_string($normalized)) {
+        return '';
+    }
+
+    if (strpos($normalized, 'www.') === 0) {
+        $normalized = substr($normalized, 4);
+    }
+
+    return trim($normalized);
+}
+
+function commerza_captcha_hostname_matches_request(string $hostname): bool
+{
+    $tokenHost = commerza_captcha_normalize_host($hostname);
+    if ($tokenHost === '') {
+        return false;
+    }
+
+    $requestHosts = [
+        (string)($_SERVER['HTTP_HOST'] ?? ''),
+        (string)($_SERVER['SERVER_NAME'] ?? ''),
+    ];
+
+    $hasComparableHost = false;
+    foreach ($requestHosts as $requestHostRaw) {
+        $requestHost = commerza_captcha_normalize_host($requestHostRaw);
+        if ($requestHost === '') {
+            continue;
+        }
+
+        $hasComparableHost = true;
+        if (hash_equals($requestHost, $tokenHost)) {
+            return true;
+        }
+    }
+
+    if (!$hasComparableHost) {
+        return true;
+    }
+
+    return false;
+}
+
 function commerza_captcha_verify_recaptcha_token(
     array $config,
     string $secret,
@@ -1012,6 +1297,16 @@ function commerza_captcha_verify_recaptcha_token(
         return [
             'ok' => false,
             'message' => 'Please complete the CAPTCHA challenge.',
+            'transport_error' => false,
+            'error_codes' => [],
+        ];
+    }
+
+    $tokenLength = strlen($token);
+    if ($tokenLength < 20 || $tokenLength > 4096) {
+        return [
+            'ok' => false,
+            'message' => 'CAPTCHA token is invalid. Please retry.',
             'transport_error' => false,
             'error_codes' => [],
         ];
@@ -1072,8 +1367,52 @@ function commerza_captcha_verify_recaptcha_token(
             ];
         }
 
+        $hostname = trim((string)($data['hostname'] ?? ''));
+        if ($hostname === '' || !commerza_captcha_hostname_matches_request($hostname)) {
+            return [
+                'ok' => false,
+                'message' => 'CAPTCHA host validation failed. Please retry the form.',
+                'transport_error' => false,
+                'error_codes' => [],
+                'hostname_mismatch' => true,
+            ];
+        }
+
+        $challengeTsRaw = trim((string)($data['challenge_ts'] ?? ''));
+        $challengeTs = $challengeTsRaw === '' ? false : strtotime($challengeTsRaw);
+        if ($challengeTs === false) {
+            return [
+                'ok' => false,
+                'message' => 'CAPTCHA token timestamp is invalid. Please retry.',
+                'transport_error' => false,
+                'error_codes' => [],
+                'token_expired' => true,
+            ];
+        }
+
+        $tokenAgeSeconds = time() - (int)$challengeTs;
+        if ($tokenAgeSeconds < -120 || $tokenAgeSeconds > 300) {
+            return [
+                'ok' => false,
+                'message' => 'CAPTCHA token expired. Please retry or use the backup challenge.',
+                'transport_error' => false,
+                'error_codes' => [],
+                'token_expired' => true,
+            ];
+        }
+
         $scoreRaw = $data['score'] ?? null;
         $score = is_numeric($scoreRaw) ? (float)$scoreRaw : -1.0;
+        if ($score < 0.0 || $score > 1.0) {
+            return [
+                'ok' => false,
+                'message' => 'CAPTCHA score data is invalid. Please retry the form.',
+                'transport_error' => false,
+                'error_codes' => [],
+                'score_invalid' => true,
+            ];
+        }
+
         if ($score < $minScore) {
             return [
                 'ok' => false,
@@ -1233,7 +1572,12 @@ function commerza_captcha_verify_submission(mysqli $con, array $request, string 
                 'message' => (string)($v3Verification['message'] ?? 'CAPTCHA verification failed. Please try again.'),
                 'skipped' => false,
                 'error_codes' => (array)($v3Verification['error_codes'] ?? []),
-                'allow_fallback' => !empty($v3Verification['transport_error']) || !empty($v3Verification['score_low']) || !empty($v3Verification['action_mismatch']),
+                'allow_fallback' => !empty($v3Verification['transport_error'])
+                    || !empty($v3Verification['score_low'])
+                    || !empty($v3Verification['action_mismatch'])
+                    || !empty($v3Verification['hostname_mismatch'])
+                    || !empty($v3Verification['token_expired'])
+                    || !empty($v3Verification['score_invalid']),
             ];
         }
     }

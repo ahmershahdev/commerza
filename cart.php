@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 include "backend/data.php";
 require_once "backend/cart_helpers.php";
-require_once "backend/payment_helpers.php";
 require_once "backend/notifications.php";
 require_once "backend/coupon_helpers.php";
 
@@ -57,7 +56,6 @@ if ($is_logged_in) {
   }
 }
 
-$stripe_publishable_key = commerza_get_stripe_publishable_key($con);
 $checkoutCaptchaConfig = commerza_captcha_config($con);
 $checkoutCaptchaEnabled = (bool)($checkoutCaptchaConfig['enabled'] ?? false);
 $checkoutCaptchaField = (string)($checkoutCaptchaConfig['response_field'] ?? '');
@@ -122,14 +120,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
 
   $payment_methods = [
     'cod' => 'Cash on Delivery (COD)',
-    'stripe' => 'Stripe Card',
   ];
 
   $payment_method_label = $payment_methods[$payment_method] ?? '';
   $payment_status = 'unpaid';
   $payment_notes = [];
-  $stripe_payment_intent_id = trim((string)($_POST['stripe_payment_intent_id'] ?? ''));
-  $stripe_payment_status = trim((string)($_POST['stripe_payment_status'] ?? ''));
 
   if (strlen($customer_name) < 3 || strlen($customer_name) > 100) {
     $errors[] = 'Full name must be 3-100 characters.';
@@ -149,16 +144,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
 
   if ($payment_method_label === '') {
     $errors[] = 'Please select a valid payment method.';
-  }
-
-  if ($payment_method === 'stripe') {
-    if (!preg_match('/^pi_[A-Za-z0-9]+$/', $stripe_payment_intent_id)) {
-      $errors[] = 'Invalid Stripe payment intent.';
-    }
-
-    if ($stripe_payment_status !== 'succeeded') {
-      $errors[] = 'Stripe payment was not completed.';
-    }
   }
 
   $normalized_items = [];
@@ -258,45 +243,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
 
     $grand_total = round(max(0, $subtotal + $shipping_cost - $discount_total), 2);
     $order_number = generate_order_number($con);
-
-    if ($payment_method === 'stripe') {
-      $stripe_secret_key = commerza_get_stripe_secret_key($con);
-
-      if ($stripe_secret_key === '') {
-        $errors[] = 'Stripe is not configured yet. Please choose another payment method.';
-      } else {
-        $intentResponse = commerza_fetch_stripe_payment_intent($stripe_secret_key, $stripe_payment_intent_id);
-
-        if (!$intentResponse['ok']) {
-          $errors[] = $intentResponse['error'] !== ''
-            ? $intentResponse['error']
-            : 'Unable to verify Stripe payment.';
-        } else {
-          $intent = $intentResponse['data'];
-          $intentStatus = (string)($intent['status'] ?? '');
-          $intentCurrency = strtolower((string)($intent['currency'] ?? ''));
-          $intentAmount = (int)($intent['amount_received'] ?? $intent['amount'] ?? 0);
-          $expectedAmount = (int)round($grand_total * 100);
-
-          if ($intentStatus !== 'succeeded') {
-            $errors[] = 'Stripe payment is not successful yet.';
-          }
-
-          if ($intentCurrency !== 'pkr') {
-            $errors[] = 'Stripe payment currency mismatch.';
-          }
-
-          if ($intentAmount !== $expectedAmount) {
-            $errors[] = 'Stripe payment amount mismatch.';
-          }
-
-          if (empty($errors)) {
-            $payment_status = 'paid';
-            $payment_notes[] = 'Stripe Intent: ' . $stripe_payment_intent_id;
-          }
-        }
-      }
-    }
 
     $order_notes_text = implode("\n", array_filter($payment_notes));
 
@@ -531,7 +477,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow">
   <meta name="author" content="Syed Ahmer Shah">
-  <meta name="description" content="Review your Commerza cart and complete checkout with COD or secure Stripe card payments.">
+  <meta name="description" content="Review your Commerza cart and complete checkout with secure Cash on Delivery flow.">
   <meta property="og:title" content="Cart | Commerza">
   <meta property="og:description" content="Review items in your Commerza cart and complete secure checkout.">
   <meta property="og:url" content="https://commerza.ahmershah.dev/cart.php">
@@ -1089,7 +1035,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
           <article class="checkout-guide-card">
             <span class="checkout-guide-step">Step 4</span>
             <h3>Select Payment Method</h3>
-            <p>Choose COD or Stripe, complete CAPTCHA, then submit your final order.</p>
+            <p>Use COD, complete CAPTCHA, then submit your final order.</p>
           </article>
         </div>
       </div>
@@ -1101,7 +1047,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
         <ul class="checkout-precaution-list">
           <li><i class="bi bi-check2-circle"></i><span>Keep quantity realistic to avoid stock conflicts during high demand.</span></li>
           <li><i class="bi bi-check2-circle"></i><span>Double-check phone and address because dispatch labels use this exact data.</span></li>
-          <li><i class="bi bi-check2-circle"></i><span>For card payments, do not close the tab until Stripe confirms success.</span></li>
+          <li><i class="bi bi-check2-circle"></i><span>Keep your phone active because COD confirmation may require a call.</span></li>
           <li><i class="bi bi-check2-circle"></i><span>Review final total after coupon application before clicking Complete Order.</span></li>
         </ul>
       </div>
@@ -1176,8 +1122,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
             <input type="hidden" name="action" value="place_order">
             <input type="hidden" name="request_id" id="checkoutRequestId" value="<?= htmlspecialchars($checkout_request_id) ?>">
-            <input type="hidden" name="stripe_payment_intent_id" id="stripePaymentIntentId" value="">
-            <input type="hidden" name="stripe_payment_status" id="stripePaymentStatus" value="">
             <input type="hidden" name="coupon_code" id="checkoutCouponCode" value="">
 
             <div class="checkout-form-grid">
@@ -1213,9 +1157,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
                 <label for="paymentMethod" class="form-label" style="color: #fff;">Payment Method *</label>
                 <select class="form-select checkout-field" id="paymentMethod" name="payment_method" required>
                   <option value="cod">COD - Cash on Delivery</option>
-                  <option value="stripe">Stripe Card</option>
                 </select>
-                <p class="payment-hint">Choose COD for doorstep payment or Stripe for prepaid checkout.</p>
+                <p class="payment-hint">COD is currently the only available payment method.</p>
                 <div id="paymentMethodCard" class="payment-method-card" aria-live="polite">
                   <div class="payment-method-icon"><i id="paymentMethodIcon" class="bi bi-cash-coin"></i></div>
                   <div>
@@ -1223,13 +1166,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
                     <p id="paymentMethodDesc" class="payment-hint mb-0">Pay when your order reaches your doorstep.</p>
                   </div>
                 </div>
-              </div>
-
-              <div id="stripeFields" class="d-none mb-3 checkout-span-full">
-                <label class="form-label" style="color: #fff;">Card Details *</label>
-                <div id="stripeCardElement" class="checkout-field" style="padding: 12px;"></div>
-                <div id="stripeCardError" class="small text-danger mt-2" aria-live="polite"></div>
-                <p class="small text-secondary mb-0 mt-2">Use a valid Stripe card to complete secure prepaid checkout.</p>
               </div>
 
               <div class="checkout-span-full">
@@ -1306,7 +1242,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="https://js.stripe.com/v3/"></script>
   <script src="frontend/assets/js/global-protection.js"></script>
   <?= commerza_captcha_script_tag($con) ?>
   <script <?= commerza_csp_nonce_attr() ?>>
@@ -1316,8 +1251,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
   <script <?= commerza_csp_nonce_attr() ?>>
     $(function() {
       const isLoggedIn = <?= $is_logged_in ? 'true' : 'false' ?>;
-      const csrfToken = <?= json_encode((string)$_SESSION['csrf_token']) ?>;
-      const stripePublishableKey = <?= json_encode($stripe_publishable_key) ?>;
       const captchaEnabled = <?= $checkoutCaptchaEnabled ? 'true' : 'false' ?>;
       const captchaFieldName = <?= json_encode($checkoutCaptchaField) ?>;
       const prefillData = {
@@ -1326,12 +1259,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
         phone: <?= json_encode((string)$current_user['phone']) ?>,
         address: <?= json_encode((string)$current_user['address']) ?>
       };
-
-      let stripe = null;
-      let stripeElements = null;
-      let stripeCard = null;
-      let stripeMounted = false;
-      let stripeSubmitReady = false;
 
       function buildRequestId(scope) {
         const prefix = (scope || 'checkout').toString().replace(/[^a-z0-9_-]/gi, '').toLowerCase();
@@ -1349,75 +1276,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
         return `${prefix}-${timePart}-${randomPart}`;
       }
 
-      function updatePaymentMethodPreview(method) {
-        const previews = {
-          cod: {
-            icon: 'bi-cash-coin',
-            title: 'Cash on Delivery',
-            desc: 'Pay when your order reaches your doorstep.'
-          },
-          stripe: {
-            icon: 'bi-credit-card-2-front',
-            title: 'Stripe Card',
-            desc: 'Pay securely with your Stripe card.'
-          }
+      function updatePaymentMethodPreview() {
+        const selected = {
+          icon: 'bi-cash-coin',
+          title: 'Cash on Delivery',
+          desc: 'Pay when your order reaches your doorstep.'
         };
-
-        const selected = previews[method] || previews.cod;
         $('#paymentMethodIcon').attr('class', `bi ${selected.icon}`);
         $('#paymentMethodTitle').text(selected.title);
         $('#paymentMethodDesc').text(selected.desc);
-      }
-
-      function initStripeCard() {
-        if (stripeMounted) {
-          return true;
-        }
-
-        if (!stripePublishableKey || typeof Stripe !== 'function') {
-          return false;
-        }
-
-        stripe = Stripe(stripePublishableKey);
-        stripeElements = stripe.elements();
-        stripeCard = stripeElements.create('card', {
-          style: {
-            base: {
-              color: '#ffffff',
-              fontFamily: 'Inter, sans-serif',
-              fontSize: '16px',
-              '::placeholder': {
-                color: '#9ca3af'
-              }
-            },
-            invalid: {
-              color: '#ef4444'
-            }
-          }
-        });
-        stripeCard.mount('#stripeCardElement');
-        stripeMounted = true;
-        return true;
-      }
-
-      function togglePaymentFields() {
-        const method = $('#paymentMethod').val();
-        const useStripe = method === 'stripe';
-
-        updatePaymentMethodPreview(method);
-
-        $('#stripeFields').toggleClass('d-none', !useStripe);
-
-        if (useStripe) {
-          const ready = initStripeCard();
-          if (!ready) {
-            $('#stripeCardError').text('Stripe is not configured yet. Choose another method.');
-            $('#paymentMethod').val('cod');
-            $('#stripeFields').addClass('d-none');
-            return;
-          }
-          $('#stripeCardError').text('');
-        }
       }
 
       $("#serverAlert, #successAlert").each(function() {
@@ -1477,16 +1344,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
           $('#customerAddress').val(prefillData.address || '');
         }
 
-        togglePaymentFields();
+        $('#paymentMethod').val('cod');
+        updatePaymentMethodPreview();
       });
 
-      $('#paymentMethod').on('change', togglePaymentFields);
-
-      $('#checkoutForm').on('submit', async function(event) {
-        if (stripeSubmitReady) {
-          return;
-        }
-
+      $('#checkoutForm').on('submit', function(event) {
         if (!$('#checkoutRequestId').val()) {
           $('#checkoutRequestId').val(buildRequestId('checkout_place_order'));
         }
@@ -1494,7 +1356,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
         setCheckoutCaptchaError('');
 
         const totalItems = parseInt($('#total-items-qty').text(), 10) || 0;
-        const method = $('#paymentMethod').val();
         const submitBtn = $('#completeCheckoutBtn');
 
         if (captchaEnabled && readCaptchaToken() === '') {
@@ -1515,87 +1376,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
           return;
         }
 
-        if (method !== 'stripe') {
-          submitBtn.prop('disabled', true).text('Placing Order...');
-          return;
-        }
-
-        event.preventDefault();
-
-        if (!initStripeCard()) {
-          $('#stripeCardError').text('Stripe is not configured yet.');
-          return;
-        }
-
-        const totalAmountAttr = ($('#cart-total').attr('data-amount') || '').toString();
-        let amountPkr = parseFloat(totalAmountAttr.replace(/[^\d.]/g, '')) || 0;
-
-        if (amountPkr <= 0) {
-          const totalText = ($('#cart-total').text() || '').toString();
-          amountPkr = parseFloat(totalText.replace(/[^\d.]/g, '')) || 0;
-        }
-
-        if (amountPkr <= 0) {
-          $('#stripeCardError').text('Invalid checkout amount.');
-          return;
-        }
-
-        submitBtn.prop('disabled', true).text('Processing Card...');
-        $('#stripeCardError').text('');
-
-        try {
-          const payload = new URLSearchParams();
-          payload.set('csrf_token', csrfToken);
-          payload.set('amount_pkr', String(amountPkr));
-          payload.set('currency', 'pkr');
-
-          const stripeRequestId = buildRequestId('checkout_stripe_intent');
-          payload.set('request_id', stripeRequestId);
-
-          const intentResponse = await fetch('backend/stripe_intent.php', {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-              'X-Request-ID': stripeRequestId
-            },
-            body: payload.toString()
-          });
-
-          const intentData = await intentResponse.json();
-          if (!intentResponse.ok || !intentData?.ok) {
-            throw new Error(intentData?.message || 'Unable to start Stripe payment.');
-          }
-
-          const confirmation = await stripe.confirmCardPayment(intentData.client_secret, {
-            payment_method: {
-              card: stripeCard,
-              billing_details: {
-                name: ($('#customerName').val() || '').toString().trim(),
-                email: ($('#customerEmail').val() || '').toString().trim(),
-                phone: ($('#customerPhone').val() || '').toString().trim()
-              }
-            }
-          });
-
-          if (confirmation.error) {
-            throw new Error(confirmation.error.message || 'Card payment failed.');
-          }
-
-          const paymentIntent = confirmation.paymentIntent || {};
-          if (paymentIntent.status !== 'succeeded') {
-            throw new Error('Stripe payment is not complete yet.');
-          }
-
-          $('#stripePaymentIntentId').val(paymentIntent.id || '');
-          $('#stripePaymentStatus').val(paymentIntent.status || '');
-          stripeSubmitReady = true;
-          this.submit();
-          return;
-        } catch (error) {
-          $('#stripeCardError').text(error?.message || 'Unable to process card payment.');
-          submitBtn.prop('disabled', false).text('Complete Order');
-        }
+        submitBtn.prop('disabled', true).text('Placing Order...');
       });
     });
   </script>

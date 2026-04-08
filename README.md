@@ -1,299 +1,288 @@
 # Commerza
 
-Commerza is a PHP + MySQL ecommerce platform with a public storefront and an admin control panel.
+Commerza is a PHP + MySQL ecommerce platform with a customer storefront and an operations-focused admin panel.
 
-This README is the operational map for developers, reviewers, and maintainers.
+This README is the canonical engineering guide for setup, security posture, feature boundaries, and production operations.
 
-## 1. Architecture Overview
+## 1. Stack and Runtime
 
-Commerza is organized into two major surfaces:
+- Backend: PHP (mysqli), Apache, MySQL
+- Frontend: Server-rendered PHP templates, Bootstrap, jQuery, modular CSS/JS assets
+- Deployment shape: XAMPP-compatible (local) and Apache hosting (production)
+- Shared bootstrap: backend/data.php
 
-1. Storefront: server-rendered public pages and customer-facing interactions.
-2. Admin panel: operations UI for products, orders, coupons, reviews, analytics, website content, and security events.
+## 2. Project Structure
 
-Core runtime helpers and shared protections are centralized in backend bootstrap files (especially backend/data.php).
+- admin/: admin panel UI and admin-only APIs
+- backend/: shared helpers, storefront APIs, cron/report scripts, schema
+- frontend/: storefront static assets (css, js, images, videos)
+- root *.php pages: storefront and auth/public entrypoints
+- infra/docs files: .htaccess, robots.txt, sitemap.xml, llms.txt, SECURITY.md
 
-## 2. High-Level Folder Structure
+## 3. Public vs Restricted Surfaces
 
-Top-level layout:
+Public storefront routes are clean-route pages such as /, /products, /about, /contact, /shipping, /returns, and policy pages.
 
-1. admin/
-2. backend/
-3. frontend/
-4. public PHP pages at repository root (index.php, products.php, about.php, etc.)
-5. configuration and crawler files (.htaccess, robots.txt, sitemap.xml, llms.txt)
+Restricted or sensitive surfaces include:
 
-Detailed map:
+- /admin/*
+- /backend/*
+- account and transaction flows (/account, /cart, /order-tracking, /invoice)
+- auth and recovery flows (/login, /signup, /forgot-password, /reset-password)
 
-1. admin/backend/
+## 4. User Features
 
-- Admin auth, permissions, and admin-only APIs.
-- Examples: orders_api.php, website_api.php, coupons_api.php, reviews_api.php, products_sync_api.php.
+- Browse catalog and category pages
+- Search and suggestions
+- Cart, wishlist, compare
+- Coupon-aware checkout (COD)
+- Account profile management
+- Password reset and account safety controls
+- Order tracking and invoice views
+- Product reviews (eligibility based on delivered/completed/received orders)
 
-2. admin/frontend/
+## 5. Admin Features
 
-- Admin HTML pages and bundled assets.
-- Key page: admin-panel.php.
-- Assets under admin/frontend/assets/css and admin/frontend/assets/js.
+- Dashboard with KPI cards and recent-order visibility
+- Product sections and product CRUD
+- Product trash archive and restore workflows
+- Orders table, status updates, and refund moderation
+- Coupons management and campaign tooling
+- Customer directory and blacklist controls
+- Reviews moderation and review tooling
+- Website settings, social links, slider/ticker controls
+- Security event monitoring
+- Email center and recipient management
 
-3. backend/
+## 6. Checkout and Payments
 
-- Shared app bootstrap and helpers.
-- API endpoints for storefront actions (cart, wishlist, reviews, newsletter, order tracking, etc.).
-- Security and utility helpers (rate limits, CSRF/session bootstrap, notifications, mailer).
-- Scheduled jobs and reporting scripts.
-- SQL schema in backend/database/commerza.sql.
+Checkout is currently COD-only.
 
-4. frontend/
+- Accepted payment method on cart checkout: Cash on Delivery (COD)
+- Stripe card checkout is disabled in cart.php (UI, client flow, and server verification path removed)
+- Order placement still enforces CSRF, idempotency, CAPTCHA, stock locking, and coupon checks
 
-- Storefront static assets: CSS modules, JS modules, images, videos.
+## 7. Password Hashing and Policy Workflow
 
-5. root public pages
+Password security is centralized in backend/security_helpers.php.
 
-- Customer-facing routes mapped by clean rewrite rules.
-- Examples: home, products, about, contact, faq, shipping, returns, warranty.
+- Primary hash algorithm: Argon2id (when PASSWORD_ARGON2ID is available)
+- Fallback hash algorithm: bcrypt with cost 12
+- Emergency fallback in hashing: PASSWORD_DEFAULT if primary hashing fails
+- Verify path: password_verify
+- Rehash path: password_needs_rehash against current algorithm/options
 
-## 3. Routing and .htaccess Behavior
+Password policy baseline:
 
-Routing is split between Apache rewrite rules and PHP-side canonical normalization.
+- Length: 10 to 64
+- Requires uppercase, lowercase, number, special character
+- No whitespace
 
-1. Apache (.htaccess)
+## 8. Username Locking Policy
 
-- Rewrites clean routes to PHP entry pages.
-- Blocks direct browser navigation to backend/admin backend API scripts.
-- Restricts sensitive files and directories.
-- Uses ErrorDocument 404 /error with a clean /error rewrite to 404.php.
+Account username changes are lock-protected.
 
-2. PHP canonical route map (backend/data.php)
+- Lock duration: 90 days after each successful username change
+- Enforcement: server-side during profile update (not only UI)
+- Data source: users.username_changed_at
 
-- Redirects legacy .php requests to clean canonical routes for GET/HEAD.
-- Keeps special query-based routes intact where needed (example: product slug pages).
+## 9. CAPTCHA and Anti-Bot Model
 
-3. Current clean-route examples
+CAPTCHA is centralized in backend/security_helpers.php and uses a layered hybrid model.
 
-- /home, /products, /about, /contact, /faq, /shipping, /returns, /warranty
-- /login, /signup, /forgot-password, /reset-password
-- /admin-login, /admin-panel, /admin-forgot-password, /admin-verify-2fa
-- /error (404 presentation page)
+Layered checks:
 
-## 4. Security Model (Practical Summary)
+- Honeypot field and submit-time checks
+- reCAPTCHA v3 verification
+- reCAPTCHA v2 verification
+- Built-in fallback challenge when needed
 
-Major controls used across the codebase:
+Current v3 hardening details:
 
-1. Session + CSRF protections for form and API actions.
-2. Rate limiting on sensitive workflows (auth, reset, verification, etc.).
-3. Hybrid CAPTCHA checks on high-risk forms (reCAPTCHA v2 + reCAPTCHA v3 score/action + custom fallback challenge).
-4. Security event logging in admin-facing audit streams.
-5. Permission checks for admin APIs.
-6. Input validation/sanitization and prepared SQL statements.
-7. Upload validation with strict MIME checks, parser-based image conversion, malware signature scans, and optional ClamAV checks.
-8. Content Security Policy and defensive headers emitted from shared bootstrap.
+- Default minimum score is stricter (0.65 default, floor 0.55)
+- Action must match server-expected context
+- Hostname must match request host
+- challenge_ts freshness is validated
+- Invalid token length and invalid score payloads are rejected
 
-Operational guidance:
+Fallback challenge hardening details:
 
-1. Never bypass admin permission gates in new APIs.
-2. Keep all new mutating endpoints CSRF-protected.
-3. Log meaningful security events for auth, destructive actions, and suspicious behavior.
+- Randomized knowledge plus arithmetic challenge generation
+- Answer normalization (case/spacing/symbol tolerance within strict bounds)
+- Hashed answer verification per nonce and context
+- Minimum solve-time guard
+- Attempt tracking with lockout after repeated failures
 
-## 5. SEO and Discoverability
+## 10. OAuth (Google and Facebook)
 
-SEO signals are distributed across page templates and shared runtime helpers.
+OAuth login supports both providers through backend/oauth.php (via public oauth.php entrypoint).
 
-1. Canonical URLs
+Supported providers:
 
-- Prefer clean routes (without .php) in canonical and OG URL tags.
+- Google OAuth
+- Facebook OAuth
 
-2. Sitemap
+Configuration sources:
 
-- Managed in sitemap.xml with clean canonical URLs.
+- Environment variables (COMMERZA_* and provider aliases)
+- site_settings fallback keys
 
-3. Robots
+Security properties:
 
-- robots.txt allows public content and blocks sensitive/account/admin paths.
+- Provider allowlist validation
+- State/nonce validation with expiry handling
+- Provider token exchange + profile fetch validation
+- Safe error redirection back to auth flows
 
-4. LLM discoverability
+## 11. Email Routing, Automation, and SMTP Failover
 
-- llms.txt documents public vs restricted routes for AI agents.
+Email behavior is centralized in backend/mailer.php plus notification helpers.
 
-5. Structured data
+SMTP routing strategy:
 
-- Pages include JSON-LD snippets (WebPage/FAQPage/etc.) where relevant.
+- Primary route: sender_net_primary (configurable host/port/auth/encryption)
+- Secondary route: gmail_fallback (configurable fallback transport)
+- Duplicate route suppression when primary and secondary point to same host/account
 
-## 6. Caching and Performance Strategy
+Sender/logo handling:
 
-Commerza now uses layered caching controls:
+- Sender identity resolved from configured SMTP sender or support fallback
+- Email logo prefers PNG for compatibility
+- If only WebP exists and GD supports conversion, PNG is generated automatically
 
-1. Browser/CDN caching
+Automation scripts include:
 
-- Static assets are served with long-lived immutable cache headers via .htaccess.
-- Dynamic storefront pages use controlled cache headers from backend/data.php for safe public caching.
+- backend/send_engagement_reminders.php
+- backend/monthly_profit_report.php
+- backend/weekly_analytics_report.php
 
-2. Object/query caching
+## 12. Caching and Performance Model
 
-- Shared cache helpers in backend/cache_helpers.php support Redis, APCu, and runtime in-process fallback.
-- Site setting lookups are cached to reduce repetitive database reads.
+Commerza uses layered caching and response optimization.
 
-3. Fragment caching
+Application cache layers:
 
-- Fragment cache helpers are available for expensive static-render sections in PHP templates.
-- Home page uses fragment caching for static marketing sections to reduce repeated render cost.
+- Runtime in-process cache
+- APCu cache (when available)
+- Redis cache (when available)
 
-Relevant environment keys:
+Cache helper file:
+
+- backend/cache_helpers.php
+
+Important cache environment keys:
 
 - COMMERZA_CACHE_ENABLED
 - COMMERZA_CACHE_NAMESPACE
-- COMMERZA_REDIS_HOST, COMMERZA_REDIS_PORT, COMMERZA_REDIS_DB, COMMERZA_REDIS_PASSWORD
+- COMMERZA_REDIS_HOST
+- COMMERZA_REDIS_PORT
+- COMMERZA_REDIS_DB
+- COMMERZA_REDIS_PASSWORD
+- COMMERZA_REDIS_TIMEOUT
 - COMMERZA_SITE_SETTINGS_CACHE_TTL
+
+Delivery optimizations:
+
+- Static asset cache headers from .htaccess
+- Shared HTML normalization and asset-loading optimizations in backend/data.php
+- Fragment cache support for expensive render sections
+
+## 13. Upload Security Controls
+
+Upload paths are validated and scanned.
+
+Controls include:
+
+- MIME and extension checks
+- Parser-based validation/transformation for images
+- Malware signature checks
+- Optional ClamAV scan command integration
+- Fail-open or fail-closed behavior configurable by environment
+
+Related environment keys:
+
 - COMMERZA_UPLOAD_SCAN_ENABLED
 - COMMERZA_UPLOAD_SCAN_FAIL_CLOSED
 - COMMERZA_CLAMSCAN_PATH
 
-## 7. Key Runtime Files You Should Know
+## 14. Locking and Concurrency Safety
 
-1. backend/data.php
+Critical flows include transactional locking and anti-race protections.
 
-- Bootstrap, DB connection, base URL resolution, canonical route redirects, output normalization, public settings payload injection.
+Examples:
 
-2. .htaccess
+- Checkout stock protection:
+  - Transactional order placement
+  - SELECT ... FOR UPDATE stock lock before decrement
+  - Conditional stock update guard
+- Checkout idempotency key consumption to block duplicate submissions
+- Refund status update flow includes row-level lock semantics in admin orders API
+- Username change lock window enforcement (90 days)
 
-- Rewrite rules, sensitive route/file access restrictions, clean-route mapping, 404 route behavior.
+## 15. Product Lifecycle and Trash Semantics
 
-3. admin/frontend/admin-panel.php
+Storefront product feeds now exclude archived/deleted entries.
 
-- Primary admin UI shell and tab panes.
+- products API excludes products with deleted_at (when column exists)
+- products API excludes products present in product_trash (when table exists)
+- Result: trashed products do not appear on user-facing product/search payloads
 
-4. admin/frontend/assets/js/script.js
+## 16. Review Eligibility Semantics
 
-- Admin panel behavior, API integration, rendering logic.
+Review eligibility is verified server-side.
 
-5. backend/database/commerza.sql
+- Accepted order statuses for eligibility: delivered, completed, received
+- Product linkage supports product_id matching and legacy product_name fallback
+- Refund-linked restrictions remain enforced where refund tables exist
 
-- Baseline schema for local provisioning and parity checks.
+## 17. Security Levels (Operational Reference)
 
-## 8. Admin Panel Capability Map (Complete)
+Use this severity model when extending or reviewing features.
 
-The admin panel is anchored in admin/frontend/admin-panel.php with behavior implemented in admin/frontend/assets/js/script.js and APIs under admin/backend/.
+- Level 1 (baseline): input validation, output escaping, prepared statements
+- Level 2 (sensitive forms/APIs): CSRF, rate limit, CAPTCHA, audit logging
+- Level 3 (critical money/data paths): transaction boundaries, row locks, idempotency, explicit permission checks
 
-Primary admin tabs and responsibilities:
+## 18. Local Setup (XAMPP)
 
-1. Dashboard
+1. Put project in C:/xampp/htdocs/commerza
+2. Import backend/database/commerza.sql into database commerza
+3. Configure .env values
+4. Start Apache and MySQL from XAMPP
+5. Open http://localhost/commerza/
 
-- KPI cards (revenue, orders, products, customers, refund summary).
-- Recent order snapshots.
-- Quick navigation actions to operations tabs.
+## 19. Useful Commands
 
-2. Products
+PHP lint examples:
 
-- Section management (create/update/delete).
-- Product CRUD and stock/price metadata updates.
-- Bulk import (CSV/JSON) with overwrite behavior.
-- Product Trash queue with restore, delete, and empty actions.
+- C:/xampp/php/php.exe -l backend/security_helpers.php
+- C:/xampp/php/php.exe -l cart.php
+- C:/xampp/php/php.exe -l admin/backend/orders_api.php
 
-3. Orders
-
-- Full order table and status management.
-- Bulk order deletion.
-- Shipping rules configuration (flat fee, free-shipping threshold).
-- Refund request moderation and status updates.
-
-4. Customers
-
-- Customer directory search and bulk removal.
-- Account-level actions.
-- Blacklist management for blocked email/phone identifiers.
-
-5. Coupons
-
-- Coupon CRUD (fixed/percent discounts, usage caps, expiry, active flag).
-- Coupon statistics and refreshable listing.
-- Coupon email send workflow.
-
-6. Reviews
-
-- Review moderation (visible/hidden filtering).
-- Review creation and test-seeding helpers.
-- Fake bulk review generation controls.
-
-7. Analytics
-
-- Revenue/order/AOV/repeat-customer summaries.
-- Profit/loss chart and weekly performance rows.
-- Store-health checklist and action recommendations.
-- Live product viewers mode (real/fake) and snapshot leaderboard.
-
-8. Email Center
-
-- Recipient source filtering and selection.
-- Template save/reset flow.
-- Compose + preview with attachment handoff guidance.
-
-9. Website Settings
-
-- Branding (site name, logo, favicon).
-- Contact details.
-- Social links and icon uploads.
-- Admin security controls (email/password/reset key updates).
-
-10. Security Events
-
-- Event log viewing with severity/date/type filters.
-- Pagination and refresh controls for incident triage.
-
-11. Homepage Content
-
-- Ticker management.
-- Featured videos.
-- Slider image configuration.
-
-Admin backend API ownership (quick map):
-
-1. admin/backend/products_sync_api.php: sections/products/trash workflows.
-2. admin/backend/orders_api.php: order operations, statuses, shipping/refunds.
-3. admin/backend/reviews_api.php: moderation and generation actions.
-4. admin/backend/coupons_api.php: coupon CRUD and coupon email operations.
-5. admin/backend/viewers_api.php: live-viewer analytics settings/data.
-6. admin/backend/website_api.php: branding/contact/social/homepage/security settings.
-7. admin/backend/security_api.php + backend/security_events.php: event ingestion and retrieval.
-8. admin/backend/media_api.php: admin media upload and file management.
-
-Operational note:
-
-1. Keep admin UI labels and API payload fields in sync whenever new controls are introduced.
-2. For destructive actions, preserve confirm dialogs plus security event logs.
-3. Maintain CSRF/rate-limit checks on all mutating admin routes.
-
-## 9. Local Setup (XAMPP)
-
-1. Place project in C:/xampp/htdocs/commerza.
-2. Import backend/database/commerza.sql into MySQL database commerza.
-3. Configure environment values in .env.
-4. Start Apache + MySQL from XAMPP control panel.
-5. Open http://localhost/commerza/.
-
-## 10. Useful Commands
-
-1. PHP lint example:
-
-- C:/xampp/php/php.exe -l backend/data.php
-
-2. Scheduled job examples:
+Automation examples:
 
 - C:/xampp/php/php.exe C:/xampp/htdocs/commerza/backend/send_engagement_reminders.php 180
 - C:/xampp/php/php.exe C:/xampp/htdocs/commerza/backend/monthly_profit_report.php
 - C:/xampp/php/php.exe C:/xampp/htdocs/commerza/backend/weekly_analytics_report.php
 
-## 11. Deployment/Release Checklist
+Backup/restore verification:
 
-1. Verify canonical URLs and clean routes work on target host.
-2. Confirm robots.txt and sitemap.xml point to production domain.
-3. Verify SMTP, CAPTCHA, and environment secrets are configured.
-4. If using Redis/ClamAV, verify COMMERZA_REDIS_* and COMMERZA_CLAMSCAN_PATH values are set correctly.
-5. Run PHP lint on touched files.
-6. Manually test key auth/order/admin flows before release.
+- powershell -ExecutionPolicy Bypass -File backend/backup_restore_test.ps1 -MySqlBinPath "C:/xampp/mysql/bin"
 
-## 12. Documentation and Policies
+## 20. Release Checklist
 
-1. Security policy: SECURITY.md
-2. Agent/LLM guidance: llms.txt
-3. Crawler policy: robots.txt
-4. URL discovery: sitemap.xml
+1. Verify clean-route canonical behavior
+2. Validate CAPTCHA flows in signup/login/reset/checkout/admin verification
+3. Validate OAuth login for Google and Facebook
+4. Validate SMTP primary and fallback delivery
+5. Validate checkout, coupon, stock, and order status workflows
+6. Validate admin KPI cards and core operations tabs
+7. Run PHP lint on touched files
+
+## 21. Documentation and Operations Files
+
+- SECURITY.md: security policy and disclosure channel
+- llms.txt: LLM-safe discovery guidance
+- instructions.md: integration requirements reference
+- backend/BACKUP_RESTORE_TESTS.md: backup and restore runbook
+- backend/backup_restore_test.ps1: automated backup/restore verification script

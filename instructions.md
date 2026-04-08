@@ -14,8 +14,8 @@ This document lists the exact integration requirements for OAuth, SMTP, CAPTCHA,
 
 ### Redirect URI
 
-- `https://<your-domain>/backend/oauth.php?provider=google`
-- `http://localhost/commerza/backend/oauth.php?provider=google`
+- `https://<your-domain>/oauth.php?provider=google`
+- `http://localhost/commerza/oauth.php?provider=google`
 
 ### Config Keys
 
@@ -33,8 +33,8 @@ This document lists the exact integration requirements for OAuth, SMTP, CAPTCHA,
 
 ### Redirect URI
 
-- `https://<your-domain>/backend/oauth.php?provider=facebook`
-- `http://localhost/commerza/backend/oauth.php?provider=facebook`
+- `https://<your-domain>/oauth.php?provider=facebook`
+- `http://localhost/commerza/oauth.php?provider=facebook`
 
 ### Config Keys
 
@@ -42,23 +42,22 @@ This document lists the exact integration requirements for OAuth, SMTP, CAPTCHA,
 - `facebook_oauth_client_secret`
 - `facebook_oauth_redirect_uri`
 
-## 3) Stripe
+## 3) Payments (Current Mode)
 
-### Required Inputs
+Checkout currently runs in COD-only mode.
 
-- Stripe publishable key
-- Stripe secret key
+### Active Method
 
-### Config Keys
+- Cash on Delivery (COD)
 
-- `stripe_publishable_key`
-- `stripe_secret_key`
-
-### Runtime Paths
+### Runtime Path
 
 - Checkout page: `cart.php`
-- Intent endpoint: `backend/stripe_intent.php`
-- Helper functions: `backend/payment_helpers.php`
+
+### Notes
+
+- Stripe card flow is disabled in cart checkout at this time.
+- Keep COD validation, CAPTCHA, CSRF, idempotency, and stock checks enabled.
 
 ## 4) SMTP (Gmail Recommended)
 
@@ -90,6 +89,8 @@ Trigger real flow emails and confirm delivery:
 
 - reCAPTCHA v2 site key
 - reCAPTCHA v2 secret key
+- reCAPTCHA v3 site key
+- reCAPTCHA v3 secret key
 
 ### `.env` Keys
 
@@ -97,6 +98,9 @@ Trigger real flow emails and confirm delivery:
 - `COMMERZA_CAPTCHA_PROVIDER=recaptcha`
 - `COMMERZA_RECAPTCHA_SITE_KEY=<site-key>`
 - `COMMERZA_RECAPTCHA_SECRET_KEY=<secret-key>`
+- `COMMERZA_RECAPTCHA_V3_SITE_KEY=<v3-site-key>`
+- `COMMERZA_RECAPTCHA_V3_SECRET_KEY=<v3-secret-key>`
+- `COMMERZA_RECAPTCHA_V3_MIN_SCORE=0.65`
 
 ## 6) Scheduled Tasks
 
@@ -114,5 +118,5 @@ Trigger real flow emails and confirm delivery:
 - OAuth login tested for Google and Facebook
 - SMTP delivery tested from real app flows
 - CAPTCHA passes for signup, password reset, and admin verification
-- Stripe checkout intent and confirmation validated
+- COD checkout placement and order creation validated
 - Rate limit and CSRF protections active

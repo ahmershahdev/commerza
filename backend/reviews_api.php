@@ -481,6 +481,26 @@ function reviews_api_product_exists(mysqli $con, int $productId): bool
     return $exists;
 }
 
+function reviews_api_product_name(mysqli $con, int $productId): string
+{
+    if ($productId <= 0) {
+        return '';
+    }
+
+    $stmt = $con->prepare('SELECT name FROM products WHERE id = ? LIMIT 1');
+    if (!$stmt) {
+        return '';
+    }
+
+    $stmt->bind_param('i', $productId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    return trim((string)($row['name'] ?? ''));
+}
+
 function reviews_api_existing_user_review(mysqli $con, int $userId, int $productId): ?array
 {
     $stmt = $con->prepare(
@@ -528,14 +548,26 @@ function reviews_api_check_eligibility(mysqli $con, int $userId, int $productId)
     }
 
     $hasRefundTable = reviews_api_refund_table_exists($con);
+    $hasOrderItemsProductNameColumn = reviews_api_column_exists($con, 'order_items', 'product_name');
+    $productName = strtolower(trim(reviews_api_product_name($con, $productId)));
+
+    $productMatchSql = 'oi.product_id = ?';
+    $bindTypes = 'ii';
+    $bindProductName = false;
+
+    if ($hasOrderItemsProductNameColumn && $productName !== '') {
+        $productMatchSql = '(oi.product_id = ? OR LOWER(TRIM(oi.product_name)) = ?)';
+        $bindTypes = 'iis';
+        $bindProductName = true;
+    }
 
     $sqlBase =
         'SELECT o.id
          FROM orders o
          INNER JOIN order_items oi ON oi.order_id = o.id
          WHERE o.user_id = ?
-           AND oi.product_id = ?
-           AND LOWER(TRIM(o.status)) = "delivered"';
+           AND ' . $productMatchSql . '
+           AND LOWER(TRIM(o.status)) IN ("delivered", "completed", "received")';
 
     if ($hasRefundTable) {
         $sqlBase .=
@@ -559,7 +591,11 @@ function reviews_api_check_eligibility(mysqli $con, int $userId, int $productId)
         ];
     }
 
-    $stmt->bind_param('ii', $userId, $productId);
+    if ($bindProductName) {
+        $stmt->bind_param($bindTypes, $userId, $productId, $productName);
+    } else {
+        $stmt->bind_param($bindTypes, $userId, $productId);
+    }
     $stmt->execute();
     $result = $stmt->get_result();
     $row = $result ? $result->fetch_assoc() : null;

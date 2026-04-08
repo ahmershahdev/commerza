@@ -201,10 +201,10 @@ function commerza_content_security_policy_header(): string
         "worker-src 'self' blob:",
         "img-src 'self' data: blob: https:",
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com https://cdnjs.cloudflare.com",
-        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.jquery.com https://js.stripe.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com https://maps.googleapis.com https://www.googletagmanager.com",
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.jquery.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com https://maps.googleapis.com https://www.googletagmanager.com",
         "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net",
-        "connect-src 'self' https://api.stripe.com https://r.stripe.com https://cdn.jsdelivr.net https://code.jquery.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com https://maps.googleapis.com https://maps.gstatic.com https://www.google-analytics.com https://www.googletagmanager.com",
-        "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.google.com https://www.google.com/maps https://maps.google.com https://www.recaptcha.net https://challenges.cloudflare.com",
+        "connect-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com https://maps.googleapis.com https://maps.gstatic.com https://www.google-analytics.com https://www.googletagmanager.com",
+        "frame-src 'self' https://www.google.com https://www.google.com/maps https://maps.google.com https://www.recaptcha.net https://challenges.cloudflare.com",
         "form-action 'self'",
     ];
 
@@ -672,7 +672,6 @@ function commerza_collect_preload_assets(string $buffer): array
                 || str_contains($normalized, 'googletagmanager')
                 || str_contains($normalized, 'google-analytics')
                 || str_contains($normalized, 'maps.googleapis')
-                || str_contains($normalized, 'stripe.com')
             ) {
                 continue;
             }

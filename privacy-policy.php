@@ -318,7 +318,7 @@ $logoUrl = $siteBaseUrl . '/frontend/assets/images/logo/commerza-logo.webp';
 		<section class="card product-card mb-4">
 			<div class="card-body">
 				<h2 class="product-name mb-3">4. Payments and Financial Data</h2>
-				<p class="product-desc mb-0">Card payments are processed through Stripe workflows. For wallet methods, we store the reference information required to validate transactions and resolve disputes. Full card numbers are not stored in Commerza databases.</p>
+				<p class="product-desc mb-0">Commerza currently operates with Cash on Delivery for checkout. When payment references are collected for verification or dispute handling, only the minimum required metadata is stored. Sensitive card-number data is not stored in Commerza databases.</p>
 			</div>
 		</section>
 

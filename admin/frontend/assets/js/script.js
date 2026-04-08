@@ -3221,6 +3221,15 @@ function calculateDashboardMetrics() {
     (order) => order.orderDate >= thirtyDaysAgo,
   ).length;
 
+  const fallbackPendingFulfillment = orders.filter((order) => {
+    if (order.orderDate < thirtyDaysAgo) {
+      return false;
+    }
+
+    const status = (order.status || "").toLowerCase();
+    return ["pending", "confirmed", "processing"].includes(status);
+  }).length;
+
   const fallbackCustomerSet = new Set();
   orders
     .filter((order) => order.orderDate >= thirtyDaysAgo)
@@ -3229,6 +3238,34 @@ function calculateDashboardMetrics() {
         fallbackCustomerSet.add(order.customerName);
       }
     });
+
+  const fallbackCustomerOrderCounts = new Map();
+  orders
+    .filter((order) => order.orderDate >= thirtyDaysAgo)
+    .forEach((order) => {
+      const key =
+        String(order.customerEmail || order.customerName || "")
+          .trim()
+          .toLowerCase() || "";
+
+      if (key === "") {
+        return;
+      }
+
+      fallbackCustomerOrderCounts.set(
+        key,
+        (fallbackCustomerOrderCounts.get(key) || 0) + 1,
+      );
+    });
+
+  const fallbackReturningCustomers = Array.from(
+    fallbackCustomerOrderCounts.values(),
+  ).filter((count) => count > 1).length;
+
+  const fallbackReturningRate =
+    fallbackCustomerOrderCounts.size > 0
+      ? (fallbackReturningCustomers / fallbackCustomerOrderCounts.size) * 100
+      : 0;
 
   let totalProducts = 0;
   if (allSections && allSections.length > 0) {
@@ -3245,12 +3282,72 @@ function calculateDashboardMetrics() {
     adminMetrics?.totalCustomers ?? fallbackCustomerSet.size,
   );
   const productsCount = Number(adminMetrics?.totalProducts ?? totalProducts);
+  const avgOrderValue = Number(
+    adminMetrics?.avgOrderValue ??
+      (totalOrdersCount > 0 ? revenue / totalOrdersCount : 0),
+  );
+  const returningCustomerRate = Number(
+    adminMetrics?.returningCustomerRate ?? fallbackReturningRate,
+  );
+  const pendingFulfillmentCount = Number(
+    adminMetrics?.pendingFulfillment ?? fallbackPendingFulfillment,
+  );
 
-  document.getElementById("totalRevenueValue").textContent =
-    "PKR " + revenue.toLocaleString();
-  document.getElementById("totalOrdersValue").textContent = totalOrdersCount;
-  document.getElementById("totalCustomersValue").textContent = totalCustomers;
-  document.getElementById("totalProductsValue").textContent = productsCount;
+  const totalRevenueNode = document.getElementById("totalRevenueValue");
+  if (totalRevenueNode) {
+    totalRevenueNode.textContent = "PKR " + revenue.toLocaleString();
+  }
+
+  const totalOrdersNode = document.getElementById("totalOrdersValue");
+  if (totalOrdersNode) {
+    totalOrdersNode.textContent = totalOrdersCount.toLocaleString();
+  }
+
+  const totalCustomersNode = document.getElementById("totalCustomersValue");
+  if (totalCustomersNode) {
+    totalCustomersNode.textContent = totalCustomers.toLocaleString();
+  }
+
+  const totalProductsNode = document.getElementById("totalProductsValue");
+  if (totalProductsNode) {
+    totalProductsNode.textContent = productsCount.toLocaleString();
+  }
+
+  const avgOrderValueNode = document.getElementById("avgOrderValueValue");
+  if (avgOrderValueNode) {
+    avgOrderValueNode.textContent =
+      "PKR " +
+      avgOrderValue.toLocaleString(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      });
+  }
+
+  const returningCustomerRateNode = document.getElementById(
+    "returningCustomerRateValue",
+  );
+  if (returningCustomerRateNode) {
+    returningCustomerRateNode.textContent = `${returningCustomerRate.toFixed(1)}%`;
+  }
+
+  const pendingFulfillmentNode = document.getElementById(
+    "pendingFulfillmentValue",
+  );
+  if (pendingFulfillmentNode) {
+    pendingFulfillmentNode.textContent =
+      pendingFulfillmentCount.toLocaleString();
+  }
+
+  const returningCustomerRateInfoNode = document.getElementById(
+    "returningCustomerRateInfo",
+  );
+  if (returningCustomerRateInfoNode && fallbackCustomerOrderCounts.size > 0) {
+    returningCustomerRateInfoNode.textContent =
+      fallbackReturningCustomers +
+      " repeat buyers out of " +
+      fallbackCustomerOrderCounts.size +
+      " active customers";
+  }
 }
 
 function loadProductsFromJSON() {

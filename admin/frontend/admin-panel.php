@@ -431,6 +431,63 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
                                     </div>
                                 </div>
                             </div>
+                            <div class="col-12 col-sm-6 col-xl-3">
+                                <div class="card admin-card border-0 shadow-sm h-100">
+                                    <div class="card-body p-4">
+                                        <div class="d-flex justify-content-between align-items-start mb-3">
+                                            <div>
+                                                <p class="text-secondary small mb-2 text-uppercase fw-semibold">Avg Order Value</p>
+                                                <h3 class="fw-bold mb-0 text-light" id="avgOrderValueValue">PKR 0</h3>
+                                            </div>
+                                            <div class="icon-bg bg-secondary rounded-3 d-flex align-items-center justify-content-center"
+                                                style="width: 48px; height: 48px;">
+                                                <i class="bi bi-graph-up-arrow text-light fs-4"></i>
+                                            </div>
+                                        </div>
+                                        <p class="mb-0 small text-success">
+                                            <i class="bi bi-info-circle"></i> <span class="fw-semibold" id="avgOrderValueInfo">Delivered Revenue / Last 30 Day Orders</span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-sm-6 col-xl-3">
+                                <div class="card admin-card border-0 shadow-sm h-100">
+                                    <div class="card-body p-4">
+                                        <div class="d-flex justify-content-between align-items-start mb-3">
+                                            <div>
+                                                <p class="text-secondary small mb-2 text-uppercase fw-semibold">Returning Customers</p>
+                                                <h3 class="fw-bold mb-0 text-light" id="returningCustomerRateValue">0%</h3>
+                                            </div>
+                                            <div class="icon-bg bg-secondary rounded-3 d-flex align-items-center justify-content-center"
+                                                style="width: 48px; height: 48px;">
+                                                <i class="bi bi-arrow-repeat text-light fs-4"></i>
+                                            </div>
+                                        </div>
+                                        <p class="mb-0 small text-info">
+                                            <i class="bi bi-info-circle"></i> <span class="fw-semibold" id="returningCustomerRateInfo">Placed more than one order in 30 days</span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-sm-6 col-xl-3">
+                                <div class="card admin-card border-0 shadow-sm h-100">
+                                    <div class="card-body p-4">
+                                        <div class="d-flex justify-content-between align-items-start mb-3">
+                                            <div>
+                                                <p class="text-secondary small mb-2 text-uppercase fw-semibold">Pending Fulfillment</p>
+                                                <h3 class="fw-bold mb-0 text-light" id="pendingFulfillmentValue">0</h3>
+                                            </div>
+                                            <div class="icon-bg bg-secondary rounded-3 d-flex align-items-center justify-content-center"
+                                                style="width: 48px; height: 48px;">
+                                                <i class="bi bi-hourglass-split text-light fs-4"></i>
+                                            </div>
+                                        </div>
+                                        <p class="mb-0 small text-warning">
+                                            <i class="bi bi-info-circle"></i> <span class="fw-semibold" id="pendingFulfillmentInfo">Pending + Confirmed + Processing</span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="row g-4">
