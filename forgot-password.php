@@ -475,6 +475,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       </div>
 
       <?= commerza_captcha_widget_html($con, 'user_forgot_password') ?>
+      <p class="forgot-subtitle" style="margin-top:10px;margin-bottom:18px;letter-spacing:.5px;">
+        Complete one verification method: Google check or backup question.
+      </p>
 
       <div class="d-grid">
         <button type="submit" class="btn reset-btn" id="forgotPasswordSubmitBtn">Send Reset Code</button>
