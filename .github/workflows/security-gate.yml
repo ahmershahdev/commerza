@@ -1,0 +1,91 @@
+name: Security Gate
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - temp-1
+      - temp-*
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: security-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-security-gate:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run static security gate
+        shell: pwsh
+        run: ./scripts/security/ci_security_gate.ps1
+
+      - name: Run PHP syntax lint
+        shell: pwsh
+        run: |
+          $phpCmd = Get-Command php -ErrorAction SilentlyContinue
+          if (-not $phpCmd) {
+            Write-Host "php not found on PATH; skipping syntax lint step."
+            exit 0
+          }
+
+          $failed = $false
+          $files = Get-ChildItem -Path . -Recurse -Filter *.php -File |
+            Where-Object { $_.FullName -notmatch '\\vendor\\' }
+
+          foreach ($file in $files) {
+            & php -l $file.FullName > $null
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "PHP lint failed: $($file.FullName)"
+              & php -l $file.FullName
+              $failed = $true
+            }
+          }
+
+          if ($failed) {
+            throw "PHP lint failures detected."
+          }
+
+  dynamic-security-probes:
+    if: ${{ secrets.SECURITY_BASE_URL != '' }}
+    needs: static-security-gate
+    runs-on: windows-latest
+    env:
+      SECURITY_BASE_URL: ${{ secrets.SECURITY_BASE_URL }}
+      COMMERZA_ADMIN_TEST_EMAIL: ${{ secrets.COMMERZA_ADMIN_TEST_EMAIL }}
+      COMMERZA_ADMIN_TEST_PASSWORD: ${{ secrets.COMMERZA_ADMIN_TEST_PASSWORD }}
+      COMMERZA_ADMIN_TEST_2FA_CODE: ${{ secrets.COMMERZA_ADMIN_TEST_2FA_CODE }}
+      COMMERZA_ADMIN_TEST_SESSION_ID: ${{ secrets.COMMERZA_ADMIN_TEST_SESSION_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run security smoke tests
+        shell: pwsh
+        run: ./scripts/security/security_smoke_tests.ps1 -BaseUrl "$env:SECURITY_BASE_URL"
+
+      - name: Run crawler XSS probe
+        shell: pwsh
+        run: ./scripts/security/xss_crawler_probe.ps1 -BaseUrl "$env:SECURITY_BASE_URL" -MaxPages 100
+
+      - name: Validate authenticated admin abuse inputs
+        shell: pwsh
+        run: |
+          $hasSession = -not [string]::IsNullOrWhiteSpace($env:COMMERZA_ADMIN_TEST_SESSION_ID)
+          $hasCredsWith2Fa =
+            (-not [string]::IsNullOrWhiteSpace($env:COMMERZA_ADMIN_TEST_EMAIL)) -and
+            (-not [string]::IsNullOrWhiteSpace($env:COMMERZA_ADMIN_TEST_PASSWORD)) -and
+            (-not [string]::IsNullOrWhiteSpace($env:COMMERZA_ADMIN_TEST_2FA_CODE))
+
+          if (-not $hasSession -and -not $hasCredsWith2Fa) {
+            throw "Provide COMMERZA_ADMIN_TEST_SESSION_ID, or COMMERZA_ADMIN_TEST_EMAIL + COMMERZA_ADMIN_TEST_PASSWORD + COMMERZA_ADMIN_TEST_2FA_CODE."
+          }
+
+      - name: Run authenticated admin abuse tests
+        shell: pwsh
+        run: ./scripts/security/admin_e2e_abuse_tests.ps1 -BaseUrl "$env:SECURITY_BASE_URL" -RequireAuthenticated

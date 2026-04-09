@@ -1,21 +1,59 @@
 (function () {
   if (window.__commerzaMediaProtectionEnabled) return;
   window.__commerzaMediaProtectionEnabled = true;
+  const ELEMENT_NODE = 1;
+
+  function eventTargetElement(event) {
+    const target = event ? event.target : null;
+    if (!target) {
+      return null;
+    }
+
+    if (target.nodeType === ELEMENT_NODE) {
+      return target;
+    }
+
+    if (
+      target.parentElement &&
+      target.parentElement.nodeType === ELEMENT_NODE
+    ) {
+      return target.parentElement;
+    }
+
+    return null;
+  }
+
+  function isProtectedMediaTarget(event) {
+    const element = eventTargetElement(event);
+    if (!element) {
+      return false;
+    }
+
+    if (typeof element.closest === "function") {
+      return !!element.closest("img, video");
+    }
+
+    if (typeof element.matches === "function") {
+      return element.matches("img, video");
+    }
+
+    return false;
+  }
 
   document.addEventListener("contextmenu", (event) => {
-    if (event.target.closest("img, video")) {
+    if (isProtectedMediaTarget(event)) {
       event.preventDefault();
     }
   });
 
   document.addEventListener("dragstart", (event) => {
-    if (event.target.closest("img, video")) {
+    if (isProtectedMediaTarget(event)) {
       event.preventDefault();
     }
   });
 
   document.addEventListener("selectstart", (event) => {
-    if (!event.target.closest("input, textarea, [contenteditable='true']")) {
+    if (isProtectedMediaTarget(event)) {
       event.preventDefault();
     }
   });

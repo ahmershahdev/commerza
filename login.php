@@ -1,0 +1,646 @@
+<?php
+include "backend/data.php";
+require_once "backend/notifications.php";
+
+if (!empty($_SESSION['user_id']) && $_SERVER['REQUEST_METHOD'] !== 'POST') {
+  header("Location: account.php");
+  exit;
+}
+
+if (empty($_SESSION['csrf_token'])) {
+  $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+$errors = [];
+$login_identifier = '';
+$flash_success = '';
+
+if (!empty($_SESSION['flash_success'])) {
+  $flash_success = (string)$_SESSION['flash_success'];
+  unset($_SESSION['flash_success']);
+}
+
+if (!empty($_SESSION['oauth_error'])) {
+  $errors[] = (string)$_SESSION['oauth_error'];
+  unset($_SESSION['oauth_error']);
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  if (
+    empty($_POST['csrf_token']) ||
+    empty($_SESSION['csrf_token']) ||
+    !hash_equals($_SESSION['csrf_token'], (string)$_POST['csrf_token'])
+  ) {
+    http_response_code(403);
+    exit("Forbidden.");
+  }
+
+  $login_identifier = trim((string)($_POST['user_login_identifier'] ?? ''));
+  $normalizedIdentifier = strtolower($login_identifier);
+  $usernameCandidate = commerza_username_slug($normalizedIdentifier);
+  $isEmailLogin = filter_var($normalizedIdentifier, FILTER_VALIDATE_EMAIL) && strlen($normalizedIdentifier) <= 150;
+  $isUsernameLogin = commerza_username_is_valid($usernameCandidate);
+  $password = (string)($_POST['user_login_password'] ?? '');
+  $rememberMe = !empty($_POST['remember_me']);
+
+  $captchaCheck = commerza_captcha_verify_submission($con, $_POST, 'user_login');
+  if (!(bool)$captchaCheck['ok']) {
+    $errors[] = (string)$captchaCheck['message'];
+  }
+
+  if (!$isEmailLogin && !$isUsernameLogin) {
+    $errors[] = "Invalid email/username or password.";
+  }
+
+  if ($password === '' || strlen($password) > 255) {
+    $errors[] = "Invalid email/username or password.";
+  }
+
+  $clientIp = commerza_client_ip();
+
+  if (empty($errors)) {
+    $rate = commerza_rate_limit_check(
+      $con,
+      'user_login',
+      $normalizedIdentifier !== '' ? $normalizedIdentifier : 'anonymous',
+      $clientIp,
+      4,
+      2700,
+      2700,
+      14400,
+      86400
+    );
+
+    if (!$rate['allowed']) {
+      $retrySeconds = max(1, (int)$rate['retry_after']);
+      $retryMinutes = (int)ceil($retrySeconds / 60);
+      commerza_security_log_rate_limit_block(
+        $con,
+        'user_login',
+        'user',
+        $normalizedIdentifier !== '' ? $normalizedIdentifier : 'anonymous',
+        $clientIp,
+        $retrySeconds
+      );
+      $errors[] = "Too many login attempts. Try again in " . $retryMinutes . " minute(s) (" . $retrySeconds . " seconds).";
+    }
+  }
+
+  if (empty($errors)) {
+    $stmt = null;
+
+    if ($isEmailLogin) {
+      $stmt = $con->prepare("SELECT id, full_name, email, phone, password_hash FROM users WHERE email = ? LIMIT 1");
+      if ($stmt) {
+        $stmt->bind_param("s", $normalizedIdentifier);
+      }
+    } else {
+      $stmt = $con->prepare("SELECT id, full_name, email, phone, password_hash FROM users WHERE username_slug = ? OR username = ? LIMIT 1");
+      if ($stmt) {
+        $stmt->bind_param("ss", $usernameCandidate, $usernameCandidate);
+      }
+    }
+
+    if (!$stmt) {
+      $errors[] = "Something went wrong. Please try again.";
+    } else {
+      $stmt->execute();
+      $result = $stmt->get_result();
+      $user = $result ? $result->fetch_assoc() : null;
+
+      if ($user && commerza_password_verify($password, (string)$user['password_hash'])) {
+        $blockedContact = commerza_customer_blacklist_lookup(
+          $con,
+          (string)($user['email'] ?? ''),
+          (string)($user['phone'] ?? '')
+        );
+
+        if (is_array($blockedContact)) {
+          commerza_security_log_event($con, [
+            'event_type' => 'login_blocked_blacklist',
+            'severity' => 'warning',
+            'actor_type' => 'user',
+            'actor_identifier' => (string)($user['email'] ?? $normalizedIdentifier),
+            'ip_address' => $clientIp,
+            'details' => [
+              'reason' => 'blacklisted_contact',
+              'match' => (string)($blockedContact['match'] ?? ''),
+              'blacklist_id' => (int)($blockedContact['id'] ?? 0),
+            ],
+          ]);
+
+          $errors[] = commerza_customer_blacklist_feedback_message($blockedContact);
+          $stmt->close();
+          goto login_done;
+        }
+
+        $stmt->close();
+        session_regenerate_id(true);
+        $_SESSION['user_id'] = (int)$user['id'];
+        if ($rememberMe) {
+          commerza_issue_remember_token($con, (int)$user['id']);
+        } else {
+          commerza_forget_current_remember_token($con);
+        }
+        commerza_rate_limit_reset($con, 'user_login', $normalizedIdentifier, $clientIp);
+        commerza_notify_user_login(
+          $con,
+          (int)$user['id'],
+          (string)($user['email'] ?? $normalizedIdentifier),
+          (string)($user['full_name'] ?? ''),
+          $clientIp
+        );
+        commerza_security_log_auth_attempt(
+          $con,
+          'user',
+          (string)($user['email'] ?? $normalizedIdentifier),
+          $clientIp,
+          true,
+          'login_success',
+          (int)$user['id'],
+          0
+        );
+
+        if (commerza_password_needs_rehash((string)$user['password_hash'])) {
+          $rehash = commerza_password_hash($password);
+          if ($rehash !== '') {
+            $rehashStmt = $con->prepare('UPDATE users SET password_hash = ? WHERE id = ? LIMIT 1');
+            if ($rehashStmt) {
+              $userId = (int)$user['id'];
+              $rehashStmt->bind_param('si', $rehash, $userId);
+              $rehashStmt->execute();
+              $rehashStmt->close();
+            }
+          }
+        }
+
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        header("Location: account.php");
+        exit;
+      }
+
+      commerza_security_log_auth_attempt(
+        $con,
+        'user',
+        $normalizedIdentifier !== '' ? $normalizedIdentifier : 'anonymous',
+        $clientIp,
+        false,
+        'invalid_credentials',
+        0,
+        0
+      );
+      $errors[] = "Invalid email/username or password.";
+      $stmt->close();
+    }
+  }
+}
+
+login_done:
+?>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="author" content="Syed Ahmer Shah">
+  <meta name="description" content="Login securely to your Commerza account.">
+  <meta property="og:title" content="Login | Commerza">
+  <meta property="og:description" content="Secure login page for Commerza customers.">
+  <meta property="og:url" content="https://commerza.ahmershah.dev/login.php">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
+  <title>Login | Commerza</title>
+  <link rel="canonical" href="https://commerza.ahmershah.dev/login.php" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      "name": "Login | Commerza",
+      "url": "https://commerza.ahmershah.dev/login.php",
+      "description": "Secure login page for Commerza users."
+    }
+  </script>
+  <link rel="icon" href="frontend/assets/images/favicon/commerza-watches-icon.ico" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    ::selection {
+      background-color: #ff4500;
+      color: #ffffff;
+    }
+
+    body.dark-theme {
+      background-color: #050505;
+      color: #d1d1d1;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      overflow-x: hidden;
+      animation: bodyFadeIn 1.5s ease;
+    }
+
+    @keyframes bodyFadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    .login-card {
+      background: linear-gradient(145deg, #1a1a1a 0%, #0a0a0a 100%);
+      border: 1px solid rgba(255, 69, 0, 0.2);
+      border-radius: 12px;
+      padding: 35px;
+      width: 100%;
+      max-width: 450px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 69, 0, 0.1);
+      position: relative;
+      animation: reveal-up 1s ease-out forwards;
+    }
+
+    @keyframes reveal-up {
+      0% {
+        opacity: 0;
+        transform: translateY(30px) scale(0.95);
+        filter: blur(10px);
+      }
+
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: blur(0);
+      }
+    }
+
+    .login-title {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 32px;
+      font-weight: 900;
+      text-align: center;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      white-space: nowrap;
+      background: linear-gradient(-45deg,
+          #000000 0%,
+          #ff0000 15%,
+          #ff4500 30%,
+          #ffffff 45%,
+          #ffcc00 60%,
+          #ff4500 85%,
+          #000000 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: h1-shine 4s linear infinite;
+      margin-bottom: 5px;
+      user-select: none;
+    }
+
+    @keyframes h1-shine {
+      to {
+        background-position: 200% center;
+      }
+    }
+
+    .login-subtitle {
+      font-family: 'JetBrains Mono', monospace;
+      color: #888;
+      text-align: center;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 30px;
+    }
+
+    .form-label {
+      font-family: 'Montserrat', sans-serif;
+      color: #ff4500;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .form-control {
+      font-family: 'JetBrains Mono', monospace;
+      background-color: #000 !important;
+      border: 1px solid rgba(255, 69, 0, 0.3);
+      color: #ffffff !important;
+      padding: 12px;
+      border-radius: 4px;
+      transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+      border-color: #ffcc00;
+      box-shadow: 0 0 10px rgba(255, 69, 0, 0.2);
+      outline: none;
+    }
+
+    .password-wrapper {
+      position: relative;
+      width: 100%;
+      display: flex;
+      align-items: center;
+    }
+
+    #user-login-password {
+      padding-right: 40px !important;
+    }
+
+    #togglePassword {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer;
+      color: #ff4500;
+      z-index: 10;
+      font-size: 18px;
+      line-height: 1;
+      transition: all 0.3s ease;
+    }
+
+    #togglePassword:hover {
+      color: #ffcc00;
+    }
+
+    .login-btn {
+      background: #000 !important;
+      border: 1px solid #ff4500 !important;
+      color: #fff !important;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      padding: 12px !important;
+      transition: all 0.22s ease-out;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .login-btn:hover:not(:disabled) {
+      background: linear-gradient(90deg, #ff4500, #ffcc00) !important;
+      color: #000 !important;
+      transform: translateY(-3px);
+      box-shadow: 0 10px 20px rgba(255, 69, 0, 0.4);
+    }
+
+    .login-btn:active:not(:disabled) {
+      transform: scale(0.95);
+    }
+
+    .login-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .oauth-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 18px 0 14px;
+      color: #666;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .oauth-divider::before,
+    .oauth-divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: rgba(255, 69, 0, 0.25);
+    }
+
+    .oauth-btn {
+      border: 1px solid rgba(255, 69, 0, 0.4) !important;
+      background: #101010 !important;
+      color: #f0f0f0 !important;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 10px 12px !important;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .oauth-btn:hover {
+      background: #1a1a1a !important;
+      color: #fff !important;
+      border-color: #ffcc00 !important;
+    }
+
+    .oauth-google i {
+      color: #ffcc00;
+    }
+
+    .oauth-facebook i {
+      color: #4a7dff;
+    }
+
+    .login-links {
+      text-align: center;
+      margin-top: 25px;
+      width: 100%;
+    }
+
+    .login-links p {
+      margin-bottom: 8px;
+      display: block;
+      color: #888;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .login-links a {
+      color: #ff4500;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 700;
+      text-decoration: none;
+      text-transform: uppercase;
+      transition: all 0.3s ease;
+      display: inline-block;
+      margin-left: 2px;
+    }
+
+    .login-links a:hover {
+      color: #ffcc00;
+      text-decoration: underline;
+      text-shadow: 0 0 10px rgba(255, 69, 0, 0.5);
+    }
+
+    .form-check-input {
+      background-color: #000;
+      border-color: rgba(255, 69, 0, 0.4);
+    }
+
+    .form-check-input:checked {
+      background-color: #ff4500;
+      border-color: #ff4500;
+    }
+
+    .form-check-label {
+      color: #a5a5a5;
+      font-size: 13px;
+    }
+
+    input::placeholder {
+      font-family: 'Inter', sans-serif;
+      color: #555 !important;
+    }
+
+    input[type="password"]::-ms-reveal,
+    input[type="password"]::-ms-clear {
+      display: none;
+    }
+
+    #serverAlert,
+    #successAlert {
+      border: none;
+      color: #fff;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 700;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      position: fixed;
+      top: 20px;
+      right: 0;
+      left: 0;
+      margin: auto;
+      width: 340px;
+      z-index: 9999;
+      border-radius: 6px;
+      padding: 14px 20px;
+      text-align: center;
+    }
+
+    #serverAlert {
+      background-color: #ff0000 !important;
+    }
+
+    #successAlert {
+      background-color: #198754 !important;
+    }
+  </style>
+</head>
+
+<body class="dark-theme">
+  <?php if (!empty($flash_success)): ?>
+    <div id="successAlert"><?= htmlspecialchars($flash_success) ?></div>
+  <?php endif; ?>
+
+  <?php if (!empty($errors)): ?>
+    <div id="serverAlert"><?= htmlspecialchars(implode(' ', $errors)) ?></div>
+  <?php endif; ?>
+
+  <div class="login-card">
+    <h1 class="login-title">COMMERZA</h1>
+    <p class="login-subtitle">Login to your account</p>
+
+    <form action="login.php" method="POST" id="loginForm">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+      <div class="mb-3">
+        <label for="user-login-identifier" class="form-label">Email or Username</label>
+        <input type="text" class="form-control" id="user-login-identifier" name="user_login_identifier"
+          placeholder="Enter email or username" required autocomplete="username" autofocus maxlength="150"
+          value="<?= htmlspecialchars($login_identifier) ?>" />
+      </div>
+
+      <div class="mb-3">
+        <label for="user-login-password" class="form-label">Password</label>
+        <div class="password-wrapper">
+          <input type="password" class="form-control" id="user-login-password" name="user_login_password"
+            placeholder="Enter your password" required autocomplete="current-password" minlength="6" maxlength="20"
+            autocorrect="off" autocapitalize="off" spellcheck="false" />
+          <i class="bi bi-eye" id="togglePassword"></i>
+        </div>
+      </div>
+
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" id="rememberMe" name="remember_me" value="1" <?= !empty($_POST['remember_me']) ? 'checked' : '' ?>>
+        <label class="form-check-label" for="rememberMe">Remember me for 30 days</label>
+      </div>
+
+      <?= commerza_captcha_widget_html($con, 'user_login') ?>
+
+      <div class="d-grid">
+        <button type="submit" class="btn login-btn" id="loginSubmitBtn">Login</button>
+      </div>
+    </form>
+
+    <div class="oauth-divider"><span>or continue with</span></div>
+    <div class="d-grid gap-2">
+      <a class="btn oauth-btn oauth-google" href="oauth?provider=google&amp;mode=login">
+        <i class="bi bi-google"></i>
+        <span>Google</span>
+      </a>
+      <a class="btn oauth-btn oauth-facebook" href="oauth?provider=facebook&amp;mode=login">
+        <i class="bi bi-facebook"></i>
+        <span>Facebook</span>
+      </a>
+    </div>
+
+    <div class="login-links">
+      <p class="mt-3 mb-1">
+        <a href="forgot-password.php">Forgot Password?</a>
+      </p>
+      <p style="user-select: none">
+        Don&apos;t have an account?
+        <a href="signup.php">Sign Up</a>
+      </p>
+    </div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="frontend/assets/js/global-protection.js"></script>
+  <?= commerza_captcha_script_tag($con) ?>
+  <script <?= commerza_csp_nonce_attr() ?>>
+    $(function() {
+      let submitted = false;
+
+      $("#togglePassword").on("click", function() {
+        const input = $("#user-login-password");
+        input.attr("type", input.attr("type") === "password" ? "text" : "password");
+        $(this).toggleClass("bi-eye bi-eye-slash");
+      });
+
+      $("#serverAlert, #successAlert").each(function() {
+        const element = $(this);
+        setTimeout(function() {
+          element.fadeOut(400);
+        }, 3500);
+      });
+
+      $("#loginForm").on("submit", function() {
+        if (submitted) {
+          return false;
+        }
+
+        submitted = true;
+        $("#loginSubmitBtn").prop("disabled", true).text("Signing In...");
+      });
+    });
+  </script>
+</body>
+
+</html>

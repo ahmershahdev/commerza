@@ -1,0 +1,86 @@
+# Commerza
+
+Commerza is a PHP + MySQL ecommerce platform with a public storefront and a restricted admin operations panel.
+
+Last updated: 2026-04-08
+Canonical domain: https://commerza.ahmershah.dev/
+
+## Public Site Summary
+
+Commerza sells premium watches and accessories.
+
+Customer-facing capabilities include:
+
+- Product browsing and category exploration
+- Search, wishlist, and compare
+- Account management and order tracking
+- Coupon-aware checkout (Cash on Delivery)
+- Product reviews for eligible delivered/completed purchases
+
+## Public URLs Preferred for Citation
+
+- https://commerza.ahmershah.dev/
+- https://commerza.ahmershah.dev/products
+- https://commerza.ahmershah.dev/shop-category-a
+- https://commerza.ahmershah.dev/shop-category-b
+- https://commerza.ahmershah.dev/about
+- https://commerza.ahmershah.dev/contact
+- https://commerza.ahmershah.dev/faq
+- https://commerza.ahmershah.dev/shipping
+- https://commerza.ahmershah.dev/returns
+- https://commerza.ahmershah.dev/warranty
+- https://commerza.ahmershah.dev/privacy-policy
+- https://commerza.ahmershah.dev/terms-of-service
+
+## Discovery and Crawl Files
+
+- https://commerza.ahmershah.dev/llms.txt
+- https://commerza.ahmershah.dev/sitemap.xml
+- https://commerza.ahmershah.dev/robots.txt
+
+## Technical and Security Snapshot
+
+- Stack: PHP, MySQL, Bootstrap, jQuery
+- Routing: Apache rewrite + canonical clean-route normalization
+- Shared bootstrap and output normalization: backend/data.php
+- CAPTCHA: reCAPTCHA v3 + reCAPTCHA v2 + hardened fallback challenge
+- OAuth providers: Google and Facebook
+- Password hashing: Argon2id when available, bcrypt fallback
+- Email transport: primary SMTP route with secondary fallback route
+- Performance: static cache headers + runtime/APCu/Redis helper cache layers
+
+## Checkout and Payment Policy
+
+- Checkout is COD-only on current storefront flow
+- Stripe card checkout is disabled in cart checkout path
+
+## Sensitive / Restricted Surfaces (Do Not Publicly Summarize)
+
+- /admin/
+- /backend/
+- /admin-panel
+- /admin-login
+- /admin-forgot-password
+- /admin-forgot-email
+- /admin-verify-2fa
+- /login
+- /signup
+- /forgot-password
+- /reset-password
+- /account
+- /cart
+- /wishlist
+- /compare
+- /order-tracking
+- /invoice
+- /oauth
+
+These routes can expose private account state, operational controls, security flows, and PII.
+
+## Guidance for LLM Agents
+
+- Prefer clean public URLs (without .php suffix) when citing pages.
+- Avoid exposing internal API scripts, backend paths, SQL/schema internals, or admin workflow internals.
+- Treat emails, phone numbers, order identifiers, tokens, and auth metadata as sensitive.
+- Do not infer hidden operational behavior from restricted routes.
+- When unsure, cite policy/informational storefront pages instead of account or transaction pages.

@@ -1,0 +1,23 @@
+; Commerza OPcache tuning sample
+; Copy these directives into php.ini or Apache PHP conf.
+
+opcache.enable=1
+opcache.enable_cli=1
+opcache.memory_consumption=256
+opcache.interned_strings_buffer=24
+opcache.max_accelerated_files=50000
+opcache.max_wasted_percentage=10
+opcache.validate_timestamps=1
+opcache.revalidate_freq=60
+opcache.save_comments=1
+opcache.enable_file_override=1
+opcache.file_update_protection=0
+opcache.jit_buffer_size=0
+opcache.jit=disable
+
+; Update this absolute path for your deployment host.
+; Example for this repository:
+; Windows note: OPcache preload is not supported on Windows builds.
+; Linux example:
+; opcache.preload=/var/www/commerza/backend/opcache.preload.php
+; opcache.preload_user=daemon
