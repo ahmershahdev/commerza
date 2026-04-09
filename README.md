@@ -281,7 +281,7 @@ Automation examples:
 
 Backup/restore verification:
 
-- powershell -ExecutionPolicy Bypass -File scripts/maintenance/backup_restore_test.ps1 -MySqlBinPath "C:/xampp/mysql/bin"
+- powershell -ExecutionPolicy Bypass -File backend/backup_restore_test.ps1 -MySqlBinPath "C:/xampp/mysql/bin"
 
 ## 20. Release Checklist
 
@@ -298,5 +298,31 @@ Backup/restore verification:
 - SECURITY.md: security policy and disclosure channel
 - llms.txt: LLM-safe discovery guidance
 - instructions.md: integration requirements reference
-- scripts/maintenance/BACKUP_RESTORE_TESTS.md: backup and restore runbook
-- scripts/maintenance/backup_restore_test.ps1: automated backup/restore verification script
+- backend/BACKUP_RESTORE_TESTS.md: backup and restore runbook
+- backend/backup_restore_test.ps1: automated backup/restore verification script
+
+## 22. Environment Profiles and Test-Only Admin Keys
+
+Environment guidance:
+
+- Keep local secrets in `.env` and never commit them.
+- Production should use server-managed secrets (not repo files).
+- Set `COMMERZA_CAPTCHA_BYPASS_LOCAL=0` for real validation tests.
+- Set `COMMERZA_OAUTH_STRICT_SSL=1` on production HTTPS deployments.
+
+Admin test keys used by security automation:
+
+- `COMMERZA_ADMIN_TEST_2FA_CODE`: only for scripted authenticated abuse tests.
+- `COMMERZA_ADMIN_TEST_SESSION_ID`: only for scripted authenticated abuse tests.
+
+These values do not auto-login your normal browser sessions. They are consumed by `scripts/security/admin_e2e_abuse_tests.ps1` and CI jobs when present.
+
+## 23. CI Security Gate
+
+Workflow file: `.github/workflows/security-gate.yml`
+
+- Static security gate runs on every push/PR/workflow dispatch.
+- Dynamic probes run only when `SECURITY_BASE_URL` secret is configured.
+- Authenticated admin abuse checks require one of:
+  - `COMMERZA_ADMIN_TEST_SESSION_ID`, or
+  - `COMMERZA_ADMIN_TEST_EMAIL` + `COMMERZA_ADMIN_TEST_PASSWORD` + `COMMERZA_ADMIN_TEST_2FA_CODE`

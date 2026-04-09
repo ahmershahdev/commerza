@@ -640,44 +640,8 @@ function commerza_collect_preload_assets(string $buffer): array
         }
     }
 
-    $scriptTags = [];
-    if (preg_match_all('/<script\b[^>]*\bsrc\s*=\s*(["\'])([^"\']+)\1[^>]*>\s*<\/script>/i', $buffer, $scriptTags, PREG_SET_ORDER) === 1 || !empty($scriptTags)) {
-        $scriptCount = 0;
-        foreach ($scriptTags as $tag) {
-            $src = trim((string)($tag[2] ?? ''));
-            $normalized = strtolower($src);
-            $isExternalScript = preg_match('#^(https?:)?//#i', $src) === 1;
-
-            if (
-                $src === ''
-                || $isExternalScript
-                || str_contains($normalized, 'jquery')
-                || str_contains($normalized, 'recaptcha')
-                || str_contains($normalized, 'captcha')
-                || str_contains($normalized, 'googletagmanager')
-                || str_contains($normalized, 'google-analytics')
-                || str_contains($normalized, 'maps.googleapis')
-            ) {
-                continue;
-            }
-
-            $key = 'script|' . strtolower($src);
-            if (isset($seen[$key])) {
-                continue;
-            }
-
-            $seen[$key] = true;
-            $assets[] = [
-                'as' => 'script',
-                'href' => $src,
-            ];
-
-            $scriptCount++;
-            if ($scriptCount >= 3) {
-                break;
-            }
-        }
-    }
+    // Keep preload scoped to styles only; generic script preloads can trigger
+    // low-value warnings when scripts execute after window load.
 
     return $assets;
 }

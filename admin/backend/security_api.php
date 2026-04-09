@@ -71,6 +71,26 @@ function security_api_details_preview($detailsRaw): string
     return substr($json, 0, 157) . '...';
 }
 
+function security_api_csrf_from_request(array $body): string
+{
+    $headerToken = trim((string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
+    if ($headerToken !== '') {
+        return $headerToken;
+    }
+
+    return trim((string)($body['csrf_token'] ?? ''));
+}
+
+function security_api_validate_csrf(array $body): bool
+{
+    $token = security_api_csrf_from_request($body);
+    $sessionToken = trim((string)($_SESSION['admin_csrf_token'] ?? ''));
+
+    return $token !== ''
+        && $sessionToken !== ''
+        && hash_equals($sessionToken, $token);
+}
+
 $con = $con ?? null;
 if (!($con instanceof mysqli)) {
     security_api_json([
@@ -149,8 +169,7 @@ if ($action === 'list-events') {
     }
 
     if ($method === 'POST') {
-        $csrfToken = (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($body['csrf_token'] ?? ''));
-        if (!admin_validate_csrf_token($csrfToken)) {
+        if (!security_api_validate_csrf($body)) {
             security_api_json([
                 'ok' => false,
                 'message' => 'Invalid CSRF token.',
@@ -354,12 +373,7 @@ if ($method !== 'POST') {
     ], 405);
 }
 
-$csrfToken = (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
-if ($csrfToken === '') {
-    $csrfToken = (string)($body['csrf_token'] ?? '');
-}
-
-if (!admin_validate_csrf_token($csrfToken)) {
+if (!security_api_validate_csrf($body)) {
     security_api_json([
         'ok' => false,
         'message' => 'Invalid CSRF token.',

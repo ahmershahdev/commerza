@@ -37,13 +37,22 @@ AddOutputFilterByType BROTLI_COMPRESS text/plain text/html text/css text/javascr
 Header set Cache-Control "public, max-age=2592000, immutable, stale-while-revalidate=604800, stale-if-error=2592000"
 </FilesMatch>
 Header append Vary Accept-Encoding
+Header always set X-Content-Type-Options "nosniff"
+Header always set X-Frame-Options "SAMEORIGIN"
+Header always set Referrer-Policy "strict-origin-when-cross-origin"
+Header always set Permissions-Policy "accelerometer=(), autoplay=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), browsing-topics=()"
+Header always set Cross-Origin-Opener-Policy "same-origin"
+Header always set Cross-Origin-Resource-Policy "same-site"
+Header always set X-Permitted-Cross-Domain-Policies "none"
+Header always set X-XSS-Protection "0"
+Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" "expr=%{HTTPS} == 'on'"
 </IfModule>
 
 <IfModule mod_rewrite.c>
 RewriteEngine On
 
 # Deny uncommon HTTP methods that should never be used by the storefront.
-RewriteCond %{REQUEST_METHOD} ^(?:TRACE|TRACK)$ [NC]
+RewriteCond %{REQUEST_METHOD} ^(?:TRACE|TRACK|CONNECT|DEBUG|PROPFIND|PROPPATCH|MOVE)$ [NC]
 RewriteRule ^ - [F,L]
 
 # Protect environment, dumps, docs, and VCS metadata from direct access.

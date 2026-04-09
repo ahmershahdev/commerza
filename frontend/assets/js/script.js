@@ -247,15 +247,21 @@
       const rotateX = (0.5 - relativeY) * 8;
       const shiftX = (relativeX - 0.5) * 8;
       const shiftY = (relativeY - 0.5) * 2;
-      const pointerX = Math.min(100, Math.max(0, relativeX * 100));
-      const pointerY = Math.min(100, Math.max(0, relativeY * 100));
+      const pointerPercentX = Math.min(100, Math.max(0, relativeX * 100));
+      const pointerPercentY = Math.min(100, Math.max(0, relativeY * 100));
 
       card.style.setProperty("--pc-rotate-x", `${rotateX.toFixed(2)}deg`);
       card.style.setProperty("--pc-rotate-y", `${rotateY.toFixed(2)}deg`);
       card.style.setProperty("--pc-shift-x", `${shiftX.toFixed(2)}px`);
       card.style.setProperty("--pc-shift-y", `${shiftY.toFixed(2)}px`);
-      card.style.setProperty("--pc-pointer-x", `${pointerX.toFixed(2)}%`);
-      card.style.setProperty("--pc-pointer-y", `${pointerY.toFixed(2)}%`);
+      card.style.setProperty(
+        "--pc-pointer-x",
+        `${pointerPercentX.toFixed(2)}%`,
+      );
+      card.style.setProperty(
+        "--pc-pointer-y",
+        `${pointerPercentY.toFixed(2)}%`,
+      );
     };
 
     const resetCardMotion = function (card) {

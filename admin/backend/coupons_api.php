@@ -34,9 +34,18 @@ function coupons_api_request_body(): array
         return $body;
     }
 
-    $raw = file_get_contents('php://input');
-    $decoded = json_decode($raw ?: '{}', true);
-    $body = is_array($decoded) ? $decoded : [];
+    $body = [];
+    if (!empty($_POST) && is_array($_POST)) {
+        $body = $_POST;
+    }
+
+    $raw = trim((string)file_get_contents('php://input'));
+    if ($raw !== '') {
+        $decoded = json_decode($raw, true);
+        if (is_array($decoded)) {
+            $body = array_merge($body, $decoded);
+        }
+    }
 
     return $body;
 }
@@ -51,6 +60,10 @@ function coupons_api_action(): string
 
     if ($method === 'POST' && isset($_POST['action'])) {
         return strtolower(trim((string)$_POST['action']));
+    }
+
+    if ($method === 'POST' && isset($_GET['action'])) {
+        return strtolower(trim((string)$_GET['action']));
     }
 
     $body = coupons_api_request_body();
@@ -75,7 +88,9 @@ function coupons_api_csrf_from_request(): string
 function coupons_api_require_csrf(): void
 {
     $token = coupons_api_csrf_from_request();
-    if (!admin_validate_csrf_token($token)) {
+    $sessionToken = trim((string)($_SESSION['admin_csrf_token'] ?? ''));
+
+    if ($token === '' || $sessionToken === '' || !hash_equals($sessionToken, $token)) {
         coupons_api_json([
             'ok' => false,
             'message' => 'Forbidden.',

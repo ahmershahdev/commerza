@@ -1135,7 +1135,7 @@ function commerza_captcha_widget_html(mysqli $con, string $context = ''): string
     $v3Enabled = !empty($config['v3_enabled']);
 
     $widget = '';
-    $renderGoogleWidget = $v2Enabled && !$v3Enabled;
+    $renderGoogleWidget = $v2Enabled;
     if ($renderGoogleWidget) {
         $siteKey = htmlspecialchars((string)($config['site_key'] ?? ''), ENT_QUOTES, 'UTF-8');
         $widget = '<div class="g-recaptcha captcha-widget" data-theme="dark" data-sitekey="' . $siteKey . '" style="margin:0 auto;"></div>';
@@ -1611,43 +1611,66 @@ function commerza_captcha_verify_submission(mysqli $con, array $request, string 
         ];
     }
 
+    $v2Token = trim((string)($request[$v2Field] ?? ''));
     $v3Token = trim((string)($request[$v3Field] ?? ''));
+    $verifiedByV2 = false;
+    $verifiedByV3 = false;
+
     if ($v3Enabled) {
-        if ($v3Token === '') {
+        if ($v3Token !== '') {
+            $v3Verification = commerza_captcha_verify_recaptcha_token(
+                $config,
+                (string)($config['v3_secret_key'] ?? ''),
+                $v3Token,
+                $context,
+                (float)($config['v3_min_score'] ?? 0.45)
+            );
+
+            if (!(bool)($v3Verification['ok'] ?? false)) {
+                return [
+                    'ok' => false,
+                    'message' => (string)($v3Verification['message'] ?? 'CAPTCHA verification failed. Please try again.'),
+                    'skipped' => false,
+                    'error_codes' => (array)($v3Verification['error_codes'] ?? []),
+                    'allow_fallback' => !empty($v3Verification['transport_error'])
+                        || !empty($v3Verification['score_low'])
+                        || !empty($v3Verification['action_mismatch'])
+                        || !empty($v3Verification['hostname_mismatch'])
+                        || !empty($v3Verification['token_expired'])
+                        || !empty($v3Verification['score_invalid']),
+                ];
+            }
+
+            $verifiedByV3 = true;
+        } elseif ($v2Enabled && $v2Token !== '') {
+            $v2Verification = commerza_captcha_verify_recaptcha_token(
+                $config,
+                (string)($config['secret_key'] ?? ''),
+                $v2Token,
+                $context,
+                0.0
+            );
+
+            if (!(bool)($v2Verification['ok'] ?? false)) {
+                return [
+                    'ok' => false,
+                    'message' => (string)($v2Verification['message'] ?? 'CAPTCHA verification failed. Please try again.'),
+                    'skipped' => false,
+                    'error_codes' => (array)($v2Verification['error_codes'] ?? []),
+                    'allow_fallback' => !empty($v2Verification['transport_error']),
+                ];
+            }
+
+            $verifiedByV2 = true;
+        } else {
             return [
                 'ok' => false,
-                'message' => 'Automatic CAPTCHA verification is missing. Please retry or use the backup challenge.',
+                'message' => 'Complete one verification method: Google CAPTCHA or backup challenge.',
                 'skipped' => false,
                 'allow_fallback' => true,
             ];
         }
-
-        $v3Verification = commerza_captcha_verify_recaptcha_token(
-            $config,
-            (string)($config['v3_secret_key'] ?? ''),
-            $v3Token,
-            $context,
-            (float)($config['v3_min_score'] ?? 0.45)
-        );
-
-        if (!(bool)($v3Verification['ok'] ?? false)) {
-            return [
-                'ok' => false,
-                'message' => (string)($v3Verification['message'] ?? 'CAPTCHA verification failed. Please try again.'),
-                'skipped' => false,
-                'error_codes' => (array)($v3Verification['error_codes'] ?? []),
-                'allow_fallback' => !empty($v3Verification['transport_error'])
-                    || !empty($v3Verification['score_low'])
-                    || !empty($v3Verification['action_mismatch'])
-                    || !empty($v3Verification['hostname_mismatch'])
-                    || !empty($v3Verification['token_expired'])
-                    || !empty($v3Verification['score_invalid']),
-            ];
-        }
-    }
-
-    $v2Token = trim((string)($request[$v2Field] ?? ''));
-    if ($v2Enabled && !$v3Enabled) {
+    } elseif ($v2Enabled) {
         if ($v2Token === '') {
             return [
                 'ok' => false,
@@ -1674,6 +1697,8 @@ function commerza_captcha_verify_submission(mysqli $con, array $request, string 
                 'allow_fallback' => !empty($v2Verification['transport_error']),
             ];
         }
+
+        $verifiedByV2 = true;
     }
 
     return [
@@ -1681,8 +1706,8 @@ function commerza_captcha_verify_submission(mysqli $con, array $request, string 
         'message' => '',
         'skipped' => false,
         'used_fallback' => false,
-        'v2_verified' => $v2Enabled && !$v3Enabled,
-        'v3_verified' => $v3Enabled,
+        'v2_verified' => $verifiedByV2,
+        'v3_verified' => $verifiedByV3,
     ];
 }
 

@@ -2,7 +2,7 @@
 
 Commerza is a PHP + MySQL ecommerce platform with a public storefront and a restricted admin operations panel.
 
-Last updated: 2026-04-08
+Last updated: 2026-04-09
 Canonical domain: https://commerza.ahmershah.dev/
 
 ## Public Site Summary
@@ -43,7 +43,7 @@ Customer-facing capabilities include:
 - Stack: PHP, MySQL, Bootstrap, jQuery
 - Routing: Apache rewrite + canonical clean-route normalization
 - Shared bootstrap and output normalization: backend/data.php
-- CAPTCHA: reCAPTCHA v3 + reCAPTCHA v2 + hardened fallback challenge
+- CAPTCHA: reCAPTCHA v3 + reCAPTCHA v2 + hardened fallback challenge (one verification method required per form)
 - OAuth providers: Google and Facebook
 - Password hashing: Argon2id when available, bcrypt fallback
 - Email transport: primary SMTP route with secondary fallback route

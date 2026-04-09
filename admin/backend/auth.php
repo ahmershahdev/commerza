@@ -531,6 +531,17 @@ function admin_enforce_post_idempotency_guard(mysqli $con): void
         $action = 'post';
     }
 
+    $csrfToken = trim((string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
+    if ($csrfToken === '') {
+        $csrfToken = trim((string)($_POST['csrf_token'] ?? ''));
+    }
+
+    $sessionCsrf = trim((string)($_SESSION['admin_csrf_token'] ?? ''));
+    if ($csrfToken === '' || $sessionCsrf === '' || !hash_equals($sessionCsrf, $csrfToken)) {
+        // Let endpoint-level CSRF guards return the canonical 403 response.
+        return;
+    }
+
     $scope = 'admin_' . preg_replace('/[^a-z0-9_\-.]+/', '_', $scriptBase) . '.' . preg_replace('/[^a-z0-9_\-.]+/', '_', $action);
     $requestId = admin_request_id_value($_POST);
     $idempotency = commerza_idempotency_consume($con, $scope, $requestId, 21600);

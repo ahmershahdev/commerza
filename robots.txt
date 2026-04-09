@@ -53,6 +53,9 @@ Disallow: /invoice.php
 Disallow: /*?*token=
 Disallow: /*?*reset=
 Disallow: /*?*session=
+Disallow: /*?*phpsessid=
+Disallow: /*?*csrf=
+Disallow: /*?*csrf_token=
 Disallow: /*?*fbclid=
 Disallow: /*?*gclid=
 Disallow: /*?*utm_
