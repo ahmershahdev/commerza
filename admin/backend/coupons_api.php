@@ -272,6 +272,31 @@ function coupons_api_boolean_value($value): int
     return in_array($text, ['1', 'true', 'yes', 'on'], true) ? 1 : 0;
 }
 
+function coupons_api_send_notification(
+    mysqli $con,
+    string $toEmail,
+    string $subject,
+    string $title,
+    string $intro,
+    string $bodyHtml,
+    ?string &$errorMessage = null
+): bool {
+    if (!function_exists('commerza_notifications_send')) {
+        $errorMessage = 'Notification subsystem unavailable.';
+        return false;
+    }
+
+    return commerza_notifications_send(
+        $con,
+        $toEmail,
+        $subject,
+        $title,
+        $intro,
+        $bodyHtml,
+        $errorMessage
+    );
+}
+
 $admin = admin_require_login_api($con);
 admin_require_permission_api($admin, 'coupons.manage');
 commerza_ensure_coupon_schema($con);
@@ -684,7 +709,7 @@ if ($action === 'send-coupon-email') {
 
     foreach ($recipients as $recipient) {
         $errorMessage = null;
-        $ok = commerza_notifications_send(
+        $ok = coupons_api_send_notification(
             $con,
             $recipient,
             $subject,

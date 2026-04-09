@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-include "backend/data.php";
-require_once "backend/cart_helpers.php";
-require_once "backend/notifications.php";
-require_once "backend/coupon_helpers.php";
+require_once __DIR__ . '/backend/data.php';
+require_once __DIR__ . '/backend/cart_helpers.php';
+require_once __DIR__ . '/backend/notifications.php';
+require_once __DIR__ . '/backend/coupon_helpers.php';
 
 if (empty($_SESSION['csrf_token'])) {
   $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -465,25 +465,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
         }
         $con->commit();
 
-        commerza_notify_order_placed(
-          $con,
-          [
-            'order_number' => $order_number,
-            'customer_name' => $customer_name,
-            'customer_email' => $customer_email,
-            'customer_phone' => $customer_phone,
-            'address' => $customer_address,
-            'subtotal' => $subtotal,
-            'shipping_cost' => $shipping_cost,
-            'discount_total' => $discount_total,
-            'coupon_code' => $coupon_code,
-            'grand_total' => $grand_total,
-            'status' => 'Pending',
-            'payment_method' => $payment_method_label,
-            'created_at' => date('Y-m-d H:i:s'),
-          ],
-          $normalized_items
-        );
+        if (function_exists('commerza_notify_order_placed')) {
+          commerza_notify_order_placed(
+            $con,
+            [
+              'order_number' => $order_number,
+              'customer_name' => $customer_name,
+              'customer_email' => $customer_email,
+              'customer_phone' => $customer_phone,
+              'address' => $customer_address,
+              'subtotal' => $subtotal,
+              'shipping_cost' => $shipping_cost,
+              'discount_total' => $discount_total,
+              'coupon_code' => $coupon_code,
+              'grand_total' => $grand_total,
+              'status' => 'Pending',
+              'payment_method' => $payment_method_label,
+              'created_at' => date('Y-m-d H:i:s'),
+            ],
+            $normalized_items
+          );
+        } else {
+          commerza_security_log_event($con, [
+            'event_type' => 'checkout_notification_helper_missing',
+            'severity' => 'warning',
+            'actor_type' => 'user',
+            'actor_identifier' => (string)$customer_email,
+            'user_id' => $user_id,
+            'ip_address' => commerza_client_ip(),
+            'details' => [
+              'order_number' => $order_number,
+            ],
+          ]);
+        }
 
         $success = 'Order placed successfully via ' . $payment_method_label . '. Your order number is ' . $order_number . '.';
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
