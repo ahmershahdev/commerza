@@ -123,11 +123,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if (empty($errors)) {
           $newCode = signup_generate_verification_code();
           $pending['code_hash'] = hash('sha256', $newCode);
-          $pending['expires_at'] = time() + 600;
+          $pending['expires_at'] = time() + (15 * 60);
           $pending['last_resend_at'] = time();
           $_SESSION['signup_pending'] = $pending;
           commerza_notify_signup_verification_code($con, $email, $full_name, $newCode);
-          $success[] = 'A new verification code was sent to your email.';
+          $success[] = 'A new verification code was sent to your email. This code expires in 15 minutes.';
         }
       } else {
         $verificationCode = trim((string)($_POST['verification_code'] ?? ''));
@@ -361,13 +361,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         'phone' => $phone,
         'password_hash' => commerza_password_hash($password),
         'code_hash' => hash('sha256', $verificationCode),
-        'expires_at' => time() + 600,
+        'expires_at' => time() + (15 * 60),
         'last_resend_at' => time(),
         'attempts' => 0,
       ];
 
       commerza_notify_signup_verification_code($con, $email, $full_name, $verificationCode);
-      $success[] = 'Verification code sent. Enter it below to complete signup.';
+      $success[] = 'Verification code sent. Enter it below to complete signup within 15 minutes.';
     }
   }
 

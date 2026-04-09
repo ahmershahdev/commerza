@@ -905,7 +905,7 @@ function admin_send_password_reset_code_email(
 
     $body =
         '<p style="margin:0 0 10px 0;">Hello ' . $safeName . ',</p>' .
-        '<p style="margin:0 0 14px 0;">Use this 6-digit code to reset your admin password. The code expires in <strong>30 minutes</strong>.</p>' .
+        '<p style="margin:0 0 14px 0;">Use this 6-digit code to reset your admin password. The code expires in <strong>15 minutes</strong>.</p>' .
         '<div style="display:inline-block;padding:12px 18px;background:#1b1b1b;border:1px solid #ff6600;border-radius:8px;font-size:24px;letter-spacing:4px;font-weight:700;color:#ffcc00;">' . $safeCode . '</div>' .
         '<p style="margin:16px 0 0 0;color:#cfcfcf;">For your security, do not share this code with anyone.</p>';
 
@@ -1003,7 +1003,7 @@ function admin_send_two_factor_code_email(
 
     $body =
         '<p style="margin:0 0 10px 0;">Hello ' . $safeName . ',</p>' .
-        '<p style="margin:0 0 14px 0;">Use this 6-digit code to complete your admin login. The code expires in <strong>10 minutes</strong>.</p>' .
+        '<p style="margin:0 0 14px 0;">Use this 6-digit code to complete your admin login. The code expires in <strong>15 minutes</strong>.</p>' .
         '<div style="display:inline-block;padding:12px 18px;background:#1b1b1b;border:1px solid #ff6600;border-radius:8px;font-size:24px;letter-spacing:4px;font-weight:700;color:#ffcc00;">' . $safeCode . '</div>' .
         '<p style="margin:16px 0 0 0;color:#cfcfcf;">If this was not you, reset your admin password immediately.</p>';
 
@@ -1062,7 +1062,7 @@ function admin_issue_two_factor_challenge(mysqli $con, array $admin, string $nex
     $stmt = $con->prepare(
         'UPDATE admin_users
          SET two_factor_code_hash = ?,
-             two_factor_expires_at = DATE_ADD(NOW(), INTERVAL 10 MINUTE),
+             two_factor_expires_at = DATE_ADD(NOW(), INTERVAL 15 MINUTE),
              two_factor_attempts = 0,
              two_factor_last_sent_at = NOW()
          WHERE id = ? AND is_active = 1

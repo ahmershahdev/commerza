@@ -97,6 +97,13 @@ Layered checks:
 - reCAPTCHA v2 verification
 - Built-in fallback challenge when needed
 
+reCAPTCHA and honeypot runtime behavior:
+
+- Honeypot field (`commerza_contact_website`) is embedded in CAPTCHA widget HTML and must remain empty; non-empty submissions are rejected server-side before token verification.
+- reCAPTCHA v3 is used as the primary automatic verification path when v3 keys are configured.
+- reCAPTCHA v2 checkbox is rendered when v2 is configured and v3 is not active for that flow.
+- Backup challenge remains available for network/key failures and low-confidence/failed automated verification conditions.
+
 Current v3 hardening details:
 
 - Default minimum score is stricter (0.65 default, floor 0.55)

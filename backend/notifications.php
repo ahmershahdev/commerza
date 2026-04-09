@@ -1147,7 +1147,7 @@ function commerza_notify_account_deletion_code(mysqli $con, string $userEmail, s
         '<div style="margin:16px 0;padding:14px 16px;background:#101010;border:1px dashed #ff6a00;border-radius:8px;text-align:center;">' .
         '<span style="font-size:28px;letter-spacing:5px;font-weight:700;color:#ffcc00;">' . $safeCode . '</span>' .
         '</div>' .
-        '<p><strong>Code expiry:</strong> 10 minutes</p>' .
+        '<p><strong>Code expiry:</strong> 15 minutes</p>' .
         '<p><strong>Request time:</strong> ' . $safeTime . '</p>' .
         '<p style="margin-top:14px;">If this was not you, reset your password immediately and contact support.</p>';
 

@@ -1138,7 +1138,7 @@ function commerza_captcha_widget_html(mysqli $con, string $context = ''): string
     $renderGoogleWidget = $v2Enabled && !$v3Enabled;
     if ($renderGoogleWidget) {
         $siteKey = htmlspecialchars((string)($config['site_key'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $widget = '<div class="g-recaptcha captcha-widget" data-theme="dark" data-sitekey="' . $siteKey . '"></div>';
+        $widget = '<div class="g-recaptcha captcha-widget" data-theme="dark" data-sitekey="' . $siteKey . '" style="margin:0 auto;"></div>';
     }
 
     $fallbackMessage = $v2Enabled || $v3Enabled
@@ -1149,7 +1149,7 @@ function commerza_captcha_widget_html(mysqli $con, string $context = ''): string
     $toggleDisplay = (!$v2Enabled && !$v3Enabled) ? 'none' : 'inline-flex';
 
     $wrapperStyle = 'display:flex;justify-content:center;width:100%;';
-    $shellStyle = 'display:flex;flex-direction:column;justify-content:center;width:min(100%,390px);padding:12px;border-radius:16px;border:0;background:linear-gradient(180deg,rgba(18,18,18,.96),rgba(8,8,8,.96));box-shadow:0 16px 32px rgba(0,0,0,.45),inset 0 0 0 1px rgba(255,255,255,.03);';
+    $shellStyle = 'display:flex;flex-direction:column;justify-content:center;align-items:center;width:min(100%,390px);padding:12px;border-radius:16px;border:0;background:linear-gradient(180deg,rgba(18,18,18,.96),rgba(8,8,8,.96));box-shadow:0 16px 32px rgba(0,0,0,.45),inset 0 0 0 1px rgba(255,255,255,.03);';
 
     return '<div class="captcha-wrapper mt-3 commerza-captcha-wrapper" data-commerza-captcha-context="' . $contextSafe . '" style="' . $wrapperStyle . '">'
         . '<div class="captcha-shell" style="' . $shellStyle . '">'

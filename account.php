@@ -1232,11 +1232,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'email' => $email,
                 'code_hash' => hash('sha256', $code),
                 'attempts' => 0,
-                'expires_at' => time() + 600,
+                'expires_at' => time() + (15 * 60),
                 'last_sent_at' => time(),
               ]);
 
-              $success[] = 'Deletion code sent to your email. Enter the code to permanently delete your account.';
+              $success[] = 'Deletion code sent to your email. This code is valid for 15 minutes.';
             }
           }
         }
