@@ -2323,7 +2323,11 @@ require_once __DIR__ . '/rate_limit.php';
 require_once __DIR__ . '/security_helpers.php';
 require_once __DIR__ . '/security_events.php';
 
-if (function_exists('commerza_should_run_expiry_cleanup') && commerza_should_run_expiry_cleanup()) {
+if (
+    function_exists('commerza_should_run_expiry_cleanup')
+    && function_exists('commerza_run_expiry_cleanup')
+    && commerza_should_run_expiry_cleanup()
+) {
     commerza_run_expiry_cleanup($con);
 }
 

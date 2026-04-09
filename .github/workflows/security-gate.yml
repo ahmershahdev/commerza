@@ -56,7 +56,6 @@ jobs:
           }
 
   dynamic-security-probes:
-    if: ${{ secrets.SECURITY_BASE_URL != '' }}
     needs: static-security-gate
     runs-on: windows-latest
     env:
@@ -68,15 +67,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Guard dynamic probes
+        id: dynamic_guard
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:SECURITY_BASE_URL)) {
+            "run_dynamic=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            Write-Host "SECURITY_BASE_URL is not configured; skipping dynamic security probes."
+            exit 0
+          }
+
+          "run_dynamic=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
       - name: Run security smoke tests
+        if: steps.dynamic_guard.outputs.run_dynamic == 'true'
         shell: pwsh
         run: ./scripts/security/security_smoke_tests.ps1 -BaseUrl "$env:SECURITY_BASE_URL"
 
       - name: Run crawler XSS probe
+        if: steps.dynamic_guard.outputs.run_dynamic == 'true'
         shell: pwsh
         run: ./scripts/security/xss_crawler_probe.ps1 -BaseUrl "$env:SECURITY_BASE_URL" -MaxPages 100
 
       - name: Validate authenticated admin abuse inputs
+        if: steps.dynamic_guard.outputs.run_dynamic == 'true'
         shell: pwsh
         run: |
           $hasSession = -not [string]::IsNullOrWhiteSpace($env:COMMERZA_ADMIN_TEST_SESSION_ID)
@@ -90,5 +104,6 @@ jobs:
           }
 
       - name: Run authenticated admin abuse tests
+        if: steps.dynamic_guard.outputs.run_dynamic == 'true'
         shell: pwsh
         run: ./scripts/security/admin_e2e_abuse_tests.ps1 -BaseUrl "$env:SECURITY_BASE_URL" -RequireAuthenticated
