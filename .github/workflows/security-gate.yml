@@ -1,18 +1,22 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Security Gate
 
-on:
+"on":
   push:
     branches:
       - main
       - master
       - temp-1
-      - temp-*
-  pull_request:
-  workflow_dispatch:
+      - "temp-*"
+  pull_request: {}
+  workflow_dispatch: {}
 
 concurrency:
   group: security-gate-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  SECURITY_BASE_URL: ${{ secrets.SECURITY_BASE_URL }}
 
 jobs:
   static-security-gate:
@@ -56,7 +60,6 @@ jobs:
     needs: static-security-gate
     runs-on: windows-latest
     env:
-      SECURITY_BASE_URL: ${{ secrets.SECURITY_BASE_URL }}
       COMMERZA_ADMIN_TEST_EMAIL: ${{ secrets.COMMERZA_ADMIN_TEST_EMAIL }}
       COMMERZA_ADMIN_TEST_PASSWORD: ${{ secrets.COMMERZA_ADMIN_TEST_PASSWORD }}
       COMMERZA_ADMIN_TEST_2FA_CODE: ${{ secrets.COMMERZA_ADMIN_TEST_2FA_CODE }}
