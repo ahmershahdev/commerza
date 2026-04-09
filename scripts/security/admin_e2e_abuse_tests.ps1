@@ -16,6 +16,61 @@ $results = @()
 $script:SupportsSkipHttpErrorCheck = (Get-Command Invoke-WebRequest).Parameters.ContainsKey('SkipHttpErrorCheck')
 $script:SupportsUseBasicParsing = (Get-Command Invoke-WebRequest).Parameters.ContainsKey('UseBasicParsing')
 
+function Get-DotEnvValue {
+    param(
+        [string]$Path,
+        [string]$Key
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path) -or [string]::IsNullOrWhiteSpace($Key)) {
+        return ''
+    }
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return ''
+    }
+
+    $pattern = '^[\s]*' + [regex]::Escape($Key) + '[\s]*=[\s]*(.*)$'
+    foreach ($line in Get-Content -LiteralPath $Path -ErrorAction SilentlyContinue) {
+        $raw = ($line ?? '').ToString().Trim()
+        if ($raw -eq '' -or $raw.StartsWith('#')) {
+            continue
+        }
+
+        $match = [regex]::Match($raw, $pattern)
+        if (-not $match.Success) {
+            continue
+        }
+
+        $value = ($match.Groups[1].Value ?? '').ToString().Trim()
+        if ($value.StartsWith('"') -and $value.EndsWith('"') -and $value.Length -ge 2) {
+            $value = $value.Substring(1, $value.Length - 2)
+        }
+
+        if ($value.StartsWith("'") -and $value.EndsWith("'") -and $value.Length -ge 2) {
+            $value = $value.Substring(1, $value.Length - 2)
+        }
+
+        return $value
+    }
+
+    return ''
+}
+
+$dotenvPath = Join-Path (Get-Location) '.env'
+if ([string]::IsNullOrWhiteSpace($AdminEmail)) {
+    $AdminEmail = Get-DotEnvValue -Path $dotenvPath -Key 'COMMERZA_ADMIN_TEST_EMAIL'
+}
+if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
+    $AdminPassword = Get-DotEnvValue -Path $dotenvPath -Key 'COMMERZA_ADMIN_TEST_PASSWORD'
+}
+if ([string]::IsNullOrWhiteSpace($AdminTwoFactorCode)) {
+    $AdminTwoFactorCode = Get-DotEnvValue -Path $dotenvPath -Key 'COMMERZA_ADMIN_TEST_2FA_CODE'
+}
+if ([string]::IsNullOrWhiteSpace($AdminSessionId)) {
+    $AdminSessionId = Get-DotEnvValue -Path $dotenvPath -Key 'COMMERZA_ADMIN_TEST_SESSION_ID'
+}
+
 function Add-TestResult {
     param(
         [string]$Name,
