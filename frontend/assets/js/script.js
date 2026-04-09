@@ -247,11 +247,15 @@
       const rotateX = (0.5 - relativeY) * 8;
       const shiftX = (relativeX - 0.5) * 8;
       const shiftY = (relativeY - 0.5) * 2;
+      const pointerX = Math.min(100, Math.max(0, relativeX * 100));
+      const pointerY = Math.min(100, Math.max(0, relativeY * 100));
 
       card.style.setProperty("--pc-rotate-x", `${rotateX.toFixed(2)}deg`);
       card.style.setProperty("--pc-rotate-y", `${rotateY.toFixed(2)}deg`);
       card.style.setProperty("--pc-shift-x", `${shiftX.toFixed(2)}px`);
       card.style.setProperty("--pc-shift-y", `${shiftY.toFixed(2)}px`);
+      card.style.setProperty("--pc-pointer-x", `${pointerX.toFixed(2)}%`);
+      card.style.setProperty("--pc-pointer-y", `${pointerY.toFixed(2)}%`);
     };
 
     const resetCardMotion = function (card) {
@@ -263,6 +267,8 @@
       card.style.setProperty("--pc-rotate-y", "0deg");
       card.style.setProperty("--pc-shift-x", "0px");
       card.style.setProperty("--pc-shift-y", "0px");
+      card.style.setProperty("--pc-pointer-x", "50%");
+      card.style.setProperty("--pc-pointer-y", "50%");
     };
 
     document.documentElement.dataset.commerzaCardTrackingInstalled = "1";

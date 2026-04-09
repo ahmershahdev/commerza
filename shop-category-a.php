@@ -97,6 +97,84 @@ if ($categoryVideoStmt) {
     .page-breadcrumb .breadcrumb-item+.breadcrumb-item::before {
       color: rgba(255, 215, 176, 0.7);
     }
+
+    .series-pulse-board {
+      position: relative;
+      border: 1px solid rgba(255, 145, 82, 0.32);
+      border-radius: 18px;
+      padding: clamp(14px, 2.2vw, 20px);
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 12% 8%, rgba(255, 189, 133, 0.18), transparent 36%),
+        radial-gradient(circle at 92% 90%, rgba(255, 112, 46, 0.12), transparent 40%),
+        linear-gradient(145deg, rgba(15, 14, 16, 0.95), rgba(9, 9, 10, 0.96));
+      box-shadow: 0 18px 38px rgba(0, 0, 0, 0.42);
+    }
+
+    .series-pulse-board::before {
+      content: "";
+      position: absolute;
+      inset: -120% -45%;
+      background: linear-gradient(118deg, transparent 40%, rgba(255, 196, 137, 0.16) 50%, transparent 62%);
+      transform: rotate(5deg);
+      animation: seriesPulseSweep 8.2s linear infinite;
+      pointer-events: none;
+    }
+
+    @keyframes seriesPulseSweep {
+      from {
+        transform: translateX(-24%) rotate(5deg);
+      }
+
+      to {
+        transform: translateX(24%) rotate(5deg);
+      }
+    }
+
+    .series-pulse-grid {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .series-pulse-chip {
+      border: 1px solid rgba(255, 169, 106, 0.3);
+      border-radius: 14px;
+      padding: 12px 12px 13px;
+      background: rgba(18, 14, 13, 0.78);
+    }
+
+    .series-pulse-chip .chip-kicker {
+      display: block;
+      color: #ffcc9d;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.67rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .series-pulse-chip strong {
+      display: block;
+      color: #fff1de;
+      font-size: 0.98rem;
+      margin-bottom: 4px;
+    }
+
+    .series-pulse-chip p {
+      margin: 0;
+      color: #d8c5b0;
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 991px) {
+      .series-pulse-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
   <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
@@ -627,6 +705,26 @@ if ($categoryVideoStmt) {
                 <p class="highlight-text">Gold accents, sapphire-inspired clarity, and refined dial detailing.</p>
               </div>
             </div>
+          </div>
+        </section>
+
+        <section class="series-pulse-board mt-4" aria-label="Category A quick buying guide">
+          <div class="series-pulse-grid">
+            <article class="series-pulse-chip">
+              <span class="chip-kicker">Collector Cue</span>
+              <strong>Automatic Vault</strong>
+              <p>Choose this line when you want mechanical depth, heavier presence, and statement dials.</p>
+            </article>
+            <article class="series-pulse-chip">
+              <span class="chip-kicker">Daily Cue</span>
+              <strong>Smart Evolution</strong>
+              <p>Pick this lane for lighter wear, fitness tracking, and quick pairing for workday routines.</p>
+            </article>
+            <article class="series-pulse-chip">
+              <span class="chip-kicker">Price Cue</span>
+              <strong>Filter + Compare</strong>
+              <p>Use movement and price sorting together to shortlist faster before checking out.</p>
+            </article>
           </div>
         </section>
 

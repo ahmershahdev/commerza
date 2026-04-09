@@ -97,6 +97,84 @@ if ($categoryBVideoStmt) {
     .page-breadcrumb .breadcrumb-item+.breadcrumb-item::before {
       color: rgba(255, 215, 176, 0.7);
     }
+
+    .series-pulse-board {
+      position: relative;
+      border: 1px solid rgba(255, 162, 108, 0.32);
+      border-radius: 18px;
+      padding: clamp(14px, 2.2vw, 20px);
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 8% 12%, rgba(255, 209, 157, 0.14), transparent 36%),
+        radial-gradient(circle at 94% 88%, rgba(255, 135, 70, 0.14), transparent 42%),
+        linear-gradient(145deg, rgba(13, 15, 17, 0.95), rgba(7, 8, 10, 0.96));
+      box-shadow: 0 18px 38px rgba(0, 0, 0, 0.42);
+    }
+
+    .series-pulse-board::before {
+      content: "";
+      position: absolute;
+      inset: -120% -45%;
+      background: linear-gradient(118deg, transparent 40%, rgba(255, 196, 141, 0.14) 50%, transparent 62%);
+      transform: rotate(4deg);
+      animation: seriesPulseSweep 8.2s linear infinite;
+      pointer-events: none;
+    }
+
+    @keyframes seriesPulseSweep {
+      from {
+        transform: translateX(-24%) rotate(4deg);
+      }
+
+      to {
+        transform: translateX(24%) rotate(4deg);
+      }
+    }
+
+    .series-pulse-grid {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .series-pulse-chip {
+      border: 1px solid rgba(255, 176, 122, 0.3);
+      border-radius: 14px;
+      padding: 12px 12px 13px;
+      background: rgba(14, 16, 18, 0.82);
+    }
+
+    .series-pulse-chip .chip-kicker {
+      display: block;
+      color: #ffd5ad;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.67rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .series-pulse-chip strong {
+      display: block;
+      color: #fff2e3;
+      font-size: 0.98rem;
+      margin-bottom: 4px;
+    }
+
+    .series-pulse-chip p {
+      margin: 0;
+      color: #d6c8bb;
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 991px) {
+      .series-pulse-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
   <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
@@ -630,6 +708,26 @@ if ($categoryBVideoStmt) {
                   <p class="highlight-text">Stainless steel cases and reliable movements for long wear.</p>
                 </div>
               </div>
+            </div>
+          </section>
+
+          <section class="series-pulse-board mt-4" aria-label="Category B quick buying guide">
+            <div class="series-pulse-grid">
+              <article class="series-pulse-chip">
+                <span class="chip-kicker">Style Cue</span>
+                <strong>Signature Collection</strong>
+                <p>Use this collection for cleaner silhouettes, formal fits, and understated daily confidence.</p>
+              </article>
+              <article class="series-pulse-chip">
+                <span class="chip-kicker">Performance Cue</span>
+                <strong>Sports Division</strong>
+                <p>Switch here for chronograph utility, tougher cases, and movement-friendly strap builds.</p>
+              </article>
+              <article class="series-pulse-chip">
+                <span class="chip-kicker">Selection Cue</span>
+                <strong>Shortlist Fast</strong>
+                <p>Start with section filter, then price sort, and finalize by comparing dial visibility.</p>
+              </article>
             </div>
           </section>
 

@@ -662,7 +662,6 @@ if (
             You cannot add more than 10 products!
           </div>
           <div class="ticker-container bg-dark text-white" role="status" aria-live="polite" aria-label="Commerza live updates">
-            <span class="ticker-kicker">Commerza Live</span>
             <div class="ticker-scroll">
               <span>Private drop unlocked: signature chronographs now shipping nationwide</span>
               <span>Members perk: free premium case with selected limited editions</span>
@@ -827,8 +826,8 @@ if (
       <section class="home-premium-tabpane mt-5" aria-labelledby="homeCollectionTabsTitle">
         <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
           <div>
-            <p class="section-kicker">Collection Selector</p>
-            <h2 id="homeCollectionTabsTitle" class="section-title">Choose Your Signature Profile</h2>
+            <p class="section-kicker">Quick Match</p>
+            <h2 id="homeCollectionTabsTitle" class="section-title">Build Your Signature Rotation</h2>
           </div>
           <a class="btn hero-btn-outline text-white" href="products.php">Open Full Catalog</a>
         </div>
@@ -847,17 +846,17 @@ if (
 
         <div class="tab-content home-premium-tab-content" id="homeCollectionTabsContent">
           <div class="tab-pane fade show active" id="home-pane-daily" role="tabpanel" aria-labelledby="home-tab-daily" tabindex="0">
-            <p>Balanced silhouettes built for office, travel, and evening wear with polished steel and low-profile crowns.</p>
+            <p>Polished steel silhouettes built for office runs, airport days, and dinner plans without switching watches.</p>
             <div class="home-tab-meta"><span>Best for</span><strong>Everyday premium rotation</strong></div>
             <a href="shop-category-a.php" class="home-tab-link">Explore Daily Edge</a>
           </div>
           <div class="tab-pane fade" id="home-pane-heritage" role="tabpanel" aria-labelledby="home-tab-heritage" tabindex="0">
-            <p>Warm gold accents, richer dial textures, and signature straps for collectors who prefer timeless statement pieces.</p>
+            <p>Warm gold accents and richer textures for formal fits, celebrations, and classic collector energy.</p>
             <div class="home-tab-meta"><span>Best for</span><strong>Formal and special events</strong></div>
             <a href="shop-category-b.php" class="home-tab-link">Explore Heritage Gold</a>
           </div>
           <div class="tab-pane fade" id="home-pane-tactical" role="tabpanel" aria-labelledby="home-tab-tactical" tabindex="0">
-            <p>Sport-forward cases, high-contrast markers, and all-day comfort built for movement, weekend drives, and active routines.</p>
+            <p>Sport-forward cases with high-contrast markers built for movement, weekend drives, and active routines.</p>
             <div class="home-tab-meta"><span>Best for</span><strong>Travel and performance styling</strong></div>
             <a href="shop-category-b.php#tactical" class="home-tab-link">Explore Tactical Motion</a>
           </div>

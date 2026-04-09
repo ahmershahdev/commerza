@@ -367,7 +367,7 @@ $adminDisplayEmail = strtolower(trim((string)($adminUser['email'] ?? '')));
                                             </div>
                                         </div>
                                         <p class="mb-0 small text-success">
-                                            <i class="bi bi-info-circle"></i> <span class="fw-semibold" id="totalRevenueInfo">Delivered Orders</span>
+                                            <i class="bi bi-info-circle"></i> <span class="fw-semibold" id="totalRevenueInfo">Delivered Orders (Last 30 Days)</span>
                                         </p>
                                     </div>
                                 </div>
@@ -469,7 +469,7 @@ $adminDisplayEmail = strtolower(trim((string)($adminUser['email'] ?? '')));
                                             </div>
                                         </div>
                                         <p class="mb-0 small text-success">
-                                            <i class="bi bi-info-circle"></i> <span class="fw-semibold" id="avgOrderValueInfo">Delivered Revenue / Last 30 Day Orders</span>
+                                            <i class="bi bi-info-circle"></i> <span class="fw-semibold" id="avgOrderValueInfo">Delivered Revenue / Last 30 Days Orders</span>
                                         </p>
                                     </div>
                                 </div>
@@ -507,7 +507,7 @@ $adminDisplayEmail = strtolower(trim((string)($adminUser['email'] ?? '')));
                                             </div>
                                         </div>
                                         <p class="mb-0 small text-warning">
-                                            <i class="bi bi-info-circle"></i> <span class="fw-semibold" id="pendingFulfillmentInfo">Pending + Confirmed + Processing</span>
+                                            <i class="bi bi-info-circle"></i> <span class="fw-semibold" id="pendingFulfillmentInfo">Pending + Confirmed + Processing (Last 30 Days)</span>
                                         </p>
                                     </div>
                                 </div>

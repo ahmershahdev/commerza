@@ -309,7 +309,7 @@
   animation: moveTicker 30s linear infinite;
   display: flex;
   position: absolute;
-  left: 124px;
+  left: 16px;
   user-select: none;
   width: max-content;
   will-change: transform;
@@ -363,7 +363,7 @@
   }
 
   .ticker-scroll {
-    left: 98px;
+    left: 12px;
   }
 
   .ticker-scroll span {

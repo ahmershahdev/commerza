@@ -4,7 +4,8 @@ param(
     [string]$AdminPassword = $env:COMMERZA_ADMIN_TEST_PASSWORD,
     [string]$AdminTwoFactorCode = $env:COMMERZA_ADMIN_TEST_2FA_CODE,
     [string]$AdminSessionId = $env:COMMERZA_ADMIN_TEST_SESSION_ID,
-    [int]$TimeoutSec = 30
+    [int]$TimeoutSec = 30,
+    [switch]$RequireAuthenticated
 )
 
 $ErrorActionPreference = 'Stop'
@@ -202,12 +203,20 @@ function Get-CaptchaQuestion {
     }
 
     $options = [System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor [System.Text.RegularExpressions.RegexOptions]::Singleline
-    $match = [regex]::Match($Html, 'Security\s*check:\s*(.*?)\s*=\s*\?', $options)
-    if (-not $match.Success) {
-        return ''
+    $primary = [regex]::Match($Html, 'Security\s*(?:check|question)\s*:\s*([^<\r\n]+)', $options)
+    if ($primary.Success) {
+        $question = [System.Net.WebUtility]::HtmlDecode(($primary.Groups[1].Value -as [string])).Trim()
+        if ($question -ne '') {
+            return $question.TrimEnd('?', '=')
+        }
     }
 
-    return [System.Net.WebUtility]::HtmlDecode(($match.Groups[1].Value -as [string])).Trim()
+    $mathFallback = [regex]::Match($Html, 'Solve:\s*-?\d+\s*[+\-x*/]\s*-?\d+', $options)
+    if ($mathFallback.Success) {
+        return [System.Net.WebUtility]::HtmlDecode(($mathFallback.Value -as [string])).Trim()
+    }
+
+    return ''
 }
 
 function Resolve-CaptchaAnswer {
@@ -441,6 +450,10 @@ if ($authenticated) {
             }
         }
     }
+}
+
+if (-not $authenticated -and $RequireAuthenticated.IsPresent) {
+    Add-TestResult -Name 'admin_authenticated_session_required' -Status 'FAIL' -Details 'Authenticated admin session was not established. Provide COMMERZA_ADMIN_TEST_SESSION_ID or COMMERZA_ADMIN_TEST_2FA_CODE for full abuse coverage.'
 }
 
 $results | Format-Table -AutoSize

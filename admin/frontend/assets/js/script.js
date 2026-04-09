@@ -225,6 +225,7 @@ const NOTIFICATION_RULES = {
   newProductDays: 7,
   lowStockThreshold: 5,
 };
+const DASHBOARD_WINDOW_DAYS = 30;
 const ADMIN_TAB_PLAYBOOKS = {
   dashboardSection: {
     title: "Daily Admin Routine",
@@ -3627,64 +3628,83 @@ function isWithinDays(dateString, days) {
   return diffDays <= days;
 }
 
-function get30DaysAgo() {
+function getRollingWindowStart(days) {
   const date = new Date();
-  date.setDate(date.getDate() - 30);
-  return date.toISOString().split("T")[0];
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() - Math.max(1, Number(days) || 30));
+  return date;
+}
+
+function parseDashboardDate(dateString) {
+  if (!dateString) {
+    return null;
+  }
+
+  const parsed = new Date(dateString);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function isOrderWithinDashboardWindow(order, windowStart) {
+  const parsedOrderDate = parseDashboardDate(order?.orderDate);
+  if (!parsedOrderDate) {
+    return false;
+  }
+
+  return parsedOrderDate >= windowStart;
 }
 
 function calculateDashboardMetrics() {
-  const thirtyDaysAgo = get30DaysAgo();
+  const windowStart = getRollingWindowStart(DASHBOARD_WINDOW_DAYS);
   const orders = getAdminOrdersData();
+  const ordersInWindow = orders.filter((order) =>
+    isOrderWithinDashboardWindow(order, windowStart),
+  );
+  const deliveredOrdersInWindow = ordersInWindow.filter(
+    (order) => (order.status || "").toLowerCase() === "delivered",
+  );
 
-  const fallbackRevenue = orders
-    .filter(
-      (order) =>
-        order.orderDate >= thirtyDaysAgo &&
-        (order.status || "").toLowerCase() === "delivered",
-    )
-    .reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const fallbackRevenue = deliveredOrdersInWindow.reduce(
+    (sum, order) => sum + Number(order.total || 0),
+    0,
+  );
 
-  const fallbackOrders = orders.filter(
-    (order) => order.orderDate >= thirtyDaysAgo,
-  ).length;
+  const fallbackOrders = ordersInWindow.length;
 
-  const fallbackPendingFulfillment = orders.filter((order) => {
-    if (order.orderDate < thirtyDaysAgo) {
-      return false;
-    }
-
+  const fallbackPendingFulfillment = ordersInWindow.filter((order) => {
     const status = (order.status || "").toLowerCase();
     return ["pending", "confirmed", "processing"].includes(status);
   }).length;
 
   const fallbackCustomerSet = new Set();
-  orders
-    .filter((order) => order.orderDate >= thirtyDaysAgo)
-    .forEach((order) => {
-      if (order.customerName) {
-        fallbackCustomerSet.add(order.customerName);
-      }
-    });
+  ordersInWindow.forEach((order) => {
+    const identifier = String(order.customerEmail || order.customerName || "")
+      .trim()
+      .toLowerCase();
+    if (identifier !== "") {
+      fallbackCustomerSet.add(identifier);
+    }
+  });
 
   const fallbackCustomerOrderCounts = new Map();
-  orders
-    .filter((order) => order.orderDate >= thirtyDaysAgo)
-    .forEach((order) => {
-      const key =
-        String(order.customerEmail || order.customerName || "")
-          .trim()
-          .toLowerCase() || "";
+  ordersInWindow.forEach((order) => {
+    const key =
+      String(order.customerEmail || order.customerName || "")
+        .trim()
+        .toLowerCase() || "";
 
-      if (key === "") {
-        return;
-      }
+    if (key === "") {
+      return;
+    }
 
-      fallbackCustomerOrderCounts.set(
-        key,
-        (fallbackCustomerOrderCounts.get(key) || 0) + 1,
-      );
-    });
+    fallbackCustomerOrderCounts.set(
+      key,
+      (fallbackCustomerOrderCounts.get(key) || 0) + 1,
+    );
+  });
 
   const fallbackReturningCustomers = Array.from(
     fallbackCustomerOrderCounts.values(),
@@ -3726,14 +3746,30 @@ function calculateDashboardMetrics() {
     totalRevenueNode.textContent = "PKR " + revenue.toLocaleString();
   }
 
+  const windowLabel = `Last ${DASHBOARD_WINDOW_DAYS} Days`;
+  const totalRevenueInfoNode = document.getElementById("totalRevenueInfo");
+  if (totalRevenueInfoNode) {
+    totalRevenueInfoNode.textContent = `Delivered Orders (${windowLabel})`;
+  }
+
   const totalOrdersNode = document.getElementById("totalOrdersValue");
   if (totalOrdersNode) {
     totalOrdersNode.textContent = totalOrdersCount.toLocaleString();
   }
 
+  const totalOrdersInfoNode = document.getElementById("totalOrdersInfo");
+  if (totalOrdersInfoNode) {
+    totalOrdersInfoNode.textContent = windowLabel;
+  }
+
   const totalCustomersNode = document.getElementById("totalCustomersValue");
   if (totalCustomersNode) {
     totalCustomersNode.textContent = totalCustomers.toLocaleString();
+  }
+
+  const totalCustomersInfoNode = document.getElementById("totalCustomersInfo");
+  if (totalCustomersInfoNode) {
+    totalCustomersInfoNode.textContent = windowLabel;
   }
 
   const totalProductsNode = document.getElementById("totalProductsValue");
@@ -3751,6 +3787,11 @@ function calculateDashboardMetrics() {
       });
   }
 
+  const avgOrderValueInfoNode = document.getElementById("avgOrderValueInfo");
+  if (avgOrderValueInfoNode) {
+    avgOrderValueInfoNode.textContent = `Delivered Revenue / ${windowLabel} Orders`;
+  }
+
   const returningCustomerRateNode = document.getElementById(
     "returningCustomerRateValue",
   );
@@ -3764,6 +3805,13 @@ function calculateDashboardMetrics() {
   if (pendingFulfillmentNode) {
     pendingFulfillmentNode.textContent =
       pendingFulfillmentCount.toLocaleString();
+  }
+
+  const pendingFulfillmentInfoNode = document.getElementById(
+    "pendingFulfillmentInfo",
+  );
+  if (pendingFulfillmentInfoNode) {
+    pendingFulfillmentInfoNode.textContent = `Pending + Confirmed + Processing (${windowLabel})`;
   }
 
   const returningCustomerRateInfoNode = document.getElementById(

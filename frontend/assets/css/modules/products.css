@@ -121,6 +121,8 @@
   --pc-rotate-y: 0deg;
   --pc-shift-x: 0px;
   --pc-shift-y: 0px;
+  --pc-pointer-x: 50%;
+  --pc-pointer-y: 50%;
   animation: fadeInUp 0.65s ease-out forwards;
   background: linear-gradient(145deg, #1a1a1a 0%, #0a0a0a 100%);
   border: 1px solid rgba(255, 69, 0, 0.2);
@@ -141,7 +143,20 @@
 }
 
 .product-card::before {
-  display: none;
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: radial-gradient(
+    circle at var(--pc-pointer-x) var(--pc-pointer-y),
+    rgba(255, 223, 175, 0.2),
+    rgba(255, 170, 95, 0.08) 18%,
+    transparent 44%
+  );
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .product-card::after {
@@ -176,8 +191,7 @@
 }
 
 .product-card:hover::before {
-  opacity: 0;
-  animation: none;
+  opacity: 1;
 }
 
 .product-card:hover::after {
