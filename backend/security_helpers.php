@@ -1578,7 +1578,7 @@ function commerza_captcha_verify_submission(mysqli $con, array $request, string 
 
     $fallbackAnswer = trim((string)($request[$answerField] ?? ''));
     $fallbackToken = trim((string)($request[$fallbackTokenField] ?? ''));
-    $hasFallbackAttempt = $fallbackAnswer !== '' || $fallbackToken !== '';
+    $hasFallbackAttempt = $fallbackAnswer !== '';
 
     if ($hasFallbackAttempt) {
         $fallbackResult = commerza_captcha_builtin_verify($request, $context, $answerField, $fallbackTokenField);

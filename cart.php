@@ -1347,17 +1347,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
         alertBox.stop(true, true).fadeIn(220).delay(2200).fadeOut(280);
       }
 
-      function readCaptchaToken() {
-        if (!captchaEnabled || !captchaFieldName) {
-          return 'ok';
+      function hasCompletedCaptchaChallenge() {
+        if (!captchaEnabled) {
+          return true;
         }
 
-        const field = document.querySelector(`#checkoutForm [name="${captchaFieldName}"]`);
-        if (!field) {
-          return '';
+        const form = document.getElementById('checkoutForm');
+        if (!form) {
+          return false;
         }
 
-        return (field.value || '').toString().trim();
+        const readValue = function(name) {
+          const field = form.querySelector(`[name="${name}"]`);
+          if (!field) {
+            return '';
+          }
+
+          return (field.value || '').toString().trim();
+        };
+
+        const v2Token = captchaFieldName ? readValue(captchaFieldName) : '';
+        const v3Token = readValue('g-recaptcha-v3-response');
+        const fallbackAnswer = readValue('commerza_captcha_answer');
+        const fallbackToken = readValue('commerza_captcha_token');
+        const hasFallback = fallbackAnswer !== '' && fallbackToken !== '';
+
+        return v2Token !== '' || v3Token !== '' || hasFallback;
       }
 
       function setCheckoutCaptchaError(message) {
@@ -1406,9 +1421,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
         const totalItems = parseInt($('#total-items-qty').text(), 10) || 0;
         const submitBtn = $('#completeCheckoutBtn');
 
-        if (captchaEnabled && readCaptchaToken() === '') {
+        if (captchaEnabled && !hasCompletedCaptchaChallenge()) {
           event.preventDefault();
-          setCheckoutCaptchaError('Please complete the CAPTCHA challenge before checkout.');
+          setCheckoutCaptchaError('Complete one verification method: Google CAPTCHA or backup question.');
           return;
         }
 
