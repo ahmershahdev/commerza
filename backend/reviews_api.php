@@ -71,6 +71,36 @@ function reviews_api_rate_limit_guard(
     ], 429);
 }
 
+function reviews_api_user_blacklist_entry(mysqli $con, int $userId): ?array
+{
+    if ($userId <= 0) {
+        return null;
+    }
+
+    $stmt = $con->prepare('SELECT email, phone FROM users WHERE id = ? LIMIT 1');
+    if (!$stmt) {
+        return null;
+    }
+
+    $stmt->bind_param('i', $userId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    if (!is_array($row)) {
+        return null;
+    }
+
+    $blocked = commerza_customer_blacklist_lookup(
+        $con,
+        (string)($row['email'] ?? ''),
+        (string)($row['phone'] ?? '')
+    );
+
+    return is_array($blocked) ? $blocked : null;
+}
+
 function reviews_api_upload_limit_bytes(): int
 {
     return 6 * 1024 * 1024;
@@ -534,6 +564,16 @@ function reviews_api_check_eligibility(mysqli $con, int $userId, int $productId)
         ];
     }
 
+    $blockedContact = reviews_api_user_blacklist_entry($con, $userId);
+    if (is_array($blockedContact)) {
+        return [
+            'can_review' => false,
+            'message' => commerza_customer_blacklist_feedback_message($blockedContact),
+            'eligible_order_id' => 0,
+            'existing_review' => null,
+        ];
+    }
+
     $existingReview = reviews_api_existing_user_review($con, $userId, $productId);
     $existingReviewLocked = is_array($existingReview)
         && (int)($existingReview['is_locked'] ?? 0) === 1;
@@ -845,6 +885,15 @@ if ($userId <= 0) {
         'message' => 'Please login to submit a review.',
         'csrf_token' => $_SESSION['csrf_token'],
     ], 401);
+}
+
+$blockedContact = reviews_api_user_blacklist_entry($con, $userId);
+if (is_array($blockedContact)) {
+    reviews_api_json([
+        'ok' => false,
+        'message' => commerza_customer_blacklist_feedback_message($blockedContact),
+        'csrf_token' => $_SESSION['csrf_token'],
+    ], 403);
 }
 
 reviews_api_rate_limit_guard($con, 'reviews_submit', 'user_' . $userId, 'user', 6, 600, 900, 3600);

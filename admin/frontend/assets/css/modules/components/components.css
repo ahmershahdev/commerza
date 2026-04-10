@@ -490,3 +490,134 @@ img {
   opacity: 1;
   transform: rotate(90deg) scale(1.04);
 }
+
+.sub-admin-role-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.sub-admin-role-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  border: 1px solid rgba(255, 122, 26, 0.28);
+  border-radius: 12px;
+  background: linear-gradient(
+    145deg,
+    rgba(18, 18, 24, 0.96),
+    rgba(10, 10, 14, 0.98)
+  );
+  color: #e6e6e6;
+  padding: 12px;
+  text-align: left;
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.sub-admin-role-card:hover,
+.sub-admin-role-card:focus-visible {
+  border-color: rgba(255, 163, 97, 0.86);
+  transform: translateY(-1px);
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 122, 26, 0.16);
+}
+
+.sub-admin-role-card.is-active {
+  border-color: rgba(255, 122, 26, 0.96);
+  box-shadow:
+    0 16px 30px rgba(0, 0, 0, 0.32),
+    inset 0 0 0 1px rgba(255, 199, 151, 0.28);
+  background: linear-gradient(
+    145deg,
+    rgba(46, 28, 14, 0.96),
+    rgba(20, 14, 10, 0.98)
+  );
+}
+
+.sub-admin-role-card .role-title {
+  font-weight: 700;
+  color: #ffe0c4;
+  font-size: 0.95rem;
+}
+
+.sub-admin-role-card .role-description {
+  color: #c8c0b8;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.sub-admin-role-card .role-meta {
+  color: #ffb87a;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.sub-admin-custom-access {
+  border: 1px solid rgba(255, 122, 26, 0.2);
+  border-radius: 14px;
+  background: rgba(11, 11, 16, 0.8);
+  padding: 14px;
+}
+
+.sub-admin-permission-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 8px;
+}
+
+.sub-admin-permission-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(255, 122, 26, 0.16);
+  border-radius: 10px;
+  background: rgba(16, 16, 22, 0.9);
+}
+
+.sub-admin-permission-item .permission-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sub-admin-permission-item .permission-content strong {
+  color: #ece2d7;
+  font-size: 0.86rem;
+  line-height: 1.3;
+}
+
+.sub-admin-permission-item .permission-content small {
+  color: #b5aea7;
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+.sub-admin-hidden-tabs {
+  display: grid;
+  gap: 8px;
+}
+
+.sub-admin-tab-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 122, 26, 0.14);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: rgba(15, 15, 20, 0.9);
+  color: #ddd3c8;
+  font-size: 0.84rem;
+}
+
+.sub-admin-tab-item .form-check-input,
+.sub-admin-permission-item .form-check-input {
+  margin-top: 0.1rem;
+}

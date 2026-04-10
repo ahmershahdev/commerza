@@ -11,6 +11,7 @@ $adminUser = admin_require_login($con);
 $adminCsrfToken = admin_generate_csrf_token();
 $adminCssVersion = @filemtime(__DIR__ . '/assets/css/style.css') ?: time();
 $adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
+$adminSubAdminsJsVersion = @filemtime(__DIR__ . '/assets/js/modules/panel/sub-admins.js') ?: $adminJsVersion;
 $adminFrontendBaseHref = rtrim(admin_public_url('/admin/frontend/'), '/') . '/';
 $adminPanelCanonicalUrl = admin_public_url('/admin-panel');
 $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.webp');
@@ -38,6 +39,12 @@ if ($adminDisplayNameRaw !== '') {
     }
 }
 $adminDisplayEmail = strtolower(trim((string)($adminUser['email'] ?? '')));
+$adminRoleKey = admin_normalize_role((string)($adminUser['role'] ?? 'admin'));
+$adminRoleLabel = admin_role_label($adminRoleKey);
+$adminPermissions = admin_effective_permissions($adminUser);
+$adminHiddenTabs = admin_hidden_tabs($adminUser);
+$adminPermissionCatalog = admin_permissions_payload();
+$adminTabCatalog = admin_tabs_payload();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -140,6 +147,15 @@ $adminDisplayEmail = strtolower(trim((string)($adminUser['email'] ?? '')));
                             <li class="nav-item mb-1">
                                 <button
                                     class="nav-link rounded-2 d-flex align-items-center py-2 px-3 w-100 text-start border-0"
+                                    id="sub-admins-tab" data-bs-toggle="pill" data-bs-target="#subAdminsSection"
+                                    type="button" aria-controls="subAdminsSection" aria-selected="false">
+                                    <i class="bi bi-person-gear me-2 fs-5"></i>
+                                    <span>Sub Admins</span>
+                                </button>
+                            </li>
+                            <li class="nav-item mb-1">
+                                <button
+                                    class="nav-link rounded-2 d-flex align-items-center py-2 px-3 w-100 text-start border-0"
                                     id="coupons-tab" data-bs-toggle="pill" data-bs-target="#couponsSection"
                                     type="button" aria-controls="couponsSection" aria-selected="false">
                                     <i class="bi bi-ticket-perforated me-2 fs-5"></i>
@@ -211,7 +227,7 @@ $adminDisplayEmail = strtolower(trim((string)($adminUser['email'] ?? '')));
                                     height="60">
                                 <p class="mb-1 fw-bold text-light" id="adminSidebarName"><?= htmlspecialchars($adminDisplayName, ENT_QUOTES, 'UTF-8') ?></p>
                                 <small class="text-secondary d-block mb-2" id="adminSidebarEmail"><?= htmlspecialchars($adminDisplayEmail, ENT_QUOTES, 'UTF-8') ?></small>
-                                <small class="text-white d-block" id="adminSidebarRole">Administrator</small>
+                                <small class="text-white d-block" id="adminSidebarRole"><?= htmlspecialchars($adminRoleLabel, ENT_QUOTES, 'UTF-8') ?></small>
                             </div>
                         </div>
                     </div>
@@ -980,6 +996,25 @@ $adminDisplayEmail = strtolower(trim((string)($adminUser['email'] ?? '')));
                                                 </button>
                                             </div>
                                         </div>
+                                        <div class="row g-3 mt-2">
+                                            <div class="col-12">
+                                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 p-3 rounded-3 border border-secondary-subtle">
+                                                    <div>
+                                                        <p class="mb-1 text-light fw-semibold">Blacklist Notice On Customer Account Page</p>
+                                                        <small class="field-hint d-block">If hidden, blacklisted users are still blocked from ordering/review/refund/cart/wishlist, but the account banner is not shown to them.</small>
+                                                    </div>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <div class="form-check form-switch m-0">
+                                                            <input class="form-check-input" type="checkbox" role="switch" id="blacklistUserNoticeToggle">
+                                                            <label class="form-check-label text-light" for="blacklistUserNoticeToggle">Visible to user</label>
+                                                        </div>
+                                                        <button class="btn btn-sm btn-outline-orange" id="saveBlacklistNoticeToggleBtn" type="button">
+                                                            <i class="bi bi-save2 me-1"></i>Save
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                         <small class="field-hint d-block mt-3">Tip: Use customer row actions for quick Blacklist + Delete on abusive accounts.</small>
                                         <div class="table-responsive mt-3">
                                             <table class="table table-dark table-hover align-middle mb-0" id="blacklistTable">
@@ -995,6 +1030,113 @@ $adminDisplayEmail = strtolower(trim((string)($adminUser['email'] ?? '')));
                                                 <tbody>
                                                     <tr>
                                                         <td colspan="5" class="text-center py-4 text-secondary">No blacklisted contacts yet.</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="subAdminsSection">
+                        <div class="helper-banner mb-4">
+                            <div>
+                                <h2 class="h5 mb-2 text-light">Sub Admin Access Studio</h2>
+                                <p class="mb-0 text-secondary">Create mini admin accounts with role profiles, custom permissions, and selective tab visibility. Verification codes expire in 15 minutes and are one-time use.</p>
+                            </div>
+                            <span class="step-chip">Premium control: assign access by capability, not by guesswork.</span>
+                        </div>
+
+                        <div class="row g-4 mb-4">
+                            <div class="col-12 col-xl-7">
+                                <div class="card admin-card border-0 shadow-sm h-100">
+                                    <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <h3 class="h5 mb-0 fw-bold text-orange" id="subAdminFormTitle">Create Sub Admin</h3>
+                                        <span class="badge bg-warning text-dark">Role + Custom Matrix</span>
+                                    </div>
+                                    <div class="card-body p-4">
+                                        <form id="subAdminForm" novalidate>
+                                            <input type="hidden" id="subAdminEditId" value="0">
+                                            <div class="row g-3">
+                                                <div class="col-12 col-md-6">
+                                                    <label for="subAdminFullName" class="form-label text-light">Full Name</label>
+                                                    <input type="text" class="form-control bg-secondary border-0 text-light" id="subAdminFullName" maxlength="100" placeholder="Ahmer Shah" required>
+                                                </div>
+                                                <div class="col-12 col-md-6">
+                                                    <label for="subAdminEmail" class="form-label text-light">Email</label>
+                                                    <input type="email" class="form-control bg-secondary border-0 text-light" id="subAdminEmail" maxlength="150" placeholder="subadmin@commerza.com" required>
+                                                </div>
+                                                <div class="col-12 col-md-6">
+                                                    <label for="subAdminPhone" class="form-label text-light">Phone (Optional)</label>
+                                                    <input type="text" class="form-control bg-secondary border-0 text-light" id="subAdminPhone" maxlength="15" placeholder="03123456789">
+                                                </div>
+                                                <div class="col-12 col-md-6">
+                                                    <label for="subAdminPassword" class="form-label text-light">Password</label>
+                                                    <input type="password" class="form-control bg-secondary border-0 text-light" id="subAdminPassword" maxlength="64" placeholder="Set secure password" autocomplete="new-password" required>
+                                                    <small class="field-hint d-block mt-1">Use a strong password that meets policy requirements.</small>
+                                                </div>
+                                            </div>
+
+                                            <hr class="border-secondary my-4">
+
+                                            <label class="form-label text-light mb-2">Role Profile</label>
+                                            <div class="sub-admin-role-grid" id="subAdminRoleCards"></div>
+                                            <input type="hidden" id="subAdminRole" value="operations_manager">
+                                            <small class="field-hint d-block mt-2" id="subAdminRoleHelp">Choose a role to auto-fill recommended permissions.</small>
+
+                                            <div class="sub-admin-custom-access mt-4" id="subAdminCustomAccessWrap">
+                                                <div class="row g-4">
+                                                    <div class="col-12 col-lg-7">
+                                                        <h4 class="h6 text-light mb-2">Custom Permissions</h4>
+                                                        <p class="field-hint mb-2">Select exactly what this sub admin can do.</p>
+                                                        <div class="sub-admin-permission-grid" id="subAdminPermissionGrid"></div>
+                                                    </div>
+                                                    <div class="col-12 col-lg-5">
+                                                        <h4 class="h6 text-light mb-2">Hide Tab Panes</h4>
+                                                        <p class="field-hint mb-2">Hide selected tabs from this sub admin UI.</p>
+                                                        <div class="sub-admin-hidden-tabs" id="subAdminHiddenTabsGrid"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="d-flex flex-wrap gap-2 mt-4">
+                                                <button type="submit" class="btn btn-orange" id="saveSubAdminBtn">
+                                                    <i class="bi bi-person-plus me-1"></i>Create Sub Admin
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary" id="resetSubAdminBtn">
+                                                    <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Form
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-xl-5">
+                                <div class="card admin-card border-0 shadow-sm h-100">
+                                    <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center">
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Sub Admin Accounts</h3>
+                                        <button class="btn btn-sm btn-outline-orange" id="refreshSubAdminsBtn" type="button">
+                                            <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                                        </button>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-dark table-hover align-middle mb-0" id="subAdminsTable">
+                                                <thead class="border-bottom border-secondary">
+                                                    <tr>
+                                                        <th class="py-3 ps-4 text-orange fw-semibold">Admin</th>
+                                                        <th class="py-3 text-orange fw-semibold">Role</th>
+                                                        <th class="py-3 text-orange fw-semibold">Status</th>
+                                                        <th class="py-3 text-orange fw-semibold">Verification</th>
+                                                        <th class="py-3 text-orange fw-semibold">Last Login</th>
+                                                        <th class="py-3 pe-4 text-orange fw-semibold">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td colspan="6" class="text-center py-4 text-secondary">No sub admin accounts found.</td>
                                                     </tr>
                                                 </tbody>
                                             </table>
@@ -2581,14 +2723,23 @@ $adminDisplayEmail = strtolower(trim((string)($adminUser['email'] ?? '')));
     <script <?= commerza_csp_nonce_attr() ?>>
         window.CommerzaAdminRuntime = {
             csrfToken: <?= json_encode($adminCsrfToken, JSON_UNESCAPED_SLASHES) ?>,
+            permissions: <?= json_encode($adminPermissions, JSON_UNESCAPED_SLASHES) ?>,
+            hiddenTabs: <?= json_encode($adminHiddenTabs, JSON_UNESCAPED_SLASHES) ?>,
+            permissionCatalog: <?= json_encode($adminPermissionCatalog, JSON_UNESCAPED_SLASHES) ?>,
+            tabCatalog: <?= json_encode($adminTabCatalog, JSON_UNESCAPED_SLASHES) ?>,
             admin: {
                 id: <?= (int)($adminUser['id'] ?? 0) ?>,
                 name: <?= json_encode($adminDisplayName, JSON_UNESCAPED_SLASHES) ?>,
                 email: <?= json_encode($adminDisplayEmail, JSON_UNESCAPED_SLASHES) ?>,
+                role: <?= json_encode($adminRoleKey, JSON_UNESCAPED_SLASHES) ?>,
+                roleLabel: <?= json_encode($adminRoleLabel, JSON_UNESCAPED_SLASHES) ?>,
+                permissions: <?= json_encode($adminPermissions, JSON_UNESCAPED_SLASHES) ?>,
+                hiddenTabs: <?= json_encode($adminHiddenTabs, JSON_UNESCAPED_SLASHES) ?>,
             }
         };
     </script>
     <script <?= commerza_csp_nonce_attr() ?> src="assets/js/script.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/sub-admins.js?v=<?= (int)$adminSubAdminsJsVersion ?>"></script>
 </body>
 
 </html>

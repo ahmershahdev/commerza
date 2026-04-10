@@ -62,9 +62,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $errors[] = 'Too many resend requests. Try again in ' . $retry . ' seconds.';
     } else {
       $admin = admin_get_by_id($con, (int)$pending['admin_id']);
-      if (!$admin || (int)($admin['is_active'] ?? 0) !== 1) {
+      $blockReason = is_array($admin) ? admin_account_block_reason($admin) : 'Verification session expired. Please login again.';
+      if (!$admin || $blockReason !== null) {
         admin_clear_two_factor_pending_session();
-        $errors[] = 'Verification session expired. Please login again.';
+        $_SESSION['admin_login_error'] = $blockReason !== null ? $blockReason : 'Verification session expired. Please login again.';
+        header('Location: admin-login.php');
+        exit;
       } else {
         $issueError = null;
         if (!admin_issue_two_factor_challenge($con, $admin, (string)$pending['next'], $issueError)) {
@@ -137,9 +140,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $adminRow = admin_get_by_id($con, (int)$pending['admin_id']);
         }
 
-        if (!$adminRow || (int)($adminRow['is_active'] ?? 0) !== 1) {
+        $adminBlockReason = is_array($adminRow) ? admin_account_block_reason($adminRow) : 'Verification session expired. Please login again.';
+        if (!$adminRow || $adminBlockReason !== null) {
           admin_clear_two_factor_pending_session();
-          $errors[] = 'Verification session expired. Please login again.';
+          $_SESSION['admin_login_error'] = $adminBlockReason !== null ? $adminBlockReason : 'Verification session expired. Please login again.';
+          header('Location: admin-login.php');
+          exit;
         } else {
           admin_login_user($con, $adminRow);
           admin_clear_two_factor_pending_session();

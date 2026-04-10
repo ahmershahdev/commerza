@@ -1016,6 +1016,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $refundReason = substr($refundReason, 0, 500);
     }
 
+    if (empty($errors)) {
+      $blockedContact = commerza_customer_blacklist_lookup(
+        $con,
+        (string)($user['email'] ?? ''),
+        (string)($user['phone'] ?? '')
+      );
+
+      if (is_array($blockedContact)) {
+        $errors[] = 'Refund requests are disabled for this account. ' . commerza_customer_blacklist_feedback_message($blockedContact);
+      }
+    }
+
     $orderRow = null;
     if (empty($errors)) {
       $orderStmt = $con->prepare(
@@ -1475,6 +1487,18 @@ if (!in_array($profile_visibility_value, ['private', 'public'], true)) {
 }
 
 $profile_visibility_label = $profile_visibility_value === 'public' ? 'Public Profile' : 'Private Profile';
+
+$accountBlacklistEntry = commerza_customer_blacklist_lookup(
+  $con,
+  (string)($user['email'] ?? ''),
+  (string)($user['phone'] ?? '')
+);
+$accountBlacklistNoticeSetting = strtolower(trim(commerza_site_setting_value($con, 'account_blacklist_notice_visible', '1')));
+$accountBlacklistNoticeVisible = !in_array($accountBlacklistNoticeSetting, ['0', 'false', 'no', 'off', 'hidden', 'hide'], true);
+$accountShowBlacklistNotice = $accountBlacklistNoticeVisible && is_array($accountBlacklistEntry);
+$accountBlacklistNoticeText = $accountShowBlacklistNotice
+  ? commerza_customer_blacklist_feedback_message((array)$accountBlacklistEntry)
+  : '';
 
 $appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
 $accountCleanPath = '/account/' . rawurlencode($username_value);
@@ -1999,6 +2023,17 @@ if (is_array($accountDeletePending)) {
       </ol>
     </nav>
     <h1 class="mb-4" style="color: #ff6600; user-select: none">My Account</h1>
+
+    <?php if ($accountShowBlacklistNotice): ?>
+      <div class="alert alert-warning border border-warning-subtle bg-dark text-warning d-flex align-items-start gap-2" role="alert">
+        <i class="bi bi-exclamation-triangle-fill mt-1" aria-hidden="true"></i>
+        <div>
+          <strong>Account Restriction Notice</strong>
+          <div class="mt-1"><?= htmlspecialchars($accountBlacklistNoticeText, ENT_QUOTES, 'UTF-8') ?></div>
+          <small class="d-block mt-1 text-secondary">Ordering, refund requests, and review submissions are disabled while this restriction is active.</small>
+        </div>
+      </div>
+    <?php endif; ?>
 
     <div class="row">
       <div class="col-lg-4 mb-4">

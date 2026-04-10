@@ -27,11 +27,28 @@ const ADMIN_WEBSITE_API = "../backend/website_api.php";
 const ADMIN_MEDIA_API = "../backend/media_api.php";
 const ADMIN_COUPONS_API = "../backend/coupons_api.php";
 const ADMIN_REVIEWS_API = "../backend/reviews_api.php";
+const ADMIN_PERMISSION_SET = admin_build_permission_set(
+  ADMIN_RUNTIME?.admin?.permissions || ADMIN_RUNTIME?.permissions || [],
+);
+const ADMIN_HIDDEN_TAB_SET = new Set(
+  (Array.isArray(ADMIN_RUNTIME?.admin?.hiddenTabs)
+    ? ADMIN_RUNTIME.admin.hiddenTabs
+    : Array.isArray(ADMIN_RUNTIME?.hiddenTabs)
+      ? ADMIN_RUNTIME.hiddenTabs
+      : []
+  )
+    .map((tabId) => (tabId || "").toString().trim().toLowerCase())
+    .filter((tabId) => tabId !== ""),
+);
+const ADMIN_TAB_CATALOG = Array.isArray(ADMIN_RUNTIME?.tabCatalog)
+  ? ADMIN_RUNTIME.tabCatalog
+  : [];
 let adminOrders = [];
 let adminCustomers = [];
 let adminMetrics = null;
 let adminRefunds = [];
 let adminBlacklist = [];
+let adminBlacklistNoticeVisible = true;
 let adminShippingConfig = {
   flatFee: 1000,
   freeShippingOver: 500,
@@ -61,6 +78,151 @@ let securityEventsState = {
     to: "",
   },
 };
+
+function admin_normalize_permission(permission) {
+  const normalized = (permission || "").toString().trim().toLowerCase();
+  if (normalized === "") {
+    return "";
+  }
+
+  if (normalized === "*") {
+    return "*";
+  }
+
+  return /^[a-z0-9_]+\.[a-z0-9_*]+$/.test(normalized) ? normalized : "";
+}
+
+function admin_build_permission_set(permissions) {
+  const set = new Set();
+  const list = Array.isArray(permissions) ? permissions : [];
+
+  list.forEach((permission) => {
+    const normalized = admin_normalize_permission(permission);
+    if (normalized !== "") {
+      set.add(normalized);
+    }
+  });
+
+  return set;
+}
+
+function admin_has_permission(permission) {
+  const normalized = admin_normalize_permission(permission);
+  if (normalized === "") {
+    return true;
+  }
+
+  if (ADMIN_PERMISSION_SET.has("*")) {
+    return true;
+  }
+
+  if (ADMIN_PERMISSION_SET.has(normalized)) {
+    return true;
+  }
+
+  const segments = normalized.split(".");
+  if (segments.length !== 2) {
+    return false;
+  }
+
+  const [prefix, scope] = segments;
+  if (prefix === "" || scope === "") {
+    return false;
+  }
+
+  if (ADMIN_PERMISSION_SET.has(`${prefix}.*`)) {
+    return true;
+  }
+
+  if (scope === "view" && ADMIN_PERMISSION_SET.has(`${prefix}.manage`)) {
+    return true;
+  }
+
+  return false;
+}
+
+function admin_has_any_permission(permissions) {
+  const list = Array.isArray(permissions) ? permissions : [];
+  if (!list.length) {
+    return true;
+  }
+
+  return list.some((permission) => admin_has_permission(permission));
+}
+
+function admin_tab_metadata(tabId) {
+  const normalizedTabId = (tabId || "").toString().trim().toLowerCase();
+  if (normalizedTabId === "") {
+    return null;
+  }
+
+  return (
+    ADMIN_TAB_CATALOG.find(
+      (entry) =>
+        (entry?.id || "").toString().trim().toLowerCase() === normalizedTabId,
+    ) || null
+  );
+}
+
+function admin_can_access_tab(tabId) {
+  const normalizedTabId = (tabId || "").toString().trim().toLowerCase();
+  if (normalizedTabId === "") {
+    return false;
+  }
+
+  if (ADMIN_HIDDEN_TAB_SET.has(normalizedTabId)) {
+    return false;
+  }
+
+  const metadata = admin_tab_metadata(normalizedTabId);
+  if (!metadata) {
+    return true;
+  }
+
+  return admin_has_any_permission(metadata.permissions || []);
+}
+
+function admin_can_use_orders_summary_api() {
+  return admin_has_any_permission([
+    "orders.manage",
+    "customers.manage",
+    "analytics.view",
+    "dashboard.view",
+  ]);
+}
+
+function admin_parse_boolean(value, fallback = true) {
+  if (value === null || value === undefined) {
+    return fallback;
+  }
+
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "number") {
+    return value !== 0;
+  }
+
+  const normalized = value.toString().trim().toLowerCase();
+  if (normalized === "") {
+    return fallback;
+  }
+
+  if (["1", "true", "yes", "on", "visible", "show"].includes(normalized)) {
+    return true;
+  }
+
+  if (["0", "false", "no", "off", "hidden", "hide"].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+}
+
+window.commerzaAdminHasPermission = admin_has_permission;
+window.commerzaAdminHasAnyPermission = admin_has_any_permission;
+window.commerzaAdminCanAccessTab = admin_can_access_tab;
 
 (function () {
   if (window.__commerzaMediaProtectionEnabled) return;
@@ -492,6 +654,10 @@ function setAdminOrdersPayload(payload) {
       : null;
   adminRefunds = Array.isArray(payload?.refunds) ? payload.refunds : [];
   adminBlacklist = Array.isArray(payload?.blacklist) ? payload.blacklist : [];
+  adminBlacklistNoticeVisible = admin_parse_boolean(
+    payload?.blacklistNoticeVisible,
+    true,
+  );
 
   const shipping =
     payload?.shippingConfig && typeof payload.shippingConfig === "object"
@@ -507,6 +673,7 @@ function setAdminOrdersPayload(payload) {
   };
 
   sessionStorage.setItem(ORDERS_KEY, JSON.stringify(adminOrders));
+  syncBlacklistNoticeToggleUi();
 }
 
 function applyOrderStatusPatch(payload) {
@@ -535,6 +702,10 @@ function applyOrderStatusPatch(payload) {
 }
 
 async function loadAdminOrdersData(silent = false) {
+  if (!admin_can_use_orders_summary_api()) {
+    return false;
+  }
+
   try {
     const response = await fetch(`${ADMIN_ORDERS_API}?action=summary`, {
       method: "GET",
@@ -5618,6 +5789,83 @@ function injectAdminTabPlaybooks() {
   });
 }
 
+function applyAdminTabVisibility() {
+  const navTabs = Array.from(
+    document.querySelectorAll('#sidebarNav [data-bs-toggle="pill"]'),
+  );
+
+  if (!navTabs.length) {
+    return;
+  }
+
+  const visibleTabs = [];
+
+  navTabs.forEach((tabButton) => {
+    const tabId = (tabButton.id || "").toString().trim();
+    const targetSelector = (tabButton.getAttribute("data-bs-target") || "")
+      .toString()
+      .trim();
+    const targetPane = targetSelector
+      ? document.querySelector(targetSelector)
+      : null;
+    const allowed = admin_can_access_tab(tabId);
+
+    if (!allowed) {
+      tabButton.classList.remove("active");
+      tabButton.classList.add("d-none");
+      tabButton.setAttribute("aria-hidden", "true");
+      tabButton.setAttribute("aria-selected", "false");
+
+      if (targetPane) {
+        targetPane.classList.remove("active", "show");
+        targetPane.classList.add("d-none");
+      }
+
+      return;
+    }
+
+    tabButton.classList.remove("d-none");
+    tabButton.removeAttribute("aria-hidden");
+
+    if (targetPane) {
+      targetPane.classList.remove("d-none");
+    }
+
+    visibleTabs.push(tabButton);
+  });
+
+  if (!visibleTabs.length) {
+    return;
+  }
+
+  const activeVisible =
+    document.querySelector(
+      '#sidebarNav [data-bs-toggle="pill"].active:not(.d-none)',
+    ) || null;
+
+  if (activeVisible) {
+    return;
+  }
+
+  const firstVisible = visibleTabs[0];
+  if (!firstVisible) {
+    return;
+  }
+
+  if (
+    window.bootstrap?.Tab &&
+    typeof window.bootstrap.Tab.getOrCreateInstance === "function"
+  ) {
+    const tabInstance = window.bootstrap.Tab.getOrCreateInstance(firstVisible);
+    tabInstance.show();
+    return;
+  }
+
+  if (typeof firstVisible.click === "function") {
+    firstVisible.click();
+  }
+}
+
 $(document).ready(function () {
   const adminIdentity = ADMIN_RUNTIME.admin || {};
 
@@ -5652,6 +5900,19 @@ $(document).ready(function () {
 
   syncAdminIdentityUi(adminIdentity);
 
+  const canProductsManage = admin_has_permission("products.manage");
+  const canProductTrashManage = admin_has_any_permission([
+    "product_trash.manage",
+    "products.manage",
+  ]);
+  const canOrdersSummaryData = admin_can_use_orders_summary_api();
+  const canCouponsManage = admin_has_permission("coupons.manage");
+  const canReviewsManage = admin_has_permission("reviews.manage");
+  const canSecurityManage = admin_has_permission("security.manage");
+  const canWebsiteManage = admin_has_permission("website.manage");
+  const canViewersManage = admin_has_permission("viewers.manage");
+  const canEmailManage = admin_has_permission("email.manage");
+
   const sidebar = document.getElementById("sidebarMenu");
   if (sidebar) {
     sidebar.addEventListener("shown.bs.collapse", () => {
@@ -5663,6 +5924,7 @@ $(document).ready(function () {
   }
 
   injectAdminTabPlaybooks();
+  applyAdminTabVisibility();
 
   $(document)
     .off("click.adminDropdownItem")
@@ -5684,35 +5946,65 @@ $(document).ready(function () {
     });
 
   function refreshTabPaneByTabId(tabId) {
+    const normalizedTabId = (tabId || "").toString().trim().toLowerCase();
+    if (normalizedTabId !== "" && !admin_can_access_tab(normalizedTabId)) {
+      return;
+    }
+
     switch ((tabId || "").toString()) {
       case "product-trash-tab":
-        loadProductTrashData(true);
+        if (canProductTrashManage) {
+          loadProductTrashData(true);
+        }
         break;
       case "products-tab":
-        loadProductsFromJSON();
+        if (canProductsManage) {
+          loadProductsFromJSON();
+        }
         break;
       case "orders-tab":
-        displayAllOrders();
-        renderRefundRequests();
+        if (canOrdersSummaryData) {
+          displayAllOrders();
+          renderRefundRequests();
+        }
         break;
       case "customers-tab":
-        displayAllCustomers();
+        if (canOrdersSummaryData) {
+          displayAllCustomers();
+          renderBlacklistTable();
+          syncBlacklistNoticeToggleUi();
+        }
+        break;
+      case "sub-admins-tab":
+        if (admin_has_permission("sub_admins.manage")) {
+          window.refreshSubAdminsPanel?.();
+        }
         break;
       case "analytics-tab":
-        renderAnalyticsSection();
+        if (canOrdersSummaryData) {
+          renderAnalyticsSection();
+        }
         break;
       case "coupons-tab":
-        renderCouponsTable();
+        if (canCouponsManage) {
+          renderCouponsTable();
+        }
         break;
       case "reviews-tab":
-        renderReviewsTable();
+        if (canReviewsManage) {
+          renderReviewsTable();
+        }
         break;
       case "security-events-tab":
-        renderSecurityEventsTable();
+        if (canSecurityManage) {
+          renderSecurityEventsTable();
+        }
         break;
       case "website-tab":
-        renderSocialLinksTable();
-        renderSliderTable();
+        if (canWebsiteManage) {
+          renderSocialLinksTable();
+          renderSliderTable();
+        }
         break;
       default:
         break;
@@ -5765,9 +6057,12 @@ $(document).ready(function () {
       }
     });
 
-  syncActiveTabUi(
-    document.querySelector('#sidebarNav [data-bs-toggle="pill"].active'),
-  );
+  const initialVisibleTab =
+    document.querySelector(
+      '#sidebarNav [data-bs-toggle="pill"].active:not(.d-none)',
+    ) ||
+    document.querySelector('#sidebarNav [data-bs-toggle="pill"]:not(.d-none)');
+  syncActiveTabUi(initialVisibleTab);
 
   function applyButtonCooldown(selector, duration = 1200) {
     $(document).on("click", selector, function () {
@@ -5945,6 +6240,9 @@ $(document).ready(function () {
   $("#saveShippingConfigBtn").off("click").on("click", saveShippingConfig);
   $("#addBlacklistBtn").off("click").on("click", addBlacklistFromForm);
   $("#whitelistContactBtn").off("click").on("click", whitelistContactFromForm);
+  $("#saveBlacklistNoticeToggleBtn")
+    .off("click")
+    .on("click", saveBlacklistNoticeVisibility);
   $("#saveSeoMetaBtn").off("click").on("click", saveSeoMetaFromForm);
   $("#resetSeoMetaBtn").off("click").on("click", resetSeoMetaForm);
   $("#deleteSeoMetaBtn")
@@ -5953,6 +6251,7 @@ $(document).ready(function () {
       deleteSeoMetaForPage("");
     });
   $("#seoPageSelect").off("change").on("change", refreshSeoMetaEditor);
+  syncBlacklistNoticeToggleUi();
 
   $(document)
     .off("click", ".delete-customer-btn")
@@ -6076,18 +6375,40 @@ $(document).ready(function () {
 
   loadDismissedNotificationSignatures();
 
-  const initialProductsLoad = loadProductsFromJSON();
-  const initialTrashLoad = loadProductTrashData(true);
-  const initialOrdersLoad = loadAdminOrdersData(true);
-  const initialCouponsLoad = loadCouponsData(true);
-  const initialReviewsLoad = loadReviewsData(true);
-  const initialSecurityEventsLoad = loadSecurityEvents(true);
+  const initialProductsLoad = canProductsManage
+    ? loadProductsFromJSON()
+    : Promise.resolve(false);
+  const initialTrashLoad = canProductTrashManage
+    ? loadProductTrashData(true)
+    : Promise.resolve(false);
+  const initialOrdersLoad = canOrdersSummaryData
+    ? loadAdminOrdersData(true)
+    : Promise.resolve(false);
+  const initialCouponsLoad = canCouponsManage
+    ? loadCouponsData(true)
+    : Promise.resolve(false);
+  const initialReviewsLoad = canReviewsManage
+    ? loadReviewsData(true)
+    : Promise.resolve(false);
+  const initialSecurityEventsLoad = canSecurityManage
+    ? loadSecurityEvents(true)
+    : Promise.resolve(false);
 
-  initCouponsSection();
-  initReviewsSection();
-  initSecurityEventsSection();
-  initWebsiteSettings();
-  initLiveViewersAnalytics();
+  if (canCouponsManage) {
+    initCouponsSection();
+  }
+  if (canReviewsManage) {
+    initReviewsSection();
+  }
+  if (canSecurityManage) {
+    initSecurityEventsSection();
+  }
+  if (canWebsiteManage) {
+    initWebsiteSettings();
+  }
+  if (canViewersManage) {
+    initLiveViewersAnalytics();
+  }
 
   Promise.allSettled([
     Promise.resolve(initialProductsLoad),
@@ -6097,16 +6418,23 @@ $(document).ready(function () {
     Promise.resolve(initialReviewsLoad),
     Promise.resolve(initialSecurityEventsLoad),
   ]).finally(() => {
-    initEmailCenter();
+    if (canEmailManage) {
+      initEmailCenter();
+    }
+
     calculateDashboardMetrics();
-    displayRecentOrders();
-    displayAllOrders();
-    displayAllCustomers();
-    renderBlacklistTable();
-    renderShippingConfigCard();
-    renderAnalyticsSection();
-    renderRefundRequests();
-    updateNotifications();
+
+    if (canOrdersSummaryData) {
+      displayRecentOrders();
+      displayAllOrders();
+      displayAllCustomers();
+      renderBlacklistTable();
+      renderShippingConfigCard();
+      renderAnalyticsSection();
+      renderRefundRequests();
+      syncBlacklistNoticeToggleUi();
+      updateNotifications();
+    }
   });
 
   $("#saveProductBtn")
@@ -7530,6 +7858,51 @@ function renderShippingConfigCard() {
   }
 
   preview.text(`All orders pay flat shipping: ${formatPkr(flatFee)}.`);
+}
+
+function syncBlacklistNoticeToggleUi() {
+  const toggle = $("#blacklistUserNoticeToggle");
+  if (!toggle.length) {
+    return;
+  }
+
+  const canManageBlacklist = admin_has_any_permission([
+    "customers.manage",
+    "orders.manage",
+  ]);
+  const saveButton = $("#saveBlacklistNoticeToggleBtn");
+
+  toggle.prop("checked", !!adminBlacklistNoticeVisible);
+  toggle.prop("disabled", !canManageBlacklist);
+  saveButton.prop("disabled", !canManageBlacklist);
+}
+
+async function saveBlacklistNoticeVisibility() {
+  const toggle = $("#blacklistUserNoticeToggle");
+  if (!toggle.length) {
+    return;
+  }
+
+  const visibleToUser = toggle.is(":checked") ? 1 : 0;
+
+  try {
+    const result = await adminPostJson(ADMIN_ORDERS_API, {
+      action: "save-blacklist-notice-visibility",
+      visible_to_user: visibleToUser,
+    });
+
+    applyOrdersSummaryPayload(result?.payload || {});
+    showNotification(
+      result?.message || "Blacklist notice visibility updated.",
+      "success",
+    );
+  } catch (error) {
+    syncBlacklistNoticeToggleUi();
+    showNotification(
+      error?.message || "Unable to update blacklist notice visibility.",
+      "danger",
+    );
+  }
 }
 
 function renderBlacklistTable() {

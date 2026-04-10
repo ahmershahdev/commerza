@@ -248,6 +248,34 @@ function orders_api_upsert_setting(mysqli $con, string $key, string $value, stri
     return $ok;
 }
 
+function orders_api_require_any_permission(array $admin, array $permissions): void
+{
+    foreach ($permissions as $permission) {
+        if (admin_has_permission($admin, (string)$permission)) {
+            return;
+        }
+    }
+
+    orders_api_json([
+        'ok' => false,
+        'message' => 'Forbidden.',
+    ], 403);
+}
+
+function orders_api_blacklist_notice_visible(mysqli $con): bool
+{
+    $raw = strtolower(trim(orders_api_get_setting($con, 'account_blacklist_notice_visible', '1')));
+    if ($raw === '') {
+        return true;
+    }
+
+    if (in_array($raw, ['0', 'false', 'no', 'off', 'hidden', 'hide'], true)) {
+        return false;
+    }
+
+    return true;
+}
+
 function orders_api_shipping_config(mysqli $con): array
 {
     $flatRaw = orders_api_get_setting($con, 'shipping_flat_fee', '1000');
@@ -974,6 +1002,7 @@ function orders_api_summary_payload(mysqli $con): array
         'metrics' => orders_api_fetch_metrics($con),
         'refunds' => orders_api_fetch_refunds($con),
         'blacklist' => orders_api_blacklist_rows($con),
+        'blacklistNoticeVisible' => orders_api_blacklist_notice_visible($con),
         'shippingConfig' => orders_api_shipping_config($con),
     ];
 }
@@ -983,7 +1012,6 @@ if (!isset($con) || !($con instanceof mysqli)) {
 }
 
 $admin = admin_require_login_api($con);
-admin_require_permission_api($admin, 'orders.manage');
 
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $requestBody = orders_api_request_body();
@@ -1005,6 +1033,13 @@ admin_api_rate_limit_guard(
 );
 
 if ($action === 'summary') {
+    orders_api_require_any_permission($admin, [
+        'orders.manage',
+        'customers.manage',
+        'analytics.view',
+        'dashboard.view',
+    ]);
+
     orders_api_json([
         'ok' => true,
         'payload' => orders_api_summary_payload($con),
@@ -1012,6 +1047,8 @@ if ($action === 'summary') {
 }
 
 if ($action === 'refund-summary') {
+    orders_api_require_any_permission($admin, ['orders.manage']);
+
     orders_api_json([
         'ok' => true,
         'payload' => [
@@ -1021,6 +1058,8 @@ if ($action === 'refund-summary') {
 }
 
 if ($action === 'save-shipping-settings') {
+    orders_api_require_any_permission($admin, ['orders.manage']);
+
     if ($method !== 'POST') {
         orders_api_json(['ok' => false, 'message' => 'Method not allowed.'], 405);
     }
@@ -1065,6 +1104,8 @@ if ($action === 'save-shipping-settings') {
 }
 
 if ($action === 'add-blacklist') {
+    orders_api_require_any_permission($admin, ['orders.manage', 'customers.manage']);
+
     if ($method !== 'POST') {
         orders_api_json(['ok' => false, 'message' => 'Method not allowed.'], 405);
     }
@@ -1171,6 +1212,8 @@ if ($action === 'add-blacklist') {
 }
 
 if ($action === 'remove-blacklist') {
+    orders_api_require_any_permission($admin, ['orders.manage', 'customers.manage']);
+
     if ($method !== 'POST') {
         orders_api_json(['ok' => false, 'message' => 'Method not allowed.'], 405);
     }
@@ -1218,6 +1261,8 @@ if ($action === 'remove-blacklist') {
 }
 
 if ($action === 'remove-blacklist-contact') {
+    orders_api_require_any_permission($admin, ['orders.manage', 'customers.manage']);
+
     if ($method !== 'POST') {
         orders_api_json(['ok' => false, 'message' => 'Method not allowed.'], 405);
     }
@@ -1282,7 +1327,70 @@ if ($action === 'remove-blacklist-contact') {
     ]);
 }
 
+if ($action === 'save-blacklist-notice-visibility') {
+    orders_api_require_any_permission($admin, ['orders.manage', 'customers.manage']);
+
+    if ($method !== 'POST') {
+        orders_api_json(['ok' => false, 'message' => 'Method not allowed.'], 405);
+    }
+
+    $csrfToken = (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($_POST['csrf_token'] ?? ''));
+    if ($csrfToken === '') {
+        $csrfToken = (string)($requestBody['csrf_token'] ?? '');
+    }
+
+    if (!admin_validate_csrf_token($csrfToken)) {
+        orders_api_json(['ok' => false, 'message' => 'Forbidden.'], 403);
+    }
+
+    $visibleRaw = $requestBody['visible_to_user'] ?? ($_POST['visible_to_user'] ?? null);
+    $visibleText = strtolower(trim((string)$visibleRaw));
+    $visible = true;
+
+    if ($visibleRaw !== null) {
+        if (
+            $visibleRaw === false
+            || $visibleRaw === 0
+            || $visibleText === '0'
+            || $visibleText === 'false'
+            || $visibleText === 'no'
+            || $visibleText === 'off'
+            || $visibleText === 'hidden'
+            || $visibleText === 'hide'
+        ) {
+            $visible = false;
+        }
+    }
+
+    $value = $visible ? '1' : '0';
+    $saved = orders_api_upsert_setting(
+        $con,
+        'account_blacklist_notice_visible',
+        $value,
+        'Account Blacklist Notice Visible',
+        'security'
+    );
+
+    if (!$saved) {
+        orders_api_json(['ok' => false, 'message' => 'Unable to save blacklist notice visibility.'], 500);
+    }
+
+    admin_api_log_security_event($con, $admin, 'customer.blacklist_notice_visibility_changed', 'info', [
+        'visible_to_user' => $visible,
+    ]);
+
+    orders_api_json([
+        'ok' => true,
+        'message' => $visible
+            ? 'Blacklist notice is now visible to blacklisted customers on account page.'
+            : 'Blacklist notice is now hidden from blacklisted customers on account page.',
+        'payload' => orders_api_summary_payload($con),
+    ]);
+}
+
 if ($action === 'update-status') {
+    orders_api_require_any_permission($admin, ['orders.manage']);
+
     if ($method !== 'POST') {
         orders_api_json(['ok' => false, 'message' => 'Method not allowed.'], 405);
     }
@@ -1442,6 +1550,8 @@ if ($action === 'update-status') {
 }
 
 if ($action === 'delete-orders') {
+    orders_api_require_any_permission($admin, ['orders.manage']);
+
     if ($method !== 'POST') {
         orders_api_json(['ok' => false, 'message' => 'Method not allowed.'], 405);
     }
@@ -1534,6 +1644,8 @@ if ($action === 'delete-orders') {
 }
 
 if ($action === 'delete-customers') {
+    orders_api_require_any_permission($admin, ['orders.manage', 'customers.manage']);
+
     if ($method !== 'POST') {
         orders_api_json(['ok' => false, 'message' => 'Method not allowed.'], 405);
     }
@@ -1799,6 +1911,8 @@ if ($action === 'delete-customers') {
 }
 
 if ($action === 'update-refund-status') {
+    orders_api_require_any_permission($admin, ['orders.manage']);
+
     if ($method !== 'POST') {
         orders_api_json(['ok' => false, 'message' => 'Method not allowed.'], 405);
     }

@@ -263,6 +263,36 @@ function wishlist_rate_limit_guard(
     ], 429);
 }
 
+function wishlist_user_blacklist_entry(mysqli $con, int $userId): ?array
+{
+    if ($userId <= 0) {
+        return null;
+    }
+
+    $stmt = $con->prepare('SELECT email, phone FROM users WHERE id = ? LIMIT 1');
+    if (!$stmt) {
+        return null;
+    }
+
+    $stmt->bind_param('i', $userId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    if (!is_array($row)) {
+        return null;
+    }
+
+    $blocked = commerza_customer_blacklist_lookup(
+        $con,
+        (string)($row['email'] ?? ''),
+        (string)($row['phone'] ?? '')
+    );
+
+    return is_array($blocked) ? $blocked : null;
+}
+
 $method = $_SERVER['REQUEST_METHOD'];
 $action = strtolower(trim((string)($_REQUEST['action'] ?? 'status')));
 
@@ -280,6 +310,7 @@ if ($action === 'status') {
     }
 
     $userId = (int)$_SESSION['user_id'];
+    $blockedContact = wishlist_user_blacklist_entry($con, $userId);
     $wishlistId = get_or_create_wishlist_id($con, $userId);
     if (!$wishlistId) {
         wishlist_json(['ok' => false, 'message' => 'Unable to load wishlist.'], 500);
@@ -376,6 +407,15 @@ if ($action === 'toggle') {
     $checkStmt->store_result();
     $itemExists = $checkStmt->num_rows > 0;
     $checkStmt->close();
+
+    if (is_array($blockedContact) && !$itemExists) {
+        wishlist_release_item_lock($con, $itemLock);
+        wishlist_json([
+            'ok' => false,
+            'message' => commerza_customer_blacklist_feedback_message($blockedContact),
+            'csrf_token' => $_SESSION['csrf_token'],
+        ], 403);
+    }
 
     $added = false;
 

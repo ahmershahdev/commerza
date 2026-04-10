@@ -13,6 +13,11 @@ if (!empty($_SESSION['admin_user_id']) && $_SERVER['REQUEST_METHOD'] !== 'POST')
   exit;
 }
 
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && admin_get_email_verification_pending_session()) {
+  header('Location: admin-verify-email.php');
+  exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' && admin_get_two_factor_pending_session()) {
   header('Location: admin-verify-2fa.php');
   exit;
@@ -81,48 +86,81 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if (empty($errors)) {
     $admin = admin_get_by_email($con, $emailValue);
 
-    if ($admin && (int)($admin['is_active'] ?? 0) === 1 && commerza_password_verify($password, (string)$admin['password_hash'])) {
-      if (commerza_password_needs_rehash((string)$admin['password_hash'])) {
-        $rehash = commerza_password_hash($password);
-        if ($rehash !== '') {
-          $rehashStmt = $con->prepare('UPDATE admin_users SET password_hash = ? WHERE id = ? LIMIT 1');
-          if ($rehashStmt) {
-            $adminId = (int)$admin['id'];
-            $rehashStmt->bind_param('si', $rehash, $adminId);
-            $rehashStmt->execute();
-            $rehashStmt->close();
+    if ($admin && commerza_password_verify($password, (string)$admin['password_hash'])) {
+      $blockReason = admin_account_block_reason($admin);
+      if ($blockReason !== null) {
+        commerza_security_log_auth_attempt(
+          $con,
+          'admin',
+          (string)($admin['email'] ?? $emailValue),
+          $clientIp,
+          false,
+          'blocked_account_state',
+          0,
+          (int)($admin['id'] ?? 0)
+        );
+        $errors[] = $blockReason;
+      } elseif (!admin_is_email_verified($admin)) {
+        $issueError = null;
+        if (!admin_issue_email_verification_challenge($con, $admin, $issueError)) {
+          $errors[] = $issueError ?: 'Unable to send account verification code. Please try again.';
+        } else {
+          admin_set_email_verification_pending_session($admin, $nextTarget);
+          commerza_rate_limit_reset($con, 'admin_login', $emailValue, $clientIp);
+          commerza_security_log_event($con, [
+            'event_type' => 'admin_email_verification_challenge_sent',
+            'severity' => 'info',
+            'actor_type' => 'admin',
+            'actor_identifier' => (string)($admin['email'] ?? $emailValue),
+            'admin_id' => (int)($admin['id'] ?? 0),
+            'ip_address' => $clientIp,
+          ]);
+          header('Location: admin-verify-email.php');
+          exit;
+        }
+      } else {
+        if (commerza_password_needs_rehash((string)$admin['password_hash'])) {
+          $rehash = commerza_password_hash($password);
+          if ($rehash !== '') {
+            $rehashStmt = $con->prepare('UPDATE admin_users SET password_hash = ? WHERE id = ? LIMIT 1');
+            if ($rehashStmt) {
+              $adminId = (int)$admin['id'];
+              $rehashStmt->bind_param('si', $rehash, $adminId);
+              $rehashStmt->execute();
+              $rehashStmt->close();
+            }
           }
         }
-      }
 
-      $issueError = null;
-      if (admin_issue_two_factor_challenge($con, $admin, $nextTarget, $issueError)) {
-        commerza_rate_limit_reset($con, 'admin_login', $emailValue, $clientIp);
+        $issueError = null;
+        if (admin_issue_two_factor_challenge($con, $admin, $nextTarget, $issueError)) {
+          commerza_rate_limit_reset($con, 'admin_login', $emailValue, $clientIp);
+          commerza_security_log_event($con, [
+            'event_type' => 'admin_2fa_challenge_sent',
+            'severity' => 'info',
+            'actor_type' => 'admin',
+            'actor_identifier' => (string)($admin['email'] ?? $emailValue),
+            'admin_id' => (int)$admin['id'],
+            'ip_address' => $clientIp,
+          ]);
+          header('Location: admin-verify-2fa.php');
+          exit;
+        }
+
         commerza_security_log_event($con, [
-          'event_type' => 'admin_2fa_challenge_sent',
-          'severity' => 'info',
+          'event_type' => 'admin_2fa_challenge_failed',
+          'severity' => 'warning',
           'actor_type' => 'admin',
           'actor_identifier' => (string)($admin['email'] ?? $emailValue),
           'admin_id' => (int)$admin['id'],
           'ip_address' => $clientIp,
+          'details' => [
+            'reason' => $issueError ?? 'challenge_issue',
+          ],
         ]);
-        header('Location: admin-verify-2fa.php');
-        exit;
+
+        $errors[] = $issueError ?: 'Unable to send verification code. Please try again.';
       }
-
-      commerza_security_log_event($con, [
-        'event_type' => 'admin_2fa_challenge_failed',
-        'severity' => 'warning',
-        'actor_type' => 'admin',
-        'actor_identifier' => (string)($admin['email'] ?? $emailValue),
-        'admin_id' => (int)$admin['id'],
-        'ip_address' => $clientIp,
-        'details' => [
-          'reason' => $issueError ?? 'challenge_issue',
-        ],
-      ]);
-
-      $errors[] = $issueError ?: 'Unable to send verification code. Please try again.';
     } else {
       commerza_security_log_auth_attempt(
         $con,

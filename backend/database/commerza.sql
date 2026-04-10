@@ -48,27 +48,39 @@ CREATE TABLE `admin_users` (
   `full_name` varchar(100) NOT NULL,
   `email` varchar(150) NOT NULL,
   `password_hash` varchar(255) NOT NULL,
-  `role` enum('admin') NOT NULL DEFAULT 'admin',
+  `role` enum('admin','operations_manager','customer_support','marketing_website','read_only','view_only','custom') NOT NULL DEFAULT 'admin',
+  `permissions_json` longtext DEFAULT NULL,
+  `hidden_tabs_json` longtext DEFAULT NULL,
+  `phone` varchar(20) DEFAULT NULL,
   `profile_picture` varchar(255) DEFAULT NULL,
   `reset_token` varchar(255) DEFAULT NULL,
   `reset_token_expiry` datetime DEFAULT NULL,
-  `last_login_at` datetime DEFAULT NULL,
-  `last_login_ip` varchar(45) DEFAULT NULL,
-  `is_active` tinyint(1) NOT NULL DEFAULT 1,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `verification_code_hash` varchar(255) DEFAULT NULL,
+  `verification_expires_at` datetime DEFAULT NULL,
+  `verification_attempts` int(11) NOT NULL DEFAULT 0,
+  `verification_last_sent_at` datetime DEFAULT NULL,
+  `email_verified_at` datetime DEFAULT NULL,
   `two_factor_code_hash` varchar(255) DEFAULT NULL,
   `two_factor_expires_at` datetime DEFAULT NULL,
   `two_factor_attempts` int(11) NOT NULL DEFAULT 0,
-  `two_factor_last_sent_at` datetime DEFAULT NULL
+  `two_factor_last_sent_at` datetime DEFAULT NULL,
+  `last_login_at` datetime DEFAULT NULL,
+  `last_login_ip` varchar(45) DEFAULT NULL,
+  `invited_by_admin_id` int(11) DEFAULT NULL,
+  `suspended_until` datetime DEFAULT NULL,
+  `suspended_reason` varchar(255) DEFAULT NULL,
+  `deleted_at` datetime DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `admin_users`
 --
 
-INSERT INTO `admin_users` (`id`, `full_name`, `email`, `password_hash`, `role`, `profile_picture`, `reset_token`, `reset_token_expiry`, `last_login_at`, `last_login_ip`, `is_active`, `created_at`, `updated_at`, `two_factor_code_hash`, `two_factor_expires_at`, `two_factor_attempts`, `two_factor_last_sent_at`) VALUES
-(1, 'Commerza Admin', 'commerza.ahmer@gmail.com', '$2y$12$OwYPaS2VbAP2xrbqV.eJA.rh0tO9mKk6qAfoVzioOhRdwoKDprbAS', 'admin', NULL, NULL, NULL, NULL, NULL, 1, '2026-04-05 20:21:14', '2026-04-05 20:21:14', NULL, NULL, 0, NULL);
+INSERT INTO `admin_users` (`id`, `full_name`, `email`, `password_hash`, `role`, `is_active`, `email_verified_at`, `created_at`, `updated_at`) VALUES
+(1, 'Commerza Admin', 'commerza.ahmer@gmail.com', '$2y$12$OwYPaS2VbAP2xrbqV.eJA.rh0tO9mKk6qAfoVzioOhRdwoKDprbAS', 'admin', 1, '2026-04-05 20:21:14', '2026-04-05 20:21:14', '2026-04-05 20:21:14');
 
 -- --------------------------------------------------------
 
@@ -121,6 +133,23 @@ CREATE TABLE `compare_list` (
   `id` int(11) NOT NULL,
   `session_id` varchar(128) DEFAULT NULL COMMENT 'Guest session identifier',
   `user_id` int(11) DEFAULT NULL COMMENT 'NULL for guests',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `customer_blacklist`
+--
+
+CREATE TABLE `customer_blacklist` (
+  `id` int(11) NOT NULL,
+  `email` varchar(150) DEFAULT NULL,
+  `phone` varchar(20) DEFAULT NULL,
+  `reason` varchar(255) DEFAULT NULL,
+  `created_by_admin_id` int(11) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -817,7 +846,8 @@ INSERT INTO `site_settings` (`id`, `setting_key`, `setting_val`, `label`, `setti
 (38, 'turnstile_site_key', '', 'Cloudflare Turnstile Site Key', 'security', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
 (39, 'turnstile_secret_key', '', 'Cloudflare Turnstile Secret Key', 'security', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
 (40, 'recaptcha_site_key', '', 'Google reCAPTCHA Site Key', 'security', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
-(41, 'recaptcha_secret_key', '', 'Google reCAPTCHA Secret Key', 'security', '2026-04-05 20:21:12', '2026-04-05 20:21:12');
+(41, 'recaptcha_secret_key', '', 'Google reCAPTCHA Secret Key', 'security', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
+(42, 'account_blacklist_notice_visible', '1', 'Show account blacklist notice', 'security', '2026-04-05 20:21:12', '2026-04-05 20:21:12');
 
 -- --------------------------------------------------------
 
@@ -1456,6 +1486,15 @@ ALTER TABLE `compare_list`
   ADD KEY `user_id` (`user_id`);
 
 --
+-- Indexes for table `customer_blacklist`
+--
+ALTER TABLE `customer_blacklist`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_customer_blacklist_active` (`is_active`,`created_at`),
+  ADD KEY `idx_customer_blacklist_email` (`email`),
+  ADD KEY `idx_customer_blacklist_phone` (`phone`);
+
+--
 -- Indexes for table `contact_messages`
 --
 ALTER TABLE `contact_messages`
@@ -1768,6 +1807,12 @@ ALTER TABLE `compare_list`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `customer_blacklist`
+--
+ALTER TABLE `customer_blacklist`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `contact_messages`
 --
 ALTER TABLE `contact_messages`
@@ -1921,7 +1966,7 @@ ALTER TABLE `security_events`
 -- AUTO_INCREMENT for table `site_settings`
 --
 ALTER TABLE `site_settings`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=42;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=43;
 
 --
 -- AUTO_INCREMENT for table `slider`

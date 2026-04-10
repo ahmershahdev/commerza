@@ -10,6 +10,7 @@ if (!($con instanceof mysqli)) {
 $errors = [];
 $success = '';
 $resetComplete = false;
+$emailValue = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if (!admin_validate_csrf_token($_POST['csrf_token'] ?? null)) {
@@ -18,6 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 
   $action = strtolower(trim((string)($_POST['action'] ?? '')));
+  $emailValue = strtolower(trim((string)($_POST['admin_email'] ?? '')));
 
   $captchaContexts = [
     'send_reset_code' => 'admin_forgot_password_send',
@@ -30,18 +32,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
   }
 
-  $admin = admin_get_primary_admin($con);
   $clientIp = admin_get_client_ip();
 
-  if (!$admin || (int)($admin['is_active'] ?? 0) !== 1) {
-    $errors[] = 'No active admin account found.';
+  $admin = null;
+  if (!in_array($action, ['send_reset_code', 'reset_password'], true)) {
+    $errors[] = 'Invalid action.';
+  }
+
+  if (empty($errors)) {
+    if (!filter_var($emailValue, FILTER_VALIDATE_EMAIL) || strlen($emailValue) > 150) {
+      $errors[] = 'Enter a valid admin email address.';
+    }
+  }
+
+  if (empty($errors)) {
+    $admin = admin_get_by_email($con, $emailValue);
+
+    if (!$admin) {
+      $errors[] = 'No active admin account found for this email.';
+    } else {
+      $blockReason = admin_account_block_reason($admin);
+      if ($blockReason !== null) {
+        $errors[] = $blockReason;
+      }
+    }
   }
 
   if (empty($errors) && $action === 'send_reset_code') {
     $rate = commerza_rate_limit_check(
       $con,
       'admin_forgot_password_send',
-      (string)($admin['email'] ?? 'admin'),
+      $emailValue,
       $clientIp,
       5,
       3600,
@@ -53,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $con,
         'admin_forgot_password_send',
         'admin',
-        (string)($admin['email'] ?? 'admin'),
+        $emailValue,
         $clientIp,
         max(1, (int)$rate['retry_after'])
       );
@@ -79,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         admin_clear_reset_code($con, (int)$admin['id']);
         $errors[] = $mailError ?: 'Could not send reset email. Please verify server mail settings.';
       } else {
-        $success = 'A password reset code has been sent to the registered admin email.';
+        $success = 'A password reset code has been sent to the specified admin email.';
       }
     }
   }
@@ -88,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $rate = commerza_rate_limit_check(
       $con,
       'admin_forgot_password_reset',
-      (string)($admin['email'] ?? 'admin'),
+      $emailValue,
       $clientIp,
       8,
       1800,
@@ -100,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $con,
         'admin_forgot_password_reset',
         'admin',
-        (string)($admin['email'] ?? 'admin'),
+        $emailValue,
         $clientIp,
         max(1, (int)$rate['retry_after'])
       );
@@ -151,7 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           'event_type' => 'admin_password_reset_failed',
           'severity' => 'warning',
           'actor_type' => 'admin',
-          'actor_identifier' => (string)($admin['email'] ?? 'admin'),
+          'actor_identifier' => (string)($admin['email'] ?? $emailValue),
           'admin_id' => $adminId,
           'ip_address' => $clientIp,
           'details' => [
@@ -188,7 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'event_type' => 'admin_password_reset_success',
             'severity' => 'info',
             'actor_type' => 'admin',
-            'actor_identifier' => (string)($admin['email'] ?? 'admin'),
+            'actor_identifier' => (string)($admin['email'] ?? $emailValue),
             'admin_id' => $adminId,
             'ip_address' => $clientIp,
           ]);
@@ -196,7 +217,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           commerza_rate_limit_reset(
             $con,
             'admin_forgot_password_reset',
-            (string)($admin['email'] ?? 'admin'),
+            $emailValue,
             $clientIp
           );
           admin_logout_user();
@@ -457,6 +478,10 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
     <form action="admin-forgot-password.php" method="POST" id="sendResetForm" class="mb-3">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
       <input type="hidden" name="action" value="send_reset_code">
+      <div class="mb-3">
+        <label for="admin-email-send" class="form-label">Admin Email</label>
+        <input type="email" class="form-control" id="admin-email-send" name="admin_email" placeholder="Enter admin email" required maxlength="150" autocomplete="email" value="<?= htmlspecialchars($emailValue) ?>">
+      </div>
       <?= commerza_captcha_widget_html($con, 'admin_forgot_password_send') ?>
       <div class="d-grid">
         <button type="submit" class="btn reset-btn" id="sendResetCodeBtn">Send Reset Code</button>
@@ -468,6 +493,11 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
     <form action="admin-forgot-password.php" method="POST" id="resetPasswordForm">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
       <input type="hidden" name="action" value="reset_password">
+
+      <div class="mb-3">
+        <label for="admin-email-reset" class="form-label">Admin Email</label>
+        <input type="email" class="form-control" id="admin-email-reset" name="admin_email" placeholder="Enter admin email" required maxlength="150" autocomplete="email" value="<?= htmlspecialchars($emailValue) ?>">
+      </div>
 
       <div class="mb-3">
         <label for="reset-code" class="form-label">6-Digit Code</label>

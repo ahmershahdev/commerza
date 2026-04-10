@@ -13,16 +13,28 @@ function admin_ensure_schema(mysqli $con): void
             full_name VARCHAR(100) NOT NULL,
             email VARCHAR(150) NOT NULL UNIQUE,
             password_hash VARCHAR(255) NOT NULL,
-            role ENUM("admin") NOT NULL DEFAULT "admin",
+            role ENUM("admin", "operations_manager", "customer_support", "marketing_website", "read_only", "view_only", "custom") NOT NULL DEFAULT "admin",
+            permissions_json LONGTEXT DEFAULT NULL,
+            hidden_tabs_json LONGTEXT DEFAULT NULL,
+            phone VARCHAR(20) DEFAULT NULL,
             profile_picture VARCHAR(255) DEFAULT NULL,
             reset_token VARCHAR(255) DEFAULT NULL,
             reset_token_expiry DATETIME DEFAULT NULL,
+            verification_code_hash VARCHAR(255) DEFAULT NULL,
+            verification_expires_at DATETIME DEFAULT NULL,
+            verification_attempts INT NOT NULL DEFAULT 0,
+            verification_last_sent_at DATETIME DEFAULT NULL,
+            email_verified_at DATETIME DEFAULT NULL,
             two_factor_code_hash VARCHAR(255) DEFAULT NULL,
             two_factor_expires_at DATETIME DEFAULT NULL,
             two_factor_attempts INT NOT NULL DEFAULT 0,
             two_factor_last_sent_at DATETIME DEFAULT NULL,
             last_login_at DATETIME DEFAULT NULL,
             last_login_ip VARCHAR(45) DEFAULT NULL,
+            invited_by_admin_id INT DEFAULT NULL,
+            suspended_until DATETIME DEFAULT NULL,
+            suspended_reason VARCHAR(255) DEFAULT NULL,
+            deleted_at DATETIME DEFAULT NULL,
             is_active TINYINT(1) NOT NULL DEFAULT 1,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -36,6 +48,18 @@ function admin_ensure_schema(mysqli $con): void
         'two_factor_expires_at' => 'DATETIME DEFAULT NULL',
         'two_factor_attempts' => 'INT NOT NULL DEFAULT 0',
         'two_factor_last_sent_at' => 'DATETIME DEFAULT NULL',
+        'permissions_json' => 'LONGTEXT DEFAULT NULL',
+        'hidden_tabs_json' => 'LONGTEXT DEFAULT NULL',
+        'phone' => 'VARCHAR(20) DEFAULT NULL',
+        'verification_code_hash' => 'VARCHAR(255) DEFAULT NULL',
+        'verification_expires_at' => 'DATETIME DEFAULT NULL',
+        'verification_attempts' => 'INT NOT NULL DEFAULT 0',
+        'verification_last_sent_at' => 'DATETIME DEFAULT NULL',
+        'email_verified_at' => 'DATETIME DEFAULT NULL',
+        'invited_by_admin_id' => 'INT DEFAULT NULL',
+        'suspended_until' => 'DATETIME DEFAULT NULL',
+        'suspended_reason' => 'VARCHAR(255) DEFAULT NULL',
+        'deleted_at' => 'DATETIME DEFAULT NULL',
     ];
 
     foreach ($missingColumns as $column => $definition) {
@@ -45,6 +69,11 @@ function admin_ensure_schema(mysqli $con): void
             $con->query("ALTER TABLE admin_users ADD COLUMN {$column} {$definition}");
         }
     }
+
+    $con->query(
+        'ALTER TABLE admin_users
+         MODIFY COLUMN role ENUM("admin", "operations_manager", "customer_support", "marketing_website", "read_only", "view_only", "custom") NOT NULL DEFAULT "admin"'
+    );
 
     $configuredEmail = trim((string)getenv('COMMERZA_ADMIN_BOOTSTRAP_EMAIL'));
     $defaultEmail = filter_var($configuredEmail, FILTER_VALIDATE_EMAIL)
@@ -71,6 +100,13 @@ function admin_ensure_schema(mysqli $con): void
     }
 
     if ($total > 0) {
+        $con->query(
+            'UPDATE admin_users
+             SET email_verified_at = COALESCE(email_verified_at, created_at)
+             WHERE email_verified_at IS NULL
+               AND verification_code_hash IS NULL
+               AND is_active = 1'
+        );
         return;
     }
 
@@ -85,8 +121,8 @@ function admin_ensure_schema(mysqli $con): void
 
     $hash = commerza_password_hash($defaultPassword);
     $insertStmt = $con->prepare(
-        'INSERT INTO admin_users (full_name, email, password_hash, role, is_active)
-         VALUES (?, ?, ?, "admin", 1)'
+        'INSERT INTO admin_users (full_name, email, password_hash, role, is_active, email_verified_at)
+            VALUES (?, ?, ?, "admin", 1, NOW())'
     );
 
     if (!$insertStmt) {
@@ -191,12 +227,24 @@ function admin_get_by_email(mysqli $con, string $email): ?array
             id,
             full_name,
             email,
+            role,
+            permissions_json,
+            hidden_tabs_json,
+            phone,
             password_hash,
             reset_token,
             reset_token_expiry,
+            verification_code_hash,
+            verification_expires_at,
+            verification_attempts,
+            verification_last_sent_at,
+            email_verified_at,
             two_factor_code_hash,
             two_factor_expires_at,
             two_factor_attempts,
+            suspended_until,
+            suspended_reason,
+            deleted_at,
             is_active
          FROM admin_users
          WHERE email = ?
@@ -219,7 +267,19 @@ function admin_get_by_email(mysqli $con, string $email): ?array
 function admin_get_by_id(mysqli $con, int $adminId): ?array
 {
     $stmt = $con->prepare(
-        'SELECT id, full_name, email, role, is_active
+        'SELECT
+            id,
+            full_name,
+            email,
+            role,
+            permissions_json,
+            hidden_tabs_json,
+            phone,
+            email_verified_at,
+            suspended_until,
+            suspended_reason,
+            deleted_at,
+            is_active
          FROM admin_users
          WHERE id = ?
          LIMIT 1'
@@ -241,9 +301,10 @@ function admin_get_by_id(mysqli $con, int $adminId): ?array
 function admin_get_primary_admin(mysqli $con): ?array
 {
     $result = $con->query(
-        'SELECT id, full_name, email, reset_token, reset_token_expiry, is_active
+        'SELECT id, full_name, email, role, reset_token, reset_token_expiry, email_verified_at, is_active
          FROM admin_users
-         WHERE is_active = 1
+                 WHERE is_active = 1
+                     AND deleted_at IS NULL
          ORDER BY id ASC
          LIMIT 1'
     );
@@ -254,6 +315,865 @@ function admin_get_primary_admin(mysqli $con): ?array
 
     $row = $result->fetch_assoc();
     return $row ?: null;
+}
+
+function admin_normalize_role(string $role): string
+{
+    $normalized = strtolower(trim($role));
+    $allowed = [
+        'admin',
+        'operations_manager',
+        'customer_support',
+        'marketing_website',
+        'read_only',
+        'view_only',
+        'custom',
+    ];
+
+    if (!in_array($normalized, $allowed, true)) {
+        return 'custom';
+    }
+
+    return $normalized;
+}
+
+function admin_role_labels(): array
+{
+    return [
+        'admin' => 'Administrator',
+        'operations_manager' => 'Operations Manager',
+        'customer_support' => 'Customer Support',
+        'marketing_website' => 'Marketing & Website',
+        'read_only' => 'Read Only',
+        'view_only' => 'View Only',
+        'custom' => 'Custom Access',
+    ];
+}
+
+function admin_role_label(string $role): string
+{
+    $normalized = admin_normalize_role($role);
+    $labels = admin_role_labels();
+
+    return (string)($labels[$normalized] ?? 'Custom Access');
+}
+
+function admin_permission_catalog(): array
+{
+    return [
+        'dashboard.view' => [
+            'label' => 'Dashboard Access',
+            'description' => 'View performance snapshots and navigation shortcuts.',
+            'tab_id' => 'dashboard-tab',
+        ],
+        'products.manage' => [
+            'label' => 'Products',
+            'description' => 'Create, edit, import, and publish products.',
+            'tab_id' => 'products-tab',
+        ],
+        'product_trash.manage' => [
+            'label' => 'Product Trash',
+            'description' => 'Restore and permanently remove trashed products.',
+            'tab_id' => 'product-trash-tab',
+        ],
+        'orders.manage' => [
+            'label' => 'Orders',
+            'description' => 'Process orders, shipping, and refund status changes.',
+            'tab_id' => 'orders-tab',
+        ],
+        'customers.manage' => [
+            'label' => 'Customers',
+            'description' => 'Manage customer profiles, blacklist, and account cleanup.',
+            'tab_id' => 'customers-tab',
+        ],
+        'coupons.manage' => [
+            'label' => 'Coupons',
+            'description' => 'Create and manage coupon campaigns.',
+            'tab_id' => 'coupons-tab',
+        ],
+        'reviews.manage' => [
+            'label' => 'Reviews',
+            'description' => 'Moderate reviews and trust controls.',
+            'tab_id' => 'reviews-tab',
+        ],
+        'email.manage' => [
+            'label' => 'Email Center',
+            'description' => 'Manage outbound campaigns and templates.',
+            'tab_id' => 'email-tab',
+        ],
+        'analytics.view' => [
+            'label' => 'Analytics',
+            'description' => 'View revenue, conversion, and trend analytics.',
+            'tab_id' => 'analytics-tab',
+        ],
+        'website.manage' => [
+            'label' => 'Website',
+            'description' => 'Edit website content and storefront settings.',
+            'tab_id' => 'website-tab',
+        ],
+        'security.manage' => [
+            'label' => 'Security Events',
+            'description' => 'Review security incidents and controls.',
+            'tab_id' => 'security-events-tab',
+        ],
+        'homepage.manage' => [
+            'label' => 'Homepage',
+            'description' => 'Manage homepage hero and feature content.',
+            'tab_id' => 'homepage-tab',
+        ],
+        'sub_admins.manage' => [
+            'label' => 'Sub Admins',
+            'description' => 'Create, verify, suspend, and remove sub-admin accounts.',
+            'tab_id' => 'sub-admins-tab',
+        ],
+        'media.manage' => [
+            'label' => 'Media Library',
+            'description' => 'Upload and manage media assets.',
+            'tab_id' => 'website-tab',
+        ],
+        'viewers.manage' => [
+            'label' => 'Live Viewers',
+            'description' => 'Configure live viewers experience controls.',
+            'tab_id' => 'analytics-tab',
+        ],
+    ];
+}
+
+function admin_tab_catalog(): array
+{
+    return [
+        'dashboard-tab' => [
+            'label' => 'Dashboard',
+            'permissions' => ['dashboard.view'],
+        ],
+        'products-tab' => [
+            'label' => 'Products',
+            'permissions' => ['products.manage'],
+        ],
+        'product-trash-tab' => [
+            'label' => 'Product Trash',
+            'permissions' => ['product_trash.manage', 'products.manage'],
+        ],
+        'orders-tab' => [
+            'label' => 'Orders',
+            'permissions' => ['orders.manage'],
+        ],
+        'customers-tab' => [
+            'label' => 'Customers',
+            'permissions' => ['customers.manage', 'orders.manage'],
+        ],
+        'sub-admins-tab' => [
+            'label' => 'Sub Admins',
+            'permissions' => ['sub_admins.manage'],
+        ],
+        'coupons-tab' => [
+            'label' => 'Coupons',
+            'permissions' => ['coupons.manage'],
+        ],
+        'reviews-tab' => [
+            'label' => 'Reviews',
+            'permissions' => ['reviews.manage'],
+        ],
+        'email-tab' => [
+            'label' => 'Email Center',
+            'permissions' => ['email.manage'],
+        ],
+        'analytics-tab' => [
+            'label' => 'Analytics',
+            'permissions' => ['analytics.view', 'orders.manage'],
+        ],
+        'website-tab' => [
+            'label' => 'Website',
+            'permissions' => ['website.manage'],
+        ],
+        'security-events-tab' => [
+            'label' => 'Security Events',
+            'permissions' => ['security.manage'],
+        ],
+        'homepage-tab' => [
+            'label' => 'Homepage',
+            'permissions' => ['homepage.manage', 'website.manage'],
+        ],
+    ];
+}
+
+function admin_role_permission_presets(): array
+{
+    return [
+        'admin' => ['*'],
+        'operations_manager' => [
+            'dashboard.view',
+            'products.manage',
+            'product_trash.manage',
+            'orders.manage',
+            'customers.manage',
+            'coupons.manage',
+            'reviews.manage',
+            'analytics.view',
+        ],
+        'customer_support' => [
+            'dashboard.view',
+            'orders.manage',
+            'customers.manage',
+            'reviews.manage',
+        ],
+        'marketing_website' => [
+            'dashboard.view',
+            'products.manage',
+            'coupons.manage',
+            'email.manage',
+            'analytics.view',
+            'website.manage',
+            'homepage.manage',
+            'media.manage',
+            'viewers.manage',
+        ],
+        'read_only' => [
+            'dashboard.view',
+            'analytics.view',
+        ],
+        'view_only' => [
+            'dashboard.view',
+        ],
+        'custom' => [],
+    ];
+}
+
+function admin_decode_json_string_list(?string $value): array
+{
+    $raw = trim((string)$value);
+    if ($raw === '') {
+        return [];
+    }
+
+    $decoded = json_decode($raw, true);
+    if (is_array($decoded)) {
+        $list = [];
+        foreach ($decoded as $item) {
+            if (is_scalar($item)) {
+                $list[] = trim((string)$item);
+            }
+        }
+        return $list;
+    }
+
+    $parts = preg_split('/[\s,]+/', $raw) ?: [];
+    $list = [];
+    foreach ($parts as $item) {
+        $token = trim((string)$item);
+        if ($token !== '') {
+            $list[] = $token;
+        }
+    }
+
+    return $list;
+}
+
+function admin_normalize_permission_name(string $permission): string
+{
+    $normalized = strtolower(trim($permission));
+    if ($normalized === '' || strlen($normalized) > 120) {
+        return '';
+    }
+
+    if ($normalized === '*') {
+        return '*';
+    }
+
+    if (preg_match('/^[a-z0-9_]+\.[a-z0-9_*]+$/', $normalized) !== 1) {
+        return '';
+    }
+
+    return $normalized;
+}
+
+function admin_sanitize_permissions(array $permissions): array
+{
+    $catalog = admin_permission_catalog();
+    $normalized = [];
+
+    foreach ($permissions as $permission) {
+        $resolved = admin_normalize_permission_name((string)$permission);
+        if ($resolved === '') {
+            continue;
+        }
+
+        if ($resolved === '*' || isset($catalog[$resolved])) {
+            $normalized[] = $resolved;
+            continue;
+        }
+
+        if (str_ends_with($resolved, '.*')) {
+            $prefix = substr($resolved, 0, -2);
+            if ($prefix !== '' && preg_match('/^[a-z0-9_]+$/', $prefix) === 1) {
+                $normalized[] = $resolved;
+            }
+        }
+    }
+
+    return array_values(array_unique($normalized));
+}
+
+function admin_sanitize_hidden_tabs(array $tabs): array
+{
+    $catalog = admin_tab_catalog();
+    $normalized = [];
+
+    foreach ($tabs as $tab) {
+        $tabId = strtolower(trim((string)$tab));
+        if ($tabId === '' || !isset($catalog[$tabId])) {
+            continue;
+        }
+
+        $normalized[] = $tabId;
+    }
+
+    return array_values(array_unique($normalized));
+}
+
+function admin_role_default_permissions(string $role): array
+{
+    $presets = admin_role_permission_presets();
+    $normalizedRole = admin_normalize_role($role);
+
+    return $presets[$normalizedRole] ?? [];
+}
+
+function admin_effective_permissions(array $admin): array
+{
+    $role = admin_normalize_role((string)($admin['role'] ?? 'admin'));
+    $basePermissions = admin_role_default_permissions($role);
+    $customPermissions = admin_sanitize_permissions(
+        admin_decode_json_string_list((string)($admin['permissions_json'] ?? ''))
+    );
+
+    $combined = $role === 'custom'
+        ? $customPermissions
+        : array_merge($basePermissions, $customPermissions);
+
+    if ($role === 'admin') {
+        $combined[] = '*';
+    }
+
+    return array_values(array_unique($combined));
+}
+
+function admin_hidden_tabs(array $admin): array
+{
+    return admin_sanitize_hidden_tabs(
+        admin_decode_json_string_list((string)($admin['hidden_tabs_json'] ?? ''))
+    );
+}
+
+function admin_permissions_payload(): array
+{
+    $catalog = admin_permission_catalog();
+    $payload = [];
+
+    foreach ($catalog as $key => $meta) {
+        $payload[] = [
+            'key' => $key,
+            'label' => (string)($meta['label'] ?? $key),
+            'description' => (string)($meta['description'] ?? ''),
+            'tabId' => (string)($meta['tab_id'] ?? ''),
+        ];
+    }
+
+    return $payload;
+}
+
+function admin_tabs_payload(): array
+{
+    $catalog = admin_tab_catalog();
+    $payload = [];
+
+    foreach ($catalog as $tabId => $meta) {
+        $payload[] = [
+            'id' => $tabId,
+            'label' => (string)($meta['label'] ?? $tabId),
+            'permissions' => array_values(array_map('strval', (array)($meta['permissions'] ?? []))),
+        ];
+    }
+
+    return $payload;
+}
+
+function admin_is_deleted(array $admin): bool
+{
+    return trim((string)($admin['deleted_at'] ?? '')) !== '';
+}
+
+function admin_is_email_verified(array $admin): bool
+{
+    return trim((string)($admin['email_verified_at'] ?? '')) !== '';
+}
+
+function admin_is_suspended(array $admin): bool
+{
+    $isActive = (int)($admin['is_active'] ?? 1) === 1;
+    $suspendedUntilRaw = trim((string)($admin['suspended_until'] ?? ''));
+
+    if (!$isActive) {
+        return true;
+    }
+
+    if ($suspendedUntilRaw === '') {
+        return false;
+    }
+
+    $timestamp = strtotime($suspendedUntilRaw);
+    if ($timestamp === false) {
+        return false;
+    }
+
+    return $timestamp > time();
+}
+
+function admin_account_block_reason(array $admin): ?string
+{
+    if (admin_is_deleted($admin)) {
+        return 'This admin account is no longer available.';
+    }
+
+    $isActive = (int)($admin['is_active'] ?? 1) === 1;
+    $suspendedUntilRaw = trim((string)($admin['suspended_until'] ?? ''));
+    $suspendedReason = trim((string)($admin['suspended_reason'] ?? ''));
+
+    if ($suspendedUntilRaw !== '') {
+        $timestamp = strtotime($suspendedUntilRaw);
+        if ($timestamp !== false && $timestamp > time()) {
+            $label = date('M d, Y h:i A', $timestamp);
+            $message = 'This admin account is suspended until ' . $label . '.';
+            if ($suspendedReason !== '') {
+                $message .= ' Reason: ' . $suspendedReason;
+            }
+            return $message;
+        }
+    }
+
+    if (!$isActive) {
+        $message = 'This admin account is suspended until changed by the primary admin.';
+        if ($suspendedReason !== '') {
+            $message .= ' Reason: ' . $suspendedReason;
+        }
+        return $message;
+    }
+
+    return null;
+}
+
+function admin_has_any_permission(array $admin, array $permissions): bool
+{
+    foreach ($permissions as $permission) {
+        if (admin_has_permission($admin, (string)$permission)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function admin_set_email_verification_pending_session(array $admin, string $nextTarget): void
+{
+    $_SESSION['admin_email_verify_pending'] = [
+        'admin_id' => (int)($admin['id'] ?? 0),
+        'email' => strtolower(trim((string)($admin['email'] ?? ''))),
+        'next' => admin_safe_redirect_target($nextTarget, 'admin-panel.php'),
+        'created_at' => time(),
+        'ip' => admin_get_client_ip(),
+        'ua_hash' => admin_two_factor_user_agent_hash(),
+    ];
+}
+
+function admin_get_email_verification_pending_session(): ?array
+{
+    $pending = $_SESSION['admin_email_verify_pending'] ?? null;
+    if (!is_array($pending)) {
+        return null;
+    }
+
+    $adminId = isset($pending['admin_id']) ? (int)$pending['admin_id'] : 0;
+    $email = strtolower(trim((string)($pending['email'] ?? '')));
+    $createdAt = isset($pending['created_at']) ? (int)$pending['created_at'] : 0;
+    $ip = (string)($pending['ip'] ?? '');
+    $uaHash = (string)($pending['ua_hash'] ?? '');
+    $next = admin_safe_redirect_target((string)($pending['next'] ?? ''), 'admin-panel.php');
+
+    if ($adminId <= 0 || !filter_var($email, FILTER_VALIDATE_EMAIL) || $createdAt <= 0) {
+        unset($_SESSION['admin_email_verify_pending']);
+        return null;
+    }
+
+    if ((time() - $createdAt) > 900) {
+        unset($_SESSION['admin_email_verify_pending']);
+        return null;
+    }
+
+    if ($ip !== admin_get_client_ip() || $uaHash !== admin_two_factor_user_agent_hash()) {
+        unset($_SESSION['admin_email_verify_pending']);
+        return null;
+    }
+
+    return [
+        'admin_id' => $adminId,
+        'email' => $email,
+        'next' => $next,
+        'created_at' => $createdAt,
+    ];
+}
+
+function admin_clear_email_verification_pending_session(): void
+{
+    unset($_SESSION['admin_email_verify_pending']);
+}
+
+function admin_clear_email_verification_code(mysqli $con, int $adminId): void
+{
+    $stmt = $con->prepare(
+        'UPDATE admin_users
+         SET verification_code_hash = NULL,
+             verification_expires_at = NULL,
+             verification_attempts = 0
+         WHERE id = ?
+         LIMIT 1'
+    );
+
+    if (!$stmt) {
+        return;
+    }
+
+    $stmt->bind_param('i', $adminId);
+    $stmt->execute();
+    $stmt->close();
+}
+
+function admin_store_email_verification_code(mysqli $con, int $adminId, string $code): bool
+{
+    $normalizedCode = admin_normalize_numeric_code($code);
+    if (!preg_match('/^\d{6}$/', $normalizedCode)) {
+        return false;
+    }
+
+    $hash = commerza_password_hash($normalizedCode);
+    if ($hash === '') {
+        return false;
+    }
+
+    $stmt = $con->prepare(
+        'UPDATE admin_users
+         SET verification_code_hash = ?,
+             verification_expires_at = DATE_ADD(NOW(), INTERVAL 15 MINUTE),
+             verification_attempts = 0,
+             verification_last_sent_at = NOW()
+         WHERE id = ?
+           AND deleted_at IS NULL
+         LIMIT 1'
+    );
+
+    if (!$stmt) {
+        return false;
+    }
+
+    $stmt->bind_param('si', $hash, $adminId);
+    $ok = $stmt->execute();
+    $affected = (int)$stmt->affected_rows;
+    $stmt->close();
+
+    return $ok && $affected === 1;
+}
+
+function admin_send_email_verification_code_email(
+    string $recipientEmail,
+    string $recipientName,
+    string $code,
+    ?string &$errorMessage = null
+): bool {
+    $context = admin_email_context();
+    $siteName = (string)($context['site_name'] ?? 'Commerza');
+    $safeName = htmlspecialchars($recipientName !== '' ? $recipientName : 'Admin', ENT_QUOTES, 'UTF-8');
+    $safeCode = htmlspecialchars($code, ENT_QUOTES, 'UTF-8');
+
+    $subject = $siteName . ' Admin Email Verification Code';
+
+    $body =
+        '<p style="margin:0 0 10px 0;">Hello ' . $safeName . ',</p>' .
+        '<p style="margin:0 0 14px 0;">Use this 6-digit code to verify your admin account email. The code expires in <strong>15 minutes</strong> and can be used only once.</p>' .
+        '<div style="display:inline-block;padding:12px 18px;background:#1b1b1b;border:1px solid #ff6600;border-radius:8px;font-size:24px;letter-spacing:4px;font-weight:700;color:#ffcc00;">' . $safeCode . '</div>' .
+        '<p style="margin:16px 0 0 0;color:#cfcfcf;">If you did not expect this code, contact the primary admin immediately.</p>';
+
+    $html = admin_email_layout('Admin Email Verification', 'Verify your admin email before accessing the panel.', $body);
+
+    $fromEmail = admin_mail_from_email();
+
+    return commerza_send_html_mail(
+        $recipientEmail,
+        $subject,
+        $html,
+        $fromEmail,
+        $siteName . ' Admin Security',
+        $errorMessage
+    );
+}
+
+function admin_issue_email_verification_challenge(mysqli $con, array $admin, ?string &$errorMessage = null): bool
+{
+    $adminId = (int)($admin['id'] ?? 0);
+    $email = strtolower(trim((string)($admin['email'] ?? '')));
+    $fullName = trim((string)($admin['full_name'] ?? 'Admin'));
+
+    if ($adminId <= 0 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errorMessage = 'Invalid admin account state.';
+        return false;
+    }
+
+    if (admin_is_email_verified($admin)) {
+        return true;
+    }
+
+    $code = admin_generate_two_factor_code();
+    if (!admin_store_email_verification_code($con, $adminId, $code)) {
+        $errorMessage = 'Unable to generate verification code.';
+        return false;
+    }
+
+    $mailError = null;
+    $mailSent = admin_send_email_verification_code_email($email, $fullName, $code, $mailError);
+    if (!$mailSent) {
+        admin_clear_email_verification_code($con, $adminId);
+        $errorMessage = $mailError ?: 'Unable to send verification email.';
+        return false;
+    }
+
+    return true;
+}
+
+function admin_verify_email_verification_code(mysqli $con, int $adminId, string $code): array
+{
+    $normalizedCode = admin_normalize_numeric_code($code);
+
+    if ($adminId <= 0) {
+        return [
+            'ok' => false,
+            'status' => 'invalid_admin',
+            'message' => 'Invalid admin account.',
+            'admin' => null,
+        ];
+    }
+
+    if (!preg_match('/^\d{6}$/', $normalizedCode)) {
+        return [
+            'ok' => false,
+            'status' => 'invalid_code_format',
+            'message' => 'Enter a valid 6-digit verification code.',
+            'admin' => null,
+        ];
+    }
+
+    if (!$con->begin_transaction()) {
+        return [
+            'ok' => false,
+            'status' => 'server_error',
+            'message' => 'Unable to verify code right now.',
+            'admin' => null,
+        ];
+    }
+
+    $stmt = $con->prepare(
+        'SELECT
+            id,
+            full_name,
+            email,
+            role,
+            permissions_json,
+            hidden_tabs_json,
+            phone,
+            verification_code_hash,
+            verification_expires_at,
+            verification_attempts,
+            email_verified_at,
+            suspended_until,
+            suspended_reason,
+            deleted_at,
+            is_active,
+            CASE
+                WHEN verification_expires_at IS NOT NULL AND verification_expires_at >= NOW() THEN 1
+                ELSE 0
+            END AS verification_code_active
+         FROM admin_users
+         WHERE id = ?
+         LIMIT 1
+         FOR UPDATE'
+    );
+
+    if (!$stmt) {
+        $con->rollback();
+        return [
+            'ok' => false,
+            'status' => 'server_error',
+            'message' => 'Unable to verify code right now.',
+            'admin' => null,
+        ];
+    }
+
+    $stmt->bind_param('i', $adminId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $admin = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    if (!is_array($admin)) {
+        $con->rollback();
+        return [
+            'ok' => false,
+            'status' => 'invalid_admin',
+            'message' => 'Invalid admin account.',
+            'admin' => null,
+        ];
+    }
+
+    if (admin_is_deleted($admin)) {
+        $con->rollback();
+        return [
+            'ok' => false,
+            'status' => 'deleted',
+            'message' => 'This admin account is no longer available.',
+            'admin' => null,
+        ];
+    }
+
+    if (admin_is_email_verified($admin)) {
+        $con->commit();
+        return [
+            'ok' => true,
+            'status' => 'already_verified',
+            'message' => 'Email is already verified.',
+            'admin' => $admin,
+        ];
+    }
+
+    $codeHash = (string)($admin['verification_code_hash'] ?? '');
+    $attempts = (int)($admin['verification_attempts'] ?? 0);
+    $isCodeActive = (int)($admin['verification_code_active'] ?? 0) === 1;
+
+    if ($codeHash === '' || !$isCodeActive) {
+        admin_clear_email_verification_code($con, (int)$admin['id']);
+        $con->commit();
+        return [
+            'ok' => false,
+            'status' => 'expired',
+            'message' => 'Verification code expired. Request a new code.',
+            'admin' => null,
+        ];
+    }
+
+    if ($attempts >= 6) {
+        admin_clear_email_verification_code($con, (int)$admin['id']);
+        $con->commit();
+        return [
+            'ok' => false,
+            'status' => 'locked',
+            'message' => 'Too many invalid attempts. Request a new code.',
+            'admin' => null,
+        ];
+    }
+
+    if (commerza_password_verify($normalizedCode, $codeHash)) {
+        $updateStmt = $con->prepare(
+            'UPDATE admin_users
+             SET email_verified_at = NOW(),
+                 verification_code_hash = NULL,
+                 verification_expires_at = NULL,
+                 verification_attempts = 0
+             WHERE id = ?
+             LIMIT 1'
+        );
+
+        if (!$updateStmt) {
+            $con->rollback();
+            return [
+                'ok' => false,
+                'status' => 'server_error',
+                'message' => 'Unable to verify code right now.',
+                'admin' => null,
+            ];
+        }
+
+        $resolvedId = (int)$admin['id'];
+        $updateStmt->bind_param('i', $resolvedId);
+        $updated = $updateStmt->execute();
+        $updateStmt->close();
+
+        if (!$updated || !$con->commit()) {
+            $con->rollback();
+            return [
+                'ok' => false,
+                'status' => 'server_error',
+                'message' => 'Unable to verify code right now.',
+                'admin' => null,
+            ];
+        }
+
+        $freshAdmin = admin_get_by_id($con, $resolvedId);
+        return [
+            'ok' => true,
+            'status' => 'verified',
+            'message' => 'Email verified successfully.',
+            'admin' => $freshAdmin,
+        ];
+    }
+
+    $nextAttempts = $attempts + 1;
+    if ($nextAttempts >= 6) {
+        admin_clear_email_verification_code($con, (int)$admin['id']);
+    } else {
+        $attemptStmt = $con->prepare(
+            'UPDATE admin_users
+             SET verification_attempts = ?
+             WHERE id = ?
+             LIMIT 1'
+        );
+
+        if (!$attemptStmt) {
+            $con->rollback();
+            return [
+                'ok' => false,
+                'status' => 'server_error',
+                'message' => 'Unable to verify code right now.',
+                'admin' => null,
+            ];
+        }
+
+        $resolvedId = (int)$admin['id'];
+        $attemptStmt->bind_param('ii', $nextAttempts, $resolvedId);
+        $attemptStmt->execute();
+        $attemptStmt->close();
+    }
+
+    if (!$con->commit()) {
+        $con->rollback();
+        return [
+            'ok' => false,
+            'status' => 'server_error',
+            'message' => 'Unable to verify code right now.',
+            'admin' => null,
+        ];
+    }
+
+    if ($nextAttempts >= 6) {
+        return [
+            'ok' => false,
+            'status' => 'locked',
+            'message' => 'Too many invalid attempts. Request a new code.',
+            'admin' => null,
+        ];
+    }
+
+    return [
+        'ok' => false,
+        'status' => 'invalid_code',
+        'message' => 'Invalid verification code.',
+        'admin' => null,
+    ];
 }
 
 function admin_update_last_login(mysqli $con, int $adminId): void
@@ -316,6 +1236,7 @@ function admin_safe_redirect_target(?string $value, string $fallback = 'admin-pa
     $allowed = [
         'admin-panel.php',
         'admin-login.php',
+        'admin-verify-email.php',
         'admin-verify-2fa.php',
         'admin-forgot-password.php',
         'admin-forgot-email.php',
@@ -333,8 +1254,16 @@ function admin_require_login(mysqli $con): array
     }
 
     $admin = admin_get_by_id($con, $adminId);
-    if (!$admin || (int)$admin['is_active'] !== 1) {
+    if (!$admin) {
         admin_logout_user();
+        header('Location: admin-login.php');
+        exit;
+    }
+
+    $blockReason = admin_account_block_reason($admin);
+    if ($blockReason !== null) {
+        admin_logout_user();
+        $_SESSION['admin_login_error'] = $blockReason;
         header('Location: admin-login.php');
         exit;
     }
@@ -355,7 +1284,7 @@ function admin_require_login_api(mysqli $con): array
     }
 
     $admin = admin_get_by_id($con, $adminId);
-    if (!$admin || (int)$admin['is_active'] !== 1) {
+    if (!$admin) {
         admin_logout_user();
         http_response_code(401);
         echo json_encode([
@@ -365,20 +1294,60 @@ function admin_require_login_api(mysqli $con): array
         exit;
     }
 
+    $blockReason = admin_account_block_reason($admin);
+    if ($blockReason !== null) {
+        admin_logout_user();
+        http_response_code(403);
+        echo json_encode([
+            'ok' => false,
+            'message' => $blockReason,
+        ]);
+        exit;
+    }
+
     return $admin;
 }
 
 function admin_has_permission(array $admin, string $permission): bool
 {
-    $permission = strtolower(trim($permission));
+    if (admin_is_deleted($admin) || admin_is_suspended($admin)) {
+        return false;
+    }
+
+    $permission = admin_normalize_permission_name($permission);
     if ($permission === '') {
         return true;
     }
 
-    $role = strtolower(trim((string)($admin['role'] ?? 'admin')));
-
-    // Current schema supports admin role only; this keeps future role checks centralized.
+    $role = admin_normalize_role((string)($admin['role'] ?? 'admin'));
     if ($role === 'admin') {
+        return true;
+    }
+
+    $effectivePermissions = admin_effective_permissions($admin);
+    if (in_array('*', $effectivePermissions, true)) {
+        return true;
+    }
+
+    if (in_array($permission, $effectivePermissions, true)) {
+        return true;
+    }
+
+    $segments = explode('.', $permission, 2);
+    if (count($segments) !== 2) {
+        return false;
+    }
+
+    [$prefix, $scope] = $segments;
+    if ($prefix === '' || $scope === '') {
+        return false;
+    }
+
+    if (in_array($prefix . '.*', $effectivePermissions, true)) {
+        return true;
+    }
+
+    if ($scope === 'view' && in_array($prefix . '.manage', $effectivePermissions, true)) {
         return true;
     }
 
@@ -1058,6 +2027,17 @@ function admin_issue_two_factor_challenge(mysqli $con, array $admin, string $nex
     $email = strtolower(trim((string)($admin['email'] ?? '')));
     $fullName = (string)($admin['full_name'] ?? 'Admin');
 
+    $blockReason = admin_account_block_reason($admin);
+    if ($blockReason !== null) {
+        $errorMessage = $blockReason;
+        return false;
+    }
+
+    if (!admin_is_email_verified($admin)) {
+        $errorMessage = 'Email verification is required before login.';
+        return false;
+    }
+
     if ($adminId <= 0 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errorMessage = 'Invalid admin account state.';
         return false;
@@ -1143,7 +2123,15 @@ function admin_verify_two_factor_code(mysqli $con, int $adminId, string $code): 
             id,
             full_name,
             email,
+            role,
+            permissions_json,
+            hidden_tabs_json,
+            phone,
+            email_verified_at,
             is_active,
+            suspended_until,
+            suspended_reason,
+            deleted_at,
             two_factor_code_hash,
             two_factor_expires_at,
             two_factor_attempts,
@@ -1173,12 +2161,13 @@ function admin_verify_two_factor_code(mysqli $con, int $adminId, string $code): 
     $admin = $result ? $result->fetch_assoc() : null;
     $selectStmt->close();
 
-    if (!$admin || (int)($admin['is_active'] ?? 0) !== 1) {
+    $blockReason = is_array($admin) ? admin_account_block_reason($admin) : 'Two-factor session expired. Please login again.';
+    if (!$admin || $blockReason !== null) {
         $con->rollback();
         return [
             'ok' => false,
             'status' => 'invalid_session',
-            'message' => 'Two-factor session expired. Please login again.',
+            'message' => $blockReason !== null ? $blockReason : 'Two-factor session expired. Please login again.',
             'admin' => null,
         ];
     }

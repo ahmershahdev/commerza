@@ -146,6 +146,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
     $errors[] = 'Please select a valid payment method.';
   }
 
+  if (empty($errors)) {
+    $blockedContact = commerza_customer_blacklist_lookup($con, $customer_email, $customer_phone);
+
+    if (!is_array($blockedContact) && $is_logged_in) {
+      $accountEmail = strtolower(trim((string)($current_user['email'] ?? '')));
+      $accountPhone = preg_replace('/\s+/', '', trim((string)($current_user['phone'] ?? '')));
+      $accountPhone = (string)($accountPhone ?? '');
+      $blockedContact = commerza_customer_blacklist_lookup($con, $accountEmail, $accountPhone);
+    }
+
+    if (is_array($blockedContact)) {
+      $errors[] = commerza_customer_blacklist_feedback_message($blockedContact);
+    }
+  }
+
   $normalized_items = [];
   $subtotal = 0.00;
 

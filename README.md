@@ -44,11 +44,15 @@ Restricted or sensitive surfaces include:
 ## 5. Admin Features
 
 - Dashboard with KPI cards and recent-order visibility
+- Sub-admin (mini admin) lifecycle: create, email-verify, edit, suspend/reactivate, resend verification, and soft delete
+- Role presets plus custom access model for sub-admins
 - Product sections and product CRUD
 - Product trash archive and restore workflows
 - Orders table, status updates, and refund moderation
 - Coupons management and campaign tooling
 - Customer directory and blacklist controls
+- Per-sub-admin hidden-tab controls with runtime tab gating in the admin UI
+- Account blacklist notice visibility toggle for account.php warning banner
 - Reviews moderation and review tooling
 - Website settings, social links, slider/ticker controls
 - Security event monitoring
@@ -77,6 +81,12 @@ Password policy baseline:
 - Length: 10 to 64
 - Requires uppercase, lowercase, number, special character
 - No whitespace
+
+Admin and sub-admin verification code policy:
+
+- Verification and recovery codes are 6-digit OTP values
+- Code expiry is 15 minutes
+- Codes are one-time use and cleared after successful verification or password reset
 
 ## 8. Username Locking Policy
 
@@ -146,6 +156,7 @@ Security properties:
 - Provider allowlist validation
 - State/nonce validation with expiry handling
 - Provider token exchange + profile fetch validation
+- Active customer blacklist check on OAuth completion (email/phone)
 - Safe error redirection back to auth flows
 
 ## 11. Email Routing, Automation, and SMTP Failover
@@ -249,6 +260,16 @@ Review eligibility is verified server-side.
 - Product linkage supports product_id matching and legacy product_name fallback
 - Refund-linked restrictions remain enforced where refund tables exist
 
+Customer blacklist enforcement scope (server-side):
+
+- Blacklisted contacts are blocked from cart add/update quantity
+- Blacklisted contacts are blocked from wishlist add operations
+- Blacklisted users are blocked from submitting reviews
+- Blacklisted users are blocked from placing checkout orders
+- Blacklisted users are blocked from creating refund requests
+- OAuth sign-in/signup completion blocks blacklisted contacts and re-registration attempts
+- Account blacklist warning banner visibility is controlled by site setting `account_blacklist_notice_visible`
+
 ## 17. Security Levels (Operational Reference)
 
 Use this severity model when extending or reviewing features.
@@ -286,12 +307,14 @@ Backup/restore verification:
 ## 20. Release Checklist
 
 1. Verify clean-route canonical behavior
-2. Validate CAPTCHA flows in signup/login/reset/checkout/admin verification
+2. Validate CAPTCHA flows in signup/login/reset/checkout (admin 2FA verification is code-only)
 3. Validate OAuth login for Google and Facebook
 4. Validate SMTP primary and fallback delivery
 5. Validate checkout, coupon, stock, and order status workflows
 6. Validate admin KPI cards and core operations tabs
-7. Run PHP lint on touched files
+7. Validate sub-admin lifecycle (invite, verify, permission/hidden-tabs, suspend/reactivate, delete)
+8. Validate blacklist restrictions across cart/wishlist/review/refund/checkout/OAuth and account notice toggle behavior
+9. Run PHP lint on touched files
 
 ## 21. Documentation and Operations Files
 

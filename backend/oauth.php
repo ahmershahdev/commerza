@@ -496,7 +496,7 @@ if ($name === '') {
     $name = ucfirst(strtok($email, '@'));
 }
 
-$stmt = $con->prepare('SELECT id, full_name, username, username_slug, profile_visibility FROM users WHERE email = ? LIMIT 1');
+$stmt = $con->prepare('SELECT id, full_name, username, username_slug, profile_visibility, phone FROM users WHERE email = ? LIMIT 1');
 if (!$stmt) {
     oauth_redirect_with_error('Server error. Please try again.', $stateMode);
 }
@@ -506,6 +506,14 @@ $stmt->execute();
 $result = $stmt->get_result();
 $existingUser = $result ? $result->fetch_assoc() : null;
 $stmt->close();
+
+$blockedOauthContact = $existingUser
+    ? commerza_customer_blacklist_lookup($con, $email, (string)($existingUser['phone'] ?? ''))
+    : commerza_customer_blacklist_lookup($con, $email, '');
+
+if (is_array($blockedOauthContact)) {
+    oauth_redirect_with_error(commerza_customer_blacklist_feedback_message($blockedOauthContact), $stateMode);
+}
 
 $userId = 0;
 

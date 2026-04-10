@@ -266,6 +266,39 @@ function cart_api_rate_limit_guard(
     ], 429);
 }
 
+function cart_api_current_user_blacklist_entry(mysqli $con): ?array
+{
+    if (!commerza_is_logged_in_user()) {
+        return null;
+    }
+
+    $userId = (int)($_SESSION['user_id'] ?? 0);
+    if ($userId <= 0) {
+        return null;
+    }
+
+    $stmt = $con->prepare('SELECT email, phone FROM users WHERE id = ? LIMIT 1');
+    if (!$stmt) {
+        return null;
+    }
+
+    $stmt->bind_param('i', $userId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    if (!is_array($row)) {
+        return null;
+    }
+
+    $email = (string)($row['email'] ?? '');
+    $phone = (string)($row['phone'] ?? '');
+    $blocked = commerza_customer_blacklist_lookup($con, $email, $phone);
+
+    return is_array($blocked) ? $blocked : null;
+}
+
 $method = $_SERVER['REQUEST_METHOD'];
 $action = strtolower(trim((string)($_REQUEST['action'] ?? 'status')));
 
@@ -293,6 +326,15 @@ if (
 
 if ($action === 'add') {
     cart_api_rate_limit_guard($con, 'cart_add', 25, 60, 90, 300);
+
+    $blockedContact = cart_api_current_user_blacklist_entry($con);
+    if (is_array($blockedContact)) {
+        cart_api_json([
+            'ok' => false,
+            'message' => commerza_customer_blacklist_feedback_message($blockedContact),
+            'csrf_token' => $_SESSION['csrf_token'],
+        ], 403);
+    }
 
     $productId = (int)($_POST['product_id'] ?? 0);
     $quantityToAdd = (int)($_POST['quantity'] ?? 1);
@@ -449,6 +491,15 @@ if ($action === 'remove_coupon') {
 
 if ($action === 'set_qty') {
     cart_api_rate_limit_guard($con, 'cart_set_qty', 30, 60, 120, 300);
+
+    $blockedContact = cart_api_current_user_blacklist_entry($con);
+    if (is_array($blockedContact)) {
+        cart_api_json([
+            'ok' => false,
+            'message' => commerza_customer_blacklist_feedback_message($blockedContact),
+            'csrf_token' => $_SESSION['csrf_token'],
+        ], 403);
+    }
 
     $productId = (int)($_POST['product_id'] ?? 0);
     $quantity = (int)($_POST['quantity'] ?? 0);
