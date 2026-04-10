@@ -16,6 +16,8 @@ If you identify a vulnerability:
 2. Share reproduction steps, affected path, and impact level privately.
 3. Include request examples and any logs needed to validate the issue.
 
+Preferred private contact: `support@ahmershah.dev`
+
 ## Security Controls in Place
 
 - CSRF tokens on sensitive form actions
@@ -24,6 +26,17 @@ If you identify a vulnerability:
 - Security event logging via `backend/security_events.php`
 - Session cookie hardening and CSP/security headers via `backend/data.php`
 - Password hashing and policy enforcement via `backend/security_helpers.php`
+- Request idempotency guards for checkout and admin POST APIs
+- Transaction + row locking for critical checkout/refund paths
+- Sub-admin suspend/delete now revokes active admin sessions immediately
+- High-value COD checkout now enforces email OTP verification
+
+## Continuous Verification
+
+- Static checks: `.github/workflows/security-gate.yml`
+- Security smoke tests: `scripts/security/security_smoke_tests.ps1`
+- XSS crawler probe: `scripts/security/xss_crawler_probe.ps1`
+- Authenticated abuse checks: `scripts/security/admin_e2e_abuse_tests.ps1`
 
 ## Operational Hardening Checklist
 

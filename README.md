@@ -19,6 +19,14 @@ This README is the canonical engineering guide for setup, security posture, feat
 - root \*.php pages: storefront and auth/public entrypoints
 - infra/docs files: .htaccess, robots.txt, sitemap.xml, llms.txt, SECURITY.md
 
+Current repository inventory (workspace snapshot):
+
+- Root-level PHP pages: 24
+- Admin frontend PHP pages: 6
+- Admin backend PHP APIs: 10
+- Shared backend PHP files: 28
+- Total tracked files in repository tree: 238
+
 ## 3. Public vs Restricted Surfaces
 
 Public storefront routes are clean-route pages such as /, /products, /about, /contact, /shipping, /returns, and policy pages.
@@ -45,6 +53,7 @@ Restricted or sensitive surfaces include:
 
 - Dashboard with KPI cards and recent-order visibility
 - Sub-admin (mini admin) lifecycle: create, email-verify, edit, suspend/reactivate, resend verification, and soft delete
+- Immediate session revocation on sub-admin suspend/delete (and sensitive identity/password updates)
 - Role presets plus custom access model for sub-admins
 - Product sections and product CRUD
 - Product trash archive and restore workflows
@@ -72,6 +81,10 @@ Checkout now supports multiple payment choices in sandbox-ready mode.
 - For non-COD methods, checkout requires payer/wallet detail plus sandbox transaction reference for manual verification workflows.
 - Stripe/card methods are captured as sandbox/manual-payment metadata in orders (no live gateway settlement in this flow).
 - Order placement still enforces CSRF, idempotency, CAPTCHA, stock locking, and coupon checks.
+- High-value COD policy:
+  - COD OTP threshold is configurable via `COMMERZA_COD_OTP_THRESHOLD` (default `15000`)
+  - Optional COD hard limit via `COMMERZA_COD_HIGH_VALUE_HARD_LIMIT` (default `0`, disabled)
+  - When threshold applies, checkout requires a 6-digit email OTP before order creation
 
 ## 7. Password Hashing and Policy Workflow
 

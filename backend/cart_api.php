@@ -79,18 +79,11 @@ function cart_api_normalize_product_code(string $value): string
     return strtoupper($normalized);
 }
 
-function cart_api_validate_product_identity(
-    mysqli $con,
-    int $productId,
-    string $expectedName = '',
-    string $expectedCode = ''
-): array {
-    $stmt = $con->prepare('SELECT id, name, product_code FROM products WHERE id = ? LIMIT 1');
+function cart_api_fetch_product_snapshot(mysqli $con, int $productId): ?array
+{
+    $stmt = $con->prepare('SELECT id, name, product_code, stock FROM products WHERE id = ? LIMIT 1');
     if (!$stmt) {
-        return [
-            'ok' => false,
-            'message' => 'Unable to validate product right now.',
-        ];
+        return null;
     }
 
     $stmt->bind_param('i', $productId);
@@ -100,6 +93,23 @@ function cart_api_validate_product_identity(
     $stmt->close();
 
     if (!$row) {
+        return null;
+    }
+
+    return [
+        'id' => (int)($row['id'] ?? 0),
+        'name' => (string)($row['name'] ?? ''),
+        'product_code' => (string)($row['product_code'] ?? ''),
+        'stock' => max(0, (int)($row['stock'] ?? 0)),
+    ];
+}
+
+function cart_api_validate_product_identity(
+    array $productSnapshot,
+    string $expectedName = '',
+    string $expectedCode = ''
+): array {
+    if (empty($productSnapshot)) {
         return [
             'ok' => false,
             'message' => 'Product does not exist.',
@@ -108,8 +118,8 @@ function cart_api_validate_product_identity(
 
     $normalizedExpectedName = cart_api_normalize_product_name($expectedName);
     $normalizedExpectedCode = cart_api_normalize_product_code($expectedCode);
-    $normalizedActualName = cart_api_normalize_product_name((string)($row['name'] ?? ''));
-    $normalizedActualCode = cart_api_normalize_product_code((string)($row['product_code'] ?? ''));
+    $normalizedActualName = cart_api_normalize_product_name((string)($productSnapshot['name'] ?? ''));
+    $normalizedActualCode = cart_api_normalize_product_code((string)($productSnapshot['product_code'] ?? ''));
 
     if ($normalizedExpectedName !== '' && $normalizedExpectedName !== $normalizedActualName) {
         return [
@@ -127,29 +137,19 @@ function cart_api_validate_product_identity(
 
     return [
         'ok' => true,
-        'name' => (string)($row['name'] ?? ''),
-        'product_code' => (string)($row['product_code'] ?? ''),
+        'name' => (string)($productSnapshot['name'] ?? ''),
+        'product_code' => (string)($productSnapshot['product_code'] ?? ''),
     ];
 }
 
 function cart_api_get_product_stock(mysqli $con, int $productId): ?int
 {
-    $stmt = $con->prepare('SELECT stock FROM products WHERE id = ? LIMIT 1');
-    if (!$stmt) {
+    $snapshot = cart_api_fetch_product_snapshot($con, $productId);
+    if (!is_array($snapshot)) {
         return null;
     }
 
-    $stmt->bind_param('i', $productId);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $row = $result ? $result->fetch_assoc() : null;
-    $stmt->close();
-
-    if (!$row) {
-        return null;
-    }
-
-    return max(0, (int)($row['stock'] ?? 0));
+    return max(0, (int)($snapshot['stock'] ?? 0));
 }
 
 function cart_api_lock_name(int $cartId): string
@@ -268,17 +268,29 @@ function cart_api_rate_limit_guard(
 
 function cart_api_current_user_blacklist_entry(mysqli $con): ?array
 {
+    static $resolved = false;
+    static $cached = null;
+
+    if ($resolved) {
+        return $cached;
+    }
+
+    $resolved = true;
+
     if (!commerza_is_logged_in_user()) {
+        $cached = null;
         return null;
     }
 
     $userId = (int)($_SESSION['user_id'] ?? 0);
     if ($userId <= 0) {
+        $cached = null;
         return null;
     }
 
     $stmt = $con->prepare('SELECT email, phone FROM users WHERE id = ? LIMIT 1');
     if (!$stmt) {
+        $cached = null;
         return null;
     }
 
@@ -289,6 +301,7 @@ function cart_api_current_user_blacklist_entry(mysqli $con): ?array
     $stmt->close();
 
     if (!is_array($row)) {
+        $cached = null;
         return null;
     }
 
@@ -296,7 +309,8 @@ function cart_api_current_user_blacklist_entry(mysqli $con): ?array
     $phone = (string)($row['phone'] ?? '');
     $blocked = commerza_customer_blacklist_lookup($con, $email, $phone);
 
-    return is_array($blocked) ? $blocked : null;
+    $cached = is_array($blocked) ? $blocked : null;
+    return $cached;
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
@@ -357,12 +371,12 @@ if ($action === 'add') {
         cart_api_json(['ok' => false, 'message' => 'Quantity is too high.'], 422);
     }
 
-    $identityCheck = cart_api_validate_product_identity(
-        $con,
-        $productId,
-        $postedProductName,
-        $postedProductCode
-    );
+    $productSnapshot = cart_api_fetch_product_snapshot($con, $productId);
+    if (!is_array($productSnapshot)) {
+        cart_api_json(['ok' => false, 'message' => 'Product does not exist.'], 409);
+    }
+
+    $identityCheck = cart_api_validate_product_identity($productSnapshot, $postedProductName, $postedProductCode);
 
     if (!(bool)($identityCheck['ok'] ?? false)) {
         cart_api_json([
@@ -393,10 +407,7 @@ if ($action === 'add') {
         }
     }
 
-    $availableStock = cart_api_get_product_stock($con, $productId);
-    if ($availableStock === null) {
-        cart_api_json(['ok' => false, 'message' => 'Product does not exist.'], 409);
-    }
+    $availableStock = max(0, (int)($productSnapshot['stock'] ?? 0));
 
     if ($availableStock <= 0) {
         cart_api_json(['ok' => false, 'message' => 'Product is out of stock.'], 422);

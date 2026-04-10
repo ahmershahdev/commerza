@@ -86,6 +86,9 @@ $(document).ready(function () {
   const cartActionLocks = new Set();
   const cartQtyCooldownUntil = new Map();
   const CART_QTY_COOLDOWN_MS = 3000;
+  const CART_WISHLIST_SYNC_TTL_MS = 15000;
+  let cartWishlistSyncInFlight = null;
+  let lastCartWishlistSyncAt = 0;
 
   applySiteSettings();
   ensureLegalNavLinks();
@@ -164,6 +167,68 @@ $(document).ready(function () {
   });
   renderComparePage();
 
+  async function syncCartAndWishlistState(forceRefresh = false) {
+    const now = Date.now();
+    const recentlySynced =
+      now - lastCartWishlistSyncAt < CART_WISHLIST_SYNC_TTL_MS;
+
+    if (!forceRefresh && recentlySynced) {
+      return;
+    }
+
+    if (cartWishlistSyncInFlight) {
+      return cartWishlistSyncInFlight;
+    }
+
+    cartWishlistSyncInFlight = (async () => {
+      try {
+        await initCartState(true);
+      } catch (error) {
+        // Keep UI usable even if sync fails temporarily.
+      }
+
+      try {
+        await initWishlistState();
+      } catch (error) {
+        // Keep UI usable even if sync fails temporarily.
+      }
+
+      updateCartBadge();
+      if (typeof updateWishlistBadge === "function") {
+        updateWishlistBadge();
+      }
+      if (typeof updateWishlistButtons === "function") {
+        updateWishlistButtons();
+      }
+      if (typeof renderWishlistPage === "function") {
+        renderWishlistPage();
+      }
+
+      lastCartWishlistSyncAt = Date.now();
+    })();
+
+    try {
+      await cartWishlistSyncInFlight;
+    } finally {
+      cartWishlistSyncInFlight = null;
+    }
+  }
+
+  window.addEventListener("pageshow", (event) => {
+    const fromBfcache = !!(event && event.persisted);
+    syncCartAndWishlistState(fromBfcache);
+  });
+
+  window.addEventListener("focus", () => {
+    syncCartAndWishlistState(false);
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      syncCartAndWishlistState(false);
+    }
+  });
+
   function getTotalCartQty() {
     return cart.reduce((total, item) => total + item.quantity, 0);
   }
@@ -205,6 +270,7 @@ $(document).ready(function () {
     }
 
     cartState.initialized = true;
+    lastCartWishlistSyncAt = Date.now();
     return cart;
   }
 

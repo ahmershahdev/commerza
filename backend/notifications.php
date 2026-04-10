@@ -1162,6 +1162,41 @@ function commerza_notify_account_deletion_code(mysqli $con, string $userEmail, s
     );
 }
 
+function commerza_notify_cod_checkout_verification_code(
+    mysqli $con,
+    string $userEmail,
+    string $userName,
+    string $code,
+    float $orderTotal,
+    float $threshold,
+    ?string &$errorMessage = null
+): bool {
+    $safeName = htmlspecialchars(trim($userName) !== '' ? $userName : 'Customer', ENT_QUOTES, 'UTF-8');
+    $safeCode = htmlspecialchars($code, ENT_QUOTES, 'UTF-8');
+    $safeOrderTotal = number_format(max(0, $orderTotal), 2);
+    $safeThreshold = number_format(max(0, $threshold), 2);
+
+    $body =
+        '<p>Hello ' . $safeName . ',</p>' .
+        '<p>Use this verification code to confirm your high-value Cash on Delivery checkout.</p>' .
+        '<div style="margin:16px 0;padding:14px 16px;background:#101010;border:1px dashed #ff6a00;border-radius:8px;text-align:center;">' .
+        '<span style="font-size:28px;letter-spacing:5px;font-weight:700;color:#ffcc00;">' . $safeCode . '</span>' .
+        '</div>' .
+        '<p><strong>Order total:</strong> PKR ' . $safeOrderTotal . '</p>' .
+        '<p><strong>Verification threshold:</strong> PKR ' . $safeThreshold . '</p>' .
+        '<p>This code expires in <strong>15 minutes</strong>. Do not share it with anyone.</p>';
+
+    return commerza_notifications_send(
+        $con,
+        $userEmail,
+        'Commerza COD checkout verification code',
+        'Verify High-Value COD Checkout',
+        'A verification step is required before placing this COD order.',
+        $body,
+        $errorMessage
+    );
+}
+
 function commerza_notify_admin_refund_request(mysqli $con, array $order, string $reason = ''): bool
 {
     $adminEmail = commerza_notifications_get_admin_email($con);

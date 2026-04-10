@@ -310,7 +310,6 @@ if ($action === 'status') {
     }
 
     $userId = (int)$_SESSION['user_id'];
-    $blockedContact = wishlist_user_blacklist_entry($con, $userId);
     $wishlistId = get_or_create_wishlist_id($con, $userId);
     if (!$wishlistId) {
         wishlist_json(['ok' => false, 'message' => 'Unable to load wishlist.'], 500);
@@ -386,6 +385,7 @@ if ($action === 'toggle') {
     }
 
     $userId = (int)$_SESSION['user_id'];
+    $blockedContact = wishlist_user_blacklist_entry($con, $userId);
     $wishlistId = get_or_create_wishlist_id($con, $userId);
     if (!$wishlistId) {
         wishlist_json(['ok' => false, 'message' => 'Unable to load wishlist.'], 500);

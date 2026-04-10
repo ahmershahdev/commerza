@@ -1,5 +1,5 @@
 # Commerza crawler policy
-# Updated: 2026-04-09
+# Updated: 2026-04-10
 
 Sitemap: https://commerza.ahmershah.dev/sitemap.xml
 Host: commerza.ahmershah.dev
@@ -33,6 +33,8 @@ Disallow: /admin-forgot-password
 Disallow: /admin-forgot-password.php
 Disallow: /admin-forgot-email
 Disallow: /admin-forgot-email.php
+Disallow: /admin-verify-email
+Disallow: /admin-verify-email.php
 Disallow: /admin-verify-2fa
 Disallow: /admin-verify-2fa.php
 
@@ -74,6 +76,7 @@ Disallow: /login
 Disallow: /signup
 Disallow: /forgot-password
 Disallow: /reset-password
+Disallow: /admin-verify-email
 Disallow: /account
 Disallow: /cart
 Disallow: /wishlist
@@ -92,6 +95,7 @@ Disallow: /login
 Disallow: /signup
 Disallow: /forgot-password
 Disallow: /reset-password
+Disallow: /admin-verify-email
 Disallow: /account
 Disallow: /cart
 Disallow: /wishlist
@@ -110,6 +114,7 @@ Disallow: /login
 Disallow: /signup
 Disallow: /forgot-password
 Disallow: /reset-password
+Disallow: /admin-verify-email
 Disallow: /account
 Disallow: /cart
 Disallow: /wishlist
@@ -128,6 +133,7 @@ Disallow: /login
 Disallow: /signup
 Disallow: /forgot-password
 Disallow: /reset-password
+Disallow: /admin-verify-email
 Disallow: /account
 Disallow: /cart
 Disallow: /wishlist

@@ -238,6 +238,68 @@ function sub_admins_api_apply_action_rate_limit(mysqli $con, array $admin, strin
     );
 }
 
+function sub_admins_api_payload_fingerprint(array $payload): string
+{
+    $json = json_encode($payload, JSON_UNESCAPED_SLASHES);
+    if (!is_string($json) || $json === '') {
+        $json = json_encode([
+            'fallback' => true,
+            'ts' => microtime(true),
+            'pid' => getmypid(),
+        ], JSON_UNESCAPED_SLASHES);
+    }
+
+    return 'sub-admin-' . hash('sha256', (string)$json);
+}
+
+function sub_admins_api_guard_mutation_idempotency(
+    mysqli $con,
+    array $admin,
+    string $action,
+    array $signaturePayload,
+    int $ttlSeconds = 120
+): void {
+    $actorId = (int)($admin['id'] ?? 0);
+    $scope = 'admin_sub_admins_' . preg_replace('/[^a-z0-9_\-.]+/i', '_', strtolower(trim($action)));
+    if ($actorId > 0) {
+        $scope .= '_actor_' . $actorId;
+    }
+
+    $idempotency = commerza_idempotency_consume(
+        $con,
+        $scope,
+        sub_admins_api_payload_fingerprint($signaturePayload),
+        $ttlSeconds
+    );
+
+    if ((bool)($idempotency['ok'] ?? false)) {
+        return;
+    }
+
+    $status = (int)($idempotency['status'] ?? 409);
+    if ($status <= 0) {
+        $status = 409;
+    }
+
+    sub_admins_api_json([
+        'ok' => false,
+        'message' => (bool)($idempotency['duplicate'] ?? false)
+            ? 'Duplicate sub-admin request detected and ignored. Please refresh and review the latest state.'
+            : (string)($idempotency['message'] ?? 'Unable to verify request integrity.'),
+    ], $status);
+}
+
+function sub_admins_api_revoke_target_sessions(mysqli $con, int $targetId): void
+{
+    if ($targetId <= 0) {
+        return;
+    }
+
+    if (function_exists('admin_revoke_all_sessions_for_admin')) {
+        admin_revoke_all_sessions_for_admin($con, $targetId);
+    }
+}
+
 if (!($con instanceof mysqli)) {
     sub_admins_api_json(['ok' => false, 'message' => 'Service unavailable.'], 500);
 }
@@ -322,6 +384,21 @@ if ($action === 'create') {
             'message' => 'Custom role requires at least one permission.',
         ], 422);
     }
+
+    sub_admins_api_guard_mutation_idempotency(
+        $con,
+        $admin,
+        'create',
+        [
+            'full_name' => $fullName,
+            'email' => $email,
+            'phone' => $phone,
+            'role' => $role,
+            'permissions' => $permissions,
+            'hidden_tabs' => $hiddenTabs,
+            'password_hash' => hash('sha256', $password),
+        ]
+    );
 
     $existsStmt = $con->prepare(
         'SELECT id
@@ -465,6 +542,22 @@ if ($action === 'update') {
     if ($role === 'custom' && empty($permissions)) {
         sub_admins_api_json(['ok' => false, 'message' => 'Custom role requires at least one permission.'], 422);
     }
+
+    sub_admins_api_guard_mutation_idempotency(
+        $con,
+        $admin,
+        'update',
+        [
+            'admin_id' => $targetId,
+            'full_name' => $fullName,
+            'email' => $email,
+            'phone' => $phone,
+            'role' => $role,
+            'permissions' => $permissions,
+            'hidden_tabs' => $hiddenTabs,
+            'password_hash' => trim($password) !== '' ? hash('sha256', $password) : '',
+        ]
+    );
 
     $targetStmt = $con->prepare(
         'SELECT id, email, role, email_verified_at
@@ -626,6 +719,12 @@ if ($action === 'update') {
     }
 
     $resendNotice = '';
+    $sessionsRevoked = false;
+    if ($emailChanged || $passwordHash !== '') {
+        sub_admins_api_revoke_target_sessions($con, $targetId);
+        $sessionsRevoked = true;
+    }
+
     if ($emailChanged) {
         $fresh = admin_get_by_id($con, $targetId);
         $issueError = null;
@@ -641,6 +740,7 @@ if ($action === 'update') {
         'role' => $role,
         'email_changed' => $emailChanged,
         'password_updated' => $passwordHash !== '',
+        'active_sessions_revoked' => $sessionsRevoked,
         'permissions_count' => count($permissions),
         'hidden_tabs_count' => count($hiddenTabs),
     ]);
@@ -760,11 +860,14 @@ if ($action === 'set-suspension') {
             sub_admins_api_json(['ok' => false, 'message' => 'Unable to update suspension state.'], 500);
         }
 
+        sub_admins_api_revoke_target_sessions($con, $targetId);
+
         admin_api_log_security_event($con, $admin, 'sub_admin.suspended_temporary', 'warning', [
             'sub_admin_id' => $targetId,
             'duration_minutes' => $durationMinutes,
             'suspended_until' => $suspendedUntil,
             'reason' => $reason,
+            'active_sessions_revoked' => true,
         ]);
 
         sub_admins_api_json([
@@ -798,9 +901,12 @@ if ($action === 'set-suspension') {
             sub_admins_api_json(['ok' => false, 'message' => 'Unable to update suspension state.'], 500);
         }
 
+        sub_admins_api_revoke_target_sessions($con, $targetId);
+
         admin_api_log_security_event($con, $admin, 'sub_admin.suspended_until_changed', 'warning', [
             'sub_admin_id' => $targetId,
             'reason' => $reason,
+            'active_sessions_revoked' => true,
         ]);
 
         sub_admins_api_json([
@@ -896,8 +1002,11 @@ if ($action === 'delete') {
         sub_admins_api_json(['ok' => false, 'message' => 'Sub-admin account not found.'], 404);
     }
 
+    sub_admins_api_revoke_target_sessions($con, $targetId);
+
     admin_api_log_security_event($con, $admin, 'sub_admin.deleted', 'warning', [
         'sub_admin_id' => $targetId,
+        'active_sessions_revoked' => true,
     ]);
 
     sub_admins_api_json([

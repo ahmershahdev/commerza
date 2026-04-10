@@ -12,6 +12,16 @@ vendor/
 *.log
 *.tmp
 *.cache
+*.out
+*.pid
+*.seed
+
+# Package manager / test artifacts
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+coverage/
+.phpunit.result.cache
 
 # OS noise
 .DS_Store

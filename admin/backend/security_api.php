@@ -153,7 +153,7 @@ $currentAdmin = $result ? $result->fetch_assoc() : null;
 $stmt->close();
 
 if (!$currentAdmin || (int)$currentAdmin['is_active'] !== 1) {
-    admin_logout_user();
+    admin_logout_user($con);
     security_api_json([
         'ok' => false,
         'message' => 'Unauthorized.',

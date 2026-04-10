@@ -44,11 +44,16 @@ This document lists the exact integration requirements for OAuth, SMTP, CAPTCHA,
 
 ## 3) Payments (Current Mode)
 
-Checkout currently runs in COD-only mode.
+Checkout supports COD and sandbox payment options for test/manual workflows.
 
-### Active Method
+### Supported Checkout Methods
 
 - Cash on Delivery (COD)
+- JazzCash (Sandbox)
+- Easypaisa (Sandbox)
+- PayPal (Sandbox)
+- Stripe (Sandbox metadata flow)
+- Credit/Debit Card (Sandbox metadata flow)
 
 ### Runtime Path
 
@@ -56,8 +61,11 @@ Checkout currently runs in COD-only mode.
 
 ### Notes
 
-- Stripe card flow is disabled in cart checkout at this time.
-- Keep COD validation, CAPTCHA, CSRF, idempotency, and stock checks enabled.
+- `backend/stripe_intent.php` remains disabled for live Stripe intent creation.
+- Keep CAPTCHA, CSRF, idempotency, and stock checks enabled.
+- High-value COD protection is controlled by:
+  - `COMMERZA_COD_OTP_THRESHOLD` (default: 15000)
+  - `COMMERZA_COD_HIGH_VALUE_HARD_LIMIT` (optional; 0 disables hard limit)
 
 ## 4) SMTP (Gmail Recommended)
 

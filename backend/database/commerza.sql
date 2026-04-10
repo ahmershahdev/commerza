@@ -1789,8 +1789,6 @@ ALTER TABLE `users`
   ADD UNIQUE KEY `username_slug` (`username_slug`),
   ADD UNIQUE KEY `email` (`email`),
   ADD UNIQUE KEY `phone` (`phone`),
-  ADD UNIQUE KEY `uq_users_username` (`username`),
-  ADD UNIQUE KEY `uq_users_username_slug` (`username_slug`),
   ADD KEY `idx_users_profile_visibility` (`profile_visibility`);
 
 --

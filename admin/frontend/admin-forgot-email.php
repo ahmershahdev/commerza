@@ -122,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             (string)($targetAdmin['email'] ?? 'admin'),
             $clientIp
           );
-          admin_logout_user();
+          admin_logout_user($con);
           $success = 'Admin email updated. Please log in again.';
           $newEmailValue = '';
           $confirmEmailValue = '';

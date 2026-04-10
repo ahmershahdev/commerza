@@ -61,6 +61,75 @@ $checkoutCaptchaEnabled = (bool)($checkoutCaptchaConfig['enabled'] ?? false);
 $checkoutCaptchaField = (string)($checkoutCaptchaConfig['response_field'] ?? '');
 commerza_ensure_coupon_schema($con);
 
+function cart_json_response(array $payload, int $statusCode = 200): void
+{
+  http_response_code($statusCode);
+  header('Content-Type: application/json; charset=UTF-8');
+  echo json_encode($payload, JSON_UNESCAPED_SLASHES);
+  exit;
+}
+
+function cart_cod_otp_session_key(): string
+{
+  return 'checkout_cod_otp_pending';
+}
+
+function cart_cod_otp_pending_get(): ?array
+{
+  $pending = $_SESSION[cart_cod_otp_session_key()] ?? null;
+  return is_array($pending) ? $pending : null;
+}
+
+function cart_cod_otp_pending_set(array $pending): void
+{
+  $_SESSION[cart_cod_otp_session_key()] = $pending;
+}
+
+function cart_cod_otp_pending_clear(): void
+{
+  unset($_SESSION[cart_cod_otp_session_key()]);
+}
+
+function cart_cod_high_value_threshold_amount(): float
+{
+  $configured = trim((string)getenv('COMMERZA_COD_OTP_THRESHOLD'));
+  $threshold = is_numeric($configured) ? (float)$configured : 15000.0;
+  if ($threshold < 0) {
+    $threshold = 0;
+  }
+
+  return round($threshold, 2);
+}
+
+function cart_cod_high_value_hard_limit_amount(): float
+{
+  $configured = trim((string)getenv('COMMERZA_COD_HIGH_VALUE_HARD_LIMIT'));
+  if (!is_numeric($configured)) {
+    return 0.0;
+  }
+
+  $limit = (float)$configured;
+  if ($limit <= 0) {
+    return 0.0;
+  }
+
+  return round($limit, 2);
+}
+
+function cart_cod_otp_required(string $paymentMethod, float $grandTotal): bool
+{
+  if (strtolower(trim($paymentMethod)) !== 'cod') {
+    return false;
+  }
+
+  $threshold = cart_cod_high_value_threshold_amount();
+  if ($threshold <= 0) {
+    return false;
+  }
+
+  return round($grandTotal, 2) >= $threshold;
+}
+
 function generate_order_number(mysqli $con): string
 {
   for ($i = 0; $i < 20; $i++) {
@@ -125,6 +194,157 @@ function cart_checkout_rate_limit_error(mysqli $con, bool $isLoggedIn): ?string
   }
 
   return 'Too many checkout attempts. Please wait ' . $retrySeconds . ' second(s) and try again.';
+}
+
+$codHighValueThreshold = cart_cod_high_value_threshold_amount();
+$codHighValueHardLimit = cart_cod_high_value_hard_limit_amount();
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') === 'request_cod_otp') {
+  if (
+    empty($_POST['csrf_token']) ||
+    empty($_SESSION['csrf_token']) ||
+    !hash_equals($_SESSION['csrf_token'], (string)$_POST['csrf_token'])
+  ) {
+    cart_json_response([
+      'ok' => false,
+      'message' => 'Forbidden.',
+    ], 403);
+  }
+
+  if (!$is_logged_in) {
+    cart_json_response([
+      'ok' => false,
+      'message' => 'Please login before requesting COD verification.',
+    ], 401);
+  }
+
+  $user_id = (int)($_SESSION['user_id'] ?? 0);
+  if ($user_id <= 0) {
+    cart_json_response([
+      'ok' => false,
+      'message' => 'Please login before requesting COD verification.',
+    ], 401);
+  }
+
+  $paymentMethod = strtolower(trim((string)($_POST['payment_method'] ?? 'cod')));
+  if ($paymentMethod !== 'cod') {
+    cart_json_response([
+      'ok' => false,
+      'message' => 'COD verification is available only for Cash on Delivery orders.',
+    ], 422);
+  }
+
+  if ($codHighValueThreshold <= 0) {
+    cart_json_response([
+      'ok' => false,
+      'message' => 'COD verification is not required for this store configuration.',
+    ], 422);
+  }
+
+  $customerName = trim((string)($_POST['customer_name'] ?? ''));
+  $customerEmail = strtolower(trim((string)($_POST['customer_email'] ?? '')));
+  if (!filter_var($customerEmail, FILTER_VALIDATE_EMAIL) || strlen($customerEmail) > 150) {
+    cart_json_response([
+      'ok' => false,
+      'message' => 'Enter a valid checkout email before requesting COD verification.',
+    ], 422);
+  }
+
+  $accountEmail = strtolower(trim((string)($current_user['email'] ?? '')));
+  if ($accountEmail !== '' && $customerEmail !== $accountEmail) {
+    cart_json_response([
+      'ok' => false,
+      'message' => 'For security, COD verification must use your account email address.',
+    ], 422);
+  }
+
+  $clientIp = commerza_client_ip();
+  $identifier = 'user_' . $user_id;
+  $rate = commerza_rate_limit_check(
+    $con,
+    'checkout_cod_otp_send',
+    $identifier,
+    $clientIp,
+    4,
+    900,
+    900,
+    3600
+  );
+
+  if (!(bool)($rate['allowed'] ?? true)) {
+    $retrySeconds = max(1, (int)($rate['retry_after'] ?? 900));
+    if (function_exists('commerza_security_log_rate_limit_block')) {
+      commerza_security_log_rate_limit_block(
+        $con,
+        'checkout_cod_otp_send',
+        'user',
+        $identifier,
+        $clientIp,
+        $retrySeconds
+      );
+    }
+
+    cart_json_response([
+      'ok' => false,
+      'message' => 'Too many verification code requests. Please wait ' . $retrySeconds . ' second(s).',
+    ], 429);
+  }
+
+  $pending = cart_cod_otp_pending_get();
+  $lastSentAt = (int)($pending['last_sent_at'] ?? 0);
+  if (
+    is_array($pending)
+    && (int)($pending['user_id'] ?? 0) === $user_id
+    && strtolower(trim((string)($pending['email'] ?? ''))) === $customerEmail
+    && $lastSentAt > 0
+    && (time() - $lastSentAt) < 60
+  ) {
+    $wait = max(1, 60 - (time() - $lastSentAt));
+    cart_json_response([
+      'ok' => false,
+      'message' => 'Please wait ' . $wait . ' second(s) before requesting another code.',
+    ], 429);
+  }
+
+  $code = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+  $orderTotalHint = (float)($_POST['order_total'] ?? 0);
+  $mailError = null;
+  $mailSent = function_exists('commerza_notify_cod_checkout_verification_code')
+    ? commerza_notify_cod_checkout_verification_code(
+      $con,
+      $customerEmail,
+      $customerName,
+      $code,
+      $orderTotalHint,
+      $codHighValueThreshold,
+      $mailError
+    )
+    : false;
+
+  if (!$mailSent) {
+    cart_json_response([
+      'ok' => false,
+      'message' => $mailError ?: 'Unable to send verification code. Please try another method or retry later.',
+    ], 500);
+  }
+
+  cart_cod_otp_pending_set([
+    'user_id' => $user_id,
+    'email' => $customerEmail,
+    'code_hash' => hash('sha256', $code),
+    'attempts' => 0,
+    'expires_at' => time() + (15 * 60),
+    'last_sent_at' => time(),
+    'verified_at' => 0,
+    'verified_expires_at' => 0,
+    'verified_user_id' => 0,
+    'verified_email' => '',
+  ]);
+
+  cart_json_response([
+    'ok' => true,
+    'message' => 'Verification code sent to your email. The code is valid for 15 minutes.',
+  ], 200);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') === 'place_order') {
@@ -332,6 +552,87 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
     }
 
     $grand_total = round(max(0, $subtotal + $shipping_cost - $discount_total), 2);
+
+    if ($payment_method === 'cod' && $codHighValueHardLimit > 0 && $grand_total > $codHighValueHardLimit) {
+      $errors[] = 'COD is not available above PKR ' . number_format($codHighValueHardLimit, 2) . '. Please choose another payment method.';
+    }
+
+    $codOtpNeeded = cart_cod_otp_required($payment_method, $grand_total);
+    if ($payment_method === 'cod' && !$codOtpNeeded) {
+      cart_cod_otp_pending_clear();
+    }
+
+    if ($payment_method === 'cod' && $codOtpNeeded) {
+      $otpPending = cart_cod_otp_pending_get();
+      $otpInput = trim((string)($_POST['cod_email_otp'] ?? ''));
+      $otpVerified = false;
+
+      if (is_array($otpPending)) {
+        $verifiedAt = (int)($otpPending['verified_at'] ?? 0);
+        $verifiedExpiresAt = (int)($otpPending['verified_expires_at'] ?? 0);
+        $verifiedUserId = (int)($otpPending['verified_user_id'] ?? 0);
+        $verifiedEmail = strtolower(trim((string)($otpPending['verified_email'] ?? '')));
+
+        if (
+          $verifiedAt > 0
+          && $verifiedExpiresAt >= time()
+          && $verifiedUserId === $user_id
+          && $verifiedEmail !== ''
+          && $verifiedEmail === $customer_email
+        ) {
+          $otpVerified = true;
+        }
+      }
+
+      if (!$otpVerified) {
+        if (!is_array($otpPending)) {
+          $errors[] = 'High-value COD orders require email verification. Request and enter the 6-digit code before placing your order.';
+        } else {
+          $pendingUserId = (int)($otpPending['user_id'] ?? 0);
+          $pendingEmail = strtolower(trim((string)($otpPending['email'] ?? '')));
+          $expiresAt = (int)($otpPending['expires_at'] ?? 0);
+
+          if ($pendingUserId !== $user_id || $pendingEmail === '' || $pendingEmail !== $customer_email) {
+            cart_cod_otp_pending_clear();
+            $errors[] = 'COD verification session is invalid for this checkout email. Request a new code.';
+          } elseif ($expiresAt <= 0 || $expiresAt < time()) {
+            cart_cod_otp_pending_clear();
+            $errors[] = 'COD verification code expired. Request a new code.';
+          } elseif (!preg_match('/^\d{6}$/', $otpInput)) {
+            $errors[] = 'Enter the 6-digit COD verification code sent to your email.';
+          } else {
+            $expectedHash = (string)($otpPending['code_hash'] ?? '');
+            $enteredHash = hash('sha256', $otpInput);
+
+            if ($expectedHash === '' || !hash_equals($expectedHash, $enteredHash)) {
+              $attempts = max(0, (int)($otpPending['attempts'] ?? 0)) + 1;
+              $otpPending['attempts'] = $attempts;
+
+              if ($attempts >= 6) {
+                cart_cod_otp_pending_clear();
+                $errors[] = 'Too many invalid COD verification attempts. Request a new code.';
+              } else {
+                cart_cod_otp_pending_set($otpPending);
+                $remaining = max(0, 6 - $attempts);
+                $errors[] = 'Invalid COD verification code. Remaining attempts: ' . $remaining . '.';
+              }
+            } else {
+              $otpPending['verified_at'] = time();
+              $otpPending['verified_expires_at'] = time() + (5 * 60);
+              $otpPending['verified_user_id'] = $user_id;
+              $otpPending['verified_email'] = $customer_email;
+              $otpPending['code_hash'] = '';
+              $otpPending['attempts'] = 0;
+              cart_cod_otp_pending_set($otpPending);
+            }
+          }
+        }
+      }
+
+      if (empty($errors)) {
+        $payment_notes[] = 'High-value COD email verification completed.';
+      }
+    }
 
     $checkout_items_signature = [];
     foreach ($normalized_items as $signature_row) {
@@ -556,6 +857,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
           commerza_coupon_clear_session_code();
         }
         $con->commit();
+
+        if ($payment_method === 'cod') {
+          cart_cod_otp_pending_clear();
+        }
 
         if (function_exists('commerza_notify_order_placed')) {
           commerza_notify_order_placed(
@@ -1408,6 +1713,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
                   </div>
                   <small class="field-hint d-block mt-2">Use sandbox/test values only. Live settlement is not enabled in this flow.</small>
                 </div>
+                <div id="codOtpSection" class="payment-extra-fields d-none">
+                  <div class="row g-3 align-items-end">
+                    <div class="col-12 col-md-8">
+                      <label for="codEmailOtp" class="form-label text-white">COD Verification Code</label>
+                      <input type="text" class="form-control checkout-field" id="codEmailOtp" name="cod_email_otp" maxlength="6" minlength="6" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" placeholder="Enter 6-digit email code">
+                    </div>
+                    <div class="col-12 col-md-4">
+                      <button type="button" class="btn btn-outline-warning w-100" id="sendCodOtpBtn">Send OTP</button>
+                    </div>
+                  </div>
+                  <small id="codOtpHint" class="field-hint d-block mt-2">For high-value COD orders, verify the code sent to your email before placing order.</small>
+                  <div id="codOtpFeedback" class="small mt-2" aria-live="polite"></div>
+                </div>
               </div>
 
               <div class="checkout-span-full">
@@ -1495,6 +1813,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       const isLoggedIn = <?= $is_logged_in ? 'true' : 'false' ?>;
       const captchaEnabled = <?= $checkoutCaptchaEnabled ? 'true' : 'false' ?>;
       const captchaFieldName = <?= json_encode($checkoutCaptchaField) ?>;
+      const codHighValueThreshold = Number(<?= json_encode($codHighValueThreshold) ?>) || 0;
       const prefillData = {
         name: <?= json_encode((string)$current_user['full_name']) ?>,
         email: <?= json_encode((string)$current_user['email']) ?>,
@@ -1561,6 +1880,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
         const requiresSandboxDetails = methodKey !== 'cod';
         $('#paymentExtraFields').toggleClass('d-none', !requiresSandboxDetails);
         $('#paymentSender, #paymentReference').prop('required', requiresSandboxDetails);
+        updateCodOtpVisibility();
+      }
+
+      function parseAmountFromText(rawValue) {
+        const normalized = (rawValue || '').toString().replace(/,/g, '');
+        const match = normalized.match(/-?\d+(?:\.\d+)?/);
+        if (!match) {
+          return 0;
+        }
+
+        const parsed = Number(match[0]);
+        return Number.isFinite(parsed) ? parsed : 0;
+      }
+
+      function currentCheckoutTotalAmount() {
+        return parseAmountFromText($('#cart-total').text());
+      }
+
+      function codOtpRequiredForCurrentCheckout() {
+        const methodKey = ($('#paymentMethod').val() || 'cod').toString().toLowerCase();
+        if (methodKey !== 'cod') {
+          return false;
+        }
+
+        if (!Number.isFinite(codHighValueThreshold) || codHighValueThreshold <= 0) {
+          return false;
+        }
+
+        return currentCheckoutTotalAmount() >= codHighValueThreshold;
+      }
+
+      function setCodOtpFeedback(message, type) {
+        const node = $('#codOtpFeedback');
+        node.removeClass('text-success text-danger text-warning text-secondary');
+        const safeType = (type || '').toString().toLowerCase();
+        if (safeType === 'success') {
+          node.addClass('text-success');
+        } else if (safeType === 'warning') {
+          node.addClass('text-warning');
+        } else if (safeType === 'danger') {
+          node.addClass('text-danger');
+        } else {
+          node.addClass('text-secondary');
+        }
+        node.text((message || '').toString());
+      }
+
+      function updateCodOtpVisibility() {
+        const required = codOtpRequiredForCurrentCheckout();
+        $('#codOtpSection').toggleClass('d-none', !required);
+
+        const hint = Number.isFinite(codHighValueThreshold) && codHighValueThreshold > 0 ?
+          `For COD orders of PKR ${codHighValueThreshold.toFixed(2)} or above, verify the 6-digit code sent to your email.` :
+          'COD verification code is currently disabled for this store.';
+        $('#codOtpHint').text(hint);
+
+        if (!required) {
+          $('#codEmailOtp').val('');
+          setCodOtpFeedback('', '');
+        }
       }
 
       function setPaymentMethod(methodKey, labelText) {
@@ -1582,6 +1961,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
         const methodKey = ($(this).data('value') || 'cod').toString();
         const label = ($(this).data('label') || $(this).text() || '').toString().trim();
         setPaymentMethod(methodKey, label);
+      });
+
+      $('#sendCodOtpBtn').on('click', async function() {
+        if (!isLoggedIn) {
+          window.location.href = 'login.php?redirect=cart.php';
+          return;
+        }
+
+        if (!codOtpRequiredForCurrentCheckout()) {
+          setCodOtpFeedback('Verification code is required only for high-value COD orders.', 'warning');
+          return;
+        }
+
+        const email = ($('#customerEmail').val() || '').toString().trim().toLowerCase();
+        const fullName = ($('#customerName').val() || '').toString().trim();
+
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          setCodOtpFeedback('Enter a valid checkout email first.', 'warning');
+          return;
+        }
+
+        const button = $(this);
+        button.prop('disabled', true).text('Sending OTP...');
+        setCodOtpFeedback('Sending verification code...', '');
+
+        try {
+          const payload = new URLSearchParams();
+          payload.set('csrf_token', ($('input[name="csrf_token"]').val() || '').toString());
+          payload.set('action', 'request_cod_otp');
+          payload.set('payment_method', ($('#paymentMethod').val() || 'cod').toString());
+          payload.set('customer_name', fullName);
+          payload.set('customer_email', email);
+          payload.set('order_total', String(currentCheckoutTotalAmount()));
+
+          const response = await fetch('cart.php', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+              'X-Requested-With': 'XMLHttpRequest',
+              'Accept': 'application/json'
+            },
+            body: payload.toString()
+          });
+
+          const result = await response.json().catch(() => null);
+          if (!response.ok || !result?.ok) {
+            throw new Error(result?.message || 'Unable to send verification code.');
+          }
+
+          setCodOtpFeedback(result?.message || 'Verification code sent to your email.', 'success');
+        } catch (error) {
+          setCodOtpFeedback((error && error.message) ? error.message : 'Unable to send verification code.', 'danger');
+        } finally {
+          button.prop('disabled', false).text('Send OTP');
+        }
       });
 
       $("#serverAlert, #successAlert").each(function() {
@@ -1657,7 +2092,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
         }
 
         setPaymentMethod('cod', 'Cash on Delivery (COD)');
+        updateCodOtpVisibility();
       });
+
+      const totalNode = document.getElementById('cart-total');
+      if (totalNode && window.MutationObserver) {
+        const totalObserver = new MutationObserver(function() {
+          updateCodOtpVisibility();
+        });
+
+        totalObserver.observe(totalNode, {
+          childList: true,
+          characterData: true,
+          subtree: true
+        });
+      }
 
       $('#checkoutForm').on('submit', function(event) {
         if (!$('#checkoutRequestId').val()) {

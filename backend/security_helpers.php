@@ -173,7 +173,7 @@ function commerza_captcha_local_bypass_enabled(): bool
 {
     $raw = strtolower(trim((string)getenv('COMMERZA_CAPTCHA_BYPASS_LOCAL')));
     if ($raw === '') {
-        return true;
+        return false;
     }
 
     return in_array($raw, ['1', 'true', 'on', 'yes'], true);

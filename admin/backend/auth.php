@@ -43,6 +43,22 @@ function admin_ensure_schema(mysqli $con): void
 
     $con->query($createTableSql);
 
+    $createSessionsTableSql =
+        'CREATE TABLE IF NOT EXISTS admin_sessions (
+            id INT NOT NULL AUTO_INCREMENT,
+            admin_id INT NOT NULL,
+            token VARCHAR(255) NOT NULL,
+            ip_address VARCHAR(45) DEFAULT NULL,
+            user_agent VARCHAR(255) DEFAULT NULL,
+            expires_at DATETIME NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY token (token),
+            KEY admin_id (admin_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci';
+
+    $con->query($createSessionsTableSql);
+
     $missingColumns = [
         'two_factor_code_hash' => 'VARCHAR(255) DEFAULT NULL',
         'two_factor_expires_at' => 'DATETIME DEFAULT NULL',
@@ -1243,6 +1259,221 @@ function admin_update_last_login(mysqli $con, int $adminId): void
     $stmt->close();
 }
 
+function admin_session_lifetime_seconds(): int
+{
+    $seconds = (int)ini_get('session.gc_maxlifetime');
+    if ($seconds < 900) {
+        $seconds = 21600;
+    }
+
+    if ($seconds > 172800) {
+        $seconds = 172800;
+    }
+
+    return $seconds;
+}
+
+function admin_session_table_ready(mysqli $con): bool
+{
+    static $ready = null;
+
+    if (is_bool($ready)) {
+        return $ready;
+    }
+
+    $sql =
+        'CREATE TABLE IF NOT EXISTS admin_sessions (
+            id INT NOT NULL AUTO_INCREMENT,
+            admin_id INT NOT NULL,
+            token VARCHAR(255) NOT NULL,
+            ip_address VARCHAR(45) DEFAULT NULL,
+            user_agent VARCHAR(255) DEFAULT NULL,
+            expires_at DATETIME NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY token (token),
+            KEY admin_id (admin_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci';
+
+    $ready = $con->query($sql) === true;
+    return $ready;
+}
+
+function admin_session_cleanup_expired(mysqli $con): void
+{
+    static $cleaned = false;
+
+    if ($cleaned || !admin_session_table_ready($con)) {
+        return;
+    }
+
+    $con->query('DELETE FROM admin_sessions WHERE expires_at < NOW()');
+    $cleaned = true;
+}
+
+function admin_session_token_value(): string
+{
+    $sessionId = trim((string)session_id());
+    if ($sessionId === '') {
+        return '';
+    }
+
+    return hash('sha256', $sessionId);
+}
+
+function admin_session_register(mysqli $con, int $adminId): bool
+{
+    if ($adminId <= 0 || !admin_session_table_ready($con)) {
+        return false;
+    }
+
+    admin_session_cleanup_expired($con);
+
+    $token = admin_session_token_value();
+    if ($token === '') {
+        return false;
+    }
+
+    $ip = admin_get_client_ip();
+    $userAgent = trim((string)($_SERVER['HTTP_USER_AGENT'] ?? ''));
+    if (strlen($userAgent) > 255) {
+        $userAgent = substr($userAgent, 0, 255);
+    }
+
+    $expiresAt = date('Y-m-d H:i:s', time() + admin_session_lifetime_seconds());
+
+    $stmt = $con->prepare(
+        'INSERT INTO admin_sessions (admin_id, token, ip_address, user_agent, expires_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+            admin_id = VALUES(admin_id),
+            ip_address = VALUES(ip_address),
+            user_agent = VALUES(user_agent),
+            expires_at = VALUES(expires_at)'
+    );
+
+    if (!$stmt) {
+        return false;
+    }
+
+    $stmt->bind_param('issss', $adminId, $token, $ip, $userAgent, $expiresAt);
+    $ok = $stmt->execute();
+    $stmt->close();
+
+    return $ok;
+}
+
+function admin_session_validate(mysqli $con, int $adminId): bool
+{
+    if ($adminId <= 0) {
+        return false;
+    }
+
+    if (!admin_session_table_ready($con)) {
+        return true;
+    }
+
+    admin_session_cleanup_expired($con);
+
+    $token = admin_session_token_value();
+    if ($token === '') {
+        return false;
+    }
+
+    $stmt = $con->prepare(
+        'SELECT id
+         FROM admin_sessions
+         WHERE admin_id = ?
+           AND token = ?
+           AND expires_at >= NOW()
+         LIMIT 1'
+    );
+
+    if (!$stmt) {
+        return false;
+    }
+
+    $stmt->bind_param('is', $adminId, $token);
+    $stmt->execute();
+    $stmt->store_result();
+    $exists = $stmt->num_rows > 0;
+    $stmt->close();
+
+    return $exists;
+}
+
+function admin_session_touch(mysqli $con, int $adminId): void
+{
+    if ($adminId <= 0 || !admin_session_table_ready($con)) {
+        return;
+    }
+
+    $token = admin_session_token_value();
+    if ($token === '') {
+        return;
+    }
+
+    $expiresAt = date('Y-m-d H:i:s', time() + admin_session_lifetime_seconds());
+    $stmt = $con->prepare(
+        'UPDATE admin_sessions
+         SET expires_at = ?
+         WHERE admin_id = ?
+           AND token = ?
+         LIMIT 1'
+    );
+
+    if (!$stmt) {
+        return;
+    }
+
+    $stmt->bind_param('sis', $expiresAt, $adminId, $token);
+    $stmt->execute();
+    $stmt->close();
+}
+
+function admin_session_revoke_current(mysqli $con, int $adminId): void
+{
+    if ($adminId <= 0 || !admin_session_table_ready($con)) {
+        return;
+    }
+
+    $token = admin_session_token_value();
+    if ($token === '') {
+        return;
+    }
+
+    $stmt = $con->prepare(
+        'DELETE FROM admin_sessions
+         WHERE admin_id = ?
+           AND token = ?
+         LIMIT 1'
+    );
+
+    if (!$stmt) {
+        return;
+    }
+
+    $stmt->bind_param('is', $adminId, $token);
+    $stmt->execute();
+    $stmt->close();
+}
+
+function admin_revoke_all_sessions_for_admin(mysqli $con, int $adminId): void
+{
+    if ($adminId <= 0 || !admin_session_table_ready($con)) {
+        return;
+    }
+
+    $stmt = $con->prepare('DELETE FROM admin_sessions WHERE admin_id = ?');
+    if (!$stmt) {
+        return;
+    }
+
+    $stmt->bind_param('i', $adminId);
+    $stmt->execute();
+    $stmt->close();
+}
+
 function admin_login_user(mysqli $con, array $admin): void
 {
     session_regenerate_id(true);
@@ -1253,10 +1484,16 @@ function admin_login_user(mysqli $con, array $admin): void
 
     admin_update_last_login($con, (int)$admin['id']);
     admin_generate_csrf_token();
+    admin_session_register($con, (int)$admin['id']);
 }
 
-function admin_logout_user(): void
+function admin_logout_user(?mysqli $con = null): void
 {
+    $adminId = isset($_SESSION['admin_user_id']) ? (int)$_SESSION['admin_user_id'] : 0;
+    if ($con instanceof mysqli && $adminId > 0) {
+        admin_session_revoke_current($con, $adminId);
+    }
+
     unset(
         $_SESSION['admin_user_id'],
         $_SESSION['admin_authenticated_at'],
@@ -1302,18 +1539,28 @@ function admin_require_login(mysqli $con): array
 
     $admin = admin_get_by_id($con, $adminId);
     if (!$admin) {
-        admin_logout_user();
+        admin_logout_user($con);
         header('Location: admin-login.php');
         exit;
     }
 
     $blockReason = admin_account_block_reason($admin);
     if ($blockReason !== null) {
-        admin_logout_user();
+        admin_revoke_all_sessions_for_admin($con, $adminId);
+        admin_logout_user($con);
         $_SESSION['admin_login_error'] = $blockReason;
         header('Location: admin-login.php');
         exit;
     }
+
+    if (!admin_session_validate($con, $adminId)) {
+        admin_logout_user($con);
+        $_SESSION['admin_login_error'] = 'Session expired or revoked. Please login again.';
+        header('Location: admin-login.php');
+        exit;
+    }
+
+    admin_session_touch($con, $adminId);
 
     return $admin;
 }
@@ -1332,7 +1579,7 @@ function admin_require_login_api(mysqli $con): array
 
     $admin = admin_get_by_id($con, $adminId);
     if (!$admin) {
-        admin_logout_user();
+        admin_logout_user($con);
         http_response_code(401);
         echo json_encode([
             'ok' => false,
@@ -1343,7 +1590,8 @@ function admin_require_login_api(mysqli $con): array
 
     $blockReason = admin_account_block_reason($admin);
     if ($blockReason !== null) {
-        admin_logout_user();
+        admin_revoke_all_sessions_for_admin($con, $adminId);
+        admin_logout_user($con);
         http_response_code(403);
         echo json_encode([
             'ok' => false,
@@ -1351,6 +1599,18 @@ function admin_require_login_api(mysqli $con): array
         ]);
         exit;
     }
+
+    if (!admin_session_validate($con, $adminId)) {
+        admin_logout_user($con);
+        http_response_code(401);
+        echo json_encode([
+            'ok' => false,
+            'message' => 'Session expired or revoked. Please login again.',
+        ]);
+        exit;
+    }
+
+    admin_session_touch($con, $adminId);
 
     return $admin;
 }

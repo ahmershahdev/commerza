@@ -220,7 +220,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $emailValue,
             $clientIp
           );
-          admin_logout_user();
+          admin_logout_user($con);
           $success = 'Password reset successful. Redirecting to login...';
           $resetComplete = true;
         }
