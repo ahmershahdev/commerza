@@ -660,6 +660,15 @@ function commerza_notifications_ensure_reminder_table(mysqli $con): void
     $initialized = true;
 }
 
+function commerza_engagement_reminder_upsert_sql(): string
+{
+    return 'INSERT INTO engagement_reminders (user_id, product_id, reminder_type, created_at, last_seen_at, sent_at)
+         VALUES (?, ?, ?, NOW(), NOW(), NULL)
+         ON DUPLICATE KEY UPDATE
+            last_seen_at = NOW(),
+            sent_at = NULL';
+}
+
 function commerza_queue_engagement_reminder(mysqli $con, int $userId, int $productId, string $type): bool
 {
     $type = strtolower(trim($type));
@@ -667,15 +676,13 @@ function commerza_queue_engagement_reminder(mysqli $con, int $userId, int $produ
         return false;
     }
 
-    commerza_notifications_ensure_reminder_table($con);
+    $upsertSql = commerza_engagement_reminder_upsert_sql();
+    $stmt = $con->prepare($upsertSql);
 
-    $stmt = $con->prepare(
-        'INSERT INTO engagement_reminders (user_id, product_id, reminder_type, created_at, last_seen_at, sent_at)
-         VALUES (?, ?, ?, NOW(), NOW(), NULL)
-         ON DUPLICATE KEY UPDATE
-            last_seen_at = NOW(),
-            sent_at = NULL'
-    );
+    if (!$stmt && (int)$con->errno === 1146) {
+        commerza_notifications_ensure_reminder_table($con);
+        $stmt = $con->prepare($upsertSql);
+    }
 
     if (!$stmt) {
         return false;
@@ -683,9 +690,29 @@ function commerza_queue_engagement_reminder(mysqli $con, int $userId, int $produ
 
     $stmt->bind_param('iis', $userId, $productId, $type);
     $ok = $stmt->execute();
+    $stmtErrno = (int)$stmt->errno;
     $stmt->close();
 
-    return $ok;
+    if ($ok) {
+        return true;
+    }
+
+    if ($stmtErrno === 1146) {
+        commerza_notifications_ensure_reminder_table($con);
+
+        $retryStmt = $con->prepare($upsertSql);
+        if (!$retryStmt) {
+            return false;
+        }
+
+        $retryStmt->bind_param('iis', $userId, $productId, $type);
+        $retryOk = $retryStmt->execute();
+        $retryStmt->close();
+
+        return $retryOk;
+    }
+
+    return false;
 }
 
 function commerza_is_item_still_saved(mysqli $con, int $userId, int $productId, string $type): bool

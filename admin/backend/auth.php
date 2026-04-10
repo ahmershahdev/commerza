@@ -194,6 +194,33 @@ function admin_get_client_ip(): string
     return '0.0.0.0';
 }
 
+function admin_loopback_ip_aliases(): array
+{
+    return [
+        '127.0.0.1',
+        '::1',
+        '[::1]',
+        '0:0:0:0:0:0:0:1',
+    ];
+}
+
+function admin_client_ip_matches(string $expectedIp, string $currentIp): bool
+{
+    $expected = strtolower(trim($expectedIp));
+    $current = strtolower(trim($currentIp));
+
+    if ($expected === '' || $current === '') {
+        return false;
+    }
+
+    if ($expected === $current) {
+        return true;
+    }
+
+    $loopbackAliases = admin_loopback_ip_aliases();
+    return in_array($expected, $loopbackAliases, true) && in_array($current, $loopbackAliases, true);
+}
+
 function admin_get_reset_key(mysqli $con): string
 {
     $legacyDefaultKey = 'COMMERZA-RESET-2026';
@@ -825,7 +852,7 @@ function admin_get_email_verification_pending_session(): ?array
         return null;
     }
 
-    if ($ip !== admin_get_client_ip() || $uaHash !== admin_two_factor_user_agent_hash()) {
+    if (!admin_client_ip_matches($ip, admin_get_client_ip()) || $uaHash !== admin_two_factor_user_agent_hash()) {
         unset($_SESSION['admin_email_verify_pending']);
         return null;
     }
@@ -1340,23 +1367,23 @@ function admin_session_register(mysqli $con, int $adminId): bool
         $userAgent = substr($userAgent, 0, 255);
     }
 
-    $expiresAt = date('Y-m-d H:i:s', time() + admin_session_lifetime_seconds());
+    $lifetimeSeconds = admin_session_lifetime_seconds();
 
     $stmt = $con->prepare(
         'INSERT INTO admin_sessions (admin_id, token, ip_address, user_agent, expires_at)
-         VALUES (?, ?, ?, ?, ?)
+         VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? SECOND))
          ON DUPLICATE KEY UPDATE
             admin_id = VALUES(admin_id),
             ip_address = VALUES(ip_address),
             user_agent = VALUES(user_agent),
-            expires_at = VALUES(expires_at)'
+            expires_at = DATE_ADD(NOW(), INTERVAL ? SECOND)'
     );
 
     if (!$stmt) {
         return false;
     }
 
-    $stmt->bind_param('issss', $adminId, $token, $ip, $userAgent, $expiresAt);
+    $stmt->bind_param('isssii', $adminId, $token, $ip, $userAgent, $lifetimeSeconds, $lifetimeSeconds);
     $ok = $stmt->execute();
     $stmt->close();
 
@@ -1413,10 +1440,10 @@ function admin_session_touch(mysqli $con, int $adminId): void
         return;
     }
 
-    $expiresAt = date('Y-m-d H:i:s', time() + admin_session_lifetime_seconds());
+    $lifetimeSeconds = admin_session_lifetime_seconds();
     $stmt = $con->prepare(
         'UPDATE admin_sessions
-         SET expires_at = ?
+            SET expires_at = DATE_ADD(NOW(), INTERVAL ? SECOND)
          WHERE admin_id = ?
            AND token = ?
          LIMIT 1'
@@ -1426,7 +1453,7 @@ function admin_session_touch(mysqli $con, int $adminId): void
         return;
     }
 
-    $stmt->bind_param('sis', $expiresAt, $adminId, $token);
+    $stmt->bind_param('iis', $lifetimeSeconds, $adminId, $token);
     $stmt->execute();
     $stmt->close();
 }
@@ -2257,7 +2284,7 @@ function admin_get_two_factor_pending_session(): ?array
         return null;
     }
 
-    if ($ip !== admin_get_client_ip() || $uaHash !== admin_two_factor_user_agent_hash()) {
+    if (!admin_client_ip_matches($ip, admin_get_client_ip()) || $uaHash !== admin_two_factor_user_agent_hash()) {
         unset($_SESSION['admin_2fa_pending']);
         return null;
     }

@@ -2317,7 +2317,7 @@ if (is_array($accountDeletePending)) {
                     <input type="text" id="full-name" name="full_name" class="form-control search-input"
                       value="<?= htmlspecialchars((string)$user['full_name']) ?>" required
                       autocomplete="name" minlength="3" maxlength="40"
-                      pattern="[A-Za-z][A-Za-z .'-]{2,39}"
+                      pattern="[A-Za-z][A-Za-z .'\-]{2,39}"
                       title="Use 3-40 letters with spaces, dots, apostrophes, or hyphens." />
                     <small class="account-help text-secondary">Use your real name for invoices and delivery records.</small>
                   </div>
@@ -2712,13 +2712,21 @@ if (is_array($accountDeletePending)) {
 
       const addressInput = $("#address");
       const mapFrame = $("#address-map-frame");
-      const refreshAddressMap = function() {
+      let mapRefreshTimer = null;
+      let lastMapQuery = "";
+
+      const refreshAddressMap = function(forceUpdate = false) {
         if (!addressInput.length || !mapFrame.length) {
           return;
         }
 
         const rawAddress = (addressInput.val() || "").toString().trim();
         const query = rawAddress !== "" ? rawAddress : "Pakistan";
+        if (!forceUpdate && query === lastMapQuery) {
+          return;
+        }
+
+        lastMapQuery = query;
         const mapUrl =
           "https://www.google.com/maps?q=" +
           encodeURIComponent(query) +
@@ -2726,8 +2734,30 @@ if (is_array($accountDeletePending)) {
         mapFrame.attr("src", mapUrl);
       };
 
-      addressInput.on("input", refreshAddressMap);
-      refreshAddressMap();
+      const scheduleAddressMapRefresh = function() {
+        if (!addressInput.length || !mapFrame.length) {
+          return;
+        }
+
+        if (mapRefreshTimer !== null) {
+          window.clearTimeout(mapRefreshTimer);
+        }
+
+        mapRefreshTimer = window.setTimeout(function() {
+          mapRefreshTimer = null;
+          refreshAddressMap(false);
+        }, 650);
+      };
+
+      addressInput.on("input", scheduleAddressMapRefresh);
+      addressInput.on("blur change", function() {
+        if (mapRefreshTimer !== null) {
+          window.clearTimeout(mapRefreshTimer);
+          mapRefreshTimer = null;
+        }
+        refreshAddressMap(true);
+      });
+      refreshAddressMap(true);
 
       const profileForm = $("#updateProfileForm");
       const usernameInput = $("#username");

@@ -89,6 +89,7 @@ $(document).ready(function () {
   const CART_WISHLIST_SYNC_TTL_MS = 15000;
   let cartWishlistSyncInFlight = null;
   let lastCartWishlistSyncAt = 0;
+  let cartInitInFlight = null;
 
   applySiteSettings();
   ensureLegalNavLinks();
@@ -238,45 +239,70 @@ $(document).ready(function () {
       return cart;
     }
 
-    try {
-      const response = await fetch(`${CART_API_URL}?action=status`, {
-        method: "GET",
-        credentials: "same-origin",
-        cache: "no-store",
-      });
+    if (cartInitInFlight) {
+      return cartInitInFlight;
+    }
 
-      const data = await parseJsonResponse(response);
-      if (response.ok && data?.ok) {
-        cart = Array.isArray(data.items) ? data.items : [];
-        cartState.csrfToken = data?.csrf_token || cartState.csrfToken;
-        cartState.pricing =
-          data?.pricing && typeof data.pricing === "object"
-            ? data.pricing
-            : null;
-        cartState.coupon =
-          data?.coupon && typeof data.coupon === "object" ? data.coupon : null;
-        cartState.couponNotice = (data?.coupon_notice || "").toString();
-      } else {
+    cartInitInFlight = (async () => {
+      try {
+        const response = await fetch(`${CART_API_URL}?action=status`, {
+          method: "GET",
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+
+        const data = await parseJsonResponse(response);
+        if (response.ok && data?.ok) {
+          cart = Array.isArray(data.items) ? data.items : [];
+          cartState.csrfToken = data?.csrf_token || cartState.csrfToken;
+          cartState.pricing =
+            data?.pricing && typeof data.pricing === "object"
+              ? data.pricing
+              : null;
+          cartState.coupon =
+            data?.coupon && typeof data.coupon === "object"
+              ? data.coupon
+              : null;
+          cartState.couponNotice = (data?.coupon_notice || "").toString();
+        } else {
+          cart = [];
+          cartState.pricing = null;
+          cartState.coupon = null;
+          cartState.couponNotice = "";
+        }
+      } catch (error) {
         cart = [];
         cartState.pricing = null;
         cartState.coupon = null;
         cartState.couponNotice = "";
       }
-    } catch (error) {
-      cart = [];
-      cartState.pricing = null;
-      cartState.coupon = null;
-      cartState.couponNotice = "";
-    }
 
-    cartState.initialized = true;
-    lastCartWishlistSyncAt = Date.now();
-    return cart;
+      cartState.initialized = true;
+      lastCartWishlistSyncAt = Date.now();
+      return cart;
+    })();
+
+    try {
+      return await cartInitInFlight;
+    } finally {
+      cartInitInFlight = null;
+    }
   }
 
   async function postCartAction(action, payload = {}, retryCount = 0) {
-    if (!cartState.initialized) {
-      await initCartState();
+    if (!cartState.csrfToken) {
+      const pageToken = ($('input[name="csrf_token"]').first().val() || "")
+        .toString()
+        .trim();
+      if (pageToken !== "") {
+        cartState.csrfToken = pageToken;
+      }
+    }
+
+    if (!cartState.initialized && !cartInitInFlight) {
+      initCartState().catch(() => {
+        // Fire-and-forget warmup; request still proceeds and CSRF retry handles refresh.
+      });
     }
 
     const form = new URLSearchParams();
@@ -639,7 +665,11 @@ $(document).ready(function () {
       return;
     }
 
-    await initCartState();
+    if (!cartState.initialized && !cartInitInFlight) {
+      initCartState().catch(() => {
+        // Keep first add responsive while cart state warms up in background.
+      });
+    }
 
     if (getTotalCartQty() >= 10) {
       triggerAlert();
@@ -720,7 +750,7 @@ $(document).ready(function () {
           height: "30px",
           opacity: 0.5,
         },
-        1200,
+        520,
         "swing",
         function () {
           $(this).remove();
@@ -781,7 +811,7 @@ $(document).ready(function () {
             height: "30px",
             opacity: 0.5,
           },
-          1200,
+          520,
           "swing",
           function () {
             $(this).remove();
@@ -3535,7 +3565,7 @@ $(document).ready(function () {
     );
 
     const shuffled = filtered.sort(() => 0.5 - Math.random());
-    const selected = shuffled.slice(0, 4);
+    const selected = shuffled.slice(0, 6);
 
     container.empty();
     if (selected.length === 0) {
@@ -3545,7 +3575,12 @@ $(document).ready(function () {
       return;
     }
     selected.forEach((product) => {
-      container.append(createProductCard(product));
+      const card = $(createProductCard(product));
+      const gridColumn = card.first();
+      if (gridColumn.length) {
+        gridColumn.removeClass("col-lg-3 col-lg-4").addClass("col-lg-4");
+      }
+      container.append(card);
     });
   }
 

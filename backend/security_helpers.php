@@ -133,6 +133,28 @@ function commerza_env_first_non_empty(array $keys): string
     return '';
 }
 
+function commerza_security_setting_first_non_empty(
+    mysqli $con,
+    array $settingKeys,
+    array $envKeys = [],
+    string $fallback = ''
+): string {
+    $envFallback = commerza_env_first_non_empty($envKeys);
+
+    foreach ($settingKeys as $settingKey) {
+        $value = trim(commerza_security_setting($con, (string)$settingKey, $envFallback));
+        if ($value !== '') {
+            return $value;
+        }
+    }
+
+    if ($envFallback !== '') {
+        return $envFallback;
+    }
+
+    return $fallback;
+}
+
 function commerza_captcha_is_local_request(): bool
 {
     $host = strtolower(trim((string)($_SERVER['HTTP_HOST'] ?? '')));
@@ -594,11 +616,11 @@ function commerza_captcha_config(mysqli $con): array
     $enabledRaw = commerza_security_setting(
         $con,
         'captcha_enabled',
-        commerza_env_first_non_empty(['COMMERZA_CAPTCHA_ENABLED'])
+        commerza_env_first_non_empty(['COMMERZA_CAPTCHA_ENABLED', 'CAPTCHA_ENABLED'])
     );
 
     $enabledRaw = strtolower(trim($enabledRaw));
-    $requiredRaw = strtolower(trim(commerza_env_first_non_empty(['COMMERZA_CAPTCHA_REQUIRED'])));
+    $requiredRaw = strtolower(trim(commerza_env_first_non_empty(['COMMERZA_CAPTCHA_REQUIRED', 'CAPTCHA_REQUIRED'])));
     if ($requiredRaw === '') {
         $requiredRaw = '1';
     }
@@ -609,7 +631,7 @@ function commerza_captcha_config(mysqli $con): array
     $providerRaw = commerza_security_setting(
         $con,
         'captcha_provider',
-        commerza_env_first_non_empty(['COMMERZA_CAPTCHA_PROVIDER'])
+        commerza_env_first_non_empty(['COMMERZA_CAPTCHA_PROVIDER', 'CAPTCHA_PROVIDER'])
     );
 
     $provider = commerza_captcha_normalize_provider($providerRaw);
@@ -628,33 +650,70 @@ function commerza_captcha_config(mysqli $con): array
     $v3ResponseField = 'g-recaptcha-v3-response';
 
     if ($provider === 'recaptcha') {
-        $siteKey = commerza_security_setting(
+        $siteKey = commerza_security_setting_first_non_empty(
             $con,
-            'recaptcha_site_key',
-            commerza_env_first_non_empty(['COMMERZA_RECAPTCHA_SITE_KEY', 'RECAPTCHA_SITE_KEY'])
+            ['recaptcha_site_key', 'captcha_site_key', 'google_recaptcha_site_key', 'recaptcha_v2_site_key'],
+            [
+                'COMMERZA_RECAPTCHA_SITE_KEY',
+                'RECAPTCHA_SITE_KEY',
+                'COMMERZA_GOOGLE_RECAPTCHA_SITE_KEY',
+                'GOOGLE_RECAPTCHA_SITE_KEY',
+                'COMMERZA_CAPTCHA_SITE_KEY',
+                'CAPTCHA_SITE_KEY',
+                'COMMERZA_RECAPTCHA_V2_SITE_KEY',
+                'RECAPTCHA_V2_SITE_KEY',
+            ]
         );
-        $secretKey = commerza_security_setting(
+        $secretKey = commerza_security_setting_first_non_empty(
             $con,
-            'recaptcha_secret_key',
-            commerza_env_first_non_empty(['COMMERZA_RECAPTCHA_SECRET_KEY', 'RECAPTCHA_SECRET_KEY'])
+            ['recaptcha_secret_key', 'captcha_secret_key', 'google_recaptcha_secret_key', 'recaptcha_v2_secret_key'],
+            [
+                'COMMERZA_RECAPTCHA_SECRET_KEY',
+                'RECAPTCHA_SECRET_KEY',
+                'COMMERZA_GOOGLE_RECAPTCHA_SECRET_KEY',
+                'GOOGLE_RECAPTCHA_SECRET_KEY',
+                'COMMERZA_CAPTCHA_SECRET_KEY',
+                'CAPTCHA_SECRET_KEY',
+                'COMMERZA_RECAPTCHA_V2_SECRET_KEY',
+                'RECAPTCHA_V2_SECRET_KEY',
+            ]
         );
 
-        $v3SiteKey = commerza_security_setting(
+        $v3SiteKey = commerza_security_setting_first_non_empty(
             $con,
-            'recaptcha_v3_site_key',
-            commerza_env_first_non_empty(['COMMERZA_RECAPTCHA_V3_SITE_KEY'])
+            ['recaptcha_v3_site_key', 'captcha_v3_site_key', 'google_recaptcha_v3_site_key'],
+            [
+                'COMMERZA_RECAPTCHA_V3_SITE_KEY',
+                'RECAPTCHA_V3_SITE_KEY',
+                'COMMERZA_GOOGLE_RECAPTCHA_V3_SITE_KEY',
+                'GOOGLE_RECAPTCHA_V3_SITE_KEY',
+                'COMMERZA_CAPTCHA_V3_SITE_KEY',
+                'CAPTCHA_V3_SITE_KEY',
+            ]
         );
 
-        $v3SecretKey = commerza_security_setting(
+        $v3SecretKey = commerza_security_setting_first_non_empty(
             $con,
-            'recaptcha_v3_secret_key',
-            commerza_env_first_non_empty(['COMMERZA_RECAPTCHA_V3_SECRET_KEY'])
+            ['recaptcha_v3_secret_key', 'captcha_v3_secret_key', 'google_recaptcha_v3_secret_key'],
+            [
+                'COMMERZA_RECAPTCHA_V3_SECRET_KEY',
+                'RECAPTCHA_V3_SECRET_KEY',
+                'COMMERZA_GOOGLE_RECAPTCHA_V3_SECRET_KEY',
+                'GOOGLE_RECAPTCHA_V3_SECRET_KEY',
+                'COMMERZA_CAPTCHA_V3_SECRET_KEY',
+                'CAPTCHA_V3_SECRET_KEY',
+            ]
         );
 
-        $v3MinScoreRaw = commerza_security_setting(
+        $v3MinScoreRaw = commerza_security_setting_first_non_empty(
             $con,
-            'recaptcha_v3_min_score',
-            commerza_env_first_non_empty(['COMMERZA_RECAPTCHA_V3_MIN_SCORE'])
+            ['recaptcha_v3_min_score', 'captcha_v3_min_score'],
+            [
+                'COMMERZA_RECAPTCHA_V3_MIN_SCORE',
+                'RECAPTCHA_V3_MIN_SCORE',
+                'COMMERZA_CAPTCHA_V3_MIN_SCORE',
+                'CAPTCHA_V3_MIN_SCORE',
+            ]
         );
 
         if ($v3MinScoreRaw !== '') {
@@ -731,6 +790,7 @@ function commerza_captcha_script_tag(mysqli $con): string
     $rawScriptUrl = (string)($config['script_url'] ?? 'https://www.recaptcha.net/recaptcha/api.js');
     $scriptUrl = htmlspecialchars($rawScriptUrl, ENT_QUOTES, 'UTF-8');
     $nonceAttr = function_exists('commerza_csp_nonce_attr') ? (' ' . commerza_csp_nonce_attr()) : '';
+    $v2EnabledJs = !empty($config['v2_enabled']) ? 'true' : 'false';
     $v3EnabledJs = !empty($config['v3_enabled']) ? 'true' : 'false';
     $v3SiteKeyJson = json_encode((string)($config['v3_site_key'] ?? ''), JSON_UNESCAPED_SLASHES);
     $scriptUrlJson = json_encode($rawScriptUrl, JSON_UNESCAPED_SLASHES);
@@ -749,6 +809,7 @@ function commerza_captcha_script_tag(mysqli $con): string
     window.__commerzaCaptchaNetworkGuardAttached = true;
 
     var captchaScriptUrl = {$scriptUrlJson};
+    var v2Enabled = {$v2EnabledJs};
     var v3Enabled = {$v3EnabledJs};
     var v3SiteKey = {$v3SiteKeyJson};
     var reconnectAttempts = 0;
@@ -864,6 +925,43 @@ function commerza_captcha_script_tag(mysqli $con): string
         return element.getClientRects && element.getClientRects().length > 0;
     }
 
+    function renderV2Widget(container) {
+        if (!v2Enabled || !container) {
+            return false;
+        }
+
+        var slot = container.querySelector('.captcha-widget[data-commerza-v2-slot="1"]');
+        if (!slot) {
+            return false;
+        }
+
+        if (slot.dataset.commerzaV2Rendered === '1') {
+            return true;
+        }
+
+        if (!window.grecaptcha || typeof window.grecaptcha.render !== 'function') {
+            return false;
+        }
+
+        var siteKey = (slot.getAttribute('data-sitekey') || '').toString().trim();
+        if (!siteKey) {
+            return false;
+        }
+
+        var theme = (slot.getAttribute('data-theme') || 'dark').toString().trim() || 'dark';
+
+        try {
+            window.grecaptcha.render(slot, {
+                sitekey: siteKey,
+                theme: theme,
+            });
+            slot.dataset.commerzaV2Rendered = '1';
+            return true;
+        } catch (_error) {
+            return false;
+        }
+    }
+
     function issueV3Token(form, action) {
         if (!v3Enabled || !form || !window.grecaptcha || typeof window.grecaptcha.execute !== 'function') {
             return Promise.resolve('');
@@ -885,6 +983,24 @@ function commerza_captcha_script_tag(mysqli $con): string
                 resolve('');
             }
         });
+    }
+
+    function hasCompletedV2Token(form) {
+        if (!form) {
+            return false;
+        }
+
+        var v2TokenField = form.querySelector('textarea[name="g-recaptcha-response"], input[name="g-recaptcha-response"]');
+        return !!(v2TokenField && (v2TokenField.value || '').trim() !== '');
+    }
+
+    function hasSolvedFallback(form) {
+        if (!form) {
+            return false;
+        }
+
+        var fallbackField = form.querySelector('input[data-commerza-captcha-answer]');
+        return !!(fallbackField && (fallbackField.value || '').trim() !== '');
     }
 
     function refreshV3Tokens() {
@@ -931,8 +1047,31 @@ function commerza_captcha_script_tag(mysqli $con): string
 
             form.dataset.commerzaCaptchaSubmitBound = '1';
 
+            if (v2Enabled) {
+                form.addEventListener('focusin', function () {
+                    renderV2Widget(container);
+                });
+
+                var submitButtons = form.querySelectorAll('button[type="submit"], input[type="submit"]');
+                submitButtons.forEach(function (button) {
+                    button.addEventListener('click', function () {
+                        renderV2Widget(container);
+                    });
+                });
+            }
+
             form.addEventListener('submit', function (event) {
                 if (!v3Enabled) {
+                    if (hasCompletedV2Token(form) || hasSolvedFallback(form)) {
+                        return;
+                    }
+
+                    if (v2Enabled) {
+                        renderV2Widget(container);
+                    }
+
+                    showFallback(container, 'Complete Google CAPTCHA or solve the backup question before submitting.');
+                    event.preventDefault();
                     return;
                 }
 
@@ -941,7 +1080,12 @@ function commerza_captcha_script_tag(mysqli $con): string
                     return;
                 }
 
+                if (hasCompletedV2Token(form) || hasSolvedFallback(form)) {
+                    return;
+                }
+
                 if (!window.grecaptcha || typeof window.grecaptcha.execute !== 'function') {
+                    event.preventDefault();
                     showFallback(container, 'Google verification is unavailable. Please solve the backup challenge.');
                     return;
                 }
@@ -952,7 +1096,13 @@ function commerza_captcha_script_tag(mysqli $con): string
                 var action = contextToAction(contextField ? contextField.value : 'default');
                 issueV3Token(form, action).then(function (token) {
                     tokenField.value = token;
-                    form.submit();
+
+                    if ((token || '').trim() !== '' || hasCompletedV2Token(form) || hasSolvedFallback(form)) {
+                        form.submit();
+                        return;
+                    }
+
+                    showFallback(container, 'Google verification failed. Please solve the backup challenge.');
                 });
             });
         });
@@ -1138,15 +1288,15 @@ function commerza_captcha_widget_html(mysqli $con, string $context = ''): string
     $renderGoogleWidget = $v2Enabled;
     if ($renderGoogleWidget) {
         $siteKey = htmlspecialchars((string)($config['site_key'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $widget = '<div class="g-recaptcha captcha-widget" data-theme="dark" data-sitekey="' . $siteKey . '" style="margin:0 auto;"></div>';
+        $widget = '<div class="captcha-widget" data-commerza-v2-slot="1" data-theme="dark" data-sitekey="' . $siteKey . '" style="margin:0 auto;min-height:78px;"></div>';
     }
 
     $fallbackMessage = $v2Enabled || $v3Enabled
-        ? 'Google verification may not always appear. Read the question carefully and enter the exact answer to continue securely.'
-        : 'Google CAPTCHA keys are not configured. Read the question carefully and enter the exact answer to continue securely.';
+        ? 'Complete Google CAPTCHA or solve this backup question to continue securely.'
+        : 'Google CAPTCHA keys are not configured. Solve this backup question to continue securely.';
 
-    $fallbackDisplay = (!$v2Enabled && !$v3Enabled) ? 'block' : 'none';
-    $toggleDisplay = (!$v2Enabled && !$v3Enabled) ? 'none' : 'inline-flex';
+    $fallbackDisplay = 'block';
+    $toggleDisplay = 'none';
 
     $wrapperStyle = 'display:flex;justify-content:center;width:100%;';
     $shellStyle = 'display:flex;flex-direction:column;justify-content:center;align-items:center;width:min(100%,390px);padding:12px;border-radius:16px;border:0;background:linear-gradient(180deg,rgba(18,18,18,.96),rgba(8,8,8,.96));box-shadow:0 16px 32px rgba(0,0,0,.45),inset 0 0 0 1px rgba(255,255,255,.03);';
@@ -1166,7 +1316,7 @@ function commerza_captcha_widget_html(mysqli $con, string $context = ''): string
         . '<div data-commerza-captcha-fallback-message style="color:#ffd8b6;font-size:12px;line-height:1.45;margin-bottom:8px;user-select:none;-webkit-user-select:none;">' . htmlspecialchars($fallbackMessage, ENT_QUOTES, 'UTF-8') . '</div>'
         . '<label style="display:block;color:#f3e7da;font-size:13px;font-weight:600;margin-bottom:6px;user-select:none;-webkit-user-select:none;">Security question: ' . $question . '</label>'
         . '<div style="color:#d0d0d0;font-size:11px;line-height:1.4;margin-bottom:8px;user-select:none;-webkit-user-select:none;">Type the exact answer and submit.</div>'
-        . '<input type="text" name="' . $answerField . '" inputmode="text" pattern="[-A-Za-z0-9 ]{1,64}" maxlength="64" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-commerza-captcha-answer="1" class="form-control bg-secondary border-0 text-light" style="min-height:42px;user-select:none;-webkit-user-select:none;">'
+        . '<input type="text" name="' . $answerField . '" inputmode="text" pattern="[A-Za-z0-9\- ]{1,64}" maxlength="64" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-commerza-captcha-answer="1" class="form-control bg-secondary border-0 text-light" style="min-height:42px;user-select:none;-webkit-user-select:none;">'
         . '<input type="hidden" name="' . $tokenField . '" value="' . $token . '">'
         . '</div>'
         . '</div>'
@@ -1626,7 +1776,35 @@ function commerza_captcha_verify_submission(mysqli $con, array $request, string 
                 (float)($config['v3_min_score'] ?? 0.45)
             );
 
-            if (!(bool)($v3Verification['ok'] ?? false)) {
+            if ((bool)($v3Verification['ok'] ?? false)) {
+                $verifiedByV3 = true;
+            } elseif ($v2Enabled && $v2Token !== '') {
+                $v2Verification = commerza_captcha_verify_recaptcha_token(
+                    $config,
+                    (string)($config['secret_key'] ?? ''),
+                    $v2Token,
+                    $context,
+                    0.0
+                );
+
+                if (!(bool)($v2Verification['ok'] ?? false)) {
+                    return [
+                        'ok' => false,
+                        'message' => (string)($v2Verification['message'] ?? 'CAPTCHA verification failed. Please try again.'),
+                        'skipped' => false,
+                        'error_codes' => (array)($v2Verification['error_codes'] ?? []),
+                        'allow_fallback' => !empty($v2Verification['transport_error'])
+                            || !empty($v3Verification['transport_error'])
+                            || !empty($v3Verification['score_low'])
+                            || !empty($v3Verification['action_mismatch'])
+                            || !empty($v3Verification['hostname_mismatch'])
+                            || !empty($v3Verification['token_expired'])
+                            || !empty($v3Verification['score_invalid']),
+                    ];
+                }
+
+                $verifiedByV2 = true;
+            } else {
                 return [
                     'ok' => false,
                     'message' => (string)($v3Verification['message'] ?? 'CAPTCHA verification failed. Please try again.'),
@@ -1640,8 +1818,6 @@ function commerza_captcha_verify_submission(mysqli $con, array $request, string 
                         || !empty($v3Verification['score_invalid']),
                 ];
             }
-
-            $verifiedByV3 = true;
         } elseif ($v2Enabled && $v2Token !== '') {
             $v2Verification = commerza_captcha_verify_recaptcha_token(
                 $config,

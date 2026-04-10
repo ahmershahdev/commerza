@@ -85,6 +85,7 @@ const wishlistState = {
   count: 0,
   csrfToken: null,
 };
+let wishlistInitInFlight = null;
 
 function getCurrentPageFileName() {
   const path = window.location.pathname.replace(/\\/g, "/");
@@ -118,27 +119,39 @@ async function initWishlistState() {
     return wishlistState;
   }
 
-  try {
-    const response = await fetch(`${WISHLIST_API_URL}?action=status`, {
-      method: "GET",
-      credentials: "same-origin",
-      cache: "no-store",
-    });
-
-    const data = await parseWishlistResponseJson(response);
-    if (response.ok && data?.ok) {
-      setServerWishlistState(data);
-      wishlistState.initialized = true;
-      return wishlistState;
-    }
-  } catch (error) {
-    wishlistState.loggedIn = false;
-    wishlistState.ids = new Set();
-    wishlistState.count = 0;
+  if (wishlistInitInFlight) {
+    return wishlistInitInFlight;
   }
 
-  wishlistState.initialized = true;
-  return wishlistState;
+  wishlistInitInFlight = (async () => {
+    try {
+      const response = await fetch(`${WISHLIST_API_URL}?action=status`, {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+
+      const data = await parseWishlistResponseJson(response);
+      if (response.ok && data?.ok) {
+        setServerWishlistState(data);
+        wishlistState.initialized = true;
+        return wishlistState;
+      }
+    } catch (error) {
+      wishlistState.loggedIn = false;
+      wishlistState.ids = new Set();
+      wishlistState.count = 0;
+    }
+
+    wishlistState.initialized = true;
+    return wishlistState;
+  })();
+
+  try {
+    return await wishlistInitInFlight;
+  } finally {
+    wishlistInitInFlight = null;
+  }
 }
 
 function redirectToLoginForWishlist() {

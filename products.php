@@ -808,7 +808,7 @@ $productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza
 
     <section class="mt-5 mb-5">
       <h2 class="product-section-title mb-3">Related Products</h2>
-      <div class="row" id="related-products-container"></div>
+      <div class="row g-3" id="related-products-container"></div>
     </section>
   </main>
 
@@ -868,12 +868,12 @@ $productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza
   </footer>
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="frontend/assets/js/global-protection.js"></script>
-  <script src="frontend/assets/js/auth.js"></script>
+  <script src="frontend/assets/js/global-protection.js" defer></script>
+  <script src="frontend/assets/js/auth.js" defer></script>
   <script <?= commerza_csp_nonce_attr() ?>>
     window.CommerzaCsrfToken = <?= json_encode((string)$_SESSION['csrf_token']) ?>;
   </script>
-  <script src="frontend/assets/js/script.js"></script>
+  <script src="frontend/assets/js/script.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>

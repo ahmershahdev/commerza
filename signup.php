@@ -906,7 +906,7 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
                 <input type="text" class="form-control" id="fullname" name="user_full_name"
                   placeholder="Enter your full name" required autofocus autocomplete="name"
                   minlength="3" maxlength="40"
-                  pattern="[A-Za-z][A-Za-z .'-]{2,39}"
+                  pattern="[A-Za-z][A-Za-z .'\-]{2,39}"
                   title="Use 3-40 letters with spaces, dots, apostrophes, or hyphens."
                   value="<?= htmlspecialchars($full_name) ?>" />
               </div>
