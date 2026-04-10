@@ -1664,6 +1664,94 @@ function commerza_site_setting_value(mysqli $con, string $key, string $fallback 
     return $value !== '' ? $value : $fallback;
 }
 
+function commerza_public_table_exists(mysqli $con, string $table): bool
+{
+    static $cache = [];
+
+    $normalized = strtolower(trim($table));
+    if ($normalized === '' || preg_match('/^[a-z0-9_]+$/', $normalized) !== 1) {
+        return false;
+    }
+
+    if (array_key_exists($normalized, $cache)) {
+        return (bool)$cache[$normalized];
+    }
+
+    $safeTable = $con->real_escape_string($normalized);
+    $result = $con->query("SHOW TABLES LIKE '{$safeTable}'");
+    $exists = $result instanceof mysqli_result && $result->num_rows > 0;
+    $cache[$normalized] = $exists;
+
+    return $exists;
+}
+
+function commerza_public_ticker_messages(mysqli $con): array
+{
+    if (!commerza_public_table_exists($con, 'ticker')) {
+        return [];
+    }
+
+    $messages = [];
+    $result = $con->query(
+        'SELECT message
+         FROM ticker
+         WHERE is_active = 1
+         ORDER BY sort_order ASC, id ASC
+         LIMIT 20'
+    );
+
+    if (!$result) {
+        return [];
+    }
+
+    while ($row = $result->fetch_assoc()) {
+        $message = trim((string)($row['message'] ?? ''));
+        if ($message !== '') {
+            $messages[] = $message;
+        }
+    }
+
+    return $messages;
+}
+
+function commerza_public_collectors_speak(mysqli $con): array
+{
+    if (!commerza_public_table_exists($con, 'collectors_speak')) {
+        return [];
+    }
+
+    $rows = [];
+    $result = $con->query(
+        'SELECT name, tagline, quote
+         FROM collectors_speak
+         WHERE is_active = 1
+         ORDER BY sort_order ASC, id ASC
+         LIMIT 20'
+    );
+
+    if (!$result) {
+        return [];
+    }
+
+    while ($row = $result->fetch_assoc()) {
+        $name = trim((string)($row['name'] ?? ''));
+        $tagline = trim((string)($row['tagline'] ?? ''));
+        $quote = trim((string)($row['quote'] ?? ''));
+
+        if ($name === '' || $quote === '') {
+            continue;
+        }
+
+        $rows[] = [
+            'name' => $name,
+            'tagline' => $tagline,
+            'quote' => $quote,
+        ];
+    }
+
+    return $rows;
+}
+
 function commerza_build_public_site_settings_payload(mysqli $con): array
 {
     return [
@@ -1687,8 +1775,9 @@ function commerza_build_public_site_settings_payload(mysqli $con): array
         ],
         'ticker' => [
             'enabled' => commerza_site_setting_value($con, 'ticker_enabled', '1') !== '0',
-            'messages' => [],
+            'messages' => commerza_public_ticker_messages($con),
         ],
+        'collectorsSpeak' => commerza_public_collectors_speak($con),
         'socialLinks' => [],
         'sliderImages' => [],
         'featuredVideos' => [

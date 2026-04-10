@@ -481,7 +481,7 @@ if (
           "image": "https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp",
           "priceRange": "$$",
           "currenciesAccepted": "PKR",
-          "paymentAccepted": "Cash on Delivery",
+          "paymentAccepted": "Cash on Delivery, JazzCash Sandbox, Easypaisa Sandbox, PayPal Sandbox, Stripe Sandbox, Card Sandbox",
           "areaServed": {
             "@type": "Country",
             "name": "Pakistan"
@@ -829,7 +829,7 @@ if (
             <p class="section-kicker">Quick Match</p>
             <h2 id="homeCollectionTabsTitle" class="section-title">Build Your Signature Rotation</h2>
           </div>
-          <a class="btn hero-btn-outline text-white" href="products.php">Open Full Catalog</a>
+          <a class="btn hero-btn-outline text-white" href="about.php">About Commerza</a>
         </div>
 
         <ul class="nav nav-pills home-premium-tabs" id="homeCollectionTabs" role="tablist">
@@ -1170,8 +1170,8 @@ if (
             <h2 class="section-title">Trusted by Watch Enthusiasts</h2>
           </div>
         </div>
-        <div class="testimonial-marquee">
-          <div class="testimonial-track">
+        <div class="testimonial-marquee" id="collectorsSpeakMarquee">
+          <div class="testimonial-track" id="collectorsSpeakTrack">
             <div class="testimonial-card">
               <p class="testimonial-text">"The Skeleton Gold Steel feels premium in every detail. The
                 movement is smooth and the dial steals attention."</p>

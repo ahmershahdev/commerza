@@ -374,6 +374,54 @@ function applyTickerSettings(ticker) {
     .join("");
 }
 
+function normalizeCollectorEntry(entry) {
+  const source = entry && typeof entry === "object" ? entry : {};
+  const name = (source.name || "").toString().trim();
+  const tagline = (source.tagline || "").toString().trim();
+  const quote = (source.quote || "").toString().trim();
+
+  if (!name || !quote) {
+    return null;
+  }
+
+  const normalizedQuote = quote.replace(/^"+|"+$/g, "").trim();
+  return {
+    name,
+    tagline,
+    quote: normalizedQuote || quote,
+  };
+}
+
+function applyCollectorsSpeakSettings(collectorsSpeak) {
+  const track = document.getElementById("collectorsSpeakTrack");
+  if (!track) return;
+
+  const list = Array.isArray(collectorsSpeak)
+    ? collectorsSpeak
+        .map((entry) => normalizeCollectorEntry(entry))
+        .filter(Boolean)
+    : [];
+
+  if (list.length === 0) {
+    return;
+  }
+
+  const repeated = list.concat(list);
+  track.innerHTML = repeated
+    .map(
+      (item) => `
+        <div class="testimonial-card">
+          <p class="testimonial-text">"${escapeHtml(item.quote)}"</p>
+          <div class="testimonial-meta">
+            <span class="meta-name">${escapeHtml(item.name)}</span>
+            <span class="meta-role">${escapeHtml(item.tagline || "Collector")}</span>
+          </div>
+        </div>
+      `,
+    )
+    .join("");
+}
+
 function applySiteSettings() {
   const settings = getSiteSettings();
   if (!settings) return;
@@ -382,4 +430,5 @@ function applySiteSettings() {
   applySocialSettings(settings.socialLinks);
   applySliderSettings(settings.sliderImages);
   applyTickerSettings(settings.ticker);
+  applyCollectorsSpeakSettings(settings.collectorsSpeak);
 }

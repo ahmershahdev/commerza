@@ -2,7 +2,80 @@ $(document).ready(function () {
   const upBtn = $("#backToTop");
   let cart = [];
 
-  const CART_API_URL = "backend/cart_api.php";
+  function resolveCommerzaRuntimeBase() {
+    const appBase = (
+      window.CommerzaAppBaseUrl ||
+      window.CommerzaAppBasePath ||
+      ""
+    )
+      .toString()
+      .trim();
+
+    if (appBase) {
+      return appBase;
+    }
+
+    const pathname = (window.location.pathname || "").replace(/\\/g, "/");
+    const segments = pathname.split("/").filter(Boolean);
+    const isSafeSegment = (value) => /^[a-z0-9_-]+$/i.test(value || "");
+    const projectSegment = segments.find((segment) =>
+      /^commerza$/i.test(segment),
+    );
+
+    if (projectSegment && isSafeSegment(projectSegment)) {
+      return `${window.location.origin}/${projectSegment}/`;
+    }
+
+    if (segments.length > 0 && isSafeSegment(segments[0])) {
+      return `${window.location.origin}/${segments[0]}/`;
+    }
+
+    return `${window.location.origin}/`;
+  }
+
+  function resolveCartApiUrl(path) {
+    const normalizedPath = (path || "").toString().replace(/^\/+/, "");
+    const appBase = resolveCommerzaRuntimeBase();
+
+    try {
+      return new URL(normalizedPath, appBase).toString();
+    } catch (error) {
+      return normalizedPath;
+    }
+  }
+
+  async function parseJsonResponse(response) {
+    const rawText = await response.text();
+    if (!rawText) {
+      return null;
+    }
+
+    const cleaned = rawText
+      .toString()
+      .replace(/^\uFEFF/, "")
+      .trim();
+    if (!cleaned) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(cleaned);
+    } catch (error) {
+      const objectStart = cleaned.indexOf("{");
+      const objectEnd = cleaned.lastIndexOf("}");
+      if (objectStart >= 0 && objectEnd > objectStart) {
+        try {
+          return JSON.parse(cleaned.slice(objectStart, objectEnd + 1));
+        } catch (secondaryError) {
+          return null;
+        }
+      }
+
+      return null;
+    }
+  }
+
+  const CART_API_URL = resolveCartApiUrl("backend/cart_api.php");
   const cartState = {
     initialized: false,
     csrfToken: null,
@@ -107,7 +180,7 @@ $(document).ready(function () {
         cache: "no-store",
       });
 
-      const data = await response.json();
+      const data = await parseJsonResponse(response);
       if (response.ok && data?.ok) {
         cart = Array.isArray(data.items) ? data.items : [];
         cartState.csrfToken = data?.csrf_token || cartState.csrfToken;
@@ -158,7 +231,10 @@ $(document).ready(function () {
         body: form.toString(),
       });
 
-      const data = await response.json();
+      const data = await parseJsonResponse(response);
+      const fallbackError = !response.ok
+        ? `Cart service error (${response.status}).`
+        : "Invalid response from cart service.";
 
       if (!response.ok || !data?.ok) {
         if (data?.csrf_token) {
@@ -171,7 +247,7 @@ $(document).ready(function () {
 
         return {
           ok: false,
-          message: data?.message || "Unable to update cart.",
+          message: data?.message || fallbackError,
         };
       }
 
@@ -189,9 +265,13 @@ $(document).ready(function () {
         message: data?.message || "Cart updated.",
       };
     } catch (error) {
+      const isOffline =
+        typeof navigator !== "undefined" && navigator.onLine === false;
       return {
         ok: false,
-        message: "Unable to connect cart service.",
+        message: isOffline
+          ? "No internet connection. Reconnect and try again."
+          : "Unable to connect cart service. Refresh and try again.",
       };
     }
   }

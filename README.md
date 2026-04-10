@@ -35,7 +35,7 @@ Restricted or sensitive surfaces include:
 - Browse catalog and category pages
 - Search and suggestions
 - Cart, wishlist, compare
-- Coupon-aware checkout (COD)
+- Coupon-aware checkout (COD + sandbox payment methods)
 - Account profile management
 - Password reset and account safety controls
 - Order tracking and invoice views
@@ -60,11 +60,18 @@ Restricted or sensitive surfaces include:
 
 ## 6. Checkout and Payments
 
-Checkout is currently COD-only.
+Checkout now supports multiple payment choices in sandbox-ready mode.
 
-- Accepted payment method on cart checkout: Cash on Delivery (COD)
-- Stripe card checkout is disabled in cart.php (UI, client flow, and server verification path removed)
-- Order placement still enforces CSRF, idempotency, CAPTCHA, stock locking, and coupon checks
+- Supported methods in checkout UI:
+  - Cash on Delivery (COD)
+  - JazzCash (Sandbox)
+  - Easypaisa (Sandbox)
+  - PayPal (Sandbox)
+  - Stripe (Sandbox)
+  - Credit/Debit Card (Sandbox)
+- For non-COD methods, checkout requires payer/wallet detail plus sandbox transaction reference for manual verification workflows.
+- Stripe/card methods are captured as sandbox/manual-payment metadata in orders (no live gateway settlement in this flow).
+- Order placement still enforces CSRF, idempotency, CAPTCHA, stock locking, and coupon checks.
 
 ## 7. Password Hashing and Policy Workflow
 

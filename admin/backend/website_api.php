@@ -70,6 +70,43 @@ function website_api_index_exists(mysqli $con, string $table, string $indexName)
     return (int)($row['total'] ?? 0) > 0;
 }
 
+function website_api_foreign_key_exists(mysqli $con, string $table, string $constraintName): bool
+{
+    $sql = 'SELECT COUNT(*) AS total
+            FROM information_schema.REFERENTIAL_CONSTRAINTS
+            WHERE CONSTRAINT_SCHEMA = DATABASE()
+              AND TABLE_NAME = ?
+              AND CONSTRAINT_NAME = ?';
+
+    $stmt = $con->prepare($sql);
+    if (!$stmt) {
+        return false;
+    }
+
+    $stmt->bind_param('ss', $table, $constraintName);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    return (int)($row['total'] ?? 0) > 0;
+}
+
+function website_api_table_row_count(mysqli $con, string $table): int
+{
+    if (!preg_match('/^[a-z0-9_]+$/i', $table)) {
+        return 0;
+    }
+
+    $result = $con->query('SELECT COUNT(*) AS total FROM `' . $table . '`');
+    if (!$result) {
+        return 0;
+    }
+
+    $row = $result->fetch_assoc();
+    return max(0, (int)($row['total'] ?? 0));
+}
+
 function website_api_page_meta_has_unique_page_index(mysqli $con): bool
 {
     $sql = 'SELECT COUNT(*) AS total
@@ -168,6 +205,143 @@ function website_api_ensure_page_meta_schema(mysqli $con): void
     }
 }
 
+function website_api_ensure_content_audit_schema(mysqli $con): void
+{
+    if (!website_api_column_exists($con, 'ticker', 'created_by_admin_id')) {
+        $con->query('ALTER TABLE ticker ADD COLUMN created_by_admin_id INT NULL AFTER updated_at');
+    }
+
+    if (!website_api_column_exists($con, 'ticker', 'updated_by_admin_id')) {
+        $con->query('ALTER TABLE ticker ADD COLUMN updated_by_admin_id INT NULL AFTER created_by_admin_id');
+    }
+
+    if (!website_api_index_exists($con, 'ticker', 'idx_ticker_active_sort')) {
+        $con->query('ALTER TABLE ticker ADD KEY idx_ticker_active_sort (is_active, sort_order, id)');
+    }
+
+    if (!website_api_index_exists($con, 'ticker', 'idx_ticker_created_by')) {
+        $con->query('ALTER TABLE ticker ADD KEY idx_ticker_created_by (created_by_admin_id)');
+    }
+
+    if (!website_api_index_exists($con, 'ticker', 'idx_ticker_updated_by')) {
+        $con->query('ALTER TABLE ticker ADD KEY idx_ticker_updated_by (updated_by_admin_id)');
+    }
+
+    if (!website_api_foreign_key_exists($con, 'ticker', 'fk_ticker_created_by_admin')) {
+        $con->query(
+            'ALTER TABLE ticker
+             ADD CONSTRAINT fk_ticker_created_by_admin
+             FOREIGN KEY (created_by_admin_id) REFERENCES admin_users(id)
+             ON DELETE SET NULL'
+        );
+    }
+
+    if (!website_api_foreign_key_exists($con, 'ticker', 'fk_ticker_updated_by_admin')) {
+        $con->query(
+            'ALTER TABLE ticker
+             ADD CONSTRAINT fk_ticker_updated_by_admin
+             FOREIGN KEY (updated_by_admin_id) REFERENCES admin_users(id)
+             ON DELETE SET NULL'
+        );
+    }
+
+    if (!website_api_column_exists($con, 'collectors_speak', 'created_by_admin_id')) {
+        $con->query('ALTER TABLE collectors_speak ADD COLUMN created_by_admin_id INT NULL AFTER updated_at');
+    }
+
+    if (!website_api_column_exists($con, 'collectors_speak', 'updated_by_admin_id')) {
+        $con->query('ALTER TABLE collectors_speak ADD COLUMN updated_by_admin_id INT NULL AFTER created_by_admin_id');
+    }
+
+    if (!website_api_index_exists($con, 'collectors_speak', 'idx_collectors_active_sort')) {
+        $con->query('ALTER TABLE collectors_speak ADD KEY idx_collectors_active_sort (is_active, sort_order, id)');
+    }
+
+    if (!website_api_index_exists($con, 'collectors_speak', 'idx_collectors_created_by')) {
+        $con->query('ALTER TABLE collectors_speak ADD KEY idx_collectors_created_by (created_by_admin_id)');
+    }
+
+    if (!website_api_index_exists($con, 'collectors_speak', 'idx_collectors_updated_by')) {
+        $con->query('ALTER TABLE collectors_speak ADD KEY idx_collectors_updated_by (updated_by_admin_id)');
+    }
+
+    if (!website_api_foreign_key_exists($con, 'collectors_speak', 'fk_collectors_created_by_admin')) {
+        $con->query(
+            'ALTER TABLE collectors_speak
+             ADD CONSTRAINT fk_collectors_created_by_admin
+             FOREIGN KEY (created_by_admin_id) REFERENCES admin_users(id)
+             ON DELETE SET NULL'
+        );
+    }
+
+    if (!website_api_foreign_key_exists($con, 'collectors_speak', 'fk_collectors_updated_by_admin')) {
+        $con->query(
+            'ALTER TABLE collectors_speak
+             ADD CONSTRAINT fk_collectors_updated_by_admin
+             FOREIGN KEY (updated_by_admin_id) REFERENCES admin_users(id)
+             ON DELETE SET NULL'
+        );
+    }
+}
+
+function website_api_seed_homepage_defaults(mysqli $con): void
+{
+    if (website_api_table_row_count($con, 'ticker') === 0) {
+        $defaults = [
+            'Private drop unlocked: signature chronographs now shipping nationwide',
+            'Members perk: free premium case with selected limited editions',
+            'New arrival: skeleton gold steel collection is now in stock',
+            'Private drop unlocked: signature chronographs now shipping nationwide',
+            'Members perk: free premium case with selected limited editions',
+            'New arrival: skeleton gold steel collection is now in stock',
+        ];
+
+        $stmt = $con->prepare(
+            'INSERT INTO ticker (message, sort_order, is_active)
+             VALUES (?, ?, 1)'
+        );
+
+        if ($stmt) {
+            foreach ($defaults as $index => $message) {
+                $sortOrder = $index + 1;
+                $stmt->bind_param('si', $message, $sortOrder);
+                $stmt->execute();
+            }
+            $stmt->close();
+        }
+    }
+
+    if (website_api_table_row_count($con, 'collectors_speak') === 0) {
+        $defaults = [
+            ['A. Khan', 'Lahore', 'The Skeleton Gold Steel feels premium in every detail. The movement is smooth and the dial steals attention.'],
+            ['S. Malik', 'Karachi', 'I\'ve worn the Black Gold Dial daily. It keeps time accurately and looks incredible under low light.'],
+            ['R. Ahmed', 'Islamabad', 'Fast shipping and stellar packaging. The leather strap quality is beyond what I expected.'],
+            ['M. Hassan', 'Rawalpindi', 'The automatic movement is mesmerizing. I can watch it for hours through the exhibition case back.'],
+            ['F. Ali', 'Multan', 'Excellent build quality and attention to detail. The weight feels perfect on the wrist.'],
+            ['Z. Iqbal', 'Faisalabad', 'Customer service is outstanding. They helped me choose the perfect watch for my collection.'],
+            ['N. Raza', 'Peshawar', 'The luminous hands are perfect for night visibility. Absolutely love the craftsmanship.'],
+            ['H. Shah', 'Quetta', 'Premium materials and flawless finishing. This watch rivals luxury brands at triple the price.'],
+        ];
+
+        $stmt = $con->prepare(
+            'INSERT INTO collectors_speak (name, tagline, quote, sort_order, is_active)
+             VALUES (?, ?, ?, ?, 1)'
+        );
+
+        if ($stmt) {
+            foreach ($defaults as $index => $row) {
+                $sortOrder = $index + 1;
+                $name = (string)$row[0];
+                $tagline = (string)$row[1];
+                $quote = (string)$row[2];
+                $stmt->bind_param('sssi', $name, $tagline, $quote, $sortOrder);
+                $stmt->execute();
+            }
+            $stmt->close();
+        }
+    }
+}
+
 function website_api_ensure_schema(mysqli $con): void
 {
     $con->query(
@@ -194,7 +368,31 @@ function website_api_ensure_schema(mysqli $con): void
             is_active TINYINT(1) NOT NULL DEFAULT 1,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (id)
+            created_by_admin_id INT DEFAULT NULL,
+            updated_by_admin_id INT DEFAULT NULL,
+            PRIMARY KEY (id),
+            KEY idx_ticker_active_sort (is_active, sort_order, id),
+            KEY idx_ticker_created_by (created_by_admin_id),
+            KEY idx_ticker_updated_by (updated_by_admin_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci'
+    );
+
+    $con->query(
+        'CREATE TABLE IF NOT EXISTS collectors_speak (
+            id INT NOT NULL AUTO_INCREMENT,
+            name VARCHAR(80) NOT NULL,
+            tagline VARCHAR(120) DEFAULT NULL,
+            quote VARCHAR(500) NOT NULL,
+            sort_order INT NOT NULL DEFAULT 0,
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            created_by_admin_id INT DEFAULT NULL,
+            updated_by_admin_id INT DEFAULT NULL,
+            PRIMARY KEY (id),
+            KEY idx_collectors_active_sort (is_active, sort_order, id),
+            KEY idx_collectors_created_by (created_by_admin_id),
+            KEY idx_collectors_updated_by (updated_by_admin_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci'
     );
 
@@ -222,6 +420,8 @@ function website_api_ensure_schema(mysqli $con): void
 
     website_api_ensure_slider_compatibility($con);
     website_api_ensure_page_meta_schema($con);
+    website_api_ensure_content_audit_schema($con);
+    website_api_seed_homepage_defaults($con);
 }
 
 function website_api_get_setting(mysqli $con, string $key, string $fallback = ''): string
@@ -514,6 +714,32 @@ function website_api_ticker_rows(mysqli $con): array
     return $rows;
 }
 
+function website_api_collectors_rows(mysqli $con): array
+{
+    $rows = [];
+    $result = $con->query(
+        'SELECT id, name, tagline, quote
+         FROM collectors_speak
+         WHERE is_active = 1
+         ORDER BY sort_order ASC, id ASC'
+    );
+
+    if (!$result) {
+        return $rows;
+    }
+
+    while ($row = $result->fetch_assoc()) {
+        $rows[] = [
+            'id' => (int)($row['id'] ?? 0),
+            'name' => (string)($row['name'] ?? ''),
+            'tagline' => (string)($row['tagline'] ?? ''),
+            'quote' => (string)($row['quote'] ?? ''),
+        ];
+    }
+
+    return $rows;
+}
+
 function website_api_page_meta_rows(mysqli $con): array
 {
     $rows = [];
@@ -564,6 +790,7 @@ function website_api_payload(mysqli $con): array
                 website_api_ticker_rows($con)
             ),
         ],
+        'collectorsSpeak' => website_api_collectors_rows($con),
         'socialLinks' => website_api_social_rows($con),
         'pageMeta' => website_api_page_meta_rows($con),
         'sliderImages' => website_api_slider_rows($con),
@@ -580,6 +807,38 @@ function website_api_payload(mysqli $con): array
             ),
         ],
     ];
+}
+
+function website_api_apply_action_rate_limit(mysqli $con, array $admin, string $action): void
+{
+    $rules = [
+        'save-brand' => [24, 60, 30, 300],
+        'save-contact' => [24, 60, 30, 300],
+        'save-page-meta' => [30, 60, 40, 300],
+        'delete-page-meta' => [20, 60, 30, 300],
+        'save-social' => [30, 60, 40, 300],
+        'delete-social' => [20, 60, 30, 300],
+        'save-ticker' => [24, 60, 30, 300],
+        'save-collectors-speak' => [18, 60, 24, 300],
+        'save-slider' => [24, 60, 30, 300],
+        'delete-slider' => [20, 60, 24, 300],
+        'save-feature-videos' => [18, 60, 24, 300],
+    ];
+
+    $rule = $rules[$action] ?? null;
+    if (!is_array($rule) || count($rule) < 4) {
+        return;
+    }
+
+    admin_api_rate_limit_guard(
+        $con,
+        $admin,
+        admin_api_scope('admin_website_api_hard', $action),
+        (int)$rule[0],
+        (int)$rule[1],
+        (int)$rule[2],
+        (int)$rule[3]
+    );
 }
 
 website_api_ensure_schema($con);
@@ -642,6 +901,8 @@ admin_api_rate_limit_guard(
     120,
     300
 );
+
+website_api_apply_action_rate_limit($con, $admin, $action);
 
 if ($action === 'save-brand') {
     $name = website_api_clean_text((string)($body['name'] ?? ''), 100);
@@ -1082,14 +1343,31 @@ if ($action === 'save-ticker') {
         ], 500);
     }
 
+    $adminId = (int)($admin['id'] ?? 0);
+
+    if (!$con->begin_transaction()) {
+        website_api_json([
+            'ok' => false,
+            'message' => 'Unable to start ticker update transaction.',
+        ], 500);
+    }
+
     $con->query('DELETE FROM ticker');
+    if ($con->errno) {
+        $con->rollback();
+        website_api_json([
+            'ok' => false,
+            'message' => 'Unable to reset ticker messages.',
+        ], 500);
+    }
 
     $stmt = $con->prepare(
-        'INSERT INTO ticker (message, sort_order, is_active)
-         VALUES (?, ?, 1)'
+        'INSERT INTO ticker (message, sort_order, is_active, created_by_admin_id, updated_by_admin_id)
+         VALUES (?, ?, 1, NULLIF(?, 0), NULLIF(?, 0))'
     );
 
     if (!$stmt) {
+        $con->rollback();
         website_api_json([
             'ok' => false,
             'message' => 'Unable to save ticker messages.',
@@ -1098,11 +1376,26 @@ if ($action === 'save-ticker') {
 
     foreach ($cleaned as $index => $message) {
         $sortOrder = $index + 1;
-        $stmt->bind_param('si', $message, $sortOrder);
-        $stmt->execute();
+        $stmt->bind_param('siii', $message, $sortOrder, $adminId, $adminId);
+        if (!$stmt->execute()) {
+            $stmt->close();
+            $con->rollback();
+            website_api_json([
+                'ok' => false,
+                'message' => 'Unable to persist all ticker messages.',
+            ], 500);
+        }
     }
 
     $stmt->close();
+
+    if (!$con->commit()) {
+        $con->rollback();
+        website_api_json([
+            'ok' => false,
+            'message' => 'Unable to finalize ticker update.',
+        ], 500);
+    }
 
     admin_api_log_security_event($con, $admin, 'website.ticker_saved', 'info', [
         'enabled' => $enabled,
@@ -1112,6 +1405,115 @@ if ($action === 'save-ticker') {
     website_api_json([
         'ok' => true,
         'message' => 'Ticker saved.',
+        'payload' => website_api_payload($con),
+    ]);
+}
+
+if ($action === 'save-collectors-speak') {
+    $entries = $body['entries'] ?? [];
+    if (!is_array($entries)) {
+        website_api_json([
+            'ok' => false,
+            'message' => 'Collectors Speak entries must be an array.',
+        ], 422);
+    }
+
+    $cleaned = [];
+    foreach ($entries as $entry) {
+        if (!is_array($entry)) {
+            continue;
+        }
+
+        $name = website_api_clean_text((string)($entry['name'] ?? ''), 80);
+        $tagline = website_api_clean_text((string)($entry['tagline'] ?? ''), 120);
+        $quote = website_api_clean_text((string)($entry['quote'] ?? ''), 500);
+
+        if ($name === '' || $quote === '') {
+            continue;
+        }
+
+        $cleaned[] = [
+            'name' => $name,
+            'tagline' => $tagline,
+            'quote' => $quote,
+        ];
+    }
+
+    if (empty($cleaned)) {
+        website_api_json([
+            'ok' => false,
+            'message' => 'Please provide at least one collector testimonial with name and quote.',
+        ], 422);
+    }
+
+    if (count($cleaned) > 20) {
+        $cleaned = array_slice($cleaned, 0, 20);
+    }
+
+    $adminId = (int)($admin['id'] ?? 0);
+
+    if (!$con->begin_transaction()) {
+        website_api_json([
+            'ok' => false,
+            'message' => 'Unable to start Collectors Speak update transaction.',
+        ], 500);
+    }
+
+    $con->query('DELETE FROM collectors_speak');
+    if ($con->errno) {
+        $con->rollback();
+        website_api_json([
+            'ok' => false,
+            'message' => 'Unable to reset Collectors Speak entries.',
+        ], 500);
+    }
+
+    $stmt = $con->prepare(
+        'INSERT INTO collectors_speak (name, tagline, quote, sort_order, is_active, created_by_admin_id, updated_by_admin_id)
+         VALUES (?, ?, ?, ?, 1, NULLIF(?, 0), NULLIF(?, 0))'
+    );
+
+    if (!$stmt) {
+        $con->rollback();
+        website_api_json([
+            'ok' => false,
+            'message' => 'Unable to save Collectors Speak entries.',
+        ], 500);
+    }
+
+    foreach ($cleaned as $index => $row) {
+        $sortOrder = $index + 1;
+        $name = (string)$row['name'];
+        $tagline = (string)$row['tagline'];
+        $quote = (string)$row['quote'];
+        $stmt->bind_param('sssiii', $name, $tagline, $quote, $sortOrder, $adminId, $adminId);
+        if (!$stmt->execute()) {
+            $stmt->close();
+            $con->rollback();
+            website_api_json([
+                'ok' => false,
+                'message' => 'Unable to persist all Collectors Speak entries.',
+            ], 500);
+        }
+    }
+
+    $stmt->close();
+
+    if (!$con->commit()) {
+        $con->rollback();
+        website_api_json([
+            'ok' => false,
+            'message' => 'Unable to finalize Collectors Speak update.',
+        ], 500);
+    }
+
+    admin_api_log_security_event($con, $admin, 'website.collectors_speak_saved', 'info', [
+        'entries' => count($cleaned),
+    ]);
+
+    website_api_json([
+        'ok' => true,
+        'message' => 'Collectors Speak section saved.',
         'payload' => website_api_payload($con),
     ]);
 }

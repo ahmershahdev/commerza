@@ -882,6 +882,47 @@ function admin_store_email_verification_code(mysqli $con, int $adminId, string $
     return $ok && $affected === 1;
 }
 
+function admin_email_verification_resend_retry_after(mysqli $con, int $adminId, int $cooldownSeconds = 45): int
+{
+    if ($adminId <= 0 || $cooldownSeconds <= 0) {
+        return 0;
+    }
+
+    $stmt = $con->prepare(
+        'SELECT verification_last_sent_at
+         FROM admin_users
+         WHERE id = ?
+         LIMIT 1'
+    );
+
+    if (!$stmt) {
+        return 0;
+    }
+
+    $stmt->bind_param('i', $adminId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    $lastSentAt = trim((string)($row['verification_last_sent_at'] ?? ''));
+    if ($lastSentAt === '') {
+        return 0;
+    }
+
+    $lastSentTs = strtotime($lastSentAt);
+    if ($lastSentTs === false) {
+        return 0;
+    }
+
+    $elapsed = time() - $lastSentTs;
+    if ($elapsed >= $cooldownSeconds) {
+        return 0;
+    }
+
+    return max(1, $cooldownSeconds - max(0, $elapsed));
+}
+
 function admin_send_email_verification_code_email(
     string $recipientEmail,
     string $recipientName,
@@ -928,6 +969,12 @@ function admin_issue_email_verification_challenge(mysqli $con, array $admin, ?st
 
     if (admin_is_email_verified($admin)) {
         return true;
+    }
+
+    $retryAfterSeconds = admin_email_verification_resend_retry_after($con, $adminId, 45);
+    if ($retryAfterSeconds > 0) {
+        $errorMessage = 'Please wait ' . $retryAfterSeconds . ' second(s) before requesting another verification code.';
+        return false;
     }
 
     $code = admin_generate_two_factor_code();

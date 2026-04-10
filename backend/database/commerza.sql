@@ -923,17 +923,55 @@ CREATE TABLE `ticker` (
   `sort_order` int(11) NOT NULL DEFAULT 0,
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `created_by_admin_id` int(11) DEFAULT NULL,
+  `updated_by_admin_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `ticker`
 --
 
-INSERT INTO `ticker` (`id`, `message`, `link_url`, `link_text`, `sort_order`, `is_active`, `created_at`, `updated_at`) VALUES
-(1, 'SALE IS LIVE: PREMIUM AUTOMATIC WATCHES UP TO 20% OFF', NULL, NULL, 1, 1, '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
-(2, 'COLLECTION UPDATE: NEW SKELETON SERIES NOW AVAILABLE', NULL, NULL, 2, 1, '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
-(3, 'FREE SHIPPING: NATIONWIDE DELIVERY ON ALL PREMIUM ORDERS', NULL, NULL, 3, 1, '2026-04-05 20:21:12', '2026-04-05 20:21:12');
+INSERT INTO `ticker` (`id`, `message`, `link_url`, `link_text`, `sort_order`, `is_active`, `created_at`, `updated_at`, `created_by_admin_id`, `updated_by_admin_id`) VALUES
+(1, 'Private drop unlocked: signature chronographs now shipping nationwide', NULL, NULL, 1, 1, '2026-04-05 20:21:12', '2026-04-05 20:21:12', 1, 1),
+(2, 'Members perk: free premium case with selected limited editions', NULL, NULL, 2, 1, '2026-04-05 20:21:12', '2026-04-05 20:21:12', 1, 1),
+(3, 'New arrival: skeleton gold steel collection is now in stock', NULL, NULL, 3, 1, '2026-04-05 20:21:12', '2026-04-05 20:21:12', 1, 1),
+(4, 'Private drop unlocked: signature chronographs now shipping nationwide', NULL, NULL, 4, 1, '2026-04-05 20:21:12', '2026-04-05 20:21:12', 1, 1),
+(5, 'Members perk: free premium case with selected limited editions', NULL, NULL, 5, 1, '2026-04-05 20:21:12', '2026-04-05 20:21:12', 1, 1),
+(6, 'New arrival: skeleton gold steel collection is now in stock', NULL, NULL, 6, 1, '2026-04-05 20:21:12', '2026-04-05 20:21:12', 1, 1);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `collectors_speak`
+--
+
+CREATE TABLE `collectors_speak` (
+  `id` int(11) NOT NULL,
+  `name` varchar(80) NOT NULL,
+  `tagline` varchar(120) DEFAULT NULL,
+  `quote` varchar(500) NOT NULL,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `created_by_admin_id` int(11) DEFAULT NULL,
+  `updated_by_admin_id` int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `collectors_speak`
+--
+
+INSERT INTO `collectors_speak` (`id`, `name`, `tagline`, `quote`, `sort_order`, `is_active`, `created_at`, `updated_at`, `created_by_admin_id`, `updated_by_admin_id`) VALUES
+(1, 'A. Khan', 'Lahore', 'The Skeleton Gold Steel feels premium in every detail. The movement is smooth and the dial steals attention.', 1, 1, '2026-04-05 20:21:12', '2026-04-05 20:21:12', 1, 1),
+(2, 'S. Malik', 'Karachi', 'I\'ve worn the Black Gold Dial daily. It keeps time accurately and looks incredible under low light.', 2, 1, '2026-04-05 20:21:12', '2026-04-05 20:21:12', 1, 1),
+(3, 'R. Ahmed', 'Islamabad', 'Fast shipping and stellar packaging. The leather strap quality is beyond what I expected.', 3, 1, '2026-04-05 20:21:12', '2026-04-05 20:21:12', 1, 1),
+(4, 'M. Hassan', 'Rawalpindi', 'The automatic movement is mesmerizing. I can watch it for hours through the exhibition case back.', 4, 1, '2026-04-05 20:21:12', '2026-04-05 20:21:12', 1, 1),
+(5, 'F. Ali', 'Multan', 'Excellent build quality and attention to detail. The weight feels perfect on the wrist.', 5, 1, '2026-04-05 20:21:12', '2026-04-05 20:21:12', 1, 1),
+(6, 'Z. Iqbal', 'Faisalabad', 'Customer service is outstanding. They helped me choose the perfect watch for my collection.', 6, 1, '2026-04-05 20:21:12', '2026-04-05 20:21:12', 1, 1),
+(7, 'N. Raza', 'Peshawar', 'The luminous hands are perfect for night visibility. Absolutely love the craftsmanship.', 7, 1, '2026-04-05 20:21:12', '2026-04-05 20:21:12', 1, 1),
+(8, 'H. Shah', 'Quetta', 'Premium materials and flawless finishing. This watch rivals luxury brands at triple the price.', 8, 1, '2026-04-05 20:21:12', '2026-04-05 20:21:12', 1, 1);
 
 -- --------------------------------------------------------
 
@@ -1717,10 +1755,22 @@ ALTER TABLE `social_links`
   ADD PRIMARY KEY (`id`);
 
 --
+-- Indexes for table `collectors_speak`
+--
+ALTER TABLE `collectors_speak`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_collectors_active_sort` (`is_active`,`sort_order`,`id`),
+  ADD KEY `idx_collectors_created_by` (`created_by_admin_id`),
+  ADD KEY `idx_collectors_updated_by` (`updated_by_admin_id`);
+
+--
 -- Indexes for table `ticker`
 --
 ALTER TABLE `ticker`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_ticker_active_sort` (`is_active`,`sort_order`,`id`),
+  ADD KEY `idx_ticker_created_by` (`created_by_admin_id`),
+  ADD KEY `idx_ticker_updated_by` (`updated_by_admin_id`);
 
 --
 -- Indexes for table `username_blacklist`
@@ -1981,10 +2031,16 @@ ALTER TABLE `social_links`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
+-- AUTO_INCREMENT for table `collectors_speak`
+--
+ALTER TABLE `collectors_speak`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+
+--
 -- AUTO_INCREMENT for table `ticker`
 --
 ALTER TABLE `ticker`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `username_blacklist`
@@ -2082,6 +2138,20 @@ ALTER TABLE `notifications`
 --
 ALTER TABLE `orders`
   ADD CONSTRAINT `fk_ord_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `collectors_speak`
+--
+ALTER TABLE `collectors_speak`
+  ADD CONSTRAINT `fk_collectors_created_by_admin` FOREIGN KEY (`created_by_admin_id`) REFERENCES `admin_users` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_collectors_updated_by_admin` FOREIGN KEY (`updated_by_admin_id`) REFERENCES `admin_users` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `ticker`
+--
+ALTER TABLE `ticker`
+  ADD CONSTRAINT `fk_ticker_created_by_admin` FOREIGN KEY (`created_by_admin_id`) REFERENCES `admin_users` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_ticker_updated_by_admin` FOREIGN KEY (`updated_by_admin_id`) REFERENCES `admin_users` (`id`) ON DELETE SET NULL;
 
 --
 -- Constraints for table `order_items`

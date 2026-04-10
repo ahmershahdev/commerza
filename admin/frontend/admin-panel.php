@@ -988,7 +988,7 @@ $adminTabCatalog = admin_tabs_payload();
                                                 <input type="text" class="form-control bg-secondary border-0 text-light" id="whitelistPhoneInput" placeholder="03123456789">
                                             </div>
                                             <div class="col-12 col-md-3">
-                                                <small class="field-hint d-block">Use this for quick unblocking without opening each row action.</small>
+                                                <small class="field-hint d-block">Whitelist immediately removes active blacklist entries for this email/phone and restores signup, cart, wishlist, review, and checkout access.</small>
                                             </div>
                                             <div class="col-12 col-md-2 d-grid">
                                                 <button class="btn btn-outline-success" id="whitelistContactBtn" type="button">
@@ -1536,20 +1536,32 @@ $adminTabCatalog = admin_tabs_payload();
                                     </div>
                                     <div class="col-6 col-md-3">
                                         <label for="reviewAddRating" class="form-label text-light">Rating</label>
-                                        <select class="form-select bg-secondary border-0 text-light" id="reviewAddRating">
-                                            <option value="5">5 - Excellent</option>
-                                            <option value="4">4 - Good</option>
-                                            <option value="3">3 - Average</option>
-                                            <option value="2">2 - Poor</option>
-                                            <option value="1">1 - Bad</option>
-                                        </select>
+                                        <div class="dropdown w-100">
+                                            <button class="btn btn-dark border border-secondary text-light w-100 text-start rounded-2 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="reviewAddRatingBtn">
+                                                5 - Excellent
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-start bg-dark border-secondary w-100" id="reviewAddRatingMenu">
+                                                <li><a class="dropdown-item text-light admin-dropdown-item active" href="#" data-target="reviewAddRating" data-value="5" data-label="5 - Excellent">5 - Excellent</a></li>
+                                                <li><a class="dropdown-item text-light admin-dropdown-item" href="#" data-target="reviewAddRating" data-value="4" data-label="4 - Good">4 - Good</a></li>
+                                                <li><a class="dropdown-item text-light admin-dropdown-item" href="#" data-target="reviewAddRating" data-value="3" data-label="3 - Average">3 - Average</a></li>
+                                                <li><a class="dropdown-item text-light admin-dropdown-item" href="#" data-target="reviewAddRating" data-value="2" data-label="2 - Poor">2 - Poor</a></li>
+                                                <li><a class="dropdown-item text-light admin-dropdown-item" href="#" data-target="reviewAddRating" data-value="1" data-label="1 - Bad">1 - Bad</a></li>
+                                            </ul>
+                                        </div>
+                                        <input type="hidden" id="reviewAddRating" value="5">
                                     </div>
                                     <div class="col-6 col-md-3">
                                         <label for="reviewAddVisible" class="form-label text-light">Visibility</label>
-                                        <select class="form-select bg-secondary border-0 text-light" id="reviewAddVisible">
-                                            <option value="1">Visible</option>
-                                            <option value="0">Hidden</option>
-                                        </select>
+                                        <div class="dropdown w-100">
+                                            <button class="btn btn-dark border border-secondary text-light w-100 text-start rounded-2 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="reviewAddVisibleBtn">
+                                                Visible
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-start bg-dark border-secondary w-100" id="reviewAddVisibleMenu">
+                                                <li><a class="dropdown-item text-light admin-dropdown-item active" href="#" data-target="reviewAddVisible" data-value="1" data-label="Visible">Visible</a></li>
+                                                <li><a class="dropdown-item text-light admin-dropdown-item" href="#" data-target="reviewAddVisible" data-value="0" data-label="Hidden">Hidden</a></li>
+                                            </ul>
+                                        </div>
+                                        <input type="hidden" id="reviewAddVisible" value="1">
                                     </div>
                                     <div class="col-12 col-md-6">
                                         <label for="reviewAddNote" class="form-label text-light">Admin Note (optional)</label>
@@ -2168,7 +2180,13 @@ $adminTabCatalog = admin_tabs_payload();
                                         <div class="row g-3">
                                             <div class="col-12 col-md-6">
                                                 <label for="seoPageSelect" class="form-label text-light">Page</label>
-                                                <select class="form-select bg-secondary border-0 text-light" id="seoPageSelect"></select>
+                                                <div class="dropdown w-100">
+                                                    <button class="btn btn-dark border border-secondary text-light w-100 text-start rounded-2 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="seoPageSelectBtn">
+                                                        Select Page
+                                                    </button>
+                                                    <ul class="dropdown-menu dropdown-menu-start bg-dark border-secondary w-100" id="seoPageSelectMenu"></ul>
+                                                </div>
+                                                <input type="hidden" id="seoPageSelect" value="">
                                             </div>
                                             <div class="col-12 col-md-6">
                                                 <label for="seoMetaTitleInput" class="form-label text-light">Meta Title</label>
@@ -2425,7 +2443,7 @@ $adminTabCatalog = admin_tabs_payload();
                         <div class="helper-banner mb-4">
                             <div>
                                 <h2 class="h5 mb-2 text-light">Homepage content</h2>
-                                <p class="mb-0 text-secondary">Update the ticker and homepage slider.</p>
+                                <p class="mb-0 text-secondary">Update the ticker, Collectors Speak, and homepage slider.</p>
                             </div>
                             <span class="step-chip">Tip: Keep messages short for smooth scrolling.</span>
                         </div>
@@ -2435,21 +2453,58 @@ $adminTabCatalog = admin_tabs_payload();
                                     <div class="card-header bg-dark border-bottom border-secondary py-3">
                                         <h3 class="h5 mb-0 fw-bold text-orange">Homepage Ticker</h3>
                                     </div>
-                                    <div class="card-body p-4">
-                                        <div class="form-check form-switch mb-3">
-                                            <input class="form-check-input" type="checkbox" id="tickerEnabled" checked>
-                                            <label class="form-check-label text-light" for="tickerEnabled">Enable ticker</label>
+                                    <div class="card-body p-4 homepage-ticker-shell">
+                                        <div class="row g-3 align-items-start">
+                                            <div class="col-12 col-xl-7">
+                                                <div class="form-check form-switch mb-3">
+                                                    <input class="form-check-input" type="checkbox" id="tickerEnabled" checked>
+                                                    <label class="form-check-label text-light" for="tickerEnabled">Enable ticker</label>
+                                                </div>
+                                                <label for="tickerMessages" class="form-label text-light">Ticker Messages</label>
+                                                <textarea class="form-control bg-secondary border-0 text-light" id="tickerMessages" rows="6" placeholder="Add one message per line"></textarea>
+                                                <small class="field-hint d-block mt-2">Each line becomes one ticker item. Keep messages concise for smooth marquee speed.</small>
+                                                <div class="ticker-composer-meta mt-2" id="tickerComposerMeta">0 message(s) ready.</div>
+                                            </div>
+                                            <div class="col-12 col-xl-5">
+                                                <div class="ticker-live-preview">
+                                                    <p class="ticker-preview-title mb-2">Live Preview</p>
+                                                    <div id="tickerPreviewList" class="ticker-preview-list">
+                                                        <span class="ticker-preview-pill">Add a message to preview</span>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div class="mb-3">
-                                            <label for="tickerMessages" class="form-label text-light">Ticker Messages</label>
-                                            <textarea class="form-control bg-secondary border-0 text-light" id="tickerMessages" rows="4" placeholder="Add one message per line"></textarea>
-                                            <small class="field-hint">Each line becomes one scroll item on the homepage.</small>
-                                        </div>
-                                        <div class="d-flex gap-2">
+                                        <div class="d-flex gap-2 mt-3 flex-wrap">
                                             <button class="btn btn-orange" id="saveTickerBtn">
                                                 <i class="bi bi-save2 me-1"></i>Save Ticker
                                             </button>
                                             <button class="btn btn-outline-secondary" id="resetTickerBtn" type="button">Reset</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-4 mb-4">
+                            <div class="col-12">
+                                <div class="card admin-card border-0 shadow-sm collectors-editor-shell">
+                                    <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Collectors Speak</h3>
+                                        <span class="badge bg-info text-dark text-uppercase">Homepage Marquee</span>
+                                    </div>
+                                    <div class="card-body p-4">
+                                        <label for="collectorsSpeakInput" class="form-label text-light">Entries (one per line)</label>
+                                        <textarea class="form-control bg-secondary border-0 text-light" id="collectorsSpeakInput" rows="7" placeholder="Name | City / Role | Quote"></textarea>
+                                        <small class="field-hint d-block mt-2">Format: Name | Tagline | Quote. Example: A. Khan | Lahore Collector | The dial finishing is excellent.</small>
+                                        <small class="field-hint d-block">Add by creating a new line, edit by changing a line, and delete by removing the line before saving.</small>
+                                        <div class="collectors-preview-list mt-3" id="collectorsSpeakPreview">
+                                            <div class="text-secondary small">Preview will appear here as you type.</div>
+                                        </div>
+                                        <div class="d-flex gap-2 mt-3 flex-wrap">
+                                            <button class="btn btn-orange" id="saveCollectorsSpeakBtn" type="button">
+                                                <i class="bi bi-save2 me-1"></i>Save Collectors Speak
+                                            </button>
+                                            <button class="btn btn-outline-secondary" id="resetCollectorsSpeakBtn" type="button">Reset</button>
                                         </div>
                                     </div>
                                 </div>

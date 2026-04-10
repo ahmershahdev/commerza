@@ -248,6 +248,37 @@ function orders_api_upsert_setting(mysqli $con, string $key, string $value, stri
     return $ok;
 }
 
+function orders_api_apply_action_rate_limit(mysqli $con, array $admin, string $action): void
+{
+    $rules = [
+        'save-shipping-settings' => [20, 60, 30, 300],
+        'add-blacklist' => [24, 60, 36, 300],
+        'remove-blacklist' => [24, 60, 36, 300],
+        'remove-blacklist-contact' => [24, 60, 36, 300],
+        'save-blacklist-notice-visibility' => [16, 60, 24, 300],
+        'update-status' => [40, 60, 60, 300],
+        'update-logistics' => [28, 60, 40, 300],
+        'delete-orders' => [12, 60, 18, 300],
+        'delete-customers' => [10, 60, 16, 300],
+        'update-refund-status' => [24, 60, 36, 300],
+    ];
+
+    $rule = $rules[$action] ?? null;
+    if (!is_array($rule) || count($rule) < 4) {
+        return;
+    }
+
+    admin_api_rate_limit_guard(
+        $con,
+        $admin,
+        admin_api_scope('admin_orders_api_hard', $action),
+        (int)$rule[0],
+        (int)$rule[1],
+        (int)$rule[2],
+        (int)$rule[3]
+    );
+}
+
 function orders_api_require_any_permission(array $admin, array $permissions): void
 {
     foreach ($permissions as $permission) {
@@ -1031,6 +1062,8 @@ admin_api_rate_limit_guard(
     120,
     300
 );
+
+orders_api_apply_action_rate_limit($con, $admin, $action);
 
 if ($action === 'summary') {
     orders_api_require_any_permission($admin, [

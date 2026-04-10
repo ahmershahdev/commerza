@@ -212,6 +212,32 @@ function sub_admins_api_csrf_token(array $body): string
     return trim($token);
 }
 
+function sub_admins_api_apply_action_rate_limit(mysqli $con, array $admin, string $action): void
+{
+    $rules = [
+        'create' => [12, 60, 18, 300],
+        'update' => [16, 60, 24, 300],
+        'set-suspension' => [20, 60, 30, 300],
+        'resend-verification' => [16, 60, 24, 300],
+        'delete' => [8, 60, 12, 300],
+    ];
+
+    $rule = $rules[$action] ?? null;
+    if (!is_array($rule) || count($rule) < 4) {
+        return;
+    }
+
+    admin_api_rate_limit_guard(
+        $con,
+        $admin,
+        admin_api_scope('admin_sub_admins_api_hard', $action),
+        (int)$rule[0],
+        (int)$rule[1],
+        (int)$rule[2],
+        (int)$rule[3]
+    );
+}
+
 if (!($con instanceof mysqli)) {
     sub_admins_api_json(['ok' => false, 'message' => 'Service unavailable.'], 500);
 }
@@ -238,6 +264,8 @@ admin_api_rate_limit_guard(
     120,
     300
 );
+
+sub_admins_api_apply_action_rate_limit($con, $admin, $action);
 
 if ($action === 'list') {
     sub_admins_api_json([
@@ -802,10 +830,12 @@ if ($action === 'resend-verification') {
 
     $issueError = null;
     if (!admin_issue_email_verification_challenge($con, $target, $issueError)) {
+        $normalizedIssue = strtolower(trim((string)$issueError));
+        $statusCode = strpos($normalizedIssue, 'please wait') !== false ? 429 : 500;
         sub_admins_api_json([
             'ok' => false,
             'message' => $issueError ?: 'Unable to resend verification code.',
-        ], 500);
+        ], $statusCode);
     }
 
     admin_api_log_security_event($con, $admin, 'sub_admin.verification_resent', 'info', [

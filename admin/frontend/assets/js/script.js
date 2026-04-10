@@ -2015,8 +2015,8 @@ function resetReviewQuickAddForm() {
   $("#reviewAddUserId").val("");
   $("#reviewAddProductId").val("");
   $("#reviewAddOrderId").val("");
-  $("#reviewAddRating").val("5");
-  $("#reviewAddVisible").val("1");
+  setAdminDropdownSelection("reviewAddRating", "5", "5 - Excellent");
+  setAdminDropdownSelection("reviewAddVisible", "1", "Visible");
   $("#reviewAddText").val("");
   $("#reviewAddNote").val("");
 }
@@ -6083,6 +6083,8 @@ $(document).ready(function () {
   applyButtonCooldown("#resetSocialBtn");
   applyButtonCooldown("#saveTickerBtn");
   applyButtonCooldown("#resetTickerBtn");
+  applyButtonCooldown("#saveCollectorsSpeakBtn");
+  applyButtonCooldown("#resetCollectorsSpeakBtn");
   applyButtonCooldown("#saveFeaturedVideosBtn");
   applyButtonCooldown("#saveSliderBtn");
   applyButtonCooldown("#resetSliderBtn");
@@ -6341,7 +6343,7 @@ $(document).ready(function () {
         return;
       }
 
-      $("#seoPageSelect").val(page.toLowerCase());
+      setSeoPageSelection(page.toLowerCase());
       refreshSeoMetaEditor();
     });
 
@@ -6751,11 +6753,7 @@ $(document).ready(function () {
     .off("click")
     .on("click", function () {
       const enabled = $("#tickerEnabled").is(":checked");
-      const messages = $("#tickerMessages")
-        .val()
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean);
+      const messages = collectTickerComposerMessages();
 
       if (messages.length === 0) {
         showNotification("Please add at least one ticker message", "danger");
@@ -6779,9 +6777,60 @@ $(document).ready(function () {
         });
     });
 
-  $("#resetTickerBtn").on("click", function () {
-    resetTickerForm();
-  });
+  $("#resetTickerBtn")
+    .off("click")
+    .on("click", function () {
+      resetTickerForm();
+    });
+
+  $("#saveCollectorsSpeakBtn")
+    .off("click")
+    .on("click", function () {
+      const entries = collectCollectorsSpeakEntries();
+      if (!entries.length) {
+        showNotification(
+          "Add at least one collector entry before saving.",
+          "danger",
+        );
+        return;
+      }
+
+      adminPostJson(ADMIN_WEBSITE_API, {
+        action: "save-collectors-speak",
+        entries,
+      })
+        .then((result) => {
+          applyWebsiteSettingsPayload(result?.payload || null);
+          showNotification(
+            result?.message || "Collectors Speak saved!",
+            "success",
+          );
+        })
+        .catch((error) => {
+          showNotification(
+            error?.message || "Unable to save Collectors Speak.",
+            "danger",
+          );
+        });
+    });
+
+  $("#resetCollectorsSpeakBtn")
+    .off("click")
+    .on("click", function () {
+      resetCollectorsSpeakForm();
+    });
+
+  $("#tickerMessages")
+    .off("input")
+    .on("input", function () {
+      renderTickerComposerPreview(collectTickerComposerMessages());
+    });
+
+  $("#collectorsSpeakInput")
+    .off("input")
+    .on("input", function () {
+      renderCollectorsSpeakPreview(collectCollectorsSpeakEntries());
+    });
 
   $("#saveFeaturedVideosBtn")
     .off("click")
@@ -8517,6 +8566,159 @@ function toggleOrderDetails(elementId) {
       element.style.display === "none" ? "table-row" : "none";
   }
 }
+
+function collectTickerComposerMessages() {
+  return ($("#tickerMessages").val() || "")
+    .toString()
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
+function renderTickerComposerPreview(messages) {
+  const list = Array.isArray(messages)
+    ? messages
+        .map((line) => (line || "").toString().trim())
+        .filter(Boolean)
+        .slice(0, 20)
+    : [];
+
+  const shell = $("#tickerPreviewList");
+  const meta = $("#tickerComposerMeta");
+
+  if (meta.length) {
+    const totalChars = list.reduce((sum, line) => sum + line.length, 0);
+    meta.text(`${list.length} message(s) | ${totalChars} total characters`);
+  }
+
+  if (!shell.length) {
+    return;
+  }
+
+  if (!list.length) {
+    shell.html(
+      '<span class="ticker-preview-pill">Add a message to preview</span>',
+    );
+    return;
+  }
+
+  shell.html(
+    list
+      .map(
+        (line) =>
+          `<span class="ticker-preview-pill">${escapeHtml(line)}</span>`,
+      )
+      .join(""),
+  );
+}
+
+function normalizeCollectorsSpeakEntry(entry) {
+  const source = entry && typeof entry === "object" ? entry : {};
+  const name = (source.name || "").toString().trim();
+  const tagline = (source.tagline || "").toString().trim();
+  const quote = (source.quote || "").toString().trim();
+
+  if (!name || !quote) {
+    return null;
+  }
+
+  return {
+    name: name.slice(0, 80),
+    tagline: tagline.slice(0, 120),
+    quote: quote.slice(0, 500),
+  };
+}
+
+function normalizeCollectorsSpeakList(list) {
+  if (!Array.isArray(list)) {
+    return [];
+  }
+
+  const normalized = [];
+  list.forEach((entry) => {
+    const item = normalizeCollectorsSpeakEntry(entry);
+    if (!item) {
+      return;
+    }
+    normalized.push(item);
+  });
+
+  return normalized.slice(0, 20);
+}
+
+function collectorsSpeakTextFromEntries(entries) {
+  const normalized = normalizeCollectorsSpeakList(entries);
+  if (!normalized.length) {
+    return "";
+  }
+
+  return normalized
+    .map(
+      (entry) =>
+        `${entry.name} | ${entry.tagline || "Collector"} | ${entry.quote}`,
+    )
+    .join("\n");
+}
+
+function collectCollectorsSpeakEntries() {
+  const lines = ($("#collectorsSpeakInput").val() || "")
+    .toString()
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 20);
+
+  const parsed = lines
+    .map((line) => {
+      const parts = line.split("|").map((part) => part.trim());
+      if (parts.length < 3) {
+        return null;
+      }
+
+      const name = parts[0] || "";
+      const tagline = parts[1] || "Collector";
+      const quote = parts.slice(2).join(" | ").trim();
+      return normalizeCollectorsSpeakEntry({
+        name,
+        tagline,
+        quote,
+      });
+    })
+    .filter(Boolean);
+
+  return normalizeCollectorsSpeakList(parsed);
+}
+
+function renderCollectorsSpeakPreview(entries) {
+  const normalized = normalizeCollectorsSpeakList(entries);
+  const shell = $("#collectorsSpeakPreview");
+  if (!shell.length) {
+    return;
+  }
+
+  if (!normalized.length) {
+    shell.html(
+      '<div class="text-secondary small">Preview will appear here as you type.</div>',
+    );
+    return;
+  }
+
+  shell.html(
+    normalized
+      .map(
+        (entry) => `
+        <article class="collectors-preview-item">
+          <strong>${escapeHtml(entry.name)}</strong>
+          <span>${escapeHtml(entry.tagline || "Collector")}</span>
+          <p>"${escapeHtml(entry.quote)}"</p>
+        </article>
+      `,
+      )
+      .join(""),
+  );
+}
+
 function buildDefaultSiteSettings() {
   return {
     brand: {
@@ -8532,11 +8734,64 @@ function buildDefaultSiteSettings() {
     ticker: {
       enabled: true,
       messages: [
-        "SALE IS LIVE: PREMIUM AUTOMATIC WATCHES UP TO 20% OFF",
-        "COLLECTION UPDATE: NEW SKELETON SERIES NOW AVAILABLE",
-        "FREE SHIPPING: NATIONWIDE DELIVERY ON ALL PREMIUM ORDERS",
+        "Private drop unlocked: signature chronographs now shipping nationwide",
+        "Members perk: free premium case with selected limited editions",
+        "New arrival: skeleton gold steel collection is now in stock",
+        "Private drop unlocked: signature chronographs now shipping nationwide",
+        "Members perk: free premium case with selected limited editions",
+        "New arrival: skeleton gold steel collection is now in stock",
       ],
     },
+    collectorsSpeak: [
+      {
+        name: "A. Khan",
+        tagline: "Lahore",
+        quote:
+          "The Skeleton Gold Steel feels premium in every detail. The movement is smooth and the dial steals attention.",
+      },
+      {
+        name: "S. Malik",
+        tagline: "Karachi",
+        quote:
+          "I've worn the Black Gold Dial daily. It keeps time accurately and looks incredible under low light.",
+      },
+      {
+        name: "R. Ahmed",
+        tagline: "Islamabad",
+        quote:
+          "Fast shipping and stellar packaging. The leather strap quality is beyond what I expected.",
+      },
+      {
+        name: "M. Hassan",
+        tagline: "Rawalpindi",
+        quote:
+          "The automatic movement is mesmerizing. I can watch it for hours through the exhibition case back.",
+      },
+      {
+        name: "F. Ali",
+        tagline: "Multan",
+        quote:
+          "Excellent build quality and attention to detail. The weight feels perfect on the wrist.",
+      },
+      {
+        name: "Z. Iqbal",
+        tagline: "Faisalabad",
+        quote:
+          "Customer service is outstanding. They helped me choose the perfect watch for my collection.",
+      },
+      {
+        name: "N. Raza",
+        tagline: "Peshawar",
+        quote:
+          "The luminous hands are perfect for night visibility. Absolutely love the craftsmanship.",
+      },
+      {
+        name: "H. Shah",
+        tagline: "Quetta",
+        quote:
+          "Premium materials and flawless finishing. This watch rivals luxury brands at triple the price.",
+      },
+    ],
     socialLinks: [
       {
         id: 1,
@@ -8619,6 +8874,11 @@ function loadSiteSettings() {
             ? parsed.ticker.messages
             : defaults.ticker.messages,
       },
+      collectorsSpeak: normalizeCollectorsSpeakList(
+        Array.isArray(parsed.collectorsSpeak)
+          ? parsed.collectorsSpeak
+          : defaults.collectorsSpeak,
+      ),
       socialLinks: Array.isArray(parsed.socialLinks)
         ? parsed.socialLinks
         : defaults.socialLinks,
@@ -8660,6 +8920,11 @@ function applyWebsiteSettingsPayload(payload) {
           ? source.ticker.messages
           : defaults.ticker.messages,
     },
+    collectorsSpeak: normalizeCollectorsSpeakList(
+      Array.isArray(source.collectorsSpeak)
+        ? source.collectorsSpeak
+        : defaults.collectorsSpeak,
+    ),
     socialLinks: Array.isArray(source.socialLinks)
       ? source.socialLinks
       : defaults.socialLinks,
@@ -8689,8 +8954,14 @@ function applyWebsiteSettingsPayload(payload) {
 
   $("#tickerEnabled").prop("checked", siteSettings.ticker?.enabled !== false);
   $("#tickerMessages").val((siteSettings.ticker?.messages || []).join("\n"));
+  $("#collectorsSpeakInput").val(
+    collectorsSpeakTextFromEntries(siteSettings.collectorsSpeak || []),
+  );
   $("#homeFeatureVideo").val(siteSettings.featuredVideos?.home || "");
   $("#categoryAFeatureVideo").val(siteSettings.featuredVideos?.categoryA || "");
+
+  renderTickerComposerPreview(siteSettings.ticker?.messages || []);
+  renderCollectorsSpeakPreview(siteSettings.collectorsSpeak || []);
 
   renderSeoPageOptions();
   renderSeoMetaTable();
@@ -8741,6 +9012,14 @@ function resetTickerForm() {
   const defaults = buildDefaultSiteSettings();
   $("#tickerEnabled").prop("checked", defaults.ticker.enabled);
   $("#tickerMessages").val(defaults.ticker.messages.join("\n"));
+  renderTickerComposerPreview(defaults.ticker.messages);
+}
+
+function resetCollectorsSpeakForm() {
+  const defaults = buildDefaultSiteSettings();
+  const entries = normalizeCollectorsSpeakList(defaults.collectorsSpeak || []);
+  $("#collectorsSpeakInput").val(collectorsSpeakTextFromEntries(entries));
+  renderCollectorsSpeakPreview(entries);
 }
 
 function normalizeSeoPageMetaEntry(entry) {
@@ -8788,41 +9067,58 @@ function getSeoPageLabel(pageKey) {
 }
 
 function renderSeoPageOptions() {
-  const select = $("#seoPageSelect");
-  if (!select.length) {
+  const input = $("#seoPageSelect");
+  const menu = $("#seoPageSelectMenu");
+
+  if (!input.length || !menu.length) {
     return;
   }
 
-  const currentValue = (select.val() || "").toString().trim().toLowerCase();
-  select.empty();
+  const currentValue = (input.val() || "").toString().trim().toLowerCase();
 
-  ADMIN_PAGES.forEach((page) => {
+  menu.empty();
+  const optionsMarkup = ADMIN_PAGES.map((page) => {
     const pageId = (page.id || "").toString().trim();
     if (!pageId) {
-      return;
+      return "";
     }
 
     const label = (page.label || pageId).toString();
-    select.append(
-      `<option value="${escapeHtml(pageId)}">${escapeHtml(label)} (${escapeHtml(pageId)})</option>`,
-    );
-  });
+    const optionLabel = `${label} (${pageId})`;
+    return `<li><a class="dropdown-item text-light admin-dropdown-item" href="#" data-target="seoPageSelect" data-value="${escapeHtml(
+      pageId,
+    )}" data-label="${escapeHtml(optionLabel)}">${escapeHtml(label)} <small class="text-secondary d-block">${escapeHtml(pageId)}</small></a></li>`;
+  })
+    .filter(Boolean)
+    .join("");
+
+  menu.html(optionsMarkup);
 
   const fallback = (ADMIN_PAGES[0]?.id || "").toString();
   const nextValue = currentValue || fallback;
-  if (nextValue) {
-    select.val(nextValue);
-  }
-
-  if (!select.val() && fallback) {
-    select.val(fallback);
+  if (nextValue || fallback) {
+    setSeoPageSelection(nextValue || fallback);
   }
 }
 
+function setSeoPageSelection(pageKey) {
+  const normalized = (pageKey || "").toString().trim().toLowerCase();
+  if (!normalized) {
+    return;
+  }
+
+  const label = getSeoPageLabel(normalized);
+  setAdminDropdownSelection(
+    "seoPageSelect",
+    normalized,
+    `${label} (${normalized})`,
+  );
+}
+
 function getSelectedSeoPage() {
-  const selectValue = ($("#seoPageSelect").val() || "").toString().trim();
-  if (selectValue) {
-    return selectValue.toLowerCase();
+  const inputValue = ($("#seoPageSelect").val() || "").toString().trim();
+  if (inputValue) {
+    return inputValue.toLowerCase();
   }
 
   return ((ADMIN_PAGES[0] && ADMIN_PAGES[0].id) || "").toString().toLowerCase();
@@ -8935,7 +9231,7 @@ async function saveSeoMetaFromForm() {
     });
 
     applyWebsiteSettingsPayload(result?.payload || null);
-    $("#seoPageSelect").val(payload.page);
+    setSeoPageSelection(payload.page);
     refreshSeoMetaEditor();
     showNotification(result?.message || "SEO metadata saved.", "success");
   } catch (error) {
@@ -8973,7 +9269,7 @@ async function deleteSeoMetaForPage(pageKey = "") {
     });
 
     applyWebsiteSettingsPayload(result?.payload || null);
-    $("#seoPageSelect").val(page);
+    setSeoPageSelection(page);
     refreshSeoMetaEditor();
     showNotification(result?.message || "SEO metadata deleted.", "success");
   } catch (error) {

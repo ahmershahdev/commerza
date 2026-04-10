@@ -84,6 +84,49 @@ function generate_order_number(mysqli $con): string
   return '#ORD-' . (string)time();
 }
 
+function cart_checkout_rate_limit_error(mysqli $con, bool $isLoggedIn): ?string
+{
+  $identifier = 'guest';
+  if ($isLoggedIn) {
+    $identifier = 'user_' . (int)($_SESSION['user_id'] ?? 0);
+  } else {
+    $sessionId = trim((string)session_id());
+    if ($sessionId !== '') {
+      $identifier = 'session_' . substr($sessionId, 0, 64);
+    }
+  }
+
+  $clientIp = commerza_client_ip();
+  $rate = commerza_rate_limit_check(
+    $con,
+    'checkout_place_order_page',
+    $identifier,
+    $clientIp,
+    8,
+    600,
+    600,
+    1800
+  );
+
+  if ((bool)($rate['allowed'] ?? true)) {
+    return null;
+  }
+
+  $retrySeconds = max(1, (int)($rate['retry_after'] ?? 600));
+  if (function_exists('commerza_security_log_rate_limit_block')) {
+    commerza_security_log_rate_limit_block(
+      $con,
+      'checkout_place_order_page',
+      $isLoggedIn ? 'user' : 'guest',
+      $identifier,
+      $clientIp,
+      $retrySeconds
+    );
+  }
+
+  return 'Too many checkout attempts. Please wait ' . $retrySeconds . ' second(s) and try again.';
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') === 'place_order') {
   if (
     empty($_POST['csrf_token']) ||
@@ -96,6 +139,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
 
   if (!$is_logged_in) {
     $errors[] = 'Please login before placing an order.';
+  }
+
+  $checkoutRateLimitError = cart_checkout_rate_limit_error($con, $is_logged_in);
+  if ($checkoutRateLimitError !== null) {
+    $errors[] = $checkoutRateLimitError;
   }
 
   $requestId = commerza_request_id_from_server($_POST);
@@ -117,9 +165,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
   $customer_phone = (string)($customer_phone ?? '');
   $customer_address = trim((string)($_POST['customer_address'] ?? ''));
   $payment_method = strtolower(trim((string)($_POST['payment_method'] ?? 'cod')));
+  $payment_sender = trim((string)($_POST['payment_sender'] ?? ''));
+  $payment_reference = strtoupper(trim((string)($_POST['payment_reference'] ?? '')));
 
   $payment_methods = [
     'cod' => 'Cash on Delivery (COD)',
+    'jazzcash' => 'JazzCash (Sandbox)',
+    'easypaisa' => 'Easypaisa (Sandbox)',
+    'paypal' => 'PayPal (Sandbox)',
+    'stripe' => 'Stripe (Sandbox)',
+    'card' => 'Credit/Debit Card (Sandbox)',
   ];
 
   $payment_method_label = $payment_methods[$payment_method] ?? '';
@@ -144,6 +199,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
 
   if ($payment_method_label === '') {
     $errors[] = 'Please select a valid payment method.';
+  }
+
+  if ($payment_method !== 'cod') {
+    if (strlen($payment_sender) < 3 || strlen($payment_sender) > 120) {
+      $errors[] = 'Payer account/wallet detail must be 3-120 characters for sandbox payments.';
+    }
+
+    if (!preg_match('/^[A-Z0-9_-]{4,80}$/', $payment_reference)) {
+      $errors[] = 'Sandbox transaction reference must be 4-80 characters and can contain letters, numbers, _ or -.';
+    }
+
+    $payment_notes[] = 'Sandbox payment mode selected: ' . $payment_method_label;
+    if ($payment_sender !== '') {
+      $payment_notes[] = 'Sandbox payer detail: ' . $payment_sender;
+    }
+    if ($payment_reference !== '') {
+      $payment_notes[] = 'Sandbox reference: ' . $payment_reference;
+    }
+  } else {
+    $payment_notes[] = 'Cash on Delivery selected.';
   }
 
   if (empty($errors)) {
@@ -274,6 +349,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       'customer_phone' => $customer_phone,
       'customer_address' => $customer_address,
       'payment_method' => $payment_method_label,
+      'payment_sender' => $payment_sender,
+      'payment_reference' => $payment_reference,
       'subtotal' => round($subtotal, 2),
       'shipping_cost' => round($shipping_cost, 2),
       'discount_total' => round($discount_total, 2),
@@ -691,6 +768,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       box-shadow: 0 10px 24px rgba(255, 140, 0, 0.25);
       font-size: 18px;
       flex: 0 0 40px;
+    }
+
+    #checkoutModal .payment-dropdown-toggle {
+      background: #121212;
+      border: 1px solid rgba(255, 102, 0, 0.35);
+      color: #f5f5f5;
+      border-radius: 8px;
+      padding: 11px 12px;
+      text-align: left;
+    }
+
+    #checkoutModal .payment-dropdown-toggle:hover,
+    #checkoutModal .payment-dropdown-toggle:focus {
+      border-color: #ffcc00;
+      color: #fff;
+      box-shadow: 0 0 0 0.18rem rgba(255, 204, 0, 0.2);
+    }
+
+    #checkoutModal .payment-dropdown-menu {
+      width: 100%;
+      background: #101010;
+      border: 1px solid rgba(255, 102, 0, 0.35);
+      border-radius: 10px;
+      padding: 6px;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+
+    #checkoutModal .checkout-payment-option {
+      border-radius: 8px;
+      color: #f2f2f2;
+      font-weight: 600;
+      font-size: 0.92rem;
+      padding: 10px 12px;
+      display: block;
+      text-decoration: none;
+    }
+
+    #checkoutModal .checkout-payment-option small {
+      display: block;
+      color: #b8b8b8;
+      font-size: 0.74rem;
+      margin-top: 2px;
+      font-weight: 500;
+    }
+
+    #checkoutModal .checkout-payment-option:hover,
+    #checkoutModal .checkout-payment-option:focus {
+      background: rgba(255, 102, 0, 0.15);
+      color: #fff;
+    }
+
+    #checkoutModal .checkout-payment-option.active {
+      background: linear-gradient(135deg, rgba(255, 140, 0, 0.25), rgba(255, 204, 0, 0.2));
+      border: 1px solid rgba(255, 204, 0, 0.4);
+      color: #fff8e1;
+    }
+
+    #checkoutModal .payment-extra-fields {
+      margin-top: 10px;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px dashed rgba(255, 140, 0, 0.35);
+      background: rgba(255, 140, 0, 0.06);
     }
 
     .cart-layout-shell {
@@ -1112,7 +1253,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
           <article class="checkout-guide-card">
             <span class="checkout-guide-step">Step 4</span>
             <h3>Select Payment Method</h3>
-            <p>Use COD, complete CAPTCHA, then submit your final order.</p>
+            <p>Choose COD or sandbox payment, complete CAPTCHA, then submit your final order.</p>
           </article>
         </div>
       </div>
@@ -1231,17 +1372,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
               </div>
 
               <div class="mb-3 checkout-span-full">
-                <label for="paymentMethod" class="form-label" style="color: #fff;">Payment Method *</label>
-                <select class="form-select checkout-field" id="paymentMethod" name="payment_method" required>
-                  <option value="cod">COD - Cash on Delivery</option>
-                </select>
-                <p class="payment-hint">COD is currently the only available payment method.</p>
+                <label for="paymentMethodBtn" class="form-label" style="color: #fff;">Payment Method *</label>
+                <div class="dropdown">
+                  <button class="btn payment-dropdown-toggle dropdown-toggle w-100" type="button" id="paymentMethodBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                    Cash on Delivery (COD)
+                  </button>
+                  <ul class="dropdown-menu payment-dropdown-menu" id="paymentMethodMenu">
+                    <li><a class="checkout-payment-option active" href="#" data-value="cod" data-label="Cash on Delivery (COD)" data-icon="bi-cash-coin" data-desc="Pay when your order reaches your doorstep.">Cash on Delivery (COD)<small>Pay cash when order is delivered</small></a></li>
+                    <li><a class="checkout-payment-option" href="#" data-value="jazzcash" data-label="JazzCash (Sandbox)" data-icon="bi-phone" data-desc="Sandbox wallet mode. Add payer and transaction reference below.">JazzCash (Sandbox)<small>Use JazzCash test credentials only</small></a></li>
+                    <li><a class="checkout-payment-option" href="#" data-value="easypaisa" data-label="Easypaisa (Sandbox)" data-icon="bi-wallet2" data-desc="Sandbox wallet mode. Add payer and transaction reference below.">Easypaisa (Sandbox)<small>Use Easypaisa sandbox flow</small></a></li>
+                    <li><a class="checkout-payment-option" href="#" data-value="paypal" data-label="PayPal (Sandbox)" data-icon="bi-paypal" data-desc="Sandbox PayPal mode. Add payer and transaction reference below.">PayPal (Sandbox)<small>Use PayPal sandbox buyer account</small></a></li>
+                    <li><a class="checkout-payment-option" href="#" data-value="stripe" data-label="Stripe (Sandbox)" data-icon="bi-credit-card" data-desc="Sandbox Stripe mode. Add payer and transaction reference below.">Stripe (Sandbox)<small>Use Stripe test mode details</small></a></li>
+                    <li><a class="checkout-payment-option" href="#" data-value="card" data-label="Credit/Debit Card (Sandbox)" data-icon="bi-credit-card-2-front" data-desc="Sandbox card mode. Add payer and transaction reference below.">Credit/Debit Card (Sandbox)<small>Manual verification with sandbox reference</small></a></li>
+                  </ul>
+                </div>
+                <input type="hidden" id="paymentMethod" name="payment_method" value="cod">
+                <p class="payment-hint">Online methods run in sandbox mode and require a payer detail + reference.</p>
                 <div id="paymentMethodCard" class="payment-method-card" aria-live="polite">
                   <div class="payment-method-icon"><i id="paymentMethodIcon" class="bi bi-cash-coin"></i></div>
                   <div>
                     <p id="paymentMethodTitle" class="mb-1 text-white fw-bold">Cash on Delivery</p>
                     <p id="paymentMethodDesc" class="payment-hint mb-0">Pay when your order reaches your doorstep.</p>
                   </div>
+                </div>
+                <div id="paymentExtraFields" class="payment-extra-fields d-none">
+                  <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                      <label for="paymentSender" class="form-label text-white">Payer Wallet / Account *</label>
+                      <input type="text" class="form-control checkout-field" id="paymentSender" name="payment_sender" maxlength="120" placeholder="Wallet number or sandbox account email">
+                    </div>
+                    <div class="col-12 col-md-6">
+                      <label for="paymentReference" class="form-label text-white">Sandbox Transaction Reference *</label>
+                      <input type="text" class="form-control checkout-field" id="paymentReference" name="payment_reference" maxlength="80" placeholder="Example: TEST-ORDER-1234" pattern="[A-Za-z0-9_-]{4,80}">
+                    </div>
+                  </div>
+                  <small class="field-hint d-block mt-2">Use sandbox/test values only. Live settlement is not enabled in this flow.</small>
                 </div>
               </div>
 
@@ -1354,15 +1519,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       }
 
       function updatePaymentMethodPreview() {
-        const selected = {
-          icon: 'bi-cash-coin',
-          title: 'Cash on Delivery',
-          desc: 'Pay when your order reaches your doorstep.'
+        const methodKey = ($('#paymentMethod').val() || 'cod').toString().toLowerCase();
+        const methodMap = {
+          cod: {
+            icon: 'bi-cash-coin',
+            title: 'Cash on Delivery',
+            desc: 'Pay when your order reaches your doorstep.'
+          },
+          jazzcash: {
+            icon: 'bi-phone',
+            title: 'JazzCash (Sandbox)',
+            desc: 'Sandbox wallet flow selected. Add payer details and reference below.'
+          },
+          easypaisa: {
+            icon: 'bi-wallet2',
+            title: 'Easypaisa (Sandbox)',
+            desc: 'Sandbox wallet flow selected. Add payer details and reference below.'
+          },
+          paypal: {
+            icon: 'bi-paypal',
+            title: 'PayPal (Sandbox)',
+            desc: 'Sandbox PayPal flow selected. Add payer details and reference below.'
+          },
+          stripe: {
+            icon: 'bi-credit-card',
+            title: 'Stripe (Sandbox)',
+            desc: 'Sandbox Stripe flow selected. Add payer details and reference below.'
+          },
+          card: {
+            icon: 'bi-credit-card-2-front',
+            title: 'Credit/Debit Card (Sandbox)',
+            desc: 'Sandbox card flow selected. Add payer details and reference below.'
+          }
         };
+
+        const selected = methodMap[methodKey] || methodMap.cod;
         $('#paymentMethodIcon').attr('class', `bi ${selected.icon}`);
         $('#paymentMethodTitle').text(selected.title);
         $('#paymentMethodDesc').text(selected.desc);
+
+        const requiresSandboxDetails = methodKey !== 'cod';
+        $('#paymentExtraFields').toggleClass('d-none', !requiresSandboxDetails);
+        $('#paymentSender, #paymentReference').prop('required', requiresSandboxDetails);
       }
+
+      function setPaymentMethod(methodKey, labelText) {
+        const normalized = (methodKey || 'cod').toString().toLowerCase();
+        $('#paymentMethod').val(normalized);
+
+        const label = (labelText || '').toString().trim();
+        if (label !== '') {
+          $('#paymentMethodBtn').text(label);
+        }
+
+        $('#paymentMethodMenu .checkout-payment-option').removeClass('active');
+        $(`#paymentMethodMenu .checkout-payment-option[data-value="${normalized}"]`).addClass('active');
+        updatePaymentMethodPreview();
+      }
+
+      $('#paymentMethodMenu').on('click', '.checkout-payment-option', function(event) {
+        event.preventDefault();
+        const methodKey = ($(this).data('value') || 'cod').toString();
+        const label = ($(this).data('label') || $(this).text() || '').toString().trim();
+        setPaymentMethod(methodKey, label);
+      });
 
       $("#serverAlert, #successAlert").each(function() {
         const element = $(this);
@@ -1436,8 +1656,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
           $('#customerAddress').val(prefillData.address || '');
         }
 
-        $('#paymentMethod').val('cod');
-        updatePaymentMethodPreview();
+        setPaymentMethod('cod', 'Cash on Delivery (COD)');
       });
 
       $('#checkoutForm').on('submit', function(event) {

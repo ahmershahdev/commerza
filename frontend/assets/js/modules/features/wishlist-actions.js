@@ -4,6 +4,37 @@ function updateWishlistBadge() {
   $("#wishlist-count-mobile").text(count);
 }
 
+async function parseWishlistActionResponse(response) {
+  const rawText = await response.text();
+  if (!rawText) {
+    return null;
+  }
+
+  const cleaned = rawText
+    .toString()
+    .replace(/^\uFEFF/, "")
+    .trim();
+  if (!cleaned) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (error) {
+    const objectStart = cleaned.indexOf("{");
+    const objectEnd = cleaned.lastIndexOf("}");
+    if (objectStart >= 0 && objectEnd > objectStart) {
+      try {
+        return JSON.parse(cleaned.slice(objectStart, objectEnd + 1));
+      } catch (secondaryError) {
+        return null;
+      }
+    }
+
+    return null;
+  }
+}
+
 function isInWishlist(id, name) {
   const parsedId = parseInt(id, 10);
   if (Number.isInteger(parsedId) && parsedId > 0) {
@@ -71,7 +102,10 @@ async function toggleWishlist(item, options = {}) {
       body: payload.toString(),
     });
 
-    const data = await response.json();
+    const data = await parseWishlistActionResponse(response);
+    const fallbackError = !response.ok
+      ? `Wishlist service error (${response.status}).`
+      : "Invalid response from wishlist service.";
 
     if (data?.csrf_token) {
       wishlistState.csrfToken = data.csrf_token;
@@ -94,7 +128,7 @@ async function toggleWishlist(item, options = {}) {
       }
 
       if (!silent) {
-        showNotif(data?.message || "Unable to update wishlist.", "warning");
+        showNotif(data?.message || fallbackError, "warning");
       }
       return { ok: false, added: false };
     }
@@ -112,7 +146,14 @@ async function toggleWishlist(item, options = {}) {
     return { ok: true, added: !!data.added };
   } catch (error) {
     if (!silent) {
-      showNotif("Unable to connect wishlist service.", "warning");
+      const isOffline =
+        typeof navigator !== "undefined" && navigator.onLine === false;
+      showNotif(
+        isOffline
+          ? "No internet connection. Reconnect and try again."
+          : "Unable to connect wishlist service. Refresh and try again.",
+        "warning",
+      );
     }
     return { ok: false, added: false };
   }
