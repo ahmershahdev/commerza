@@ -225,6 +225,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
       justify-content: center;
       font-family: 'Inter', sans-serif;
       margin: 0;
+      padding: 18px 12px;
       overflow-x: hidden;
       animation: bodyFadeIn 1.5s ease;
     }
@@ -243,9 +244,9 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
       background: linear-gradient(145deg, #1a1a1a 0%, #0a0a0a 100%);
       border: 1px solid rgba(255, 69, 0, 0.2);
       border-radius: 12px;
-      padding: 35px;
+      padding: 28px 24px;
       width: 100%;
-      max-width: 450px;
+      max-width: 430px;
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 69, 0, 0.1);
       position: relative;
       animation: reveal-up 1s ease-out forwards;
@@ -303,7 +304,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
       font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 1px;
-      margin-bottom: 30px;
+      margin-bottom: 18px;
     }
 
     .form-label {
@@ -320,7 +321,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
       background-color: #000 !important;
       border: 1px solid rgba(255, 69, 0, 0.3);
       color: #ffffff !important;
-      padding: 12px;
+      padding: 10px 12px;
       border-radius: 4px;
       transition: all 0.3s ease;
     }
@@ -402,7 +403,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
 
     .login-links {
       text-align: center;
-      margin-top: 25px;
+      margin-top: 16px;
       width: 100%;
     }
 
@@ -444,6 +445,35 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
     input[type="password"]::-ms-reveal,
     input[type="password"]::-ms-clear {
       display: none;
+    }
+
+    @media (max-height: 780px) {
+      body.dark-theme {
+        align-items: flex-start;
+      }
+
+      .login-card {
+        margin: 8px auto;
+        padding: 24px 20px;
+      }
+
+      .login-title {
+        font-size: 28px;
+        letter-spacing: 3px;
+      }
+
+      .login-subtitle {
+        margin-bottom: 14px;
+        font-size: 11px;
+      }
+
+      .mb-3 {
+        margin-bottom: 0.72rem !important;
+      }
+
+      .login-links {
+        margin-top: 12px;
+      }
     }
   </style>
 </head>

@@ -402,44 +402,24 @@ function commerza_captcha_builtin_issue(string $context): array
     }
 
     $challenge = $store[$contextKey] ?? null;
-    $isReusable = false;
-
-    if (
-        is_array($challenge)
-        && isset($challenge['question'], $challenge['nonce'], $challenge['expires_at'])
-        && (int)$challenge['expires_at'] > time() + 30
-    ) {
-        $storedHashes = [];
-        if (isset($challenge['answer_hashes']) && is_array($challenge['answer_hashes'])) {
-            foreach ($challenge['answer_hashes'] as $hash) {
-                $hash = trim((string)$hash);
-                if ($hash !== '') {
-                    $storedHashes[] = $hash;
-                }
-            }
-        }
-
-        if (empty($storedHashes)) {
-            $legacyHash = trim((string)($challenge['answer_hash'] ?? ''));
-            if ($legacyHash !== '') {
-                $storedHashes[] = $legacyHash;
-            }
-        }
-
-        $isReusable = !empty($storedHashes) && (int)($challenge['attempts'] ?? 0) < 3;
-    }
-
-    if ($isReusable) {
-        return [
-            'question' => (string)$challenge['question'],
-            'nonce' => (string)$challenge['nonce'],
-        ];
-    }
+    $previousQuestion = is_array($challenge)
+        ? strtolower(trim((string)($challenge['question'] ?? '')))
+        : '';
 
     $challengeData = commerza_captcha_builtin_generate_challenge();
     $question = trim((string)($challengeData['question'] ?? 'What is the capital of France?'));
     if ($question === '') {
         $question = 'What is the capital of France?';
+    }
+
+    $rotationAttempts = 0;
+    while ($previousQuestion !== '' && strtolower($question) === $previousQuestion && $rotationAttempts < 6) {
+        $challengeData = commerza_captcha_builtin_generate_math_challenge();
+        $question = trim((string)($challengeData['question'] ?? 'What is the capital of France?'));
+        if ($question === '') {
+            $question = 'What is the capital of France?';
+        }
+        $rotationAttempts++;
     }
 
     $answers = [];
@@ -463,13 +443,20 @@ function commerza_captcha_builtin_issue(string $context): array
         $answerHashes[] = hash('sha256', $answer . '|' . $nonce . '|' . $contextKey);
     }
 
+    $minSolveSeconds = 4;
+    try {
+        $minSolveSeconds = random_int(3, 6);
+    } catch (Throwable $exception) {
+        $minSolveSeconds = 4;
+    }
+
     $store[$contextKey] = [
         'question' => $question,
         'nonce' => $nonce,
         'answer_hashes' => array_values(array_unique($answerHashes)),
-        'expires_at' => time() + 900,
+        'expires_at' => time() + 600,
         'issued_at' => time(),
-        'min_solve_seconds' => 4,
+        'min_solve_seconds' => $minSolveSeconds,
         'attempts' => 0,
         'challenge_type' => (string)($challengeData['type'] ?? 'mixed'),
     ];
@@ -576,8 +563,9 @@ function commerza_captcha_builtin_verify(array $request, string $context, string
     }
 
     if (!$answerValid) {
+        $maxAttempts = 3;
         $attempts = (int)($challenge['attempts'] ?? 0) + 1;
-        if ($attempts >= 5) {
+        if ($attempts >= $maxAttempts) {
             unset($store[$contextKey]);
         } else {
             $challenge['attempts'] = $attempts;
@@ -588,7 +576,7 @@ function commerza_captcha_builtin_verify(array $request, string $context, string
 
         return [
             'ok' => false,
-            'message' => $attempts >= 5
+            'message' => $attempts >= $maxAttempts
                 ? 'Too many incorrect CAPTCHA attempts. Please reload and try again.'
                 : 'CAPTCHA answer is incorrect. Please try again.',
             'skipped' => false,

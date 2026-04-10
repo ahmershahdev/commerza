@@ -240,16 +240,16 @@ function admin_mask_email(string $email): string
       justify-content: center;
       font-family: 'Inter', sans-serif;
       margin: 0;
-      padding: 16px;
+      padding: 14px 12px;
     }
 
     .verify-card {
       width: 100%;
-      max-width: 460px;
+      max-width: 430px;
       background: linear-gradient(145deg, #1a1a1a 0%, #0a0a0a 100%);
       border: 1px solid rgba(255, 69, 0, 0.2);
       border-radius: 12px;
-      padding: 32px;
+      padding: 24px 20px;
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 69, 0, 0.1);
     }
 
@@ -265,7 +265,7 @@ function admin_mask_email(string $email): string
     .subtitle {
       text-align: center;
       color: #b0b0b0;
-      margin-bottom: 20px;
+      margin-bottom: 14px;
       font-size: 14px;
     }
 
@@ -281,7 +281,7 @@ function admin_mask_email(string $email): string
       background: #000;
       border: 1px solid rgba(255, 69, 0, 0.35);
       color: #fff;
-      padding: 12px;
+      padding: 10px 12px;
     }
 
     .form-control:focus {
@@ -317,6 +317,30 @@ function admin_mask_email(string $email): string
     .btn-link:hover {
       text-decoration: underline;
       color: #ffd966;
+    }
+
+    @media (max-height: 700px) {
+      body {
+        align-items: flex-start;
+      }
+
+      .verify-card {
+        margin: 8px auto;
+        padding: 20px 16px;
+      }
+
+      .title {
+        font-size: 24px;
+      }
+
+      .subtitle {
+        margin-bottom: 10px;
+        font-size: 13px;
+      }
+
+      .mb-3 {
+        margin-bottom: 0.72rem !important;
+      }
     }
   </style>
 </head>

@@ -716,14 +716,18 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
         </div>
       <?php else: ?>
         <?php foreach ($items as $item): ?>
-          <div class="card product-card mb-3 wishlist-item-card" data-product-id="<?= (int)$item['id'] ?>">
+          <?php $displayProductCode = (string)($item['product_code'] ?: ('CMRZ-' . str_pad((string)((int)$item['id']), 5, '0', STR_PAD_LEFT))); ?>
+          <div class="card product-card mb-3 wishlist-item-card"
+            data-product-id="<?= (int)$item['id'] ?>"
+            data-product-name="<?= htmlspecialchars((string)$item['name'], ENT_QUOTES, 'UTF-8') ?>"
+            data-product-code="<?= htmlspecialchars($displayProductCode, ENT_QUOTES, 'UTF-8') ?>">
             <div class="card-body d-flex align-items-center gap-3">
               <img src="<?= htmlspecialchars((string)$item['image']) ?>" class="wishlist-img me-2" alt="<?= htmlspecialchars((string)$item['name']) ?>" />
               <div class="flex-grow-1">
                 <h3 class="product-name mb-1"><?= htmlspecialchars((string)$item['name']) ?></h3>
                 <p class="wishlist-meta">Saved: <?= htmlspecialchars((string)date('M d, Y', strtotime((string)$item['added_at']))) ?></p>
                 <div class="wishlist-detail-strip">
-                  <span class="wishlist-detail-chip"><i class="bi bi-upc-scan"></i><?= htmlspecialchars((string)($item['product_code'] ?: ('CMRZ-' . str_pad((string)((int)$item['id']), 5, '0', STR_PAD_LEFT)))) ?></span>
+                  <span class="wishlist-detail-chip"><i class="bi bi-upc-scan"></i><?= htmlspecialchars($displayProductCode) ?></span>
                   <span class="wishlist-detail-chip"><i class="bi bi-shield-check"></i><?= htmlspecialchars((string)($item['warranty_info'] ?: '12-month seller warranty')) ?></span>
                   <span class="wishlist-detail-chip"><i class="bi bi-truck"></i><?= htmlspecialchars((string)($item['dispatch_info'] ?: 'Dispatch in 24-48 hours')) ?></span>
                 </div>
@@ -930,11 +934,30 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
         return data;
       }
 
-      async function addToCart(productId, retry = 0) {
+      function readCardIdentity(card) {
+        const productId = parseInt(card.data('productId'), 10);
+        const productName = (card.data('productName') || '').toString().trim();
+        const productCode = (card.data('productCode') || '').toString().trim();
+
+        return {
+          productId,
+          productName,
+          productCode
+        };
+      }
+
+      async function addToCart(identity, retry = 0) {
+        const productId = Number(identity?.productId || 0);
         const body = new URLSearchParams();
         body.set('action', 'add');
         body.set('product_id', String(productId));
         body.set('quantity', '1');
+        if (identity?.productName) {
+          body.set('product_name', String(identity.productName));
+        }
+        if (identity?.productCode) {
+          body.set('product_code', String(identity.productCode));
+        }
         body.set('csrf_token', csrfToken || '');
 
         const response = await fetch('backend/cart_api.php', {
@@ -969,24 +992,26 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
         const form = $(this);
         const button = form.find('.wishlist-remove-btn');
         const card = form.closest('.wishlist-item-card');
-        const productId = parseInt(button.data('productId') || form.find('input[name="product_id"]').val(), 10);
+        const identity = readCardIdentity(card);
 
-        if (!Number.isInteger(productId) || productId <= 0) {
+        if (!Number.isInteger(identity.productId) || identity.productId <= 0) {
           flashAlert('error', 'Invalid wishlist item.');
+          return;
+        }
+
+        if (identity.productName === '' || identity.productCode === '') {
+          flashAlert('error', 'Product verification data is missing. Refresh and try again.');
           return;
         }
 
         button.prop('disabled', true);
 
         try {
-          const result = await postWishlistAction('toggle', {
-            product_id: productId
+          await postWishlistAction('remove', {
+            product_id: identity.productId,
+            product_name: identity.productName,
+            product_code: identity.productCode
           });
-          if (result.added) {
-            await postWishlistAction('toggle', {
-              product_id: productId
-            });
-          }
 
           card.addClass('is-removing');
           window.setTimeout(() => {
@@ -1003,26 +1028,28 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
 
       $(document).on('click', '.wishlist-move-cart-btn', async function() {
         const button = $(this);
-        const productId = parseInt(button.data('productId'), 10);
         const card = button.closest('.wishlist-item-card');
+        const identity = readCardIdentity(card);
 
-        if (!Number.isInteger(productId) || productId <= 0) {
+        if (!Number.isInteger(identity.productId) || identity.productId <= 0) {
           flashAlert('error', 'Invalid wishlist item.');
+          return;
+        }
+
+        if (identity.productName === '' || identity.productCode === '') {
+          flashAlert('error', 'Product verification data is missing. Refresh and try again.');
           return;
         }
 
         button.prop('disabled', true).text('Moving...');
 
         try {
-          await addToCart(productId);
-          const result = await postWishlistAction('toggle', {
-            product_id: productId
+          await addToCart(identity);
+          await postWishlistAction('remove', {
+            product_id: identity.productId,
+            product_name: identity.productName,
+            product_code: identity.productCode
           });
-          if (result.added) {
-            await postWishlistAction('toggle', {
-              product_id: productId
-            });
-          }
 
           card.addClass('is-removing');
           window.setTimeout(() => {

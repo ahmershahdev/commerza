@@ -276,6 +276,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
       justify-content: center;
       font-family: 'Inter', sans-serif;
       margin: 0;
+      padding: 18px 12px;
       overflow-x: hidden;
       animation: bodyFadeIn 1.5s ease;
     }
@@ -294,9 +295,9 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
       background: linear-gradient(145deg, #1a1a1a 0%, #0a0a0a 100%);
       border: 1px solid rgba(255, 69, 0, 0.2);
       border-radius: 12px;
-      padding: 35px;
+      padding: 28px 24px;
       width: 100%;
-      max-width: 480px;
+      max-width: 460px;
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 69, 0, 0.1);
       position: relative;
       animation: reveal-up 1s ease-out forwards;
@@ -353,7 +354,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
       font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 1px;
-      margin-bottom: 24px;
+      margin-bottom: 16px;
     }
 
     .form-label {
@@ -370,7 +371,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
       background-color: #000 !important;
       border: 1px solid rgba(255, 69, 0, 0.3);
       color: #ffffff !important;
-      padding: 12px;
+      padding: 10px 12px;
       border-radius: 4px;
       transition: all 0.3s ease;
     }
@@ -431,7 +432,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
 
     .forgot-links {
       text-align: center;
-      margin-top: 24px;
+      margin-top: 14px;
       width: 100%;
     }
 
@@ -463,6 +464,39 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
       color: #ffcc00;
       text-decoration: underline;
       text-shadow: 0 0 10px rgba(255, 69, 0, 0.5);
+    }
+
+    @media (max-height: 900px) {
+      body.dark-theme {
+        align-items: flex-start;
+      }
+
+      .forgot-card {
+        margin: 8px auto;
+        padding: 22px 18px;
+      }
+
+      .forgot-title {
+        font-size: 28px;
+        letter-spacing: 3px;
+      }
+
+      .forgot-subtitle {
+        margin-bottom: 12px;
+        font-size: 11px;
+      }
+
+      .mb-3 {
+        margin-bottom: 0.72rem !important;
+      }
+
+      .forgot-links {
+        margin-top: 10px;
+      }
+
+      .reset-btn {
+        padding: 10px !important;
+      }
     }
   </style>
 </head>

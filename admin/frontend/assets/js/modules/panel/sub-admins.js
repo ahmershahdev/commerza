@@ -208,6 +208,106 @@
     return Array.from(new Set(tabs));
   }
 
+  function normalizedKeyList(values) {
+    return Array.from(
+      new Set(
+        (Array.isArray(values) ? values : [])
+          .map((value) => (value || "").toString().trim().toLowerCase())
+          .filter((value) => value !== ""),
+      ),
+    ).sort();
+  }
+
+  function roleDefaultPermissionKeys(role) {
+    const roleMeta = findRoleMeta(role);
+    return normalizedKeyList(roleMeta?.defaultPermissions || []).filter(
+      (key) => key !== "*",
+    );
+  }
+
+  function permissionSetHas(permissionSet, permission) {
+    const normalized = (permission || "").toString().trim().toLowerCase();
+    if (normalized === "") {
+      return true;
+    }
+
+    if (permissionSet.has("*") || permissionSet.has(normalized)) {
+      return true;
+    }
+
+    const segments = normalized.split(".", 2);
+    if (segments.length !== 2) {
+      return false;
+    }
+
+    const prefix = (segments[0] || "").toString().trim();
+    const scope = (segments[1] || "").toString().trim();
+
+    if (prefix === "" || scope === "") {
+      return false;
+    }
+
+    if (permissionSet.has(`${prefix}.*`)) {
+      return true;
+    }
+
+    if (scope === "view" && permissionSet.has(`${prefix}.manage`)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  function roleMatchesPermissionDefaults(role, permissions) {
+    const normalizedRole = (role || "").toString().trim().toLowerCase();
+    if (normalizedRole === "custom") {
+      return true;
+    }
+
+    const expected = roleDefaultPermissionKeys(normalizedRole);
+    const selected = normalizedKeyList(permissions || []).filter(
+      (key) => key !== "*",
+    );
+
+    if (expected.length !== selected.length) {
+      return false;
+    }
+
+    for (let index = 0; index < expected.length; index += 1) {
+      if (expected[index] !== selected[index]) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  function enforceDashboardVisibilityConstraint(showNotice = true) {
+    const dashboardCheckbox = $(
+      '#subAdminHiddenTabsGrid .sub-admin-tab-check[value="dashboard-tab"]',
+    );
+
+    if (!dashboardCheckbox.length || !dashboardCheckbox.prop("checked")) {
+      return false;
+    }
+
+    const permissionSet = new Set(normalizedKeyList(selectedPermissionKeys()));
+    if (!permissionSetHas(permissionSet, "dashboard.view")) {
+      return false;
+    }
+
+    dashboardCheckbox.prop("checked", false);
+
+    if (showNotice) {
+      notify(
+        "Dashboard tab cannot be hidden while Dashboard Access permission is enabled.",
+        "warning",
+      );
+    }
+
+    return true;
+  }
+
   function markRoleCard(role) {
     const normalized = (role || "").toString().trim().toLowerCase();
     $("#subAdminRoleCards .sub-admin-role-card").removeClass("is-active");
@@ -259,6 +359,7 @@
       : [];
 
     applyPermissionSelection(defaults);
+    enforceDashboardVisibilityConstraint(false);
   }
 
   function resetForm(forceRoleDefaults = true) {
@@ -529,6 +630,11 @@
     markRoleCard(role);
     applyPermissionSelection(entry.permissions || []);
     applyHiddenTabsSelection(entry.hiddenTabs || []);
+    enforceDashboardVisibilityConstraint(false);
+
+    if (!roleMatchesPermissionDefaults(role, entry.permissions || [])) {
+      markRoleCard("custom");
+    }
 
     $("#subAdminFormTitle").text("Edit Sub Admin Access");
     $("#saveSubAdminBtn")
@@ -573,8 +679,15 @@
     const email = ("" + ($("#subAdminEmail").val() || "")).trim();
     const phone = ("" + ($("#subAdminPhone").val() || "")).trim();
     const password = ("" + ($("#subAdminPassword").val() || "")).trim();
-    const role = activeRoleValue() || "operations_manager";
+    let role = activeRoleValue() || "operations_manager";
     const permissions = selectedPermissionKeys();
+
+    if (!roleMatchesPermissionDefaults(role, permissions)) {
+      role = "custom";
+      markRoleCard("custom");
+    }
+
+    enforceDashboardVisibilityConstraint(false);
     const hiddenTabs = selectedHiddenTabs();
 
     if (fullName.length < 3) {
@@ -779,6 +892,40 @@
             .toLowerCase();
           markRoleCard(role);
           applyRoleDefaults(role);
+        },
+      );
+
+    $(document)
+      .off(
+        "change.subAdminPermissionEdit",
+        "#subAdminPermissionGrid .sub-admin-permission-check",
+      )
+      .on(
+        "change.subAdminPermissionEdit",
+        "#subAdminPermissionGrid .sub-admin-permission-check",
+        function () {
+          if (activeRoleValue() !== "custom") {
+            markRoleCard("custom");
+          }
+
+          enforceDashboardVisibilityConstraint(false);
+        },
+      );
+
+    $(document)
+      .off(
+        "change.subAdminHiddenTabsEdit",
+        "#subAdminHiddenTabsGrid .sub-admin-tab-check",
+      )
+      .on(
+        "change.subAdminHiddenTabsEdit",
+        "#subAdminHiddenTabsGrid .sub-admin-tab-check",
+        function () {
+          if (activeRoleValue() !== "custom") {
+            markRoleCard("custom");
+          }
+
+          enforceDashboardVisibilityConstraint(true);
         },
       );
 

@@ -108,15 +108,113 @@ function sub_admins_api_payload_permissions(array $body): array
     return admin_sanitize_permissions($permissions);
 }
 
-function sub_admins_api_payload_hidden_tabs(array $body): array
+function sub_admins_api_permission_allows(array $permissions, string $permission): bool
+{
+    $normalizedPermission = admin_normalize_permission_name($permission);
+    if ($normalizedPermission === '') {
+        return true;
+    }
+
+    $normalizedPermissions = admin_sanitize_permissions($permissions);
+
+    if (in_array('*', $normalizedPermissions, true)) {
+        return true;
+    }
+
+    if (in_array($normalizedPermission, $normalizedPermissions, true)) {
+        return true;
+    }
+
+    $segments = explode('.', $normalizedPermission, 2);
+    if (count($segments) !== 2) {
+        return false;
+    }
+
+    [$prefix, $scope] = $segments;
+    if ($prefix === '' || $scope === '') {
+        return false;
+    }
+
+    if (in_array($prefix . '.*', $normalizedPermissions, true)) {
+        return true;
+    }
+
+    if ($scope === 'view' && in_array($prefix . '.manage', $normalizedPermissions, true)) {
+        return true;
+    }
+
+    return false;
+}
+
+function sub_admins_api_role_matches_defaults(string $role, array $permissions): bool
+{
+    $normalizedRole = admin_normalize_role($role);
+    if ($normalizedRole === 'custom') {
+        return true;
+    }
+
+    $defaults = array_values(array_filter(
+        admin_sanitize_permissions(admin_role_default_permissions($normalizedRole)),
+        static fn(string $permission): bool => $permission !== '*'
+    ));
+    sort($defaults);
+
+    $selected = array_values(array_filter(
+        admin_sanitize_permissions($permissions),
+        static fn(string $permission): bool => $permission !== '*'
+    ));
+    sort($selected);
+
+    return $defaults === $selected;
+}
+
+function sub_admins_api_resolve_role(string $role, array $permissions): string
+{
+    $normalizedRole = admin_normalize_role($role);
+    if ($normalizedRole === 'admin') {
+        return 'custom';
+    }
+
+    if ($normalizedRole !== 'custom' && !sub_admins_api_role_matches_defaults($normalizedRole, $permissions)) {
+        return 'custom';
+    }
+
+    return $normalizedRole;
+}
+
+function sub_admins_api_filter_hidden_tabs(array $hiddenTabs, array $permissions): array
+{
+    $filtered = admin_sanitize_hidden_tabs($hiddenTabs);
+
+    if (
+        in_array('dashboard-tab', $filtered, true)
+        && sub_admins_api_permission_allows($permissions, 'dashboard.view')
+    ) {
+        $filtered = array_values(array_filter(
+            $filtered,
+            static fn(string $tabId): bool => $tabId !== 'dashboard-tab'
+        ));
+    }
+
+    return $filtered;
+}
+
+function sub_admins_api_payload_hidden_tabs(array $body, array $permissions = []): array
 {
     $hiddenTabs = sub_admins_api_decode_list($body['hidden_tabs'] ?? ($body['hiddenTabs'] ?? []));
-    return admin_sanitize_hidden_tabs($hiddenTabs);
+    return sub_admins_api_filter_hidden_tabs($hiddenTabs, $permissions);
 }
 
 function sub_admins_api_row_payload(array $row): array
 {
     $role = admin_normalize_role((string)($row['role'] ?? 'custom'));
+    $permissions = admin_sanitize_permissions(
+        admin_decode_json_string_list((string)($row['permissions_json'] ?? ''))
+    );
+    $hiddenTabs = sub_admins_api_filter_hidden_tabs(
+        admin_decode_json_string_list((string)($row['hidden_tabs_json'] ?? '')),
+        $permissions
+    );
     $isActive = (int)($row['is_active'] ?? 0) === 1;
     $suspendedUntil = trim((string)($row['suspended_until'] ?? ''));
     $suspendedReason = trim((string)($row['suspended_reason'] ?? ''));
@@ -138,12 +236,8 @@ function sub_admins_api_row_payload(array $row): array
         'phone' => (string)($row['phone'] ?? ''),
         'role' => $role,
         'roleLabel' => admin_role_label($role),
-        'permissions' => admin_sanitize_permissions(
-            admin_decode_json_string_list((string)($row['permissions_json'] ?? ''))
-        ),
-        'hiddenTabs' => admin_sanitize_hidden_tabs(
-            admin_decode_json_string_list((string)($row['hidden_tabs_json'] ?? ''))
-        ),
+        'permissions' => $permissions,
+        'hiddenTabs' => $hiddenTabs,
         'emailVerified' => trim((string)($row['email_verified_at'] ?? '')) !== '',
         'emailVerifiedAt' => (string)($row['email_verified_at'] ?? ''),
         'status' => $status,
@@ -350,13 +444,13 @@ if ($action === 'create') {
     $email = strtolower(trim((string)($body['email'] ?? '')));
     $phone = sub_admins_api_phone((string)($body['phone'] ?? ''));
     $password = (string)($body['password'] ?? '');
-    $role = admin_normalize_role((string)($body['role'] ?? 'custom'));
+    $requestedRole = admin_normalize_role((string)($body['role'] ?? 'custom'));
     $permissions = sub_admins_api_payload_permissions($body);
-    $hiddenTabs = sub_admins_api_payload_hidden_tabs($body);
-
-    if ($role === 'admin') {
-        $role = 'custom';
+    if ($requestedRole === 'admin') {
+        $requestedRole = 'custom';
     }
+    $role = sub_admins_api_resolve_role($requestedRole, $permissions);
+    $hiddenTabs = sub_admins_api_payload_hidden_tabs($body, $permissions);
 
     if (strlen($fullName) < 3 || strlen($fullName) > 100) {
         sub_admins_api_json(['ok' => false, 'message' => 'Full name must be 3 to 100 characters.'], 422);
@@ -511,9 +605,13 @@ if ($action === 'update') {
     $phoneRaw = (string)($body['phone'] ?? '');
     $phone = sub_admins_api_phone($phoneRaw);
     $password = (string)($body['password'] ?? '');
-    $role = admin_normalize_role((string)($body['role'] ?? 'custom'));
+    $requestedRole = admin_normalize_role((string)($body['role'] ?? 'custom'));
     $permissions = sub_admins_api_payload_permissions($body);
-    $hiddenTabs = sub_admins_api_payload_hidden_tabs($body);
+    if ($requestedRole === 'admin') {
+        $requestedRole = 'custom';
+    }
+    $role = sub_admins_api_resolve_role($requestedRole, $permissions);
+    $hiddenTabs = sub_admins_api_payload_hidden_tabs($body, $permissions);
 
     if ($targetId <= 0) {
         sub_admins_api_json(['ok' => false, 'message' => 'Invalid sub-admin id.'], 422);
@@ -521,10 +619,6 @@ if ($action === 'update') {
 
     if ($targetId === (int)($admin['id'] ?? 0)) {
         sub_admins_api_json(['ok' => false, 'message' => 'Use Security section to update your own account settings.'], 422);
-    }
-
-    if ($role === 'admin') {
-        $role = 'custom';
     }
 
     if (strlen($fullName) < 3 || strlen($fullName) > 100) {

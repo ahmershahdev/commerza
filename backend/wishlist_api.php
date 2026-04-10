@@ -470,6 +470,104 @@ if ($action === 'toggle') {
     ]);
 }
 
+if ($action === 'remove') {
+    if ($method !== 'POST') {
+        wishlist_json(['ok' => false, 'message' => 'Method not allowed.'], 405);
+    }
+
+    if (!$loggedIn) {
+        wishlist_json([
+            'ok' => false,
+            'logged_in' => false,
+            'message' => 'Please login to use wishlist.',
+            'csrf_token' => $_SESSION['csrf_token'],
+        ], 401);
+    }
+
+    if (
+        empty($_POST['csrf_token']) ||
+        empty($_SESSION['csrf_token']) ||
+        !hash_equals((string)$_SESSION['csrf_token'], (string)$_POST['csrf_token'])
+    ) {
+        wishlist_json([
+            'ok' => false,
+            'message' => 'Forbidden.',
+            'csrf_token' => $_SESSION['csrf_token'],
+        ], 403);
+    }
+
+    wishlist_rate_limit_guard($con, 'wishlist_remove', 30, 60, 120, 360);
+
+    $productId = (int)($_POST['product_id'] ?? 0);
+    $postedProductName = trim((string)($_POST['product_name'] ?? ''));
+    $postedProductCode = trim((string)($_POST['product_code'] ?? ''));
+
+    if (strlen($postedProductName) > 255) {
+        $postedProductName = substr($postedProductName, 0, 255);
+    }
+
+    if (strlen($postedProductCode) > 80) {
+        $postedProductCode = substr($postedProductCode, 0, 80);
+    }
+
+    if ($productId <= 0) {
+        wishlist_json(['ok' => false, 'message' => 'Invalid product id.'], 422);
+    }
+
+    $identityCheck = wishlist_validate_product_identity(
+        $con,
+        $productId,
+        $postedProductName,
+        $postedProductCode
+    );
+
+    if (!(bool)($identityCheck['ok'] ?? false)) {
+        wishlist_json([
+            'ok' => false,
+            'message' => (string)($identityCheck['message'] ?? 'Product verification failed.'),
+        ], 409);
+    }
+
+    $userId = (int)$_SESSION['user_id'];
+    $wishlistId = get_or_create_wishlist_id($con, $userId);
+    if (!$wishlistId) {
+        wishlist_json(['ok' => false, 'message' => 'Unable to load wishlist.'], 500);
+    }
+
+    $itemLock = wishlist_item_lock_name($wishlistId, $productId);
+    if (!wishlist_acquire_item_lock($con, $itemLock, 2)) {
+        wishlist_json(['ok' => false, 'message' => 'Wishlist is busy. Please retry.'], 409);
+    }
+
+    $deleteStmt = $con->prepare('DELETE FROM wishlist_items WHERE wishlist_id = ? AND product_id = ? LIMIT 1');
+    if (!$deleteStmt) {
+        wishlist_release_item_lock($con, $itemLock);
+        wishlist_json(['ok' => false, 'message' => 'Unable to update wishlist.'], 500);
+    }
+
+    $deleteStmt->bind_param('ii', $wishlistId, $productId);
+    $deleteOk = $deleteStmt->execute();
+    $removed = (int)$deleteStmt->affected_rows > 0;
+    $deleteStmt->close();
+
+    if (!$deleteOk) {
+        wishlist_release_item_lock($con, $itemLock);
+        wishlist_json(['ok' => false, 'message' => 'Unable to update wishlist.'], 500);
+    }
+
+    $state = fetch_wishlist_state($con, $wishlistId);
+    wishlist_release_item_lock($con, $itemLock);
+
+    wishlist_json([
+        'ok' => true,
+        'logged_in' => true,
+        'removed' => $removed,
+        'count' => $state['count'],
+        'ids' => $state['ids'],
+        'csrf_token' => $_SESSION['csrf_token'],
+    ]);
+}
+
 if ($action === 'clear') {
     if ($method !== 'POST') {
         wishlist_json(['ok' => false, 'message' => 'Method not allowed.'], 405);
