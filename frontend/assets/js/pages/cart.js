@@ -68,31 +68,37 @@
           icon: "bi-cash-coin",
           title: "Cash on Delivery",
           desc: "Pay when your order reaches your doorstep.",
+          recommended: false,
         },
         jazzcash: {
           icon: "bi-phone",
           title: "JazzCash (Sandbox)",
           desc: "Sandbox wallet flow selected. Add payer details and reference below.",
+          recommended: false,
         },
         easypaisa: {
           icon: "bi-wallet2",
           title: "Easypaisa (Sandbox)",
           desc: "Sandbox wallet flow selected. Add payer details and reference below.",
+          recommended: false,
         },
         paypal: {
           icon: "bi-paypal",
           title: "PayPal (Sandbox)",
           desc: "Sandbox PayPal flow selected. Add payer details and reference below.",
+          recommended: false,
         },
         stripe: {
           icon: "bi-credit-card",
           title: "Stripe (Sandbox)",
           desc: "Sandbox Stripe flow selected. Add payer details and reference below.",
+          recommended: false,
         },
         card: {
           icon: "bi-credit-card-2-front",
-          title: "Credit/Debit Card (Sandbox)",
-          desc: "Sandbox card flow selected. Add payer details and reference below.",
+          title: "Credit/Debit Card (Stripe Sandbox)",
+          desc: "Stripe sandbox card flow selected. Add payer details and reference below.",
+          recommended: true,
         },
       };
 
@@ -100,6 +106,10 @@
       $("#paymentMethodIcon").attr("class", `bi ${selected.icon}`);
       $("#paymentMethodTitle").text(selected.title);
       $("#paymentMethodDesc").text(selected.desc);
+      $("#paymentMethodBadge").toggleClass(
+        "d-none",
+        !Boolean(selected.recommended),
+      );
 
       const requiresSandboxDetails = methodKey !== "cod";
       $("#paymentExtraFields").toggleClass("d-none", !requiresSandboxDetails);

@@ -77,9 +77,10 @@ Checkout now supports multiple payment choices in sandbox-ready mode.
   - Easypaisa (Sandbox)
   - PayPal (Sandbox)
   - Stripe (Sandbox)
-  - Credit/Debit Card (Sandbox)
+  - Credit/Debit Card (Stripe Sandbox, Recommended)
 - For non-COD methods, checkout requires payer/wallet detail plus sandbox transaction reference for manual verification workflows.
 - Stripe/card methods are captured as sandbox/manual-payment metadata in orders (no live gateway settlement in this flow).
+- Payment sandbox provider keys are configurable in `.env` / `.env.example`, including `COMMERZA_CARD_SANDBOX_PROVIDER` (default `stripe`).
 - Order placement still enforces CSRF, idempotency, CAPTCHA, stock locking, and coupon checks.
 - High-value COD policy:
   - COD OTP threshold is configurable via `COMMERZA_COD_OTP_THRESHOLD` (default `15000`)

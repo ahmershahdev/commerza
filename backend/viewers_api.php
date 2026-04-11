@@ -79,6 +79,65 @@ function viewers_client_ip(): string
     return $candidate !== '' ? $candidate : '0.0.0.0';
 }
 
+function viewers_normalize_ip(string $value): string
+{
+    return strtolower(trim($value));
+}
+
+function viewers_count_unique_identities(array $rows): int
+{
+    if ($rows === []) {
+        return 0;
+    }
+
+    $identities = [];
+    $activeUserIps = [];
+
+    foreach ($rows as $row) {
+        $userIdRaw = $row['user_id'] ?? null;
+        if ($userIdRaw === null || $userIdRaw === '') {
+            continue;
+        }
+
+        if (!is_numeric((string)$userIdRaw)) {
+            continue;
+        }
+
+        $identityKey = 'u:' . (int)$userIdRaw;
+        $identities[$identityKey] = true;
+
+        $ipKey = viewers_normalize_ip((string)($row['ip_address'] ?? ''));
+        if ($ipKey !== '') {
+            $activeUserIps[$ipKey] = true;
+        }
+    }
+
+    foreach ($rows as $row) {
+        $userIdRaw = $row['user_id'] ?? null;
+        if ($userIdRaw !== null && $userIdRaw !== '' && is_numeric((string)$userIdRaw)) {
+            continue;
+        }
+
+        $ipKey = viewers_normalize_ip((string)($row['ip_address'] ?? ''));
+        if ($ipKey !== '' && isset($activeUserIps[$ipKey])) {
+            // Prevent guest-to-user transitions from being counted as two viewers.
+            continue;
+        }
+
+        $sessionKey = trim((string)($row['session_key'] ?? ''));
+        if ($ipKey !== '') {
+            $identities['i:' . $ipKey] = true;
+            continue;
+        }
+
+        if ($sessionKey !== '') {
+            $identities['s:' . $sessionKey] = true;
+        }
+    }
+
+    return count($identities);
+}
+
 function viewers_fake_count(string $sessionKey, int $productId, int $min, int $max): int
 {
     if ($max <= $min) {
@@ -146,13 +205,7 @@ function viewers_real_count(mysqli $con, int $productId, int $windowSeconds): in
 
     try {
         $stmt = $con->prepare(
-            'SELECT COUNT(DISTINCT (
-                CASE
-                    WHEN user_id IS NOT NULL THEN CONCAT("u:", user_id)
-                    WHEN NULLIF(TRIM(ip_address), "") IS NOT NULL THEN CONCAT("i:", TRIM(ip_address))
-                    ELSE CONCAT("s:", session_key)
-                END
-             )) AS total
+            'SELECT user_id, session_key, ip_address
              FROM live_product_viewers
              WHERE product_id = ?
                AND last_seen_at >= ?'
@@ -169,14 +222,17 @@ function viewers_real_count(mysqli $con, int $productId, int $windowSeconds): in
         $stmt->bind_param('is', $productId, $threshold);
         $stmt->execute();
         $result = $stmt->get_result();
-        $row = $result ? $result->fetch_assoc() : null;
+        $rows = [];
+        while ($result && ($row = $result->fetch_assoc())) {
+            $rows[] = $row;
+        }
         $stmt->close();
     } catch (Throwable $exception) {
         $stmt->close();
         return 0;
     }
 
-    return (int)($row['total'] ?? 0);
+    return viewers_count_unique_identities($rows);
 }
 
 function viewers_cleanup(mysqli $con, int $windowSeconds): void

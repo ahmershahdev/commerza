@@ -117,6 +117,63 @@ function admin_viewers_table_ready(mysqli $con): bool
     return $exists;
 }
 
+function admin_viewers_normalize_ip(string $value): string
+{
+    return strtolower(trim($value));
+}
+
+function admin_viewers_count_unique_rows(array $rows): int
+{
+    if ($rows === []) {
+        return 0;
+    }
+
+    $identities = [];
+    $activeUserIps = [];
+
+    foreach ($rows as $row) {
+        $userIdRaw = $row['user_id'] ?? null;
+        if ($userIdRaw === null || $userIdRaw === '') {
+            continue;
+        }
+
+        if (!is_numeric((string)$userIdRaw)) {
+            continue;
+        }
+
+        $identities['u:' . (int)$userIdRaw] = true;
+
+        $ipKey = admin_viewers_normalize_ip((string)($row['ip_address'] ?? ''));
+        if ($ipKey !== '') {
+            $activeUserIps[$ipKey] = true;
+        }
+    }
+
+    foreach ($rows as $row) {
+        $userIdRaw = $row['user_id'] ?? null;
+        if ($userIdRaw !== null && $userIdRaw !== '' && is_numeric((string)$userIdRaw)) {
+            continue;
+        }
+
+        $ipKey = admin_viewers_normalize_ip((string)($row['ip_address'] ?? ''));
+        if ($ipKey !== '' && isset($activeUserIps[$ipKey])) {
+            continue;
+        }
+
+        $sessionKey = trim((string)($row['session_key'] ?? ''));
+        if ($ipKey !== '') {
+            $identities['i:' . $ipKey] = true;
+            continue;
+        }
+
+        if ($sessionKey !== '') {
+            $identities['s:' . $sessionKey] = true;
+        }
+    }
+
+    return count($identities);
+}
+
 function admin_viewers_config(mysqli $con): array
 {
     $mode = strtolower(trim(admin_viewers_get_setting($con, 'live_viewers_mode', 'real')));
@@ -152,110 +209,103 @@ function admin_viewers_stats(mysqli $con, int $windowSeconds): array
 
     $threshold = gmdate('Y-m-d H:i:s', time() - $windowSeconds);
 
-    $activeNow = 0;
-    $trackedProducts = 0;
+    $rows = [];
+    try {
+        $rowsStmt = $con->prepare(
+            'SELECT product_id, user_id, session_key, ip_address
+             FROM live_product_viewers
+             WHERE last_seen_at >= ?'
+        );
+    } catch (Throwable $exception) {
+        $rowsStmt = null;
+    }
+
+    if ($rowsStmt) {
+        try {
+            $rowsStmt->bind_param('s', $threshold);
+            $rowsStmt->execute();
+            $result = $rowsStmt->get_result();
+            while ($result && ($row = $result->fetch_assoc())) {
+                $rows[] = $row;
+            }
+            $rowsStmt->close();
+        } catch (Throwable $exception) {
+            $rowsStmt->close();
+        }
+    }
+
+    if ($rows === []) {
+        return [
+            'active_now' => 0,
+            'tracked_products' => 0,
+            'top_products' => [],
+        ];
+    }
+
+    $rowsByProduct = [];
+    foreach ($rows as $row) {
+        $productId = (int)($row['product_id'] ?? 0);
+        if ($productId <= 0) {
+            continue;
+        }
+
+        if (!isset($rowsByProduct[$productId])) {
+            $rowsByProduct[$productId] = [];
+        }
+        $rowsByProduct[$productId][] = $row;
+    }
+
+    if ($rowsByProduct === []) {
+        return [
+            'active_now' => 0,
+            'tracked_products' => 0,
+            'top_products' => [],
+        ];
+    }
+
+    $productNames = [];
+    try {
+        $productResult = $con->query('SELECT id, name FROM products');
+    } catch (Throwable $exception) {
+        $productResult = null;
+    }
+
+    if ($productResult) {
+        while ($productRow = $productResult->fetch_assoc()) {
+            $productId = (int)($productRow['id'] ?? 0);
+            if ($productId > 0 && isset($rowsByProduct[$productId])) {
+                $productNames[$productId] = (string)($productRow['name'] ?? 'Product');
+            }
+        }
+        $productResult->free();
+    }
+
     $topProducts = [];
-
-    try {
-        $activeStmt = $con->prepare(
-            'SELECT COUNT(DISTINCT (
-                CASE
-                    WHEN user_id IS NOT NULL THEN CONCAT("u:", user_id)
-                    WHEN NULLIF(TRIM(ip_address), "") IS NOT NULL THEN CONCAT("i:", TRIM(ip_address))
-                    ELSE CONCAT("s:", session_key)
-                END
-             )) AS total
-             FROM live_product_viewers
-             WHERE last_seen_at >= ?'
-        );
-    } catch (Throwable $exception) {
-        $activeStmt = null;
+    foreach ($rowsByProduct as $productId => $productRows) {
+        $topProducts[] = [
+            'id' => (int)$productId,
+            'name' => (string)($productNames[(int)$productId] ?? 'Product'),
+            'viewers' => admin_viewers_count_unique_rows($productRows),
+        ];
     }
 
-    if ($activeStmt) {
-        try {
-            $activeStmt->bind_param('s', $threshold);
-            $activeStmt->execute();
-            $result = $activeStmt->get_result();
-            $row = $result ? $result->fetch_assoc() : null;
-            $activeNow = (int)($row['total'] ?? 0);
-            $activeStmt->close();
-        } catch (Throwable $exception) {
-            $activeStmt->close();
-        }
-    }
-
-    try {
-        $productsStmt = $con->prepare(
-            'SELECT COUNT(DISTINCT product_id) AS total
-             FROM live_product_viewers
-             WHERE last_seen_at >= ?'
-        );
-    } catch (Throwable $exception) {
-        $productsStmt = null;
-    }
-
-    if ($productsStmt) {
-        try {
-            $productsStmt->bind_param('s', $threshold);
-            $productsStmt->execute();
-            $result = $productsStmt->get_result();
-            $row = $result ? $result->fetch_assoc() : null;
-            $trackedProducts = (int)($row['total'] ?? 0);
-            $productsStmt->close();
-        } catch (Throwable $exception) {
-            $productsStmt->close();
-        }
-    }
-
-    try {
-        $topStmt = $con->prepare(
-            'SELECT p.id, p.name,
-                    COUNT(DISTINCT (
-                        CASE
-                            WHEN v.user_id IS NOT NULL THEN CONCAT("u:", v.user_id)
-                            WHEN NULLIF(TRIM(v.ip_address), "") IS NOT NULL THEN CONCAT("i:", TRIM(v.ip_address))
-                            ELSE CONCAT("s:", v.session_key)
-                        END
-                    )) AS viewers
-             FROM live_product_viewers v
-             INNER JOIN products p ON p.id = v.product_id
-             WHERE v.last_seen_at >= ?
-             GROUP BY p.id, p.name
-             ORDER BY viewers DESC, p.id ASC
-             LIMIT 5'
-        );
-    } catch (Throwable $exception) {
-        $topStmt = null;
-    }
-
-    if ($topStmt) {
-        try {
-            $topStmt->bind_param('s', $threshold);
-            $topStmt->execute();
-            $result = $topStmt->get_result();
-
-            while ($row = $result ? $result->fetch_assoc() : null) {
-                if (!$row) {
-                    break;
-                }
-
-                $topProducts[] = [
-                    'id' => (int)$row['id'],
-                    'name' => (string)($row['name'] ?? 'Product'),
-                    'viewers' => (int)($row['viewers'] ?? 0),
-                ];
+    usort(
+        $topProducts,
+        static function (array $left, array $right): int {
+            $viewerDelta = (int)($right['viewers'] ?? 0) <=> (int)($left['viewers'] ?? 0);
+            if ($viewerDelta !== 0) {
+                return $viewerDelta;
             }
 
-            $topStmt->close();
-        } catch (Throwable $exception) {
-            $topStmt->close();
+            return (int)($left['id'] ?? 0) <=> (int)($right['id'] ?? 0);
         }
-    }
+    );
+
+    $topProducts = array_slice($topProducts, 0, 5);
 
     return [
-        'active_now' => $activeNow,
-        'tracked_products' => $trackedProducts,
+        'active_now' => admin_viewers_count_unique_rows($rows),
+        'tracked_products' => count($rowsByProduct),
         'top_products' => $topProducts,
     ];
 }

@@ -770,6 +770,86 @@ function website_api_page_meta_rows(mysqli $con): array
     return $rows;
 }
 
+function website_api_default_storybook_pages(): array
+{
+    return [
+        [
+            'subtitle' => 'Design Language',
+            'title' => 'Built For Modern Legacy',
+            'body_primary' => 'Every release begins with silhouette drafts, dial proportion studies, and wrist-balance tests so the final watch feels premium in real daily wear.',
+            'body_secondary' => 'Prototype variants are reviewed under indoor, outdoor, and low-light scenes before any design moves to production.',
+            'footnote' => 'Chapter note: precision starts before production.',
+        ],
+        [
+            'subtitle' => 'Material and Movement',
+            'title' => 'Casework, Crystal, and Caliber Harmony',
+            'body_primary' => 'Brushed and polished surfaces are tuned together to create visual depth while preserving a clean edge profile and comfortable wrist feel.',
+            'body_secondary' => 'Lume balance, dial contrast, and movement stability are stress-tested so readability and reliability stay sharp over time.',
+            'footnote' => 'Every layer must earn its place.',
+        ],
+        [
+            'subtitle' => 'Wrist Presence',
+            'title' => 'Designed To Transition Across Moments',
+            'body_primary' => 'A Commerza watch is styled to move from office hours to evening plans without looking out of place or overdesigned.',
+            'body_secondary' => 'The goal is repeat wear value: strong identity from distance and refined detailing when seen up close.',
+            'footnote' => 'Form and confidence in one profile.',
+        ],
+        [
+            'subtitle' => 'Service and Trust',
+            'title' => 'Refined Through Real Customer Signals',
+            'body_primary' => 'Feedback on strap comfort, dial clarity, and case finishing is reviewed each cycle and translated into practical product updates.',
+            'body_secondary' => 'Packaging quality, dispatch handling, and support response are treated as part of the product, not an afterthought.',
+            'footnote' => 'Experience matters beyond the watch itself.',
+        ],
+        [
+            'subtitle' => 'Final Note',
+            'title' => 'The Next Chapter Starts On Your Wrist',
+            'body_primary' => 'From first sketch to final shipment, the same premium standard shapes each release in the catalog.',
+            'body_secondary' => 'Explore references built for precision, comfort, and long-term style confidence in everyday life.',
+            'footnote' => 'End of lookbook.',
+        ],
+    ];
+}
+
+function website_api_storybook_pages(mysqli $con): array
+{
+    $defaults = website_api_default_storybook_pages();
+    $raw = trim(website_api_get_setting($con, 'home_storybook_content', ''));
+    if ($raw === '') {
+        return $defaults;
+    }
+
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded)) {
+        return $defaults;
+    }
+
+    $normalized = [];
+    foreach ($defaults as $index => $fallback) {
+        $entry = $decoded[$index] ?? null;
+        if (!is_array($entry)) {
+            $normalized[] = $fallback;
+            continue;
+        }
+
+        $subtitle = website_api_clean_text((string)($entry['subtitle'] ?? ''), 120);
+        $title = website_api_clean_text((string)($entry['title'] ?? ''), 150);
+        $bodyPrimary = website_api_clean_text((string)($entry['body_primary'] ?? ''), 700);
+        $bodySecondary = website_api_clean_text((string)($entry['body_secondary'] ?? ''), 700);
+        $footnote = website_api_clean_text((string)($entry['footnote'] ?? ''), 180);
+
+        $normalized[] = [
+            'subtitle' => $subtitle !== '' ? $subtitle : (string)$fallback['subtitle'],
+            'title' => $title !== '' ? $title : (string)$fallback['title'],
+            'body_primary' => $bodyPrimary !== '' ? $bodyPrimary : (string)$fallback['body_primary'],
+            'body_secondary' => $bodySecondary !== '' ? $bodySecondary : (string)$fallback['body_secondary'],
+            'footnote' => $footnote !== '' ? $footnote : (string)$fallback['footnote'],
+        ];
+    }
+
+    return $normalized;
+}
+
 function website_api_payload(mysqli $con): array
 {
     return [
@@ -806,6 +886,9 @@ function website_api_payload(mysqli $con): array
                 'frontend/assets/videos/products/smart/automatic_watches_carousel.mp4'
             ),
         ],
+        'storybook' => [
+            'pages' => website_api_storybook_pages($con),
+        ],
     ];
 }
 
@@ -823,6 +906,7 @@ function website_api_apply_action_rate_limit(mysqli $con, array $admin, string $
         'save-slider' => [24, 60, 30, 300],
         'delete-slider' => [20, 60, 24, 300],
         'save-feature-videos' => [18, 60, 24, 300],
+        'save-storybook' => [18, 60, 24, 300],
     ];
 
     $rule = $rules[$action] ?? null;
@@ -1514,6 +1598,73 @@ if ($action === 'save-collectors-speak') {
     website_api_json([
         'ok' => true,
         'message' => 'Collectors Speak section saved.',
+        'payload' => website_api_payload($con),
+    ]);
+}
+
+if ($action === 'save-storybook') {
+    $pages = $body['pages'] ?? [];
+    if (!is_array($pages)) {
+        website_api_json([
+            'ok' => false,
+            'message' => 'Storybook pages must be an array.',
+        ], 422);
+    }
+
+    $defaults = website_api_default_storybook_pages();
+    $cleaned = [];
+
+    foreach ($defaults as $index => $fallback) {
+        $entry = $pages[$index] ?? null;
+        if (!is_array($entry)) {
+            $entry = [];
+        }
+
+        $subtitle = website_api_clean_text((string)($entry['subtitle'] ?? ''), 120);
+        $title = website_api_clean_text((string)($entry['title'] ?? ''), 150);
+        $bodyPrimary = website_api_clean_text((string)($entry['body_primary'] ?? ''), 700);
+        $bodySecondary = website_api_clean_text((string)($entry['body_secondary'] ?? ''), 700);
+        $footnote = website_api_clean_text((string)($entry['footnote'] ?? ''), 180);
+
+        $cleaned[] = [
+            'subtitle' => $subtitle !== '' ? $subtitle : (string)$fallback['subtitle'],
+            'title' => $title !== '' ? $title : (string)$fallback['title'],
+            'body_primary' => $bodyPrimary !== '' ? $bodyPrimary : (string)$fallback['body_primary'],
+            'body_secondary' => $bodySecondary !== '' ? $bodySecondary : (string)$fallback['body_secondary'],
+            'footnote' => $footnote !== '' ? $footnote : (string)$fallback['footnote'],
+        ];
+    }
+
+    $encoded = json_encode($cleaned, JSON_UNESCAPED_SLASHES);
+    if (!is_string($encoded) || $encoded === '') {
+        website_api_json([
+            'ok' => false,
+            'message' => 'Unable to encode storybook content.',
+        ], 500);
+    }
+
+    $ok = website_api_upsert_setting(
+        $con,
+        'home_storybook_content',
+        $encoded,
+        'Homepage Storybook Content',
+        'homepage'
+    );
+
+    if (!$ok) {
+        website_api_json([
+            'ok' => false,
+            'message' => 'Unable to save storybook content.',
+        ], 500);
+    }
+
+    admin_api_log_security_event($con, $admin, 'website.storybook_saved', 'info', [
+        'pages' => count($cleaned),
+    ]);
+
+    website_api_json([
+        'ok' => true,
+        'message' => 'Homepage storybook saved.',
         'payload' => website_api_payload($con),
     ]);
 }

@@ -201,6 +201,25 @@ function commerza_captcha_local_bypass_enabled(): bool
     return in_array($raw, ['1', 'true', 'on', 'yes'], true);
 }
 
+function commerza_captcha_remote_on_local_enabled(): bool
+{
+    $raw = strtolower(trim((string)getenv('COMMERZA_CAPTCHA_REMOTE_LOCAL')));
+    if ($raw === '') {
+        return false;
+    }
+
+    return in_array($raw, ['1', 'true', 'on', 'yes'], true);
+}
+
+function commerza_captcha_should_use_remote_challenge(): bool
+{
+    if (!commerza_captcha_is_local_request()) {
+        return true;
+    }
+
+    return commerza_captcha_remote_on_local_enabled();
+}
+
 function commerza_captcha_normalize_provider(string $value): string
 {
     $provider = strtolower(trim($value));
@@ -711,8 +730,8 @@ function commerza_captcha_config(mysqli $con): array
             }
         }
 
-        $scriptUrl = 'https://www.recaptcha.net/recaptcha/api.js';
-        $verifyUrl = 'https://www.recaptcha.net/recaptcha/api/siteverify';
+        $scriptUrl = 'https://www.google.com/recaptcha/api.js';
+        $verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
         $responseField = 'g-recaptcha-response';
     }
 
@@ -775,17 +794,38 @@ function commerza_captcha_script_tag(mysqli $con): string
         return '';
     }
 
-    $rawScriptUrl = (string)($config['script_url'] ?? 'https://www.recaptcha.net/recaptcha/api.js');
+    $rawScriptUrl = (string)($config['script_url'] ?? 'https://www.google.com/recaptcha/api.js');
+    $scriptHost = strtolower((string)parse_url($rawScriptUrl, PHP_URL_HOST));
+    $fallbackScriptUrl = '';
+
+    if ($scriptHost === 'www.google.com' || $scriptHost === 'google.com') {
+        $fallbackScriptUrl = 'https://www.recaptcha.net/recaptcha/api.js';
+    } elseif ($scriptHost === 'www.recaptcha.net' || $scriptHost === 'recaptcha.net') {
+        $fallbackScriptUrl = 'https://www.google.com/recaptcha/api.js';
+    }
+
+    $useRemoteCaptcha = commerza_captcha_should_use_remote_challenge();
+    $v2RemoteEnabled = !empty($config['v2_enabled']) && $useRemoteCaptcha;
+    $v3RemoteEnabled = !empty($config['v3_enabled']) && $useRemoteCaptcha;
+
     $scriptUrl = htmlspecialchars($rawScriptUrl, ENT_QUOTES, 'UTF-8');
     $nonceAttr = function_exists('commerza_csp_nonce_attr') ? (' ' . commerza_csp_nonce_attr()) : '';
-    $v2EnabledJs = !empty($config['v2_enabled']) ? 'true' : 'false';
-    $v3EnabledJs = !empty($config['v3_enabled']) ? 'true' : 'false';
+    $v2EnabledJs = $v2RemoteEnabled ? 'true' : 'false';
+    $v3EnabledJs = $v3RemoteEnabled ? 'true' : 'false';
+    $remoteEnabledJs = ($v2RemoteEnabled || $v3RemoteEnabled) ? 'true' : 'false';
     $v3SiteKeyJson = json_encode((string)($config['v3_site_key'] ?? ''), JSON_UNESCAPED_SLASHES);
     $scriptUrlJson = json_encode($rawScriptUrl, JSON_UNESCAPED_SLASHES);
+    $fallbackScriptUrlJson = json_encode($fallbackScriptUrl, JSON_UNESCAPED_SLASHES);
 
     $loaderTag = '';
-    if (!empty($config['v2_enabled']) || !empty($config['v3_enabled'])) {
-        $loaderTag = '<script' . $nonceAttr . ' src="' . $scriptUrl . '" async defer></script>';
+    if ($v2RemoteEnabled || $v3RemoteEnabled) {
+        $onErrorAttr = '';
+        if ($fallbackScriptUrl !== '') {
+            $fallbackScriptEscaped = htmlspecialchars($fallbackScriptUrl, ENT_QUOTES, 'UTF-8');
+            $onErrorAttr = ' onerror="if(!this.dataset.fallbackLoaded){this.dataset.fallbackLoaded=\'1\';this.src=\'' . $fallbackScriptEscaped . '\';}"';
+        }
+
+        $loaderTag = '<script' . $nonceAttr . ' src="' . $scriptUrl . '"' . $onErrorAttr . ' async defer></script>';
     }
 
     $networkGuard = <<<HTML
@@ -797,8 +837,10 @@ function commerza_captcha_script_tag(mysqli $con): string
     window.__commerzaCaptchaNetworkGuardAttached = true;
 
     var captchaScriptUrl = {$scriptUrlJson};
+    var fallbackCaptchaScriptUrl = {$fallbackScriptUrlJson};
     var v2Enabled = {$v2EnabledJs};
     var v3Enabled = {$v3EnabledJs};
+    var remoteCaptchaEnabled = {$remoteEnabledJs};
     var v3SiteKey = {$v3SiteKeyJson};
     var reconnectAttempts = 0;
     var maxReconnectAttempts = 2;
@@ -1058,7 +1100,12 @@ function commerza_captcha_script_tag(mysqli $con): string
                         renderV2Widget(container);
                     }
 
-                    showFallback(container, 'Complete Google CAPTCHA or solve the backup question before submitting.');
+                    showFallback(
+                        container,
+                        v2Enabled
+                            ? 'Complete Google CAPTCHA or solve the backup question before submitting.'
+                            : 'Solve the backup question before submitting.'
+                    );
                     event.preventDefault();
                     return;
                 }
@@ -1160,17 +1207,27 @@ function commerza_captcha_script_tag(mysqli $con): string
     }
 
     function attemptReconnect() {
-        if (!captchaScriptUrl || reconnectAttempts >= maxReconnectAttempts) {
+        if (!remoteCaptchaEnabled || reconnectAttempts >= maxReconnectAttempts) {
+            return;
+        }
+
+        var probeUrl = reconnectAttempts === 0 ? captchaScriptUrl : fallbackCaptchaScriptUrl;
+        if (!probeUrl) {
+            probeUrl = captchaScriptUrl;
+        }
+
+        if (!probeUrl) {
             return;
         }
 
         reconnectAttempts += 1;
 
         var probe = document.createElement('script');
-        probe.src = captchaScriptUrl;
+        probe.src = probeUrl;
         probe.async = true;
         probe.defer = true;
         probe.onload = function () {
+            captchaScriptUrl = probeUrl;
             window.setTimeout(function () {
                 attachFormSubmitGuards();
                 hideNetworkAlert();
@@ -1186,7 +1243,7 @@ function commerza_captcha_script_tag(mysqli $con): string
     }
 
     function checkCaptchaHealth() {
-        if (!hasCaptchaWidget()) {
+        if (!remoteCaptchaEnabled || !hasCaptchaWidget()) {
             return;
         }
 
@@ -1210,18 +1267,26 @@ function commerza_captcha_script_tag(mysqli $con): string
     }
 
     function scheduleHealthCheck() {
+        if (!remoteCaptchaEnabled) {
+            return;
+        }
+
         window.setTimeout(checkCaptchaHealth, 4000);
         window.setTimeout(checkCaptchaHealth, 9000);
     }
 
     window.addEventListener('offline', function () {
-        if (!hasCaptchaWidget()) {
+        if (!remoteCaptchaEnabled || !hasCaptchaWidget()) {
             return;
         }
         showNetworkAlert('Internet seems offline. CAPTCHA cannot be verified right now.');
     });
 
     window.addEventListener('online', function () {
+        if (!remoteCaptchaEnabled || !hasCaptchaWidget()) {
+            return;
+        }
+
         hideNetworkAlert();
         attemptReconnect();
     });
@@ -1269,8 +1334,9 @@ function commerza_captcha_widget_html(mysqli $con, string $context = ''): string
     $v3Field = htmlspecialchars((string)($config['v3_response_field'] ?? 'g-recaptcha-v3-response'), ENT_QUOTES, 'UTF-8');
     $contextSafe = htmlspecialchars($contextKey, ENT_QUOTES, 'UTF-8');
 
-    $v2Enabled = !empty($config['v2_enabled']);
-    $v3Enabled = !empty($config['v3_enabled']);
+    $useRemoteCaptcha = commerza_captcha_should_use_remote_challenge();
+    $v2Enabled = !empty($config['v2_enabled']) && $useRemoteCaptcha;
+    $v3Enabled = !empty($config['v3_enabled']) && $useRemoteCaptcha;
 
     $widget = '';
     $renderGoogleWidget = $v2Enabled;
@@ -1279,9 +1345,13 @@ function commerza_captcha_widget_html(mysqli $con, string $context = ''): string
         $widget = '<div class="captcha-widget" data-commerza-v2-slot="1" data-theme="dark" data-sitekey="' . $siteKey . '" style="margin:0 auto;min-height:78px;"></div>';
     }
 
-    $fallbackMessage = $v2Enabled || $v3Enabled
-        ? 'Complete Google CAPTCHA or solve this backup question to continue securely.'
-        : 'Google CAPTCHA keys are not configured. Solve this backup question to continue securely.';
+    if (!$useRemoteCaptcha && commerza_captcha_is_local_request()) {
+        $fallbackMessage = 'Google CAPTCHA is disabled on localhost. Solve this backup question to continue securely.';
+    } elseif ($v2Enabled || $v3Enabled) {
+        $fallbackMessage = 'Complete Google CAPTCHA or solve this backup question to continue securely.';
+    } else {
+        $fallbackMessage = 'Google CAPTCHA keys are not configured. Solve this backup question to continue securely.';
+    }
 
     $fallbackDisplay = 'block';
     $toggleDisplay = 'none';

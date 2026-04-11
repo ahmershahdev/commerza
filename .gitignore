@@ -7,6 +7,11 @@
 # Dependency directories
 node_modules/
 vendor/
+!frontend/assets/vendor/
+!frontend/assets/vendor/turnjs/
+!frontend/assets/vendor/turnjs/turn.min.js
+!frontend/assets/vendor/tiltjs/
+!frontend/assets/vendor/tiltjs/tilt.min.js
 
 # Local runtime artifacts
 *.log

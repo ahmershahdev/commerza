@@ -2447,6 +2447,156 @@ $adminTabCatalog = admin_tabs_payload();
                             </div>
                             <span class="step-chip">Tip: Keep messages short for smooth scrolling.</span>
                         </div>
+
+                        <div class="row g-4 mb-4">
+                            <div class="col-12">
+                                <div class="card admin-card border-0 shadow-sm">
+                                    <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <h3 class="h5 mb-0 fw-bold text-orange">Homepage Storybook</h3>
+                                        <span class="badge bg-warning text-dark text-uppercase">Admin Editable</span>
+                                    </div>
+                                    <div class="card-body p-4">
+                                        <p class="text-secondary mb-3">Edit each page subtitle, title, and body text for the homepage interactive book.</p>
+                                        <div class="row g-3">
+                                            <div class="col-12 col-xl-6">
+                                                <div class="border border-secondary rounded-3 p-3 h-100">
+                                                    <h4 class="h6 text-light fw-bold mb-3">Page 1</h4>
+                                                    <div class="mb-2">
+                                                        <label for="storybookPage1Subtitle" class="form-label text-light">Subtitle</label>
+                                                        <input type="text" class="form-control bg-secondary border-0 text-light" id="storybookPage1Subtitle" maxlength="120" placeholder="Design Language">
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <label for="storybookPage1Title" class="form-label text-light">Title</label>
+                                                        <input type="text" class="form-control bg-secondary border-0 text-light" id="storybookPage1Title" maxlength="150" placeholder="Built For Modern Legacy">
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <label for="storybookPage1BodyPrimary" class="form-label text-light">Primary Paragraph</label>
+                                                        <textarea class="form-control bg-secondary border-0 text-light" id="storybookPage1BodyPrimary" rows="3" maxlength="700"></textarea>
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <label for="storybookPage1BodySecondary" class="form-label text-light">Secondary Paragraph</label>
+                                                        <textarea class="form-control bg-secondary border-0 text-light" id="storybookPage1BodySecondary" rows="3" maxlength="700"></textarea>
+                                                    </div>
+                                                    <div>
+                                                        <label for="storybookPage1Footnote" class="form-label text-light">Footnote</label>
+                                                        <input type="text" class="form-control bg-secondary border-0 text-light" id="storybookPage1Footnote" maxlength="180" placeholder="Chapter note...">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 col-xl-6">
+                                                <div class="border border-secondary rounded-3 p-3 h-100">
+                                                    <h4 class="h6 text-light fw-bold mb-3">Page 2</h4>
+                                                    <div class="mb-2">
+                                                        <label for="storybookPage2Subtitle" class="form-label text-light">Subtitle</label>
+                                                        <input type="text" class="form-control bg-secondary border-0 text-light" id="storybookPage2Subtitle" maxlength="120" placeholder="Material and Movement">
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <label for="storybookPage2Title" class="form-label text-light">Title</label>
+                                                        <input type="text" class="form-control bg-secondary border-0 text-light" id="storybookPage2Title" maxlength="150" placeholder="Casework, Crystal, and Caliber Harmony">
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <label for="storybookPage2BodyPrimary" class="form-label text-light">Primary Paragraph</label>
+                                                        <textarea class="form-control bg-secondary border-0 text-light" id="storybookPage2BodyPrimary" rows="3" maxlength="700"></textarea>
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <label for="storybookPage2BodySecondary" class="form-label text-light">Secondary Paragraph</label>
+                                                        <textarea class="form-control bg-secondary border-0 text-light" id="storybookPage2BodySecondary" rows="3" maxlength="700"></textarea>
+                                                    </div>
+                                                    <div>
+                                                        <label for="storybookPage2Footnote" class="form-label text-light">Footnote</label>
+                                                        <input type="text" class="form-control bg-secondary border-0 text-light" id="storybookPage2Footnote" maxlength="180" placeholder="Every layer must earn its place.">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 col-xl-6">
+                                                <div class="border border-secondary rounded-3 p-3 h-100">
+                                                    <h4 class="h6 text-light fw-bold mb-3">Page 3</h4>
+                                                    <div class="mb-2">
+                                                        <label for="storybookPage3Subtitle" class="form-label text-light">Subtitle</label>
+                                                        <input type="text" class="form-control bg-secondary border-0 text-light" id="storybookPage3Subtitle" maxlength="120" placeholder="Wrist Presence">
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <label for="storybookPage3Title" class="form-label text-light">Title</label>
+                                                        <input type="text" class="form-control bg-secondary border-0 text-light" id="storybookPage3Title" maxlength="150" placeholder="Designed To Transition Across Moments">
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <label for="storybookPage3BodyPrimary" class="form-label text-light">Primary Paragraph</label>
+                                                        <textarea class="form-control bg-secondary border-0 text-light" id="storybookPage3BodyPrimary" rows="3" maxlength="700"></textarea>
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <label for="storybookPage3BodySecondary" class="form-label text-light">Secondary Paragraph</label>
+                                                        <textarea class="form-control bg-secondary border-0 text-light" id="storybookPage3BodySecondary" rows="3" maxlength="700"></textarea>
+                                                    </div>
+                                                    <div>
+                                                        <label for="storybookPage3Footnote" class="form-label text-light">Footnote</label>
+                                                        <input type="text" class="form-control bg-secondary border-0 text-light" id="storybookPage3Footnote" maxlength="180" placeholder="Form and confidence in one profile.">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 col-xl-6">
+                                                <div class="border border-secondary rounded-3 p-3 h-100">
+                                                    <h4 class="h6 text-light fw-bold mb-3">Page 4</h4>
+                                                    <div class="mb-2">
+                                                        <label for="storybookPage4Subtitle" class="form-label text-light">Subtitle</label>
+                                                        <input type="text" class="form-control bg-secondary border-0 text-light" id="storybookPage4Subtitle" maxlength="120" placeholder="Service and Trust">
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <label for="storybookPage4Title" class="form-label text-light">Title</label>
+                                                        <input type="text" class="form-control bg-secondary border-0 text-light" id="storybookPage4Title" maxlength="150" placeholder="Refined Through Real Customer Signals">
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <label for="storybookPage4BodyPrimary" class="form-label text-light">Primary Paragraph</label>
+                                                        <textarea class="form-control bg-secondary border-0 text-light" id="storybookPage4BodyPrimary" rows="3" maxlength="700"></textarea>
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <label for="storybookPage4BodySecondary" class="form-label text-light">Secondary Paragraph</label>
+                                                        <textarea class="form-control bg-secondary border-0 text-light" id="storybookPage4BodySecondary" rows="3" maxlength="700"></textarea>
+                                                    </div>
+                                                    <div>
+                                                        <label for="storybookPage4Footnote" class="form-label text-light">Footnote</label>
+                                                        <input type="text" class="form-control bg-secondary border-0 text-light" id="storybookPage4Footnote" maxlength="180" placeholder="Experience matters beyond the watch itself.">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-12">
+                                                <div class="border border-secondary rounded-3 p-3 h-100">
+                                                    <h4 class="h6 text-light fw-bold mb-3">Page 5</h4>
+                                                    <div class="row g-2">
+                                                        <div class="col-12 col-xl-6">
+                                                            <label for="storybookPage5Subtitle" class="form-label text-light">Subtitle</label>
+                                                            <input type="text" class="form-control bg-secondary border-0 text-light" id="storybookPage5Subtitle" maxlength="120" placeholder="Final Note">
+                                                        </div>
+                                                        <div class="col-12 col-xl-6">
+                                                            <label for="storybookPage5Title" class="form-label text-light">Title</label>
+                                                            <input type="text" class="form-control bg-secondary border-0 text-light" id="storybookPage5Title" maxlength="150" placeholder="The Next Chapter Starts On Your Wrist">
+                                                        </div>
+                                                        <div class="col-12 col-xl-6">
+                                                            <label for="storybookPage5BodyPrimary" class="form-label text-light">Primary Paragraph</label>
+                                                            <textarea class="form-control bg-secondary border-0 text-light" id="storybookPage5BodyPrimary" rows="3" maxlength="700"></textarea>
+                                                        </div>
+                                                        <div class="col-12 col-xl-6">
+                                                            <label for="storybookPage5BodySecondary" class="form-label text-light">Secondary Paragraph</label>
+                                                            <textarea class="form-control bg-secondary border-0 text-light" id="storybookPage5BodySecondary" rows="3" maxlength="700"></textarea>
+                                                        </div>
+                                                        <div class="col-12">
+                                                            <label for="storybookPage5Footnote" class="form-label text-light">Footnote</label>
+                                                            <input type="text" class="form-control bg-secondary border-0 text-light" id="storybookPage5Footnote" maxlength="180" placeholder="End of lookbook.">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex gap-2 mt-3 flex-wrap">
+                                            <button class="btn btn-orange" id="saveStorybookBtn" type="button">
+                                                <i class="bi bi-save2 me-1"></i>Save Storybook
+                                            </button>
+                                            <button class="btn btn-outline-secondary" id="resetStorybookBtn" type="button">Reset</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="row g-4 mb-4">
                             <div class="col-12">
                                 <div class="card admin-card border-0 shadow-sm">

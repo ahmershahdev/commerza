@@ -394,7 +394,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
     'easypaisa' => 'Easypaisa (Sandbox)',
     'paypal' => 'PayPal (Sandbox)',
     'stripe' => 'Stripe (Sandbox)',
-    'card' => 'Credit/Debit Card (Sandbox)',
+    'card' => 'Credit/Debit Card (Stripe Sandbox)',
   ];
 
   $payment_method_label = $payment_methods[$payment_method] ?? '';
@@ -1266,7 +1266,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
                     <li><a class="checkout-payment-option" href="#" data-value="easypaisa" data-label="Easypaisa (Sandbox)" data-icon="bi-wallet2" data-desc="Sandbox wallet mode. Add payer and transaction reference below.">Easypaisa (Sandbox)<small>Use Easypaisa sandbox flow</small></a></li>
                     <li><a class="checkout-payment-option" href="#" data-value="paypal" data-label="PayPal (Sandbox)" data-icon="bi-paypal" data-desc="Sandbox PayPal mode. Add payer and transaction reference below.">PayPal (Sandbox)<small>Use PayPal sandbox buyer account</small></a></li>
                     <li><a class="checkout-payment-option" href="#" data-value="stripe" data-label="Stripe (Sandbox)" data-icon="bi-credit-card" data-desc="Sandbox Stripe mode. Add payer and transaction reference below.">Stripe (Sandbox)<small>Use Stripe test mode details</small></a></li>
-                    <li><a class="checkout-payment-option" href="#" data-value="card" data-label="Credit/Debit Card (Sandbox)" data-icon="bi-credit-card-2-front" data-desc="Sandbox card mode. Add payer and transaction reference below.">Credit/Debit Card (Sandbox)<small>Manual verification with sandbox reference</small></a></li>
+                    <li><a class="checkout-payment-option" href="#" data-value="card" data-label="Credit/Debit Card (Stripe Sandbox)" data-icon="bi-credit-card-2-front" data-desc="Stripe card sandbox mode. Add payer and transaction reference below.">Credit/Debit Card (Stripe Sandbox) <span class="checkout-payment-tag">Recommended</span><small>Best for card testing with Stripe sandbox cards</small></a></li>
                   </ul>
                 </div>
                 <input type="hidden" id="paymentMethod" name="payment_method" value="cod">
@@ -1274,7 +1274,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
                 <div id="paymentMethodCard" class="payment-method-card" aria-live="polite">
                   <div class="payment-method-icon"><i id="paymentMethodIcon" class="bi bi-cash-coin"></i></div>
                   <div>
-                    <p id="paymentMethodTitle" class="mb-1 text-white fw-bold">Cash on Delivery</p>
+                    <p class="mb-1 text-white fw-bold payment-method-title-row"><span id="paymentMethodTitle">Cash on Delivery</span><span id="paymentMethodBadge" class="checkout-payment-tag d-none">Recommended</span></p>
                     <p id="paymentMethodDesc" class="payment-hint mb-0">Pay when your order reaches your doorstep.</p>
                   </div>
                 </div>
@@ -1301,7 +1301,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
                       <button type="button" class="btn btn-outline-warning w-100" id="sendCodOtpBtn">Send OTP</button>
                     </div>
                   </div>
-                  <small id="codOtpHint" class="field-hint d-block mt-2">For high-value COD orders, verify the code sent to your email before placing order.</small>
+                  <small id="codOtpHint" class="field-hint d-block mt-2">For COD orders of PKR <?= number_format((float)$codHighValueThreshold, 2) ?> or above, verify the code sent to your account email before placing order.</small>
                   <div id="codOtpFeedback" class="small mt-2" aria-live="polite"></div>
                 </div>
               </div>

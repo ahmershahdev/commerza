@@ -554,11 +554,50 @@ function isCodPaymentMethod(paymentMethod) {
   );
 }
 
+function normalizePaymentMethodLabel(paymentMethodRaw) {
+  const raw = (paymentMethodRaw || "").toString().trim();
+  if (!raw) {
+    return "";
+  }
+
+  const normalized = raw.toLowerCase();
+  if (isCodPaymentMethod(raw)) {
+    return "COD";
+  }
+
+  if (normalized.includes("jazzcash")) {
+    return "JazzCash";
+  }
+
+  if (normalized.includes("easypaisa")) {
+    return "Easypaisa";
+  }
+
+  if (normalized.includes("paypal")) {
+    return "PayPal";
+  }
+
+  if (normalized.includes("stripe")) {
+    return "Stripe";
+  }
+
+  if (
+    normalized.includes("credit/debit") ||
+    normalized.includes("credit") ||
+    normalized.includes("debit") ||
+    normalized === "card"
+  ) {
+    return "Credit/Debit Card";
+  }
+
+  return raw;
+}
+
 function resolveOrderPaymentBadge(paymentStatusRaw, paymentMethodRaw) {
   const paymentStatus = (paymentStatusRaw || "").toString().toLowerCase();
   const paymentMethod = (paymentMethodRaw || "").toString().trim();
-  const codUnpaid =
-    paymentStatus === "unpaid" && isCodPaymentMethod(paymentMethod);
+  const paymentMethodLabel = normalizePaymentMethodLabel(paymentMethod);
+  const isCodMethod = isCodPaymentMethod(paymentMethod);
 
   if (paymentStatus === "refunded") {
     return { label: "Refunded", className: "bg-secondary" };
@@ -569,10 +608,25 @@ function resolveOrderPaymentBadge(paymentStatusRaw, paymentMethodRaw) {
   }
 
   if (paymentStatus === "paid") {
+    if (paymentMethodLabel !== "") {
+      return { label: paymentMethodLabel, className: "bg-success" };
+    }
+
     return { label: "Paid", className: "bg-success" };
   }
 
-  if (codUnpaid) {
+  if (paymentMethodLabel !== "") {
+    if (isCodMethod) {
+      return { label: "COD", className: "bg-info text-dark" };
+    }
+
+    return {
+      label: paymentMethodLabel,
+      className: "bg-dark border border-info text-info",
+    };
+  }
+
+  if (paymentStatus === "unpaid" && isCodMethod) {
     return { label: "COD", className: "bg-info text-dark" };
   }
 
@@ -6083,6 +6137,8 @@ $(document).ready(function () {
   applyButtonCooldown("#resetSocialBtn");
   applyButtonCooldown("#saveTickerBtn");
   applyButtonCooldown("#resetTickerBtn");
+  applyButtonCooldown("#saveStorybookBtn");
+  applyButtonCooldown("#resetStorybookBtn");
   applyButtonCooldown("#saveCollectorsSpeakBtn");
   applyButtonCooldown("#resetCollectorsSpeakBtn");
   applyButtonCooldown("#saveFeaturedVideosBtn");
@@ -6748,6 +6804,36 @@ $(document).ready(function () {
   $("#resetSocialBtn").on("click", function () {
     resetSocialForm();
   });
+
+  $("#saveStorybookBtn")
+    .off("click")
+    .on("click", function () {
+      const pages = collectStorybookPagesFromEditor();
+
+      adminPostJson(ADMIN_WEBSITE_API, {
+        action: "save-storybook",
+        pages,
+      })
+        .then((result) => {
+          applyWebsiteSettingsPayload(result?.payload || null);
+          showNotification(
+            result?.message || "Homepage storybook saved!",
+            "success",
+          );
+        })
+        .catch((error) => {
+          showNotification(
+            error?.message || "Unable to save storybook.",
+            "danger",
+          );
+        });
+    });
+
+  $("#resetStorybookBtn")
+    .off("click")
+    .on("click", function () {
+      resetStorybookForm();
+    });
 
   $("#saveTickerBtn")
     .off("click")
@@ -8719,6 +8805,135 @@ function renderCollectorsSpeakPreview(entries) {
   );
 }
 
+function getDefaultStorybookPages() {
+  return [
+    {
+      subtitle: "Design Language",
+      title: "Built For Modern Legacy",
+      body_primary:
+        "Every release begins with silhouette drafts, dial proportion studies, and wrist-balance tests so the final watch feels premium in real daily wear.",
+      body_secondary:
+        "Prototype variants are reviewed under indoor, outdoor, and low-light scenes before any design moves to production.",
+      footnote: "Chapter note: precision starts before production.",
+    },
+    {
+      subtitle: "Material and Movement",
+      title: "Casework, Crystal, and Caliber Harmony",
+      body_primary:
+        "Brushed and polished surfaces are tuned together to create visual depth while preserving a clean edge profile and comfortable wrist feel.",
+      body_secondary:
+        "Lume balance, dial contrast, and movement stability are stress-tested so readability and reliability stay sharp over time.",
+      footnote: "Every layer must earn its place.",
+    },
+    {
+      subtitle: "Wrist Presence",
+      title: "Designed To Transition Across Moments",
+      body_primary:
+        "A Commerza watch is styled to move from office hours to evening plans without looking out of place or overdesigned.",
+      body_secondary:
+        "The goal is repeat wear value: strong identity from distance and refined detailing when seen up close.",
+      footnote: "Form and confidence in one profile.",
+    },
+    {
+      subtitle: "Service and Trust",
+      title: "Refined Through Real Customer Signals",
+      body_primary:
+        "Feedback on strap comfort, dial clarity, and case finishing is reviewed each cycle and translated into practical product updates.",
+      body_secondary:
+        "Packaging quality, dispatch handling, and support response are treated as part of the product, not an afterthought.",
+      footnote: "Experience matters beyond the watch itself.",
+    },
+    {
+      subtitle: "Final Note",
+      title: "The Next Chapter Starts On Your Wrist",
+      body_primary:
+        "From first sketch to final shipment, the same premium standard shapes each release in the catalog.",
+      body_secondary:
+        "Explore references built for precision, comfort, and long-term style confidence in everyday life.",
+      footnote: "End of lookbook.",
+    },
+  ];
+}
+
+function normalizeStorybookPageEntry(entry, fallback = {}) {
+  const source = entry && typeof entry === "object" ? entry : {};
+  const defaults = fallback && typeof fallback === "object" ? fallback : {};
+
+  const subtitle = (source.subtitle || "").toString().trim().slice(0, 120);
+  const title = (source.title || "").toString().trim().slice(0, 150);
+  const bodyPrimary = (source.body_primary || "")
+    .toString()
+    .trim()
+    .slice(0, 700);
+  const bodySecondary = (source.body_secondary || "")
+    .toString()
+    .trim()
+    .slice(0, 700);
+  const footnote = (source.footnote || "").toString().trim().slice(0, 180);
+
+  return {
+    subtitle: subtitle || (defaults.subtitle || "").toString(),
+    title: title || (defaults.title || "").toString(),
+    body_primary: bodyPrimary || (defaults.body_primary || "").toString(),
+    body_secondary: bodySecondary || (defaults.body_secondary || "").toString(),
+    footnote: footnote || (defaults.footnote || "").toString(),
+  };
+}
+
+function normalizeStorybookPages(list) {
+  const defaults = getDefaultStorybookPages();
+  if (!Array.isArray(list)) {
+    return defaults.map((page) => ({ ...page }));
+  }
+
+  return defaults.map((fallbackPage, index) =>
+    normalizeStorybookPageEntry(list[index], fallbackPage),
+  );
+}
+
+function renderStorybookEditor(pages) {
+  const normalized = normalizeStorybookPages(pages);
+
+  normalized.forEach((page, index) => {
+    const pageNumber = index + 1;
+    $(`#storybookPage${pageNumber}Subtitle`).val(page.subtitle || "");
+    $(`#storybookPage${pageNumber}Title`).val(page.title || "");
+    $(`#storybookPage${pageNumber}BodyPrimary`).val(page.body_primary || "");
+    $(`#storybookPage${pageNumber}BodySecondary`).val(
+      page.body_secondary || "",
+    );
+    $(`#storybookPage${pageNumber}Footnote`).val(page.footnote || "");
+  });
+}
+
+function collectStorybookPagesFromEditor() {
+  const pages = [];
+
+  for (let pageNumber = 1; pageNumber <= 5; pageNumber += 1) {
+    pages.push({
+      subtitle: ($(`#storybookPage${pageNumber}Subtitle`).val() || "")
+        .toString()
+        .trim(),
+      title: ($(`#storybookPage${pageNumber}Title`).val() || "")
+        .toString()
+        .trim(),
+      body_primary: ($(`#storybookPage${pageNumber}BodyPrimary`).val() || "")
+        .toString()
+        .trim(),
+      body_secondary: (
+        $(`#storybookPage${pageNumber}BodySecondary`).val() || ""
+      )
+        .toString()
+        .trim(),
+      footnote: ($(`#storybookPage${pageNumber}Footnote`).val() || "")
+        .toString()
+        .trim(),
+    });
+  }
+
+  return normalizeStorybookPages(pages);
+}
+
 function buildDefaultSiteSettings() {
   return {
     brand: {
@@ -8849,6 +9064,9 @@ function buildDefaultSiteSettings() {
       categoryA:
         "frontend/assets/videos/products/smart/automatic_watches_carousel.mp4",
     },
+    storybook: {
+      pages: getDefaultStorybookPages(),
+    },
     pageMeta: [],
   };
 }
@@ -8888,6 +9106,9 @@ function loadSiteSettings() {
       featuredVideos: {
         ...defaults.featuredVideos,
         ...(parsed.featuredVideos || {}),
+      },
+      storybook: {
+        pages: normalizeStorybookPages(parsed.storybook?.pages),
       },
       pageMeta: normalizeSeoPageMetaList(
         Array.isArray(parsed.pageMeta) ? parsed.pageMeta : defaults.pageMeta,
@@ -8935,6 +9156,9 @@ function applyWebsiteSettingsPayload(payload) {
       ...defaults.featuredVideos,
       ...(source.featuredVideos || {}),
     },
+    storybook: {
+      pages: normalizeStorybookPages(source.storybook?.pages),
+    },
     pageMeta: normalizeSeoPageMetaList(
       Array.isArray(source.pageMeta) ? source.pageMeta : defaults.pageMeta,
     ),
@@ -8959,6 +9183,7 @@ function applyWebsiteSettingsPayload(payload) {
   );
   $("#homeFeatureVideo").val(siteSettings.featuredVideos?.home || "");
   $("#categoryAFeatureVideo").val(siteSettings.featuredVideos?.categoryA || "");
+  renderStorybookEditor(siteSettings.storybook?.pages || []);
 
   renderTickerComposerPreview(siteSettings.ticker?.messages || []);
   renderCollectorsSpeakPreview(siteSettings.collectorsSpeak || []);
@@ -9020,6 +9245,11 @@ function resetCollectorsSpeakForm() {
   const entries = normalizeCollectorsSpeakList(defaults.collectorsSpeak || []);
   $("#collectorsSpeakInput").val(collectorsSpeakTextFromEntries(entries));
   renderCollectorsSpeakPreview(entries);
+}
+
+function resetStorybookForm() {
+  const defaults = buildDefaultSiteSettings();
+  renderStorybookEditor(defaults.storybook?.pages || []);
 }
 
 function normalizeSeoPageMetaEntry(entry) {
