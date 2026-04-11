@@ -209,7 +209,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <script src="assets/js/admin-config.js"></script>
+  <script src="assets/js/core/admin-config.js"></script>
   <link rel="stylesheet" href="assets/css/pages/admin-login-inline.css">
 </head>
 

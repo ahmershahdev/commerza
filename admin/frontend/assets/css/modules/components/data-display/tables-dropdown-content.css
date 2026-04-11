@@ -1,0 +1,226 @@
+.table-hover tbody tr:hover {
+  background-color: rgba(255, 122, 26, 0.12);
+}
+
+.tab-pane .table-responsive {
+  border: 1px solid rgba(255, 122, 26, 0.22);
+  border-radius: 14px;
+  background: linear-gradient(
+    180deg,
+    rgba(15, 15, 20, 0.96),
+    rgba(10, 10, 14, 0.98)
+  );
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.02),
+    0 14px 34px rgba(0, 0, 0, 0.28);
+}
+
+.tab-pane .table {
+  margin-bottom: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 740px;
+}
+
+.tab-pane .table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: linear-gradient(
+    180deg,
+    rgba(29, 22, 18, 0.98),
+    rgba(16, 14, 12, 0.98)
+  );
+  border-bottom: 1px solid rgba(255, 153, 92, 0.38) !important;
+  color: #ffd5ae !important;
+  font-size: 0.74rem;
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tab-pane .table tbody tr {
+  transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.tab-pane .table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.tab-pane .table tbody tr:hover {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 122, 26, 0.12),
+    rgba(255, 122, 26, 0.03)
+  );
+  box-shadow: inset 3px 0 0 rgba(255, 161, 101, 0.72);
+}
+
+.tab-pane .table tbody td {
+  border-color: rgba(255, 122, 26, 0.14);
+  color: #ebe4dc;
+  font-size: 0.88rem;
+  vertical-align: middle;
+}
+
+.tab-pane .table tbody td small,
+.tab-pane .table tbody td .small {
+  color: #b9b0a8 !important;
+}
+
+.tab-pane .table .btn-sm {
+  border-radius: 9px;
+}
+
+.dropdown-menu {
+  background-color: rgba(12, 12, 16, 0.97) !important;
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 122, 26, 0.3) !important;
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.8),
+    0 0 18px rgba(255, 122, 26, 0.12);
+  border-radius: 12px !important;
+  padding: 8px 0 !important;
+  margin-top: 10px !important;
+  animation: dropdownFade 0.3s ease-out;
+}
+
+@keyframes dropdownFade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdown-item {
+  color: #d1d1d1 !important;
+  transition: all 0.22s ease-out;
+  font-weight: 600 !important;
+  font-family: "Montserrat", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.9rem;
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 122, 26, 0.2),
+    transparent
+  ) !important;
+  color: #ff7a1a !important;
+  padding-left: 2rem !important;
+}
+
+.admin-dropdown-item.active {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 122, 26, 0.35),
+    rgba(255, 204, 0, 0.2)
+  ) !important;
+  color: #fff4df !important;
+  border: 1px solid rgba(255, 204, 0, 0.35);
+}
+
+.homepage-ticker-shell {
+  background: linear-gradient(
+    140deg,
+    rgba(255, 122, 26, 0.06),
+    rgba(8, 8, 12, 0.18)
+  );
+  border-radius: 14px;
+}
+
+.ticker-live-preview {
+  border: 1px solid rgba(255, 170, 92, 0.28);
+  border-radius: 12px;
+  background: rgba(12, 12, 16, 0.72);
+  padding: 14px;
+  min-height: 180px;
+}
+
+.ticker-preview-title {
+  color: #ffd5ae;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+}
+
+.ticker-preview-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ticker-preview-pill {
+  border: 1px solid rgba(255, 204, 0, 0.32);
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #ffe5c8;
+  background: rgba(255, 122, 26, 0.12);
+  font-size: 0.78rem;
+}
+
+.ticker-composer-meta {
+  font-size: 0.78rem;
+  color: #ffcf9e;
+  font-family: "JetBrains Mono", monospace;
+  letter-spacing: 0.04em;
+}
+
+.collectors-editor-shell {
+  background: linear-gradient(
+    145deg,
+    rgba(255, 122, 26, 0.05),
+    rgba(10, 10, 14, 0.25)
+  );
+}
+
+.collectors-preview-list {
+  display: grid;
+  gap: 10px;
+}
+
+.collectors-preview-item {
+  border: 1px solid rgba(255, 145, 71, 0.26);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.collectors-preview-item strong {
+  color: #ffe1be;
+  display: inline-block;
+  margin-bottom: 3px;
+}
+
+.collectors-preview-item span {
+  color: #bdbdbd;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.collectors-preview-item p {
+  color: #efe5d9;
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.dropdown-divider {
+  border-color: rgba(255, 69, 0, 0.2) !important;
+}
+

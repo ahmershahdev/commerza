@@ -10,7 +10,7 @@ if (!($con instanceof mysqli)) {
 $adminUser = admin_require_login($con);
 $adminCsrfToken = admin_generate_csrf_token();
 $adminCssVersion = @filemtime(__DIR__ . '/assets/css/style.css') ?: time();
-$adminJsVersion = @filemtime(__DIR__ . '/assets/js/script.js') ?: time();
+$adminJsVersion = @filemtime(__DIR__ . '/assets/js/modules/panel/init/document-ready.js') ?: time();
 $adminSubAdminsJsVersion = @filemtime(__DIR__ . '/assets/js/modules/panel/sub-admins.js') ?: $adminJsVersion;
 $adminFrontendBaseHref = rtrim(admin_public_url('/admin/frontend/'), '/') . '/';
 $adminPanelCanonicalUrl = admin_public_url('/admin-panel');
@@ -72,7 +72,7 @@ $adminTabCatalog = admin_tabs_payload();
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/style.css?v=<?= (int)$adminCssVersion ?>">
-    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/admin-config.js"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/core/admin-config.js"></script>
 </head>
 
 <body class="dark-theme">
@@ -2965,7 +2965,26 @@ $adminTabCatalog = admin_tabs_payload();
         ], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>
     </script>
     <script src="assets/js/pages/panel/admin-panel.js"></script>
-    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/script.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/core/runtime-state.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/core/common-utils.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/core/upload-queue.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/live-viewers/settings.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/email/directory-templates.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/email/init.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/coupons/workflows.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/reviews/management.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/security/events-init.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/analytics/dashboard-metrics.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/products/catalog-storage.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/products/catalog-management.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/products/import-export.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/ui/dialogs-notifications.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/ui/tab-guidance.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/analytics/summary-render.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/analytics/charts-orders-customers.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/operations/orders-customers-blacklist.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/website/content-seo-social.js?v=<?= (int)$adminJsVersion ?>"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/init/document-ready.js?v=<?= (int)$adminJsVersion ?>"></script>
     <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/sub-admins.js?v=<?= (int)$adminSubAdminsJsVersion ?>"></script>
 </body>
 
