@@ -44,55 +44,7 @@ $logoUrl = $siteBaseUrl . '/frontend/assets/images/logo/commerza-logo.webp';
 	<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet" />
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
 	<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-	<style>
-		.policy-mail {
-			color: #ff5a00;
-			font-weight: 700;
-			text-decoration: none;
-		}
-
-		.policy-mail:hover {
-			color: #ff1f1f;
-			text-decoration: underline;
-		}
-
-		.accordion-button {
-			color: #ff6600 !important;
-			background-color: #1a1a1a;
-			color: #ff6600;
-			border: 1px solid #ff6600;
-			border-radius: 6px;
-			margin-bottom: 8px;
-			transition: all 0.3s ease;
-		}
-
-		.accordion-button:hover {
-			background-color: #252525;
-			border-color: #ff8533;
-		}
-
-		.accordion-button::after {
-			background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23ff6600'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
-		}
-
-		.accordion-item {
-			border: none;
-			background-color: transparent;
-			user-select: none;
-		}
-
-		.accordion-collapse,
-		.accordion-collapse.active {
-			border: 1px solid #ff6600;
-			border-top: none;
-			border-radius: 0 0 6px 6px;
-		}
-
-		.accordion-body {
-			background-color: #0d0d0d;
-			border-radius: 0 0 6px 6px;
-		}
-	</style>
+		<link rel="stylesheet" href="frontend/assets/css/pages/privacy-policy-inline.css">
 	<script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
 		{
 			"@context": "https://schema.org",

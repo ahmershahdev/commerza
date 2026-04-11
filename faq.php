@@ -55,48 +55,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <style>
-    .accordion-button {
-      color: #ff6600 !important;
-      background-color: #1a1a1a;
-      color: #ff6600;
-      border: 1px solid #ff6600;
-      border-radius: 6px;
-      margin-bottom: 8px;
-      transition: all 0.3s ease;
-    }
-
-    .accordion-button:hover {
-      background-color: #252525;
-      border-color: #ff8533;
-    }
-
-    .accordion-button::after {
-      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23ff6600'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
-    }
-
-    .accordion-item {
-      border: none;
-      background-color: transparent;
-      user-select: none;
-    }
-
-    .accordion-button {
-      border-radius: 6px;
-    }
-
-    .accordion-collapse,
-    .accordion-collapse.active {
-      border: 1px solid #ff6600;
-      border-top: none;
-      border-radius: 0 0 6px 6px;
-    }
-
-    .accordion-body {
-      background-color: #0d0d0d;
-      border-radius: 0 0 6px 6px;
-    }
-  </style>
+  <link rel="stylesheet" href="frontend/assets/css/pages/faq-inline.css">
 </head>
 
 <body class="dark-theme">
@@ -352,13 +311,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
     </div>
   </footer>
   <script src="frontend/assets/js/modules/core/site-settings.js" defer></script>
-  <script <?= commerza_csp_nonce_attr() ?>>
-    document.addEventListener("DOMContentLoaded", function() {
-      if (typeof applySiteSettings === "function") {
-        applySiteSettings();
-      }
-    });
-  </script>
+  <script src="frontend/assets/js/pages/faq.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>

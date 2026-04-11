@@ -56,18 +56,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <style>
-    .policy-mail {
-      color: #ff5a00;
-      font-weight: 700;
-      text-decoration: none;
-    }
-
-    .policy-mail:hover {
-      color: #ff1f1f;
-      text-decoration: underline;
-    }
-  </style>
+  <link rel="stylesheet" href="frontend/assets/css/pages/warranty-inline.css">
 </head>
 
 <body class="dark-theme">
@@ -346,13 +335,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
   </footer>
 
   <script src="frontend/assets/js/modules/core/site-settings.js" defer></script>
-  <script <?= commerza_csp_nonce_attr() ?>>
-    document.addEventListener("DOMContentLoaded", function() {
-      if (typeof applySiteSettings === "function") {
-        applySiteSettings();
-      }
-    });
-  </script>
+  <script src="frontend/assets/js/pages/warranty.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>

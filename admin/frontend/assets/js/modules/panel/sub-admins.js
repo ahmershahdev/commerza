@@ -282,25 +282,65 @@
     return true;
   }
 
-  function enforceDashboardVisibilityConstraint(showNotice = true) {
-    const dashboardCheckbox = $(
-      '#subAdminHiddenTabsGrid .sub-admin-tab-check[value="dashboard-tab"]',
+  function tabMetaById(tabId) {
+    const normalized = (tabId || "").toString().trim().toLowerCase();
+    const tabs = Array.isArray(state.tabs) ? state.tabs : [];
+
+    return (
+      tabs.find(
+        (tab) => (tab?.id || "").toString().trim().toLowerCase() === normalized,
+      ) || null
+    );
+  }
+
+  function resolveHiddenTabsAgainstPermissions(tabIds, permissionKeys) {
+    const hiddenTabs = normalizedKeyList(tabIds || []);
+    const permissionSet = new Set(normalizedKeyList(permissionKeys || []));
+    const allowed = [];
+    const blockedLabels = [];
+
+    hiddenTabs.forEach((tabId) => {
+      const meta = tabMetaById(tabId);
+      const requirements = normalizedKeyList(meta?.permissions || []);
+
+      const isGranted = requirements.some((permission) =>
+        permissionSetHas(permissionSet, permission),
+      );
+
+      if (isGranted) {
+        blockedLabels.push((meta?.label || tabId).toString());
+        return;
+      }
+
+      allowed.push(tabId);
+    });
+
+    return {
+      allowed,
+      blockedLabels: Array.from(new Set(blockedLabels)),
+    };
+  }
+
+  function enforceHiddenTabPermissionConstraints(showNotice = true) {
+    const currentHiddenTabs = selectedHiddenTabs();
+    if (!currentHiddenTabs.length) {
+      return false;
+    }
+
+    const resolution = resolveHiddenTabsAgainstPermissions(
+      currentHiddenTabs,
+      selectedPermissionKeys(),
     );
 
-    if (!dashboardCheckbox.length || !dashboardCheckbox.prop("checked")) {
+    if (resolution.allowed.length === currentHiddenTabs.length) {
       return false;
     }
 
-    const permissionSet = new Set(normalizedKeyList(selectedPermissionKeys()));
-    if (!permissionSetHas(permissionSet, "dashboard.view")) {
-      return false;
-    }
+    applyHiddenTabsSelection(resolution.allowed);
 
-    dashboardCheckbox.prop("checked", false);
-
-    if (showNotice) {
+    if (showNotice && resolution.blockedLabels.length) {
       notify(
-        "Dashboard tab cannot be hidden while Dashboard Access permission is enabled.",
+        `Cannot hide tabs that are granted by selected permissions: ${resolution.blockedLabels.join(", ")}.`,
         "warning",
       );
     }
@@ -359,7 +399,7 @@
       : [];
 
     applyPermissionSelection(defaults);
-    enforceDashboardVisibilityConstraint(false);
+    enforceHiddenTabPermissionConstraints(false);
   }
 
   function resetForm(forceRoleDefaults = true) {
@@ -630,7 +670,7 @@
     markRoleCard(role);
     applyPermissionSelection(entry.permissions || []);
     applyHiddenTabsSelection(entry.hiddenTabs || []);
-    enforceDashboardVisibilityConstraint(false);
+    enforceHiddenTabPermissionConstraints(false);
 
     if (!roleMatchesPermissionDefaults(role, entry.permissions || [])) {
       markRoleCard("custom");
@@ -687,7 +727,7 @@
       markRoleCard("custom");
     }
 
-    enforceDashboardVisibilityConstraint(false);
+    enforceHiddenTabPermissionConstraints(false);
     const hiddenTabs = selectedHiddenTabs();
 
     if (fullName.length < 3) {
@@ -908,7 +948,7 @@
             markRoleCard("custom");
           }
 
-          enforceDashboardVisibilityConstraint(false);
+          enforceHiddenTabPermissionConstraints(false);
         },
       );
 
@@ -925,7 +965,7 @@
             markRoleCard("custom");
           }
 
-          enforceDashboardVisibilityConstraint(true);
+          enforceHiddenTabPermissionConstraints(true);
         },
       );
 

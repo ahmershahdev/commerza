@@ -307,13 +307,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
     </div>
   </footer>
   <script src="frontend/assets/js/modules/core/site-settings.js" defer></script>
-  <script <?= commerza_csp_nonce_attr() ?>>
-    document.addEventListener("DOMContentLoaded", function() {
-      if (typeof applySiteSettings === "function") {
-        applySiteSettings();
-      }
-    });
-  </script>
+  <script src="frontend/assets/js/pages/returns.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>

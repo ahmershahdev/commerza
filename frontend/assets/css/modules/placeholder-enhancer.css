@@ -1,0 +1,6 @@
+input::placeholder,
+textarea::placeholder {
+  color: rgba(186, 194, 208, 0.92) !important;
+  opacity: 1;
+  font-style: normal;
+}

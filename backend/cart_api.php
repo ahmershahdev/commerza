@@ -5,10 +5,17 @@ include __DIR__ . '/data.php';
 require_once __DIR__ . '/cart_helpers.php';
 require_once __DIR__ . '/notifications.php';
 require_once __DIR__ . '/coupon_helpers.php';
+require_once __DIR__ . '/server_timing_helpers.php';
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
+
+$cartTimingAction = strtolower(trim((string)($_REQUEST['action'] ?? 'status')));
+if ($cartTimingAction === '') {
+    $cartTimingAction = 'status';
+}
+commerza_server_timing_start('cart', 'cart.' . $cartTimingAction);
 
 function cart_api_json(array $payload, int $statusCode = 200): void
 {
@@ -16,6 +23,16 @@ function cart_api_json(array $payload, int $statusCode = 200): void
     if ($con instanceof mysqli) {
         cart_api_clear_active_lock($con);
     }
+
+    if (!headers_sent()) {
+        header('Content-Type: application/json');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
+        header('Vary: Cookie, Accept-Encoding, Accept');
+    }
+
+    commerza_server_timing_emit('cart');
 
     http_response_code($statusCode);
     echo json_encode($payload);

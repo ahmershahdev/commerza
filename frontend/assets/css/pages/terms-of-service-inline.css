@@ -1,0 +1,11 @@
+		.policy-mail {
+			color: #ff5a00;
+			font-weight: 700;
+			text-decoration: none;
+		}
+
+		.policy-mail:hover {
+			color: #ff1f1f;
+			text-decoration: underline;
+		}
+	

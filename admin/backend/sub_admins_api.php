@@ -3,6 +3,15 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/auth.php';
 
+$subAdminsTimingMethod = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+$subAdminsTimingAction = $subAdminsTimingMethod === 'GET'
+    ? strtolower(trim((string)($_GET['action'] ?? 'list')))
+    : strtolower(trim((string)($_POST['action'] ?? 'list')));
+if ($subAdminsTimingAction === '') {
+    $subAdminsTimingAction = 'list';
+}
+commerza_server_timing_start('sub_admins', 'sub_admins.' . $subAdminsTimingAction);
+
 /** @var mysqli|null $con */
 $con = (isset($con) && $con instanceof mysqli)
     ? $con
@@ -10,6 +19,17 @@ $con = (isset($con) && $con instanceof mysqli)
 
 function sub_admins_api_json(array $payload, int $statusCode = 200): void
 {
+    if (function_exists('admin_api_apply_response_headers')) {
+        admin_api_apply_response_headers('sub_admins');
+    } elseif (!headers_sent()) {
+        header('Content-Type: application/json');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
+        header('Vary: Cookie, Accept-Encoding, Accept');
+        commerza_server_timing_emit('sub_admins');
+    }
+
     http_response_code($statusCode);
     echo json_encode($payload, JSON_UNESCAPED_SLASHES);
     exit;
@@ -186,17 +206,44 @@ function sub_admins_api_filter_hidden_tabs(array $hiddenTabs, array $permissions
 {
     $filtered = admin_sanitize_hidden_tabs($hiddenTabs);
 
-    if (
-        in_array('dashboard-tab', $filtered, true)
-        && sub_admins_api_permission_allows($permissions, 'dashboard.view')
-    ) {
-        $filtered = array_values(array_filter(
-            $filtered,
-            static fn(string $tabId): bool => $tabId !== 'dashboard-tab'
-        ));
+    if (empty($filtered)) {
+        return [];
     }
 
-    return $filtered;
+    $catalog = admin_tab_catalog();
+    $resolved = [];
+
+    foreach ($filtered as $tabId) {
+        $meta = $catalog[$tabId] ?? null;
+        if (!is_array($meta)) {
+            $resolved[] = $tabId;
+            continue;
+        }
+
+        $requiredPermissions = array_values(array_filter(
+            array_map(
+                static fn($permission): string => admin_normalize_permission_name((string)$permission),
+                (array)($meta['permissions'] ?? [])
+            ),
+            static fn(string $permission): bool => $permission !== ''
+        ));
+
+        $granted = false;
+        foreach ($requiredPermissions as $requiredPermission) {
+            if (sub_admins_api_permission_allows($permissions, $requiredPermission)) {
+                $granted = true;
+                break;
+            }
+        }
+
+        if ($granted) {
+            continue;
+        }
+
+        $resolved[] = $tabId;
+    }
+
+    return array_values(array_unique($resolved));
 }
 
 function sub_admins_api_payload_hidden_tabs(array $body, array $permissions = []): array
@@ -410,6 +457,8 @@ if ($method === 'GET') {
 } elseif ($method === 'POST') {
     $action = strtolower(trim((string)($body['action'] ?? ($_POST['action'] ?? 'list'))));
 }
+
+commerza_server_timing_desc('sub_admins.' . ($action !== '' ? $action : 'list'));
 
 admin_api_rate_limit_guard(
     $con,

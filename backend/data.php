@@ -350,14 +350,8 @@ function commerza_render_page_breadcrumb(string $currentLabel, array $parents = 
 
     if (!$stylePrinted) {
         $stylePrinted = true;
-        echo '<style>'
-            . '.page-breadcrumb-shell{position:relative;z-index:2;display:block;margin-bottom:1rem;}'
-            . '.page-breadcrumb{background:rgba(12,12,12,.66)!important;border:1px solid rgba(255,102,0,.28)!important;border-radius:999px!important;display:inline-flex!important;flex-wrap:wrap;margin:0;padding:7px 14px;box-shadow:0 8px 24px rgba(0,0,0,.28);}'
-            . '.page-breadcrumb .breadcrumb-item,.page-breadcrumb .breadcrumb-item a{color:#ffc898!important;text-decoration:none!important;font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;}'
-            . '.page-breadcrumb .breadcrumb-item.active{color:#ffe9d4!important;}'
-            . '.page-breadcrumb .breadcrumb-item+.breadcrumb-item::before{color:rgba(255,215,176,.78)!important;}'
-            . '@media (max-width:575.98px){.page-breadcrumb{border-radius:14px!important;padding:7px 10px;}.page-breadcrumb .breadcrumb-item,.page-breadcrumb .breadcrumb-item a{font-size:.68rem;letter-spacing:.04em;}}'
-            . '</style>';
+        $breadcrumbCssHref = commerza_local_vendor_prefix() . 'frontend/assets/css/modules/page-breadcrumb.css';
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($breadcrumbCssHref, ENT_QUOTES, 'UTF-8') . '">';
     }
 
     echo '<section class="page-breadcrumb-shell mb-3">';
@@ -511,7 +505,7 @@ function commerza_apply_cache_headers(): void
     }
 
     $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
-    $hasAuthenticatedSession = isset($_SESSION['user_id']) || isset($_SESSION['admin_id']);
+    $hasAuthenticatedSession = isset($_SESSION['user_id']) || isset($_SESSION['admin_id']) || isset($_SESSION['admin_user_id']);
 
     $noStore = $method !== 'GET'
         || commerza_is_backend_request()
@@ -899,9 +893,8 @@ function commerza_optimize_image_loading(string $buffer): string
 
 function commerza_placeholder_enhancer_style_tag(): string
 {
-    return '<style ' . commerza_csp_nonce_attr() . ' id="commerzaPlaceholderStyle">'
-        . 'input::placeholder,textarea::placeholder{color:rgba(186,194,208,.92)!important;opacity:1;font-style:normal;}'
-        . '</style>';
+    $href = commerza_local_vendor_prefix() . 'frontend/assets/css/modules/placeholder-enhancer.css';
+    return '<link rel="stylesheet" href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '" id="commerzaPlaceholderStyle">';
 }
 
 function commerza_placeholder_enhancer_script_tag(): string

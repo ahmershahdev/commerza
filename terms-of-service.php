@@ -25,18 +25,7 @@ require_once __DIR__ . '/backend/data.php';
 	<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet" />
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
 	<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-	<style>
-		.policy-mail {
-			color: #ff5a00;
-			font-weight: 700;
-			text-decoration: none;
-		}
-
-		.policy-mail:hover {
-			color: #ff1f1f;
-			text-decoration: underline;
-		}
-	</style>
+		<link rel="stylesheet" href="frontend/assets/css/pages/terms-of-service-inline.css">
 	<script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
 		{
 			"@context": "https://schema.org",

@@ -4,6 +4,88 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../backend/data.php';
 require_once __DIR__ . '/../../backend/mailer.php';
+require_once __DIR__ . '/../../backend/server_timing_helpers.php';
+
+function admin_is_backend_api_request(): bool
+{
+    $script = strtolower(str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? '')));
+    return str_contains($script, '/admin/backend/');
+}
+
+function admin_bootstrap_server_timing(): void
+{
+    if (!function_exists('commerza_server_timing_start')) {
+        return;
+    }
+
+    if (isset($GLOBALS['commerza_server_timing']) && is_array($GLOBALS['commerza_server_timing'])) {
+        return;
+    }
+
+    $scriptBase = strtolower((string)basename((string)($_SERVER['SCRIPT_NAME'] ?? ''), '.php'));
+    if ($scriptBase === '') {
+        $scriptBase = 'request';
+    }
+
+    $isApi = admin_is_backend_api_request();
+    $metric = $isApi ? 'admin_api' : 'admin';
+    $descPrefix = $isApi ? 'admin_api.' : 'admin.';
+
+    commerza_server_timing_start($metric, $descPrefix . $scriptBase);
+}
+
+function admin_apply_cache_headers(): void
+{
+    if (headers_sent()) {
+        return;
+    }
+
+    $script = strtolower(str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? '')));
+    $isAdminScope = str_contains($script, '/admin/backend/') || str_contains($script, '/admin/frontend/');
+
+    if (!$isAdminScope) {
+        return;
+    }
+
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
+    header('Vary: Cookie, Accept-Encoding, Accept');
+}
+
+function admin_api_apply_response_headers(?string $metric = null, ?string $desc = null): void
+{
+    if (!headers_sent()) {
+        header('Content-Type: application/json');
+    }
+
+    admin_apply_cache_headers();
+    commerza_server_timing_emit($metric, $desc);
+}
+
+function admin_api_json_exit(array $payload, int $statusCode): void
+{
+    admin_api_apply_response_headers();
+    http_response_code($statusCode);
+    echo json_encode($payload, JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+function admin_table_has_index(mysqli $con, string $table, string $indexName): bool
+{
+    $safeTable = $con->real_escape_string($table);
+    $safeIndex = $con->real_escape_string($indexName);
+
+    $result = $con->query("SHOW INDEX FROM {$safeTable} WHERE Key_name = '{$safeIndex}'");
+    if (!($result instanceof mysqli_result)) {
+        return false;
+    }
+
+    $hasIndex = $result->num_rows > 0;
+    $result->free();
+
+    return $hasIndex;
+}
 
 function admin_ensure_schema(mysqli $con): void
 {
@@ -91,6 +173,23 @@ function admin_ensure_schema(mysqli $con): void
          MODIFY COLUMN role ENUM("admin", "operations_manager", "customer_support", "marketing_website", "read_only", "view_only", "custom") NOT NULL DEFAULT "admin"'
     );
 
+    $requiredIndexes = [
+        'idx_admin_users_deleted_role_created' =>
+        'ALTER TABLE admin_users ADD KEY idx_admin_users_deleted_role_created (deleted_at, role, created_at, id)',
+        'idx_admin_users_deleted_created' =>
+        'ALTER TABLE admin_users ADD KEY idx_admin_users_deleted_created (deleted_at, created_at, id)',
+        'idx_admin_users_invited_by_admin_id' =>
+        'ALTER TABLE admin_users ADD KEY idx_admin_users_invited_by_admin_id (invited_by_admin_id)',
+    ];
+
+    foreach ($requiredIndexes as $indexName => $sql) {
+        if (admin_table_has_index($con, 'admin_users', $indexName)) {
+            continue;
+        }
+
+        $con->query($sql);
+    }
+
     $configuredEmail = trim((string)getenv('COMMERZA_ADMIN_BOOTSTRAP_EMAIL'));
     $defaultEmail = filter_var($configuredEmail, FILTER_VALIDATE_EMAIL)
         ? strtolower($configuredEmail)
@@ -151,7 +250,9 @@ function admin_ensure_schema(mysqli $con): void
     $insertStmt->close();
 }
 
+admin_bootstrap_server_timing();
 admin_ensure_schema($con);
+admin_apply_cache_headers();
 
 function admin_generate_csrf_token(): string
 {
@@ -1596,45 +1697,37 @@ function admin_require_login_api(mysqli $con): array
 {
     $adminId = isset($_SESSION['admin_user_id']) ? (int)$_SESSION['admin_user_id'] : 0;
     if ($adminId <= 0) {
-        http_response_code(401);
-        echo json_encode([
+        admin_api_json_exit([
             'ok' => false,
             'message' => 'Unauthorized.',
-        ]);
-        exit;
+        ], 401);
     }
 
     $admin = admin_get_by_id($con, $adminId);
     if (!$admin) {
         admin_logout_user($con);
-        http_response_code(401);
-        echo json_encode([
+        admin_api_json_exit([
             'ok' => false,
             'message' => 'Unauthorized.',
-        ]);
-        exit;
+        ], 401);
     }
 
     $blockReason = admin_account_block_reason($admin);
     if ($blockReason !== null) {
         admin_revoke_all_sessions_for_admin($con, $adminId);
         admin_logout_user($con);
-        http_response_code(403);
-        echo json_encode([
+        admin_api_json_exit([
             'ok' => false,
             'message' => $blockReason,
-        ]);
-        exit;
+        ], 403);
     }
 
     if (!admin_session_validate($con, $adminId)) {
         admin_logout_user($con);
-        http_response_code(401);
-        echo json_encode([
+        admin_api_json_exit([
             'ok' => false,
             'message' => 'Session expired or revoked. Please login again.',
-        ]);
-        exit;
+        ], 401);
     }
 
     admin_session_touch($con, $adminId);
@@ -1694,12 +1787,10 @@ function admin_require_permission_api(array $admin, string $permission): void
         return;
     }
 
-    http_response_code(403);
-    echo json_encode([
+    admin_api_json_exit([
         'ok' => false,
         'message' => 'Forbidden.',
-    ]);
-    exit;
+    ], 403);
 }
 
 function admin_api_scope(string $prefix, string $action = 'default'): string
@@ -1762,13 +1853,11 @@ function admin_api_rate_limit_guard(
         $retryAfter
     );
 
-    http_response_code(429);
-    echo json_encode([
+    admin_api_json_exit([
         'ok' => false,
         'message' => 'Too many requests. Please retry shortly.',
         'retry_after' => $retryAfter,
-    ], JSON_UNESCAPED_SLASHES);
-    exit;
+    ], 429);
 }
 
 function admin_api_log_security_event(
@@ -1858,12 +1947,10 @@ function admin_enforce_post_idempotency_guard(mysqli $con): void
         $status = 409;
     }
 
-    http_response_code($status);
-    echo json_encode([
+    admin_api_json_exit([
         'ok' => false,
         'message' => (string)($idempotency['message'] ?? 'Duplicate request detected and ignored.'),
-    ], JSON_UNESCAPED_SLASHES);
-    exit;
+    ], $status);
 }
 
 admin_enforce_post_idempotency_guard($con);

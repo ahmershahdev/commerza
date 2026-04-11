@@ -2775,24 +2775,25 @@ $adminTabCatalog = admin_tabs_payload();
         onerror="this.onerror=null;this.src='../../frontend/assets/vendor/jquery/jquery-3.7.1.min.js'"></script>
     <script <?= commerza_csp_nonce_attr() ?> src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
         onerror="this.onerror=null;this.src='../../frontend/assets/vendor/chart/chart.umd.min.js'"></script>
-    <script <?= commerza_csp_nonce_attr() ?>>
-        window.CommerzaAdminRuntime = {
-            csrfToken: <?= json_encode($adminCsrfToken, JSON_UNESCAPED_SLASHES) ?>,
-            permissions: <?= json_encode($adminPermissions, JSON_UNESCAPED_SLASHES) ?>,
-            hiddenTabs: <?= json_encode($adminHiddenTabs, JSON_UNESCAPED_SLASHES) ?>,
-            permissionCatalog: <?= json_encode($adminPermissionCatalog, JSON_UNESCAPED_SLASHES) ?>,
-            tabCatalog: <?= json_encode($adminTabCatalog, JSON_UNESCAPED_SLASHES) ?>,
-            admin: {
-                id: <?= (int)($adminUser['id'] ?? 0) ?>,
-                name: <?= json_encode($adminDisplayName, JSON_UNESCAPED_SLASHES) ?>,
-                email: <?= json_encode($adminDisplayEmail, JSON_UNESCAPED_SLASHES) ?>,
-                role: <?= json_encode($adminRoleKey, JSON_UNESCAPED_SLASHES) ?>,
-                roleLabel: <?= json_encode($adminRoleLabel, JSON_UNESCAPED_SLASHES) ?>,
-                permissions: <?= json_encode($adminPermissions, JSON_UNESCAPED_SLASHES) ?>,
-                hiddenTabs: <?= json_encode($adminHiddenTabs, JSON_UNESCAPED_SLASHES) ?>,
-            }
-        };
+    <script id="commerzaAdminRuntimeData" type="application/json">
+        <?= json_encode([
+            'csrfToken' => $adminCsrfToken,
+            'permissions' => $adminPermissions,
+            'hiddenTabs' => $adminHiddenTabs,
+            'permissionCatalog' => $adminPermissionCatalog,
+            'tabCatalog' => $adminTabCatalog,
+            'admin' => [
+                'id' => (int)($adminUser['id'] ?? 0),
+                'name' => $adminDisplayName,
+                'email' => $adminDisplayEmail,
+                'role' => $adminRoleKey,
+                'roleLabel' => $adminRoleLabel,
+                'permissions' => $adminPermissions,
+                'hiddenTabs' => $adminHiddenTabs,
+            ],
+        ], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>
     </script>
+    <script src="assets/js/pages/admin-panel.js"></script>
     <script <?= commerza_csp_nonce_attr() ?> src="assets/js/script.js?v=<?= (int)$adminJsVersion ?>"></script>
     <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/sub-admins.js?v=<?= (int)$adminSubAdminsJsVersion ?>"></script>
 </body>

@@ -1,4 +1,10 @@
 $(function () {
+  const currentScript = document.currentScript;
+  const resetComplete =
+    window.CommerzaAdminResetComplete === true ||
+    (currentScript &&
+      currentScript.getAttribute("data-reset-complete") === "1");
+
   const authUtils = window.CommerzaAdminAuthUtils;
   if (!authUtils) {
     return;
@@ -39,7 +45,7 @@ $(function () {
     });
   }
 
-  if (window.CommerzaAdminResetComplete) {
+  if (resetComplete) {
     setTimeout(function () {
       window.location.href = "admin-login.php";
     }, 1400);

@@ -56,126 +56,7 @@ if ($categoryVideoStmt) {
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <style>
-    .shop-category-main {
-      padding-top: clamp(92px, 10vw, 124px);
-    }
-
-    .shop-category-main .page-breadcrumb-shell {
-      position: relative;
-      z-index: 1;
-      margin-top: 0;
-      margin-bottom: 10px;
-    }
-
-    .page-breadcrumb-shell {
-      margin-top: 12px;
-      margin-bottom: 6px;
-    }
-
-    .page-breadcrumb {
-      background: rgba(12, 12, 12, 0.66);
-      border: 1px solid rgba(255, 102, 0, 0.25);
-      border-radius: 999px;
-      display: inline-flex;
-      padding: 7px 14px;
-    }
-
-    .page-breadcrumb .breadcrumb-item,
-    .page-breadcrumb .breadcrumb-item a {
-      color: #ffc898;
-      text-decoration: none;
-      font-size: 0.75rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-
-    .page-breadcrumb .breadcrumb-item.active {
-      color: #ffe9d4;
-    }
-
-    .page-breadcrumb .breadcrumb-item+.breadcrumb-item::before {
-      color: rgba(255, 215, 176, 0.7);
-    }
-
-    .series-pulse-board {
-      position: relative;
-      border: 1px solid rgba(255, 145, 82, 0.32);
-      border-radius: 18px;
-      padding: clamp(14px, 2.2vw, 20px);
-      overflow: hidden;
-      background:
-        radial-gradient(circle at 12% 8%, rgba(255, 189, 133, 0.18), transparent 36%),
-        radial-gradient(circle at 92% 90%, rgba(255, 112, 46, 0.12), transparent 40%),
-        linear-gradient(145deg, rgba(15, 14, 16, 0.95), rgba(9, 9, 10, 0.96));
-      box-shadow: 0 18px 38px rgba(0, 0, 0, 0.42);
-    }
-
-    .series-pulse-board::before {
-      content: "";
-      position: absolute;
-      inset: -120% -45%;
-      background: linear-gradient(118deg, transparent 40%, rgba(255, 196, 137, 0.16) 50%, transparent 62%);
-      transform: rotate(5deg);
-      animation: seriesPulseSweep 8.2s linear infinite;
-      pointer-events: none;
-    }
-
-    @keyframes seriesPulseSweep {
-      from {
-        transform: translateX(-24%) rotate(5deg);
-      }
-
-      to {
-        transform: translateX(24%) rotate(5deg);
-      }
-    }
-
-    .series-pulse-grid {
-      position: relative;
-      z-index: 1;
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    .series-pulse-chip {
-      border: 1px solid rgba(255, 169, 106, 0.3);
-      border-radius: 14px;
-      padding: 12px 12px 13px;
-      background: rgba(18, 14, 13, 0.78);
-    }
-
-    .series-pulse-chip .chip-kicker {
-      display: block;
-      color: #ffcc9d;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.67rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      margin-bottom: 5px;
-    }
-
-    .series-pulse-chip strong {
-      display: block;
-      color: #fff1de;
-      font-size: 0.98rem;
-      margin-bottom: 4px;
-    }
-
-    .series-pulse-chip p {
-      margin: 0;
-      color: #d8c5b0;
-      font-size: 0.84rem;
-      line-height: 1.45;
-    }
-
-    @media (max-width: 991px) {
-      .series-pulse-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="frontend/assets/css/pages/shop-category-a-inline.css">
   <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -1108,18 +989,7 @@ if ($categoryVideoStmt) {
   <script src="frontend/assets/js/global-protection.js" defer></script>
   <script src="frontend/assets/js/auth.js" defer></script>
   <script src="frontend/assets/js/script.js" defer></script>
-  <script <?= commerza_csp_nonce_attr() ?>>
-    document.addEventListener("DOMContentLoaded", function() {
-      if (typeof window.commerzaOnReady !== "function") {
-        return;
-      }
-
-      window.commerzaOnReady(function() {
-        loadProductsBySection("automatic-vault", "automatic-vault-products-container");
-        loadProductsBySection("smart-evolution", "smart-evolution-products-container");
-      });
-    });
-  </script>
+  <script src="frontend/assets/js/pages/shop-category-a.js"></script>
 </body>
 
 </html>

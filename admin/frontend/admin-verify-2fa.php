@@ -15,6 +15,11 @@ if (!empty($_SESSION['admin_user_id'])) {
 
 $pending = admin_get_two_factor_pending_session();
 if (!$pending) {
+  if (!empty($_SESSION['admin_user_id'])) {
+    header('Location: admin-panel.php');
+    exit;
+  }
+
   header('Location: admin-login.php');
   exit;
 }
@@ -32,6 +37,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   $pending = admin_get_two_factor_pending_session();
   if (!$pending) {
+    if (!empty($_SESSION['admin_user_id'])) {
+      header('Location: admin-panel.php');
+      exit;
+    }
+
     header('Location: admin-login.php');
     exit;
   }
@@ -183,6 +193,11 @@ if (!empty($_SESSION['admin_login_error'])) {
 $csrfToken = admin_generate_csrf_token();
 $pending = admin_get_two_factor_pending_session();
 if (!$pending) {
+  if (!empty($_SESSION['admin_user_id'])) {
+    header('Location: admin-panel.php');
+    exit;
+  }
+
   header('Location: admin-login.php');
   exit;
 }
@@ -230,119 +245,7 @@ function admin_mask_email(string $email): string
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <style>
-    body {
-      background: #050505;
-      color: #d1d1d1;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: 'Inter', sans-serif;
-      margin: 0;
-      padding: 14px 12px;
-    }
-
-    .verify-card {
-      width: 100%;
-      max-width: 430px;
-      background: linear-gradient(145deg, #1a1a1a 0%, #0a0a0a 100%);
-      border: 1px solid rgba(255, 69, 0, 0.2);
-      border-radius: 12px;
-      padding: 24px 20px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 69, 0, 0.1);
-    }
-
-    .title {
-      font-family: 'Montserrat', sans-serif;
-      font-size: 28px;
-      font-weight: 800;
-      color: #ffcc00;
-      text-align: center;
-      margin-bottom: 8px;
-    }
-
-    .subtitle {
-      text-align: center;
-      color: #b0b0b0;
-      margin-bottom: 14px;
-      font-size: 14px;
-    }
-
-    .form-label {
-      color: #ff4500;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    .form-control {
-      background: #000;
-      border: 1px solid rgba(255, 69, 0, 0.35);
-      color: #fff;
-      padding: 10px 12px;
-    }
-
-    .form-control:focus {
-      border-color: #ffcc00;
-      box-shadow: 0 0 0 0.2rem rgba(255, 204, 0, 0.2);
-      background: #000;
-      color: #fff;
-    }
-
-    .btn-primary {
-      background: #000;
-      border: 1px solid #ff4500;
-      color: #fff;
-      font-family: 'Montserrat', sans-serif;
-      font-weight: 700;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      padding: 10px 12px;
-    }
-
-    .btn-primary:hover {
-      background: linear-gradient(90deg, #ff4500, #ffcc00);
-      border-color: #ffcc00;
-      color: #000;
-    }
-
-    .btn-link {
-      color: #ffcc00;
-      text-decoration: none;
-      font-weight: 600;
-    }
-
-    .btn-link:hover {
-      text-decoration: underline;
-      color: #ffd966;
-    }
-
-    @media (max-height: 700px) {
-      body {
-        align-items: flex-start;
-      }
-
-      .verify-card {
-        margin: 8px auto;
-        padding: 20px 16px;
-      }
-
-      .title {
-        font-size: 24px;
-      }
-
-      .subtitle {
-        margin-bottom: 10px;
-        font-size: 13px;
-      }
-
-      .mb-3 {
-        margin-bottom: 0.72rem !important;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="assets/css/pages/admin-verify-2fa-inline.css">
 </head>
 
 <body>
@@ -358,7 +261,7 @@ function admin_mask_email(string $email): string
       <div class="alert alert-success py-2 px-3 small" role="alert"><?= htmlspecialchars($success) ?></div>
     <?php endif; ?>
 
-    <form action="admin-verify-2fa.php" method="POST" class="mb-2">
+    <form action="admin-verify-2fa.php" method="POST" class="mb-2" id="adminVerify2faForm">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
 
       <div class="mb-3">
@@ -378,13 +281,16 @@ function admin_mask_email(string $email): string
       </div>
 
       <div class="d-grid mb-2">
-        <button type="submit" name="action" value="verify" class="btn btn-primary">Verify & Login</button>
+        <button type="submit" name="action" value="verify" class="btn btn-primary" id="adminVerify2faSubmitBtn">Verify & Login</button>
       </div>
-      <button type="submit" name="action" value="resend" formnovalidate class="btn btn-link p-0">Resend code</button>
+      <button type="submit" name="action" value="resend" formnovalidate class="btn btn-link p-0" id="adminVerify2faResendBtn">Resend code</button>
       <span class="text-secondary px-2">|</span>
       <a href="admin-login.php" class="btn-link">Back to login</a>
     </form>
   </main>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="assets/js/pages/admin-auth-common.js"></script>
+  <script src="assets/js/pages/admin-verify-2fa.js"></script>
 </body>
 
 </html>

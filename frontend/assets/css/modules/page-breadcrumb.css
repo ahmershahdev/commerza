@@ -1,0 +1,41 @@
+.page-breadcrumb-shell {
+  position: relative;
+  z-index: 2;
+  display: block;
+  margin-bottom: 1rem;
+}
+.page-breadcrumb {
+  background: rgba(12, 12, 12, 0.66) !important;
+  border: 1px solid rgba(255, 102, 0, 0.28) !important;
+  border-radius: 999px !important;
+  display: inline-flex !important;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 7px 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+.page-breadcrumb .breadcrumb-item,
+.page-breadcrumb .breadcrumb-item a {
+  color: #ffc898 !important;
+  text-decoration: none !important;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.page-breadcrumb .breadcrumb-item.active {
+  color: #ffe9d4 !important;
+}
+.page-breadcrumb .breadcrumb-item + .breadcrumb-item::before {
+  color: rgba(255, 215, 176, 0.78) !important;
+}
+@media (max-width: 575.98px) {
+  .page-breadcrumb {
+    border-radius: 14px !important;
+    padding: 7px 10px;
+  }
+  .page-breadcrumb .breadcrumb-item,
+  .page-breadcrumb .breadcrumb-item a {
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+  }
+}

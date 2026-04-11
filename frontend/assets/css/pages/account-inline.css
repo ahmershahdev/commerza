@@ -1,0 +1,341 @@
+    .profile-img {
+      width: 120px;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 50%;
+      border: 2px solid #ff6600;
+      display: block;
+      margin: 0 auto;
+    }
+
+    .account-page label {
+      color: rgb(255, 255, 255);
+    }
+
+    .account-breadcrumb .breadcrumb {
+      background: rgba(16, 16, 16, 0.65);
+      border: 1px solid rgba(255, 102, 0, 0.24);
+      border-radius: 999px;
+      display: inline-flex;
+      margin: 0;
+      padding: 8px 14px;
+    }
+
+    .account-breadcrumb .breadcrumb-item,
+    .account-breadcrumb .breadcrumb-item a {
+      color: #ffc89d;
+      font-size: 0.78rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      text-decoration: none;
+    }
+
+    .account-breadcrumb .breadcrumb-item.active {
+      color: #fff3e5;
+    }
+
+    .account-breadcrumb .breadcrumb-item+.breadcrumb-item::before {
+      color: rgba(255, 204, 163, 0.7);
+    }
+
+    .upload-progress-shell {
+      border: 1px solid rgba(255, 140, 64, 0.34);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background:
+        radial-gradient(circle at 0% 0%, rgba(255, 153, 51, 0.15), transparent 42%),
+        linear-gradient(140deg, rgba(17, 17, 17, 0.94), rgba(8, 8, 8, 0.96));
+      box-shadow:
+        0 12px 24px rgba(0, 0, 0, 0.34),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .upload-progress-shell::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, rgba(255, 255, 255, 0.08), transparent 40%);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      pointer-events: none;
+    }
+
+    .upload-progress-shell.is-active::after {
+      opacity: 1;
+    }
+
+    .upload-progress-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .upload-progress-percent {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.74rem;
+      color: #ffd6ad;
+      border: 1px solid rgba(255, 170, 122, 0.4);
+      border-radius: 999px;
+      padding: 2px 7px;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+
+    .upload-progress-track {
+      height: 8px !important;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .upload-progress-bar {
+      transition: width 0.2s ease;
+      font-size: 0;
+      background: linear-gradient(90deg, #ff8f36, #ffd35c) !important;
+    }
+
+    .upload-progress-shell.upload-state-processing .upload-progress-bar {
+      background: linear-gradient(90deg, #ff9f1a, #ffe27a) !important;
+    }
+
+    .upload-progress-shell.upload-state-success .upload-progress-bar {
+      background: linear-gradient(90deg, #25c96b, #82efad) !important;
+    }
+
+    .upload-progress-shell.upload-state-error .upload-progress-bar {
+      background: linear-gradient(90deg, #ff516d, #ff9bb0) !important;
+    }
+
+    .password-wrapper {
+      position: relative;
+      width: 100%;
+      display: flex;
+      align-items: center;
+    }
+
+    .password-wrapper .form-control {
+      padding-right: 40px;
+    }
+
+    .account-toggle-password {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer;
+      color: #ffcc00;
+      z-index: 3;
+      font-size: 18px;
+      line-height: 1;
+      pointer-events: auto;
+    }
+
+    #serverError,
+    #serverSuccess {
+      border: none;
+      color: #fff;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 700;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      position: fixed;
+      top: 20px;
+      right: 0;
+      left: 0;
+      margin: auto;
+      width: 380px;
+      z-index: 9999;
+      border-radius: 6px;
+      padding: 14px 20px;
+      text-align: center;
+    }
+
+    #serverError {
+      background-color: #dc3545;
+    }
+
+    #serverSuccess {
+      background-color: #198754;
+    }
+
+    .account-live-feedback {
+      min-height: 16px;
+      margin-top: 6px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .account-visibility-dropdown .dropdown-toggle {
+      border: 1px solid rgba(255, 102, 0, 0.35);
+      color: #f4f4f4;
+      background: rgba(22, 22, 22, 0.95);
+      min-height: 42px;
+    }
+
+    .account-visibility-dropdown .dropdown-toggle:hover,
+    .account-visibility-dropdown .dropdown-toggle:focus {
+      border-color: #ff8a2a;
+      box-shadow: 0 0 0 0.15rem rgba(255, 102, 0, 0.18);
+    }
+
+    .account-visibility-dropdown .dropdown-menu {
+      background: #141414;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .account-visibility-dropdown .dropdown-item {
+      color: #f0f0f0;
+      font-size: 0.88rem;
+      padding: 9px 12px;
+    }
+
+    .account-visibility-dropdown .dropdown-item:hover,
+    .account-visibility-dropdown .dropdown-item:focus,
+    .account-visibility-dropdown .dropdown-item.active {
+      background: rgba(255, 102, 0, 0.18);
+      color: #fff;
+    }
+
+    .profile-visibility-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(255, 102, 0, 0.45);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 11px;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+      color: #ffd8b8;
+      background: rgba(255, 102, 0, 0.1);
+    }
+
+    .account-section-subtitle {
+      color: #b9b9b9;
+      font-size: 0.92rem;
+      margin: -2px 0 16px;
+      line-height: 1.5;
+    }
+
+    .account-personal-form .account-field {
+      border: 1px solid rgba(255, 102, 0, 0.2);
+      border-radius: 12px;
+      padding: 14px;
+      background: rgba(14, 14, 14, 0.62);
+      height: 100%;
+    }
+
+    .account-personal-form .form-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 0.74rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #ffd7b0;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .account-personal-form .form-label i {
+      color: #ff9c53;
+      font-size: 0.85rem;
+    }
+
+    .account-personal-form .account-help {
+      min-height: 34px;
+      margin-top: 8px;
+      font-size: 0.78rem;
+      line-height: 1.45;
+      display: block;
+    }
+
+    .account-personal-form .account-live-feedback {
+      margin-top: 6px;
+      min-height: 16px;
+    }
+
+    .username-lock-label {
+      margin-top: 8px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      border: 1px solid rgba(255, 171, 99, 0.45);
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: rgba(62, 27, 15, 0.55);
+      color: #ffd7b5;
+      font-size: 0.74rem;
+      line-height: 1.45;
+    }
+
+    .username-lock-label i {
+      color: #ffca8f;
+      margin-top: 1px;
+    }
+
+    .account-recovery-shell {
+      margin-top: 12px;
+      border: 1px solid rgba(255, 145, 81, 0.3);
+      border-radius: 12px;
+      padding: 12px;
+      background:
+        radial-gradient(circle at 100% 0%, rgba(255, 180, 128, 0.1), transparent 40%),
+        linear-gradient(160deg, rgba(14, 14, 14, 0.86), rgba(10, 10, 10, 0.9));
+    }
+
+    .account-recovery-shell .recovery-divider {
+      border-color: rgba(255, 173, 109, 0.24);
+      margin: 12px 0;
+    }
+
+    .account-recovery-shell .recovery-title {
+      color: #ffe2c5;
+      font-size: 0.84rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 8px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .account-recovery-shell .recovery-help {
+      color: #c9b39d;
+      font-size: 0.78rem;
+      line-height: 1.45;
+      margin-bottom: 10px;
+    }
+
+    .account-recovery-toggle {
+      border: 1px solid rgba(255, 161, 95, 0.44);
+      background: linear-gradient(132deg,
+          rgba(255, 130, 40, 0.2),
+          rgba(255, 84, 64, 0.16)) !important;
+      color: #ffe0bf !important;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-size: 0.76rem;
+    }
+
+    .account-recovery-toggle:hover,
+    .account-recovery-toggle:focus {
+      border-color: rgba(255, 205, 153, 0.72);
+      color: #fff2df !important;
+      box-shadow: 0 0 0 0.15rem rgba(255, 131, 45, 0.18);
+    }
+
+    @media (max-width: 767.98px) {
+      .account-personal-form .account-field {
+        padding: 12px;
+      }
+
+      .account-personal-form .account-help {
+        min-height: 0;
+      }
+    }
+  
