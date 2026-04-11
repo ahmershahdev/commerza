@@ -1,6 +1,6 @@
 (function () {
   const runtime = window.CommerzaAdminRuntime || {};
-  const SUB_ADMINS_API = "../backend/sub_admins_api.php";
+  const SUB_ADMINS_API = "../backend/api/admin/sub_admins_api.php";
 
   const state = {
     rows: [],

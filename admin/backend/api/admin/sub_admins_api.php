@@ -1,7 +1,7 @@
 <?php
 header('Content-Type: application/json');
 
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/../../auth/auth.php';
 
 $subAdminsTimingMethod = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $subAdminsTimingAction = $subAdminsTimingMethod === 'GET'

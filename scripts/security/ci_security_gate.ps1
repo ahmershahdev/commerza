@@ -89,7 +89,7 @@ if ($expiryCleanupPhp -ne '') {
     Assert-NotContains -Content $expiryCleanupPhp -Needle '<img src="' -Message 'Expiry cleanup email template should not include inline logo image.'
 }
 
-$adminAuthPhp = Read-FileSafe -Path 'admin/backend/auth.php'
+$adminAuthPhp = Read-FileSafe -Path 'admin/backend/auth/auth.php'
 if ($adminAuthPhp -ne '') {
     Assert-NotContains -Content $adminAuthPhp -Needle '<img src="' -Message 'Admin security email layout should not include logo image.'
 }

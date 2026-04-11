@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/backend/core/data.php';
-require_once __DIR__ . '/admin/backend/auth.php';
+require_once __DIR__ . '/admin/backend/auth/auth.php';
 
 if (!($con instanceof mysqli)) {
     http_response_code(500);

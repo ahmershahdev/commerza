@@ -22,9 +22,9 @@ $preloadFiles = [
     $baseDir . '/backend/helpers/coupon_helpers.php',
     $baseDir . '/backend/helpers/products_schema_helpers.php',
     $baseDir . '/backend/helpers/media_image_helpers.php',
-    $baseDir . '/admin/backend/auth.php',
-    $baseDir . '/admin/backend/orders_api.php',
-    $baseDir . '/admin/backend/website_api.php',
+    $baseDir . '/admin/backend/auth/auth.php',
+    $baseDir . '/admin/backend/api/commerce/orders_api.php',
+    $baseDir . '/admin/backend/api/content/website_api.php',
     $baseDir . '/backend/api/viewers_api.php',
 ];
 

@@ -19,14 +19,14 @@ const PAGE_META_KEY = "commerza_page_meta";
 const PAGE_CONTENT_KEY = "commerza_page_content";
 const ADMIN_RUNTIME = window.CommerzaAdminRuntime || {};
 const ADMIN_CSRF_TOKEN = ADMIN_RUNTIME.csrfToken || "";
-const ADMIN_PRODUCTS_SYNC_API = "../backend/products_sync_api.php";
-const ADMIN_SECURITY_API = "../backend/security_api.php";
-const ADMIN_ORDERS_API = "../backend/orders_api.php";
-const ADMIN_VIEWERS_API = "../backend/viewers_api.php";
-const ADMIN_WEBSITE_API = "../backend/website_api.php";
-const ADMIN_MEDIA_API = "../backend/media_api.php";
-const ADMIN_COUPONS_API = "../backend/coupons_api.php";
-const ADMIN_REVIEWS_API = "../backend/reviews_api.php";
+const ADMIN_PRODUCTS_SYNC_API = "../backend/api/catalog/products_sync_api.php";
+const ADMIN_SECURITY_API = "../backend/api/security/security_api.php";
+const ADMIN_ORDERS_API = "../backend/api/commerce/orders_api.php";
+const ADMIN_VIEWERS_API = "../backend/api/analytics/viewers_api.php";
+const ADMIN_WEBSITE_API = "../backend/api/content/website_api.php";
+const ADMIN_MEDIA_API = "../backend/api/content/media_api.php";
+const ADMIN_COUPONS_API = "../backend/api/marketing/coupons_api.php";
+const ADMIN_REVIEWS_API = "../backend/api/marketing/reviews_api.php";
 const ADMIN_PERMISSION_SET = admin_build_permission_set(
   ADMIN_RUNTIME?.admin?.permissions || ADMIN_RUNTIME?.permissions || [],
 );
@@ -512,4 +512,3 @@ const ADMIN_TAB_PLAYBOOKS = {
     tip: "Avoid changing too many homepage elements at once.",
   },
 };
-

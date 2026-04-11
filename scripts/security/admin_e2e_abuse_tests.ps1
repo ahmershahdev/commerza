@@ -441,7 +441,7 @@ if ($authenticated) {
         } else {
             Add-TestResult -Name 'admin_panel_csrf_meta_present' -Status 'PASS' -Details 'Admin CSRF token meta tag detected.'
 
-            $couponsList = Invoke-CommerzaRequest -Method GET -Url "$BaseUrl/admin/backend/coupons_api.php?action=list" -Form $null -Headers @{}
+            $couponsList = Invoke-CommerzaRequest -Method GET -Url "$BaseUrl/admin/backend/api/marketing/coupons_api.php?action=list" -Form $null -Headers @{}
             if ($couponsList.StatusCode -eq 200 -and $couponsList.Json -and $couponsList.Json.ok) {
                 Add-TestResult -Name 'admin_coupons_list_authenticated' -Status 'PASS' -Details 'Authenticated GET list succeeded.'
             } else {
@@ -455,7 +455,7 @@ if ($authenticated) {
                 discount_value = '0'
             }
 
-            $missingCsrf = Invoke-CommerzaRequest -Method POST -Url "$BaseUrl/admin/backend/coupons_api.php?action=save-coupon" -Form $noCsrfPayload -Headers @{}
+            $missingCsrf = Invoke-CommerzaRequest -Method POST -Url "$BaseUrl/admin/backend/api/marketing/coupons_api.php?action=save-coupon" -Form $noCsrfPayload -Headers @{}
             if ($missingCsrf.StatusCode -eq 403) {
                 Add-TestResult -Name 'admin_coupons_post_missing_csrf_rejected' -Status 'PASS' -Details 'Missing CSRF rejected with HTTP 403.'
             } else {
@@ -470,7 +470,7 @@ if ($authenticated) {
                 discount_value = '0'
             }
 
-            $invalidCsrf = Invoke-CommerzaRequest -Method POST -Url "$BaseUrl/admin/backend/coupons_api.php?action=save-coupon" -Form $badCsrfPayload -Headers @{}
+            $invalidCsrf = Invoke-CommerzaRequest -Method POST -Url "$BaseUrl/admin/backend/api/marketing/coupons_api.php?action=save-coupon" -Form $badCsrfPayload -Headers @{}
             if ($invalidCsrf.StatusCode -eq 403) {
                 Add-TestResult -Name 'admin_coupons_post_invalid_csrf_rejected' -Status 'PASS' -Details 'Invalid CSRF rejected with HTTP 403.'
             } else {
@@ -485,14 +485,14 @@ if ($authenticated) {
                 discount_value = '0'
             }
 
-            $invalidPayloadResponse = Invoke-CommerzaRequest -Method POST -Url "$BaseUrl/admin/backend/coupons_api.php?action=save-coupon" -Form $validCsrfInvalidPayload -Headers @{}
+            $invalidPayloadResponse = Invoke-CommerzaRequest -Method POST -Url "$BaseUrl/admin/backend/api/marketing/coupons_api.php?action=save-coupon" -Form $validCsrfInvalidPayload -Headers @{}
             if (($invalidPayloadResponse.StatusCode -eq 422 -or $invalidPayloadResponse.StatusCode -eq 400) -and $invalidPayloadResponse.Json -and (-not $invalidPayloadResponse.Json.ok)) {
                 Add-TestResult -Name 'admin_coupons_invalid_payload_rejected' -Status 'PASS' -Details 'Invalid payload blocked after CSRF validation.'
             } else {
                 Add-TestResult -Name 'admin_coupons_invalid_payload_rejected' -Status 'FAIL' -Details "Expected 400/422 with ok=false, got HTTP $($invalidPayloadResponse.StatusCode)."
             }
 
-            $securityNoCsrf = Invoke-CommerzaRequest -Method POST -Url "$BaseUrl/admin/backend/security_api.php?action=update-reset-key" -Form @{
+            $securityNoCsrf = Invoke-CommerzaRequest -Method POST -Url "$BaseUrl/admin/backend/api/security/security_api.php?action=update-reset-key" -Form @{
                 action = 'update-reset-key'
                 resetKey = '12345678'
                 confirmResetKey = '12345678'

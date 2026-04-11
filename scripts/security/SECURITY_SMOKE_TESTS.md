@@ -12,8 +12,8 @@ Script: `scripts/security/security_smoke_tests.ps1`
 4. Viewers count rejects invalid product id (`backend/api/viewers_api.php`)
 5. Viewers heartbeat rejects missing CSRF (`backend/api/viewers_api.php`)
 6. Reviews submit rejects missing CSRF (`backend/api/reviews_api.php`)
-7. Admin coupons API blocks unauthenticated requests (`admin/backend/coupons_api.php`)
-8. Admin reviews API blocks unauthenticated requests (`admin/backend/reviews_api.php`)
+7. Admin coupons API blocks unauthenticated requests (`admin/backend/api/marketing/coupons_api.php`)
+8. Admin reviews API blocks unauthenticated requests (`admin/backend/api/marketing/reviews_api.php`)
 
 ## Usage
 

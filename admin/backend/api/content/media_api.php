@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 header('Content-Type: application/json; charset=utf-8');
 
-require_once __DIR__ . '/auth.php';
-require_once __DIR__ . '/../../backend/helpers/media_image_helpers.php';
+require_once __DIR__ . '/../../auth/auth.php';
+require_once __DIR__ . '/../../../../backend/helpers/media_image_helpers.php';
 
 function admin_media_fail(int $status, string $message, array $payload = []): void
 {

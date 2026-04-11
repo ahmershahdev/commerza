@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../../backend/core/data.php';
-require_once __DIR__ . '/../../backend/mailer/mailer.php';
-require_once __DIR__ . '/../../backend/helpers/server_timing_helpers.php';
+require_once __DIR__ . '/../../../backend/core/data.php';
+require_once __DIR__ . '/../../../backend/mailer/mailer.php';
+require_once __DIR__ . '/../../../backend/helpers/server_timing_helpers.php';
 
 function admin_is_backend_api_request(): bool
 {
@@ -2730,4 +2730,3 @@ function admin_verify_two_factor_code(mysqli $con, int $adminId, string $code): 
         'admin' => null,
     ];
 }
-

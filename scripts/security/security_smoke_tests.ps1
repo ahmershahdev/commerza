@@ -221,7 +221,7 @@ if ($reviewsNoCsrf.StatusCode -eq 403) {
 }
 
 # 7) Admin coupons endpoint must block unauthenticated access.
-$adminCouponsUnauth = Invoke-CommerzaRequest -Method GET -Url "$BaseUrl/admin/backend/coupons_api.php?action=list"
+$adminCouponsUnauth = Invoke-CommerzaRequest -Method GET -Url "$BaseUrl/admin/backend/api/marketing/coupons_api.php?action=list"
 if ($adminCouponsUnauth.StatusCode -ge 401) {
     Add-TestResult -Name 'admin_coupons_unauthenticated_blocked' -Status 'PASS' -Details 'Admin coupons API blocked unauthenticated request.'
 } else {
@@ -229,7 +229,7 @@ if ($adminCouponsUnauth.StatusCode -ge 401) {
 }
 
 # 8) Admin reviews endpoint must block unauthenticated access.
-$adminReviewsUnauth = Invoke-CommerzaRequest -Method GET -Url "$BaseUrl/admin/backend/reviews_api.php?action=list"
+$adminReviewsUnauth = Invoke-CommerzaRequest -Method GET -Url "$BaseUrl/admin/backend/api/marketing/reviews_api.php?action=list"
 if ($adminReviewsUnauth.StatusCode -ge 401) {
     Add-TestResult -Name 'admin_reviews_unauthenticated_blocked' -Status 'PASS' -Details 'Admin reviews API blocked unauthenticated request.'
 } else {

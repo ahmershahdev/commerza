@@ -313,7 +313,7 @@ PHP lint examples:
 
 - C:/xampp/php/php.exe -l backend/security/security_helpers.php
 - C:/xampp/php/php.exe -l cart.php
-- C:/xampp/php/php.exe -l admin/backend/orders_api.php
+- C:/xampp/php/php.exe -l admin/backend/api/commerce/orders_api.php
 
 Automation examples:
 
@@ -370,4 +370,3 @@ Workflow file: `.github/workflows/security-gate.yml`
 - Authenticated admin abuse checks require one of:
   - `COMMERZA_ADMIN_TEST_SESSION_ID`, or
   - `COMMERZA_ADMIN_TEST_EMAIL` + `COMMERZA_ADMIN_TEST_PASSWORD` + `COMMERZA_ADMIN_TEST_2FA_CODE`
-
