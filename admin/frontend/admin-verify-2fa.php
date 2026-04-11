@@ -289,8 +289,8 @@ function admin_mask_email(string $email): string
     </form>
   </main>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="assets/js/pages/admin-auth-common.js"></script>
-  <script src="assets/js/pages/admin-verify-2fa.js"></script>
+  <script src="assets/js/pages/auth/admin-auth-common.js"></script>
+  <script src="assets/js/pages/auth/admin-verify-2fa.js"></script>
 </body>
 
 </html>

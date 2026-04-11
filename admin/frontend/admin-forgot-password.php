@@ -334,8 +334,8 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <?= commerza_captcha_script_tag($con) ?>
-  <script src="assets/js/pages/admin-auth-common.js"></script>
-  <script src="assets/js/pages/admin-forgot-password.js" data-reset-complete="<?= $resetComplete ? '1' : '0' ?>"></script>
+  <script src="assets/js/pages/auth/admin-auth-common.js"></script>
+  <script src="assets/js/pages/auth/admin-forgot-password.js" data-reset-complete="<?= $resetComplete ? '1' : '0' ?>"></script>
 </body>
 
 </html>

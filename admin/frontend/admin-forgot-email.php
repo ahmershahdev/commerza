@@ -164,7 +164,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="assets/js/admin-config.js"></script>
-    <link rel="stylesheet" href="assets/css/pages/admin-forgot-email-inline.css">
+  <link rel="stylesheet" href="assets/css/pages/admin-forgot-email-inline.css">
 </head>
 
 <body class="dark-theme">
@@ -212,8 +212,8 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <?= commerza_captcha_script_tag($con) ?>
-    <script src="assets/js/pages/admin-auth-common.js"></script>
-    <script src="assets/js/pages/admin-forgot-email.js"></script>
+    <script src="assets/js/pages/auth/admin-auth-common.js"></script>
+    <script src="assets/js/pages/auth/admin-forgot-email.js"></script>
 
   </main>
 </body>

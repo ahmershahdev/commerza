@@ -2964,7 +2964,7 @@ $adminTabCatalog = admin_tabs_payload();
             ],
         ], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>
     </script>
-    <script src="assets/js/pages/admin-panel.js"></script>
+    <script src="assets/js/pages/panel/admin-panel.js"></script>
     <script <?= commerza_csp_nonce_attr() ?> src="assets/js/script.js?v=<?= (int)$adminJsVersion ?>"></script>
     <script <?= commerza_csp_nonce_attr() ?> src="assets/js/modules/panel/sub-admins.js?v=<?= (int)$adminSubAdminsJsVersion ?>"></script>
 </body>
