@@ -289,7 +289,7 @@ function commerza_optimize_image_loading(string $buffer): string
 
 function commerza_placeholder_enhancer_style_tag(): string
 {
-    $href = commerza_local_vendor_prefix() . 'frontend/assets/css/modules/placeholder-enhancer.css';
+    $href = commerza_local_vendor_prefix() . 'frontend/assets/css/modules/utilities/placeholder-enhancer.css';
     return '<link rel="stylesheet" href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '" id="commerzaPlaceholderStyle">';
 }
 
@@ -426,19 +426,19 @@ function commerza_frontend_manual_stylesheet_links_html(): string
     }
 
     $paths = [
-        'frontend/assets/css/modules/base.css',
-        'frontend/assets/css/modules/navigation.css',
-        'frontend/assets/css/modules/search.css',
-        'frontend/assets/css/modules/carousel.css',
-        'frontend/assets/css/modules/products.css',
-        'frontend/assets/css/modules/footer.css',
-        'frontend/assets/css/modules/layout-sections.css',
-        'frontend/assets/css/modules/newsletter.css',
-        'frontend/assets/css/modules/wishlist-tracking.css',
-        'frontend/assets/css/modules/search-suggestions.css',
-        'frontend/assets/css/modules/offcanvas.css',
-        'frontend/assets/css/modules/breadcrumbs.css',
-        'frontend/assets/css/modules/page-hero-wishlist.css',
+        'frontend/assets/css/modules/core/base.css',
+        'frontend/assets/css/modules/layout/navigation.css',
+        'frontend/assets/css/modules/components/search.css',
+        'frontend/assets/css/modules/components/carousel.css',
+        'frontend/assets/css/modules/components/products.css',
+        'frontend/assets/css/modules/layout/footer.css',
+        'frontend/assets/css/modules/layout/layout-sections.css',
+        'frontend/assets/css/modules/components/newsletter.css',
+        'frontend/assets/css/modules/components/wishlist-tracking.css',
+        'frontend/assets/css/modules/components/search-suggestions.css',
+        'frontend/assets/css/modules/layout/offcanvas.css',
+        'frontend/assets/css/modules/layout/breadcrumbs.css',
+        'frontend/assets/css/modules/components/page-hero-wishlist.css',
     ];
 
     $tags = [];
@@ -656,12 +656,17 @@ function commerza_html_meta_normalize(string $buffer): string
         static function (array $matches) use ($manualStyles): string {
             $tag = (string)($matches[0] ?? '');
             $href = html_entity_decode(strtolower(trim((string)($matches[3] ?? ''))), ENT_QUOTES, 'UTF-8');
+            $isFrontendBundleLink = str_contains($href, 'frontend/assets/css/modules/core/style.css')
+                || str_contains($href, 'frontend/assets/css/style.css');
 
-            if ($href === '' || !str_contains($href, 'frontend/assets/css/style.css')) {
+            if ($href === '' || !$isFrontendBundleLink) {
                 return $tag;
             }
 
-            if (str_contains($href, 'admin/frontend/assets/css/style.css')) {
+            if (
+                str_contains($href, 'admin/frontend/assets/css/style.css')
+                || str_contains($href, 'admin/frontend/assets/css/modules/core/style.css')
+            ) {
                 return $tag;
             }
 
@@ -915,4 +920,3 @@ function commerza_enable_meta_normalizer(): void
     $enabled = true;
     ob_start(static fn(string $buffer): string => commerza_html_meta_normalize($buffer));
 }
-

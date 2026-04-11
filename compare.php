@@ -220,7 +220,7 @@ $highestStock = !empty($stockValues) ? max($stockValues) : 0;
   </script>
 
   <link rel="icon" href="frontend/assets/images/favicon/commerza-watches-icon.ico" />
-  <link rel="stylesheet" href="frontend/assets/css/style.css" />
+  <link rel="stylesheet" href="frontend/assets/css/modules/core/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">

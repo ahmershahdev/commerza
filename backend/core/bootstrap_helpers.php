@@ -344,7 +344,7 @@ function commerza_render_page_breadcrumb(string $currentLabel, array $parents = 
 
     if (!$stylePrinted) {
         $stylePrinted = true;
-        $breadcrumbCssHref = commerza_local_vendor_prefix() . 'frontend/assets/css/modules/page-breadcrumb.css';
+        $breadcrumbCssHref = commerza_local_vendor_prefix() . 'frontend/assets/css/modules/layout/page-breadcrumb.css';
         echo '<link rel="stylesheet" href="' . htmlspecialchars($breadcrumbCssHref, ENT_QUOTES, 'UTF-8') . '">';
     }
 

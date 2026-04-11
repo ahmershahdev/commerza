@@ -19,7 +19,8 @@
       }
     }
 
-    const marker = "/frontend/assets/js/modules/bootstrap/script.js";
+    const marker =
+      "/frontend/assets/js/modules/bootstrap/loader/module-loader.js";
     const candidateScripts = [];
 
     if (document.currentScript) {
@@ -327,10 +328,7 @@
       "frontend/assets/js/modules/features/account.js",
       "frontend/assets/js/modules/03-account.js",
     ],
-    [
-      "frontend/assets/js/modules/features/products.js",
-      "frontend/assets/js/modules/05-products.js",
-    ],
+    ["frontend/assets/js/modules/features/products.js"],
     [
       "frontend/assets/js/modules/features/newsletter.js",
       "frontend/assets/js/modules/06-newsletter.js",
@@ -355,10 +353,13 @@
       "frontend/assets/js/modules/features/compare-render.js",
       "frontend/assets/js/modules/11-compare-render.js",
     ],
-    [
-      "frontend/assets/js/modules/04-document-ready.js",
-      "frontend/assets/js/modules/bootstrap/document-ready.js",
-    ],
+    ["frontend/assets/js/modules/bootstrap/page-ready/shared-state.js"],
+    ["frontend/assets/js/modules/bootstrap/page-ready/navigation.js"],
+    ["frontend/assets/js/modules/bootstrap/page-ready/cart.js"],
+    ["frontend/assets/js/modules/bootstrap/page-ready/catalog.js"],
+    ["frontend/assets/js/modules/bootstrap/page-ready/product-detail.js"],
+    ["frontend/assets/js/modules/bootstrap/page-ready/reviews.js"],
+    ["frontend/assets/js/modules/bootstrap/page-ready/init.js"],
   ];
 
   function loadScript(src) {
@@ -425,4 +426,3 @@
     console.error(error);
   });
 })();
-

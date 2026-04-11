@@ -178,7 +178,7 @@ $productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza
   </script>
 
   <link rel="icon" href="frontend/assets/images/favicon/commerza-watches-icon.ico" />
-  <link rel="stylesheet" href="frontend/assets/css/style.css" />
+  <link rel="stylesheet" href="frontend/assets/css/modules/core/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -442,7 +442,7 @@ $productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza
   <script src="frontend/assets/js/modules/core/global-protection.js" defer></script>
   <script src="frontend/assets/js/modules/services/auth.js" defer></script>
   <script src="frontend/assets/js/pages/products.js" data-csrf-token="<?= htmlspecialchars((string)$_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>"></script>
-  <script src="frontend/assets/js/modules/bootstrap/script.js" defer></script>
+  <script src="frontend/assets/js/modules/bootstrap/loader/module-loader.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>

@@ -48,7 +48,7 @@ if (
   <title>Commerza | Full-Stack Ecommerce</title>
   <link rel="canonical" href="<?= htmlspecialchars($canonicalHomeUrl, ENT_QUOTES, 'UTF-8') ?>" />
   <link rel="icon" href="frontend/assets/images/favicon/commerza-watches-icon.ico">
-  <link rel="stylesheet" href="frontend/assets/css/style.css">
+  <link rel="stylesheet" href="frontend/assets/css/modules/core/style.css">
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
@@ -1118,7 +1118,7 @@ if (
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="frontend/assets/js/modules/core/global-protection.js" defer></script>
   <script src="frontend/assets/js/modules/services/auth.js" defer></script>
-  <script src="frontend/assets/js/modules/bootstrap/script.js" defer></script>
+  <script src="frontend/assets/js/modules/bootstrap/loader/module-loader.js" defer></script>
   <script src="frontend/assets/js/pages/index.js" data-csrf-token="<?= htmlspecialchars((string)$_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>"></script>
 </body>
 

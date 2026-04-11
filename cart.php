@@ -954,7 +954,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
     }
   </script>
   <link rel="icon" href="frontend/assets/images/favicon/commerza-watches-icon.ico" />
-  <link rel="stylesheet" href="frontend/assets/css/style.css" />
+  <link rel="stylesheet" href="frontend/assets/css/modules/core/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
@@ -1397,7 +1397,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
     ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>
   </script>
   <script src="frontend/assets/js/pages/cart-checkout-mode.js"></script>
-  <script src="frontend/assets/js/modules/bootstrap/script.js"></script>
+  <script src="frontend/assets/js/modules/bootstrap/loader/module-loader.js"></script>
   <script src="frontend/assets/js/pages/cart.js"></script>
 </body>
 

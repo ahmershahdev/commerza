@@ -19,7 +19,7 @@ require_once __DIR__ . '/backend/core/data.php';
 	<link rel="canonical" href="https://commerza.ahmershah.dev/terms-of-service.php" />
 
 	<link rel="icon" href="frontend/assets/images/favicon/commerza-watches-icon.ico" />
-	<link rel="stylesheet" href="frontend/assets/css/style.css" />
+	<link rel="stylesheet" href="frontend/assets/css/modules/core/style.css" />
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" />
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" />
 	<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet" />
@@ -333,7 +333,7 @@ require_once __DIR__ . '/backend/core/data.php';
 
 	<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 	<script src="frontend/assets/js/modules/core/global-protection.js"></script>
-	<script src="frontend/assets/js/modules/bootstrap/script.js"></script>
+	<script src="frontend/assets/js/modules/bootstrap/loader/module-loader.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
 		integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
 		crossorigin="anonymous"></script>

@@ -75,7 +75,8 @@ function productsResolveBasePath() {
     return globalBase;
   }
 
-  const marker = "/frontend/assets/js/modules/bootstrap/script.js";
+  const marker =
+    "/frontend/assets/js/modules/bootstrap/loader/module-loader.js";
   const scripts = document.getElementsByTagName("script");
   for (let index = scripts.length - 1; index >= 0; index -= 1) {
     const src = (scripts[index].getAttribute("src") || scripts[index].src || "")
@@ -384,4 +385,3 @@ function createProductCard(product) {
         </div>
     `;
 }
-
