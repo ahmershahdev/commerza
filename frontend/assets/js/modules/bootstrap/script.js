@@ -19,7 +19,7 @@
       }
     }
 
-    const marker = "/frontend/assets/js/script.js";
+    const marker = "/frontend/assets/js/modules/bootstrap/script.js";
     const candidateScripts = [];
 
     if (document.currentScript) {
@@ -425,3 +425,4 @@
     console.error(error);
   });
 })();
+

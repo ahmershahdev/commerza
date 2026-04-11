@@ -1,6 +1,6 @@
 <?php
 
-require_once __DIR__ . '/cart_helpers.php';
+require_once __DIR__ . '/../helpers/cart_helpers.php';
 
 function commerza_get_wishlist_count(mysqli $con): int
 {

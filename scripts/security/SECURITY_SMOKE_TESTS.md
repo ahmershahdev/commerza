@@ -7,11 +7,11 @@ Script: `scripts/security/security_smoke_tests.ps1`
 ## What It Tests
 
 1. Checkout endpoint rejects POST without CSRF (`cart.php`)
-2. Cart API rejects add-to-cart without CSRF (`backend/cart_api.php`)
-3. Coupon apply rejects invalid code with proper validation status (`backend/cart_api.php`)
-4. Viewers count rejects invalid product id (`backend/viewers_api.php`)
-5. Viewers heartbeat rejects missing CSRF (`backend/viewers_api.php`)
-6. Reviews submit rejects missing CSRF (`backend/reviews_api.php`)
+2. Cart API rejects add-to-cart without CSRF (`backend/api/cart_api.php`)
+3. Coupon apply rejects invalid code with proper validation status (`backend/api/cart_api.php`)
+4. Viewers count rejects invalid product id (`backend/api/viewers_api.php`)
+5. Viewers heartbeat rejects missing CSRF (`backend/api/viewers_api.php`)
+6. Reviews submit rejects missing CSRF (`backend/api/reviews_api.php`)
 7. Admin coupons API blocks unauthenticated requests (`admin/backend/coupons_api.php`)
 8. Admin reviews API blocks unauthenticated requests (`admin/backend/reviews_api.php`)
 

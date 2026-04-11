@@ -1,11 +1,11 @@
 <?php
 header('Content-Type: application/json');
 
-include __DIR__ . '/data.php';
-require_once __DIR__ . '/cart_helpers.php';
-require_once __DIR__ . '/notifications.php';
-require_once __DIR__ . '/coupon_helpers.php';
-require_once __DIR__ . '/server_timing_helpers.php';
+include __DIR__ . '/../data.php';
+require_once __DIR__ . '/../helpers/cart_helpers.php';
+require_once __DIR__ . '/../helpers/notifications.php';
+require_once __DIR__ . '/../helpers/coupon_helpers.php';
+require_once __DIR__ . '/../helpers/server_timing_helpers.php';
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));

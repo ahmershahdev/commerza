@@ -18,6 +18,15 @@ $(function () {
     $(this).toggleClass("bi-eye bi-eye-slash");
   });
 
+  const resetCodeInput = $("#reset-code");
+  resetCodeInput.on("input", function () {
+    const raw = String($(this).val() || "");
+    const digitsOnly = raw.replace(/\D+/g, "").slice(0, 6);
+    if (raw !== digitsOnly) {
+      $(this).val(digitsOnly);
+    }
+  });
+
   let submitted = false;
   $("#resetForm").on("submit", function () {
     if (submitted) {

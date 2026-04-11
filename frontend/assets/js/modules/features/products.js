@@ -75,7 +75,7 @@ function productsResolveBasePath() {
     return globalBase;
   }
 
-  const marker = "/frontend/assets/js/script.js";
+  const marker = "/frontend/assets/js/modules/bootstrap/script.js";
   const scripts = document.getElementsByTagName("script");
   for (let index = scripts.length - 1; index >= 0; index -= 1) {
     const src = (scripts[index].getAttribute("src") || scripts[index].src || "")
@@ -221,7 +221,7 @@ function fetchProductsPayload() {
     return commerzaProductsPayloadPromise;
   }
 
-  commerzaProductsPayloadPromise = fetch("backend/products_api.php", {
+  commerzaProductsPayloadPromise = fetch("backend/api/products_api.php", {
     method: "GET",
     credentials: "same-origin",
     cache: "no-store",
@@ -384,3 +384,4 @@ function createProductCard(product) {
         </div>
     `;
 }
+

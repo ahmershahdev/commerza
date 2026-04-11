@@ -1,6 +1,6 @@
 <?php
-include "backend/data.php";
-include_once "backend/nav_state.php";
+include "backend/core/data.php";
+include_once "backend/helpers/nav_state.php";
 $nav_counts = commerza_get_nav_counts($con);
 
 if (empty($_SESSION['csrf_token'])) {
@@ -1116,9 +1116,9 @@ if (
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="frontend/assets/js/global-protection.js" defer></script>
-  <script src="frontend/assets/js/auth.js" defer></script>
-  <script src="frontend/assets/js/script.js" defer></script>
+  <script src="frontend/assets/js/modules/core/global-protection.js" defer></script>
+  <script src="frontend/assets/js/modules/services/auth.js" defer></script>
+  <script src="frontend/assets/js/modules/bootstrap/script.js" defer></script>
   <script src="frontend/assets/js/pages/index.js" data-csrf-token="<?= htmlspecialchars((string)$_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>"></script>
 </body>
 

@@ -1,6 +1,6 @@
 <?php
 
-require_once __DIR__ . '/mailer.php';
+require_once __DIR__ . '/../mailer/mailer.php';
 
 function commerza_get_expiry_hours(): int
 {
@@ -404,7 +404,7 @@ function commerza_cleanup_product_media_file(mysqli $con, string $relativePath):
         return;
     }
 
-    $absolutePath = dirname(__DIR__) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $normalized);
+    $absolutePath = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $normalized);
     if (is_file($absolutePath)) {
         @unlink($absolutePath);
     }
@@ -453,11 +453,68 @@ function commerza_cleanup_expired_product_trash(mysqli $con): void
     }
 }
 
+function commerza_cleanup_expired_auth_challenges(mysqli $con): void
+{
+    $usersTableResult = $con->query("SHOW TABLES LIKE 'users'");
+    if ($usersTableResult instanceof mysqli_result && $usersTableResult->num_rows > 0) {
+        $con->query(
+            'UPDATE users
+             SET reset_token = NULL,
+                 reset_token_expiry = NULL
+             WHERE reset_token_expiry IS NOT NULL
+               AND reset_token_expiry < NOW()'
+        );
+    }
+
+    $adminTableResult = $con->query("SHOW TABLES LIKE 'admin_users'");
+    if ($adminTableResult instanceof mysqli_result && $adminTableResult->num_rows > 0) {
+        $con->query(
+            'UPDATE admin_users
+             SET reset_token = CASE
+                     WHEN reset_token_expiry IS NOT NULL AND reset_token_expiry < NOW() THEN NULL
+                     ELSE reset_token
+                 END,
+                 reset_token_expiry = CASE
+                     WHEN reset_token_expiry IS NOT NULL AND reset_token_expiry < NOW() THEN NULL
+                     ELSE reset_token_expiry
+                 END,
+                 verification_attempts = CASE
+                     WHEN verification_expires_at IS NOT NULL AND verification_expires_at < NOW() THEN 0
+                     ELSE verification_attempts
+                 END,
+                 verification_code_hash = CASE
+                     WHEN verification_expires_at IS NOT NULL AND verification_expires_at < NOW() THEN NULL
+                     ELSE verification_code_hash
+                 END,
+                 verification_expires_at = CASE
+                     WHEN verification_expires_at IS NOT NULL AND verification_expires_at < NOW() THEN NULL
+                     ELSE verification_expires_at
+                 END,
+                 two_factor_attempts = CASE
+                     WHEN two_factor_expires_at IS NOT NULL AND two_factor_expires_at < NOW() THEN 0
+                     ELSE two_factor_attempts
+                 END,
+                 two_factor_code_hash = CASE
+                     WHEN two_factor_expires_at IS NOT NULL AND two_factor_expires_at < NOW() THEN NULL
+                     ELSE two_factor_code_hash
+                 END,
+                 two_factor_expires_at = CASE
+                     WHEN two_factor_expires_at IS NOT NULL AND two_factor_expires_at < NOW() THEN NULL
+                     ELSE two_factor_expires_at
+                 END
+             WHERE (reset_token_expiry IS NOT NULL AND reset_token_expiry < NOW())
+                OR (verification_expires_at IS NOT NULL AND verification_expires_at < NOW())
+                OR (two_factor_expires_at IS NOT NULL AND two_factor_expires_at < NOW())'
+        );
+    }
+}
+
 function commerza_run_expiry_cleanup(mysqli $con): void
 {
     $hours = commerza_get_expiry_hours();
 
     try {
+        commerza_cleanup_expired_auth_challenges($con);
         commerza_cleanup_expired_cart_items($con, $hours);
         commerza_cleanup_expired_wishlist_items($con, $hours);
         commerza_cleanup_expired_product_trash($con);

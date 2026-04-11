@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../../backend/data.php';
-require_once __DIR__ . '/../../backend/mailer.php';
-require_once __DIR__ . '/../../backend/server_timing_helpers.php';
+require_once __DIR__ . '/../../backend/core/data.php';
+require_once __DIR__ . '/../../backend/mailer/mailer.php';
+require_once __DIR__ . '/../../backend/helpers/server_timing_helpers.php';
 
 function admin_is_backend_api_request(): bool
 {
@@ -1602,17 +1602,52 @@ function admin_revoke_all_sessions_for_admin(mysqli $con, int $adminId): void
     $stmt->close();
 }
 
+function admin_clear_login_challenges(mysqli $con, int $adminId): void
+{
+    if ($adminId <= 0) {
+        return;
+    }
+
+    $stmt = $con->prepare(
+        'UPDATE admin_users
+         SET reset_token = NULL,
+             reset_token_expiry = NULL,
+             verification_code_hash = NULL,
+             verification_expires_at = NULL,
+             verification_attempts = 0,
+             two_factor_code_hash = NULL,
+             two_factor_expires_at = NULL,
+             two_factor_attempts = 0
+         WHERE id = ?
+         LIMIT 1'
+    );
+
+    if (!$stmt) {
+        return;
+    }
+
+    $stmt->bind_param('i', $adminId);
+    $stmt->execute();
+    $stmt->close();
+}
+
 function admin_login_user(mysqli $con, array $admin): void
 {
     session_regenerate_id(true);
 
-    $_SESSION['admin_user_id'] = (int)$admin['id'];
+    $adminId = (int)($admin['id'] ?? 0);
+    if ($adminId <= 0) {
+        return;
+    }
+
+    $_SESSION['admin_user_id'] = $adminId;
     $_SESSION['admin_authenticated_at'] = time();
     unset($_SESSION['admin_2fa_pending']);
 
-    admin_update_last_login($con, (int)$admin['id']);
+    admin_clear_login_challenges($con, $adminId);
+    admin_update_last_login($con, $adminId);
     admin_generate_csrf_token();
-    admin_session_register($con, (int)$admin['id']);
+    admin_session_register($con, $adminId);
 }
 
 function admin_logout_user(?mysqli $con = null): void
@@ -1978,6 +2013,9 @@ function admin_store_reset_code(mysqli $con, int $adminId, string $code): bool
     }
 
     $hash = commerza_password_hash($code);
+    if ($hash === '') {
+        return false;
+    }
 
     $stmt = $con->prepare(
         'UPDATE admin_users
@@ -1992,9 +2030,10 @@ function admin_store_reset_code(mysqli $con, int $adminId, string $code): bool
 
     $stmt->bind_param('si', $hash, $adminId);
     $ok = $stmt->execute();
+    $affected = (int)$stmt->affected_rows;
     $stmt->close();
 
-    return $ok;
+    return $ok && $affected === 1;
 }
 
 function admin_verify_reset_code_status(mysqli $con, int $adminId, string $code): array
@@ -2691,3 +2730,4 @@ function admin_verify_two_factor_code(mysqli $con, int $adminId, string $code): 
         'admin' => null,
     ];
 }
+

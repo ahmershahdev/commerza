@@ -171,7 +171,7 @@
       };
 
       const runExistsCheck = function(field, value, onDone, onFail) {
-        $.post("backend/check_exists.php", {
+        $.post("backend/api/check_exists.php", {
             csrf_token: profileCsrf,
             field,
             value,

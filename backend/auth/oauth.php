@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/data.php';
+require_once __DIR__ . '/../data.php';
 
 function oauth_redirect_with_error(string $message, string $mode): void
 {

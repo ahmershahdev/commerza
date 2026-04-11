@@ -9,7 +9,7 @@ This README is the canonical engineering guide for setup, security posture, feat
 - Backend: PHP (mysqli), Apache, MySQL
 - Frontend: Server-rendered PHP templates, Bootstrap, jQuery, modular CSS/JS assets
 - Deployment shape: XAMPP-compatible (local) and Apache hosting (production)
-- Shared bootstrap: backend/data.php
+- Shared bootstrap: backend/core/data.php
 
 ## 2. Project Structure
 
@@ -89,7 +89,7 @@ Checkout now supports multiple payment choices in sandbox-ready mode.
 
 ## 7. Password Hashing and Policy Workflow
 
-Password security is centralized in backend/security_helpers.php.
+Password security is centralized in backend/security/security_helpers.php.
 
 - Primary hash algorithm: Argon2id (when PASSWORD_ARGON2ID is available)
 - Fallback hash algorithm: bcrypt with cost 12
@@ -119,7 +119,7 @@ Account username changes are lock-protected.
 
 ## 9. CAPTCHA and Anti-Bot Model
 
-CAPTCHA is centralized in backend/security_helpers.php and uses a layered hybrid model.
+CAPTCHA is centralized in backend/security/security_helpers.php and uses a layered hybrid model.
 
 Layered checks:
 
@@ -160,7 +160,7 @@ CSP nonce generation details:
 
 ## 10. OAuth (Google and Facebook)
 
-OAuth login supports both providers through backend/oauth.php (via public oauth.php entrypoint).
+OAuth login supports both providers through backend/auth/oauth.php (via public oauth.php entrypoint).
 
 Supported providers:
 
@@ -182,7 +182,7 @@ Security properties:
 
 ## 11. Email Routing, Automation, and SMTP Failover
 
-Email behavior is centralized in backend/mailer.php plus notification helpers.
+Email behavior is centralized in backend/mailer/mailer.php plus notification helpers.
 
 SMTP routing strategy:
 
@@ -198,9 +198,9 @@ Sender/logo handling:
 
 Automation scripts include:
 
-- backend/send_engagement_reminders.php
-- backend/monthly_profit_report.php
-- backend/weekly_analytics_report.php
+- backend/jobs/send_engagement_reminders.php
+- backend/jobs/monthly_profit_report.php
+- backend/jobs/weekly_analytics_report.php
 
 ## 12. Caching and Performance Model
 
@@ -214,7 +214,7 @@ Application cache layers:
 
 Cache helper file:
 
-- backend/cache_helpers.php
+- backend/cache/cache_helpers.php
 
 Important cache environment keys:
 
@@ -230,7 +230,7 @@ Important cache environment keys:
 Delivery optimizations:
 
 - Static asset cache headers from .htaccess
-- Shared HTML normalization and asset-loading optimizations in backend/data.php
+- Shared HTML normalization and asset-loading optimizations in backend/core/data.php
 - Fragment cache support for expensive render sections
 
 ## 13. Upload Security Controls
@@ -311,15 +311,15 @@ Use this severity model when extending or reviewing features.
 
 PHP lint examples:
 
-- C:/xampp/php/php.exe -l backend/security_helpers.php
+- C:/xampp/php/php.exe -l backend/security/security_helpers.php
 - C:/xampp/php/php.exe -l cart.php
 - C:/xampp/php/php.exe -l admin/backend/orders_api.php
 
 Automation examples:
 
-- C:/xampp/php/php.exe C:/xampp/htdocs/commerza/backend/send_engagement_reminders.php 180
-- C:/xampp/php/php.exe C:/xampp/htdocs/commerza/backend/monthly_profit_report.php
-- C:/xampp/php/php.exe C:/xampp/htdocs/commerza/backend/weekly_analytics_report.php
+- C:/xampp/php/php.exe C:/xampp/htdocs/commerza/backend/jobs/send_engagement_reminders.php 180
+- C:/xampp/php/php.exe C:/xampp/htdocs/commerza/backend/jobs/monthly_profit_report.php
+- C:/xampp/php/php.exe C:/xampp/htdocs/commerza/backend/jobs/weekly_analytics_report.php
 
 Backup/restore verification:
 
@@ -370,3 +370,4 @@ Workflow file: `.github/workflows/security-gate.yml`
 - Authenticated admin abuse checks require one of:
   - `COMMERZA_ADMIN_TEST_SESSION_ID`, or
   - `COMMERZA_ADMIN_TEST_EMAIL` + `COMMERZA_ADMIN_TEST_PASSWORD` + `COMMERZA_ADMIN_TEST_2FA_CODE`
+

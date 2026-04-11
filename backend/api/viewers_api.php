@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/data.php';
+require_once __DIR__ . '/../data.php';
 
 header('Content-Type: application/json; charset=utf-8');
 

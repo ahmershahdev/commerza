@@ -106,7 +106,7 @@ async function upsertNewsletterSubscriber(email, source, csrfOverride = "") {
   payload.set("csrf_token", csrfToken);
 
   try {
-    const response = await fetch("backend/newsletter_api.php", {
+    const response = await fetch("backend/api/newsletter_api.php", {
       method: "POST",
       credentials: "same-origin",
       headers: {

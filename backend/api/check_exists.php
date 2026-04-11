@@ -2,7 +2,7 @@
 header('Content-Type: application/json');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
-include __DIR__ . '/data.php';
+include __DIR__ . '/../data.php';
 
 const CHECK_EXISTS_USERNAME_CHANGE_LOCK_DAYS = 90;
 const CHECK_EXISTS_USERNAME_CHANGE_LOCK_SECONDS = CHECK_EXISTS_USERNAME_CHANGE_LOCK_DAYS * 86400;

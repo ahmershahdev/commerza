@@ -1,5 +1,5 @@
 <?php
-include "backend/data.php";
+include "backend/core/data.php";
 
 if (empty($_SESSION['csrf_token'])) {
   $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -25,7 +25,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 
   $email_value = strtolower(trim((string)($_POST['reset_email'] ?? '')));
-  $reset_code = trim((string)($_POST['reset_code'] ?? ''));
+  $resetCodeRaw = trim((string)($_POST['reset_code'] ?? ''));
+  $reset_code = (string)preg_replace('/\D+/', '', $resetCodeRaw);
   $new_password = (string)($_POST['new_password'] ?? '');
   $confirm_password = (string)($_POST['confirm_password'] ?? '');
   $clientIp = commerza_client_ip();
@@ -98,6 +99,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       }
 
       if (!$isValid) {
+        $expiryValue = is_array($user) ? strtotime((string)($user['reset_token_expiry'] ?? '')) : false;
+        if ($user && !empty($user['reset_token']) && ($expiryValue === false || $expiryValue < time())) {
+          $clearStmt = $con->prepare('UPDATE users SET reset_token = NULL, reset_token_expiry = NULL WHERE id = ? LIMIT 1');
+          if ($clearStmt) {
+            $userId = (int)$user['id'];
+            $clearStmt->bind_param('i', $userId);
+            $clearStmt->execute();
+            $clearStmt->close();
+          }
+        }
+
         commerza_security_log_event($con, [
           'event_type' => 'password_reset_failed',
           'severity' => 'warning',
@@ -111,40 +123,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = "Invalid or expired reset code.";
       } else {
         $password_hash = commerza_password_hash($new_password);
-        $updateStmt = $con->prepare("UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ? AND reset_token = ? AND reset_token_expiry IS NOT NULL AND reset_token_expiry >= NOW() LIMIT 1");
+        if ($password_hash === '') {
+          $errors[] = "Unable to update password right now. Please try again.";
+        }
 
-        if (!$updateStmt) {
-          $errors[] = "Something went wrong. Please try again.";
-        } else {
-          $userId = (int)$user['id'];
-          $updateStmt->bind_param("sis", $password_hash, $userId, $storedResetToken);
-          $updated = $updateStmt->execute();
-          $affectedRows = $updated ? (int)$updateStmt->affected_rows : 0;
-          $updateStmt->close();
+        if (empty($errors)) {
+          $updateStmt = $con->prepare("UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ? AND reset_token = ? AND reset_token_expiry IS NOT NULL AND reset_token_expiry >= NOW() LIMIT 1");
 
-          if (!$updated) {
-            $errors[] = "Unable to reset password right now.";
-          } elseif ($affectedRows !== 1) {
-            $errors[] = "Reset code was already used or expired. Request a new code.";
+          if (!$updateStmt) {
+            $errors[] = "Something went wrong. Please try again.";
           } else {
-            commerza_security_log_event($con, [
-              'event_type' => 'password_reset_success',
-              'severity' => 'info',
-              'actor_type' => 'user',
-              'actor_identifier' => $email_value,
-              'user_id' => (int)$user['id'],
-              'ip_address' => $clientIp,
-            ]);
-            commerza_rate_limit_reset(
-              $con,
-              'user_reset_password',
-              $email_value !== '' ? $email_value : 'anonymous',
-              $clientIp
-            );
-            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-            $_SESSION['flash_success'] = "Password reset successful. Please login.";
-            header("Location: login.php");
-            exit;
+            $userId = (int)$user['id'];
+            $updateStmt->bind_param("sis", $password_hash, $userId, $storedResetToken);
+            $updated = $updateStmt->execute();
+            $affectedRows = $updated ? (int)$updateStmt->affected_rows : 0;
+            $updateStmt->close();
+
+            if (!$updated) {
+              $errors[] = "Unable to reset password right now.";
+            } elseif ($affectedRows !== 1) {
+              $errors[] = "Reset code was already used or expired. Request a new code.";
+            } else {
+              commerza_security_log_event($con, [
+                'event_type' => 'password_reset_success',
+                'severity' => 'info',
+                'actor_type' => 'user',
+                'actor_identifier' => $email_value,
+                'user_id' => (int)$user['id'],
+                'ip_address' => $clientIp,
+              ]);
+              commerza_rate_limit_reset(
+                $con,
+                'user_reset_password',
+                $email_value !== '' ? $email_value : 'anonymous',
+                $clientIp
+              );
+              $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+              $_SESSION['flash_success'] = "Password reset successful. Please login.";
+              header("Location: login.php");
+              exit;
+            }
           }
         }
       }
@@ -196,37 +214,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   <main class="reset-card">
     <h1 class="reset-title">COMMERZA</h1>
-    <p class="reset-subtitle">Reset your account password</p>
+    <p class="reset-subtitle">Use your email and the 6-digit reset key from inbox</p>
+    <p class="reset-hint">The key is in the email with subject: Commerza Password Reset Code</p>
 
     <form action="reset-password.php" method="POST" id="resetForm">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
 
       <div class="mb-3">
-        <label for="reset-email" class="form-label">Email Address</label>
+        <label for="reset-email" class="form-label">Account Email (same as reset request)</label>
         <input type="email" id="reset-email" name="reset_email" class="form-control" required maxlength="150"
-          placeholder="Enter your email" value="<?= htmlspecialchars($email_value) ?>" autocomplete="email" />
+          placeholder="name@example.com" value="<?= htmlspecialchars($email_value) ?>" autocomplete="email" />
       </div>
 
       <div class="mb-3">
-        <label for="reset-code" class="form-label">Reset Code</label>
+        <label for="reset-code" class="form-label">Reset Key (6 digits from email)</label>
         <input type="text" id="reset-code" name="reset_code" class="form-control" required maxlength="6" minlength="6"
-          placeholder="6-digit code" />
+          placeholder="123456" inputmode="numeric" pattern="\d{6}" autocomplete="one-time-code" aria-describedby="reset-code-help" />
+        <div id="reset-code-help" class="form-text reset-code-help">Enter digits only. Spaces and dashes are ignored automatically.</div>
       </div>
 
       <div class="mb-3">
         <label for="new-password" class="form-label">New Password</label>
         <div class="password-wrapper">
-          <input type="password" id="new-password" name="new_password" class="form-control" required minlength="6"
-            maxlength="20" autocomplete="new-password" />
+          <input type="password" id="new-password" name="new_password" class="form-control" required minlength="10"
+            maxlength="64" autocomplete="new-password" />
           <i class="bi bi-eye toggle-password" data-target="#new-password" aria-label="Show password" role="button"></i>
         </div>
+        <div class="form-text password-policy-note"><?= htmlspecialchars(commerza_password_policy_description()) ?></div>
       </div>
 
       <div class="mb-3">
         <label for="confirm-password" class="form-label">Confirm Password</label>
         <div class="password-wrapper">
           <input type="password" id="confirm-password" name="confirm_password" class="form-control" required
-            minlength="6" maxlength="20" autocomplete="new-password" />
+            minlength="10" maxlength="64" autocomplete="new-password" />
           <i class="bi bi-eye toggle-password" data-target="#confirm-password" aria-label="Show password" role="button"></i>
         </div>
       </div>

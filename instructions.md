@@ -61,7 +61,7 @@ Checkout supports COD and sandbox payment options for test/manual workflows.
 
 ### Notes
 
-- `backend/stripe_intent.php` remains disabled for live Stripe intent creation.
+- `backend/payment/stripe_intent.php` remains disabled for live Stripe intent creation.
 - Keep CAPTCHA, CSRF, idempotency, and stock checks enabled.
 - High-value COD protection is controlled by:
   - `COMMERZA_COD_OTP_THRESHOLD` (default: 15000)

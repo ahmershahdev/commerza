@@ -1,6 +1,6 @@
 <?php
 
-require_once __DIR__ . '/data.php';
+require_once __DIR__ . '/../data.php';
 
 function commerza_coupon_has_order_column(mysqli $con, string $column): bool
 {

@@ -304,7 +304,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
       <div class="mb-3">
         <label for="new-password" class="form-label">New Password</label>
         <div class="password-wrapper">
-          <input type="password" class="form-control" id="new-password" name="new_password" placeholder="Enter new password" required minlength="8" maxlength="64" autocomplete="new-password">
+          <input type="password" class="form-control" id="new-password" name="new_password" placeholder="Enter new password" required minlength="10" maxlength="64" autocomplete="new-password">
           <i class="bi bi-eye password-toggle" data-target="#new-password"></i>
         </div>
       </div>
@@ -312,7 +312,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
       <div class="mb-3">
         <label for="confirm-password" class="form-label">Confirm Password</label>
         <div class="password-wrapper">
-          <input type="password" class="form-control" id="confirm-password" name="confirm_password" placeholder="Confirm new password" required minlength="8" maxlength="64" autocomplete="new-password">
+          <input type="password" class="form-control" id="confirm-password" name="confirm_password" placeholder="Confirm new password" required minlength="10" maxlength="64" autocomplete="new-password">
           <i class="bi bi-eye password-toggle" data-target="#confirm-password"></i>
         </div>
       </div>

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/backend/data.php';
-require_once __DIR__ . '/backend/cart_helpers.php';
-require_once __DIR__ . '/backend/notifications.php';
-require_once __DIR__ . '/backend/coupon_helpers.php';
+require_once __DIR__ . '/backend/core/data.php';
+require_once __DIR__ . '/backend/helpers/cart_helpers.php';
+require_once __DIR__ . '/backend/helpers/notifications.php';
+require_once __DIR__ . '/backend/helpers/coupon_helpers.php';
 
 if (empty($_SESSION['csrf_token'])) {
   $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -1380,7 +1380,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="frontend/assets/js/global-protection.js"></script>
+  <script src="frontend/assets/js/modules/core/global-protection.js"></script>
   <?= commerza_captcha_script_tag($con) ?>
   <script <?= commerza_csp_nonce_attr() ?> id="commerzaCartPageConfig" type="application/json">
     <?= json_encode([
@@ -1397,7 +1397,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
     ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>
   </script>
   <script src="frontend/assets/js/pages/cart-checkout-mode.js"></script>
-  <script src="frontend/assets/js/script.js"></script>
+  <script src="frontend/assets/js/modules/bootstrap/script.js"></script>
   <script src="frontend/assets/js/pages/cart.js"></script>
 </body>
 

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/backend/data.php';
+require_once __DIR__ . '/backend/core/data.php';
 require_once __DIR__ . '/admin/backend/auth.php';
 
 if (!($con instanceof mysqli)) {

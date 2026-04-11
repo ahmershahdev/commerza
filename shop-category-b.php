@@ -1,6 +1,6 @@
 <?php
-include "backend/data.php";
-include_once "backend/nav_state.php";
+include "backend/core/data.php";
+include_once "backend/helpers/nav_state.php";
 $nav_counts = commerza_get_nav_counts($con);
 
 $category_b_feature_video = 'frontend/assets/videos/products/sports/sports_watches_carousel.mp4';
@@ -988,9 +988,9 @@ if ($categoryBVideoStmt) {
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="frontend/assets/js/global-protection.js" defer></script>
-  <script src="frontend/assets/js/auth.js" defer></script>
-  <script src="frontend/assets/js/script.js" defer></script>
+  <script src="frontend/assets/js/modules/core/global-protection.js" defer></script>
+  <script src="frontend/assets/js/modules/services/auth.js" defer></script>
+  <script src="frontend/assets/js/modules/bootstrap/script.js" defer></script>
   <script src="frontend/assets/js/pages/shop-category-b.js"></script>
 </body>
 

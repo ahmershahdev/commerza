@@ -146,14 +146,22 @@ function commerza_mail_smtp_configs(): array
     $primary = commerza_mail_primary_smtp_config();
     $secondary = commerza_mail_secondary_smtp_config();
 
-    if (trim((string)($primary['host'] ?? '')) !== '') {
+    $primaryHostRaw = trim((string)($primary['host'] ?? ''));
+    $primaryUserRaw = trim((string)($primary['username'] ?? ''));
+    $primaryPasswordRaw = trim((string)($primary['password'] ?? ''));
+
+    if ($primaryHostRaw !== '' && $primaryUserRaw !== '' && $primaryPasswordRaw !== '') {
         $configs[] = $primary;
     }
 
-    $secondaryHost = strtolower(trim((string)($secondary['host'] ?? '')));
-    $primaryHost = strtolower(trim((string)($primary['host'] ?? '')));
-    $secondaryUser = strtolower(trim((string)($secondary['username'] ?? '')));
-    $primaryUser = strtolower(trim((string)($primary['username'] ?? '')));
+    $secondaryHostRaw = trim((string)($secondary['host'] ?? ''));
+    $secondaryUserRaw = trim((string)($secondary['username'] ?? ''));
+    $secondaryPasswordRaw = trim((string)($secondary['password'] ?? ''));
+
+    $secondaryHost = strtolower($secondaryHostRaw);
+    $primaryHost = strtolower($primaryHostRaw);
+    $secondaryUser = strtolower($secondaryUserRaw);
+    $primaryUser = strtolower($primaryUserRaw);
     $isDuplicate =
         $secondaryHost !== '' &&
         $primaryHost !== '' &&
@@ -162,7 +170,7 @@ function commerza_mail_smtp_configs(): array
         $primaryUser !== '' &&
         $secondaryUser === $primaryUser;
 
-    if (!$isDuplicate && $secondaryHost !== '' && trim((string)($secondary['username'] ?? '')) !== '') {
+    if (!$isDuplicate && $secondaryHostRaw !== '' && $secondaryUserRaw !== '' && $secondaryPasswordRaw !== '') {
         $configs[] = $secondary;
     }
 
@@ -206,7 +214,7 @@ function commerza_mail_preferred_logo_relative_path(): string
         return $cachedRelativePath;
     }
 
-    $projectRoot = dirname(__DIR__);
+    $projectRoot = dirname(__DIR__, 2);
     $logoDir = $projectRoot
         . DIRECTORY_SEPARATOR . 'frontend'
         . DIRECTORY_SEPARATOR . 'assets'
@@ -258,7 +266,7 @@ function commerza_mail_inline_logo_data_uri(): string
         return $cachedDataUri;
     }
 
-    $projectRoot = dirname(__DIR__);
+    $projectRoot = dirname(__DIR__, 2);
     $relativePath = commerza_mail_preferred_logo_relative_path();
     $logoPath = $relativePath !== ''
         ? ($projectRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, ltrim($relativePath, '/')))
@@ -326,8 +334,8 @@ function commerza_mail_native_transport_ready(): bool
         return true;
     }
 
-    $smtp = strtolower(trim((string)ini_get('SMTP')));
-    if ($smtp === '' || $smtp === 'localhost' || $smtp === '127.0.0.1') {
+    $smtp = trim((string)ini_get('SMTP'));
+    if ($smtp === '') {
         return false;
     }
 
@@ -378,6 +386,62 @@ function commerza_mail_build_rfc_message(string $toEmail, string $fromEmail, str
     ];
 
     return implode("\r\n", $headers) . "\r\n\r\n" . $encodedBody;
+}
+
+function commerza_mail_native_send(
+    string $toEmail,
+    string $subject,
+    string $htmlBody,
+    string $fromEmail,
+    string $fromName,
+    ?string &$errorMessage = null
+): bool {
+    if (!commerza_mail_native_transport_ready()) {
+        $errorMessage = 'Native mail transport is not configured on this server.';
+        return false;
+    }
+
+    $safeFromEmail = trim($fromEmail);
+    if (!filter_var($safeFromEmail, FILTER_VALIDATE_EMAIL)) {
+        $safeFromEmail = commerza_mail_support_email();
+    }
+
+    if (!filter_var($safeFromEmail, FILTER_VALIDATE_EMAIL)) {
+        $errorMessage = 'Invalid sender email configuration.';
+        return false;
+    }
+
+    $safeFromName = commerza_mail_clean_header_value($fromName);
+    if ($safeFromName === '') {
+        $safeFromName = 'Commerza';
+    }
+
+    $safeSubject = commerza_mail_clean_header_value($subject);
+    if ($safeSubject === '') {
+        $errorMessage = 'Email subject is required.';
+        return false;
+    }
+
+    $encodedSubject = '=?UTF-8?B?' . base64_encode($safeSubject) . '?=';
+
+    $headers = [
+        'MIME-Version: 1.0',
+        'Content-Type: text/html; charset=UTF-8',
+        'From: ' . $safeFromName . ' <' . $safeFromEmail . '>',
+        'Reply-To: ' . $safeFromEmail,
+        'Date: ' . commerza_mail_rfc2822_date(),
+        'X-Mailer: Commerza Native Mailer',
+    ];
+
+    $headerText = implode("\r\n", $headers);
+    $sent = @mail($toEmail, $encodedSubject, $htmlBody, $headerText);
+
+    if (!$sent) {
+        $errorMessage = 'Native mail transport failed to deliver email.';
+        return false;
+    }
+
+    return true;
 }
 
 function commerza_mail_smtp_read_line($socket): string
@@ -638,7 +702,12 @@ function commerza_send_html_mail(string $toEmail, string $subject, string $htmlB
     $safeFromEmail = trim($fromEmail);
 
     if (empty($smtpConfigs)) {
-        $errorMessage = 'Email service is not configured on this server.';
+        $nativeError = null;
+        if (commerza_mail_native_send($toEmail, $subject, $htmlBody, $safeFromEmail, $safeFromName, $nativeError)) {
+            return true;
+        }
+
+        $errorMessage = $nativeError ?: 'Email service is not configured on this server.';
         return false;
     }
 
@@ -694,6 +763,11 @@ function commerza_send_html_mail(string $toEmail, string $subject, string $htmlB
         }
     }
 
+    $nativeError = null;
+    if (commerza_mail_native_send($toEmail, $subject, $htmlBody, $safeFromEmail, $safeFromName, $nativeError)) {
+        return true;
+    }
+
     if ($hasRateLimitError) {
         $errorMessage = 'Email API limit is reached. Please try another method or retry later.';
         return false;
@@ -705,10 +779,10 @@ function commerza_send_html_mail(string $toEmail, string $subject, string $htmlB
     }
 
     if (!empty($providerErrors)) {
-        $errorMessage = 'Unable to send email right now. Please try another method.';
+        $errorMessage = $nativeError ?: 'Unable to send email right now. Please try another method.';
         return false;
     }
 
-    $errorMessage = 'Unable to send email right now. Please try another method.';
+    $errorMessage = $nativeError ?: 'Unable to send email right now. Please try another method.';
     return false;
 }

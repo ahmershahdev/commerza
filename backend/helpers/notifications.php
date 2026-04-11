@@ -1,6 +1,6 @@
 <?php
 
-require_once __DIR__ . '/mailer.php';
+require_once __DIR__ . '/../mailer/mailer.php';
 
 function commerza_notifications_get_setting(mysqli $con, string $key, string $fallback = ''): string
 {

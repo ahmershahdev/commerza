@@ -1,5 +1,5 @@
 <?php
-include __DIR__ . '/backend/data.php';
+include __DIR__ . '/backend/core/data.php';
 
 http_response_code(404);
 

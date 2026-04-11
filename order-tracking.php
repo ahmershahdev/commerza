@@ -1,5 +1,5 @@
 <?php
-include "backend/data.php";
+include "backend/core/data.php";
 
 if (empty($_SESSION['csrf_token'])) {
   $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -499,9 +499,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   </footer>
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="frontend/assets/js/global-protection.js"></script>
-  <script src="frontend/assets/js/auth.js"></script>
-  <script src="frontend/assets/js/script.js"></script>
+  <script src="frontend/assets/js/modules/core/global-protection.js"></script>
+  <script src="frontend/assets/js/modules/services/auth.js"></script>
+  <script src="frontend/assets/js/modules/bootstrap/script.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>

@@ -76,7 +76,7 @@ async function parseWishlistResponseJson(response) {
   }
 }
 
-const WISHLIST_API_URL = resolveWishlistApiUrl("backend/wishlist_api.php");
+const WISHLIST_API_URL = resolveWishlistApiUrl("backend/api/wishlist_api.php");
 
 const wishlistState = {
   initialized: false,

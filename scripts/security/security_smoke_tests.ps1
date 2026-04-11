@@ -128,7 +128,7 @@ function Invoke-CommerzaRequest {
 
 # Warm up session and load CSRF from cart status endpoint.
 [void](Invoke-CommerzaRequest -Method GET -Url "$BaseUrl/index.php")
-$cartStatus = Invoke-CommerzaRequest -Method GET -Url "$BaseUrl/backend/cart_api.php?action=status"
+$cartStatus = Invoke-CommerzaRequest -Method GET -Url "$BaseUrl/backend/api/cart_api.php?action=status"
 $csrfToken = ''
 if ($cartStatus.Json -and $cartStatus.Json.csrf_token) {
     $csrfToken = [string]$cartStatus.Json.csrf_token
@@ -136,7 +136,7 @@ if ($cartStatus.Json -and $cartStatus.Json.csrf_token) {
 
 # Resolve one valid product id for reviews/viewers tests.
 $firstProductId = 0
-$productsPayload = Invoke-CommerzaRequest -Method GET -Url "$BaseUrl/backend/products_api.php?action=sections"
+$productsPayload = Invoke-CommerzaRequest -Method GET -Url "$BaseUrl/backend/api/products_api.php?action=sections"
 if ($productsPayload.Json -and $productsPayload.Json.sections) {
     foreach ($section in $productsPayload.Json.sections) {
         if ($section.products -and $section.products.Count -gt 0) {
@@ -160,7 +160,7 @@ if ($checkoutNoCsrf.StatusCode -eq 403) {
 }
 
 # 2) Cart API add without CSRF should be forbidden.
-$cartAddNoCsrf = Invoke-CommerzaRequest -Method POST -Url "$BaseUrl/backend/cart_api.php" -Form @{
+$cartAddNoCsrf = Invoke-CommerzaRequest -Method POST -Url "$BaseUrl/backend/api/cart_api.php" -Form @{
     action = 'add'
     product_id = $firstProductId
     quantity = 1
@@ -175,7 +175,7 @@ if ($cartAddNoCsrf.StatusCode -eq 403) {
 if ([string]::IsNullOrWhiteSpace($csrfToken)) {
     Add-TestResult -Name 'coupon_invalid_code_rejected' -Status 'SKIP' -Details 'No CSRF token returned by cart status endpoint.'
 } else {
-    $couponInvalid = Invoke-CommerzaRequest -Method POST -Url "$BaseUrl/backend/cart_api.php" -Form @{
+    $couponInvalid = Invoke-CommerzaRequest -Method POST -Url "$BaseUrl/backend/api/cart_api.php" -Form @{
         action = 'apply_coupon'
         csrf_token = $csrfToken
         code = 'INVALID_COUPON_FOR_SMOKE_TEST'
@@ -189,7 +189,7 @@ if ([string]::IsNullOrWhiteSpace($csrfToken)) {
 }
 
 # 4) Viewers count should reject invalid product id.
-$viewersInvalidProduct = Invoke-CommerzaRequest -Method GET -Url "$BaseUrl/backend/viewers_api.php?action=count&product_id=0"
+$viewersInvalidProduct = Invoke-CommerzaRequest -Method GET -Url "$BaseUrl/backend/api/viewers_api.php?action=count&product_id=0"
 if ($viewersInvalidProduct.StatusCode -eq 422) {
     Add-TestResult -Name 'viewers_count_invalid_product_rejected' -Status 'PASS' -Details 'viewers_api count rejected invalid product id.'
 } else {
@@ -197,7 +197,7 @@ if ($viewersInvalidProduct.StatusCode -eq 422) {
 }
 
 # 5) Viewers heartbeat without CSRF should be forbidden.
-$viewersHeartbeatNoCsrf = Invoke-CommerzaRequest -Method POST -Url "$BaseUrl/backend/viewers_api.php" -Form @{
+$viewersHeartbeatNoCsrf = Invoke-CommerzaRequest -Method POST -Url "$BaseUrl/backend/api/viewers_api.php" -Form @{
     action = 'heartbeat'
     product_id = $firstProductId
 }
@@ -208,7 +208,7 @@ if ($viewersHeartbeatNoCsrf.StatusCode -eq 403) {
 }
 
 # 6) Reviews submit without CSRF should be forbidden (valid product id required).
-$reviewsNoCsrf = Invoke-CommerzaRequest -Method POST -Url "$BaseUrl/backend/reviews_api.php" -Form @{
+$reviewsNoCsrf = Invoke-CommerzaRequest -Method POST -Url "$BaseUrl/backend/api/reviews_api.php" -Form @{
     action = 'submit'
     product_id = $firstProductId
     rating = 5

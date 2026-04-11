@@ -19,5 +19,6 @@ opcache.jit=disable
 ; Example for this repository:
 ; Windows note: OPcache preload is not supported on Windows builds.
 ; Linux example:
-; opcache.preload=/var/www/commerza/backend/opcache.preload.php
+; opcache.preload=/var/www/commerza/backend/cache/opcache.preload.php
 ; opcache.preload_user=daemon
+

@@ -75,7 +75,7 @@ $(document).ready(function () {
     }
   }
 
-  const CART_API_URL = resolveCartApiUrl("backend/cart_api.php");
+  const CART_API_URL = resolveCartApiUrl("backend/api/cart_api.php");
   const cartState = {
     initialized: false,
     csrfToken: null,
@@ -1395,7 +1395,7 @@ $(document).ready(function () {
       csrf_token: csrfToken,
     });
 
-    const response = await fetch("backend/viewers_api.php", {
+    const response = await fetch("backend/api/viewers_api.php", {
       method: "POST",
       credentials: "same-origin",
       cache: "no-store",
@@ -1417,7 +1417,7 @@ $(document).ready(function () {
     });
 
     const response = await fetch(
-      `backend/viewers_api.php?${params.toString()}`,
+      `backend/api/viewers_api.php?${params.toString()}`,
       {
         method: "GET",
         credentials: "same-origin",
@@ -1661,7 +1661,7 @@ $(document).ready(function () {
     }
 
     return $.ajax({
-      url: "backend/products_api.php",
+      url: "backend/api/products_api.php",
       method: "GET",
       dataType: "json",
       cache: true,
@@ -3398,7 +3398,7 @@ $(document).ready(function () {
           body.append("review_images[]", file);
         });
 
-        const response = await fetch("backend/reviews_api.php", {
+        const response = await fetch("backend/api/reviews_api.php", {
           method: "POST",
           credentials: "same-origin",
           body,
@@ -3462,7 +3462,7 @@ $(document).ready(function () {
       '<div class="review-card"><p class="mb-0">Loading customer reviews...</p></div>',
     );
 
-    fetch(`backend/reviews_api.php?action=list&product_id=${productId}`, {
+    fetch(`backend/api/reviews_api.php?action=list&product_id=${productId}`, {
       method: "GET",
       credentials: "same-origin",
       cache: "no-store",
@@ -3787,7 +3787,7 @@ $(document).ready(function () {
 
   function fetchSearchSuggestions(query, limit = 6) {
     return $.ajax({
-      url: "backend/products_api.php",
+      url: "backend/api/products_api.php",
       method: "GET",
       dataType: "json",
       cache: true,

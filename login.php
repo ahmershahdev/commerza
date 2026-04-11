@@ -1,6 +1,6 @@
 <?php
-include "backend/data.php";
-require_once "backend/notifications.php";
+include "backend/core/data.php";
+require_once "backend/helpers/notifications.php";
 
 if (!empty($_SESSION['user_id']) && $_SERVER['REQUEST_METHOD'] !== 'POST') {
   header("Location: account.php");
@@ -135,6 +135,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $stmt->close();
+
+        $clearResetStmt = $con->prepare('UPDATE users SET reset_token = NULL, reset_token_expiry = NULL WHERE id = ? LIMIT 1');
+        if ($clearResetStmt) {
+          $userId = (int)$user['id'];
+          $clearResetStmt->bind_param('i', $userId);
+          $clearResetStmt->execute();
+          $clearResetStmt->close();
+        }
+
         session_regenerate_id(true);
         $_SESSION['user_id'] = (int)$user['id'];
         if ($rememberMe) {
@@ -302,7 +311,7 @@ login_done:
   </div>
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="frontend/assets/js/global-protection.js"></script>
+  <script src="frontend/assets/js/modules/core/global-protection.js"></script>
   <?= commerza_captcha_script_tag($con) ?>
   <script src="frontend/assets/js/pages/login.js"></script>
 </body>

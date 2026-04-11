@@ -5,7 +5,7 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/auth.php';
-require_once __DIR__ . '/../../backend/security_events.php';
+require_once __DIR__ . '/../../backend/security/security_events.php';
 
 function security_api_json(array $payload, int $status = 200): void
 {

@@ -1,6 +1,6 @@
 <?php
-include "backend/data.php";
-require_once "backend/notifications.php";
+include "backend/core/data.php";
+require_once "backend/helpers/notifications.php";
 
 if (!empty($_SESSION['user_id']) && $_SERVER['REQUEST_METHOD'] !== 'POST') {
   header("Location: account.php");
@@ -577,7 +577,7 @@ $signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-l
   </div>
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="frontend/assets/js/global-protection.js?v=20260408"></script>
+  <script src="frontend/assets/js/modules/core/global-protection.js?v=20260408"></script>
   <?= commerza_captcha_script_tag($con) ?>
   <script src="frontend/assets/js/pages/signup.js"></script>
 </body>

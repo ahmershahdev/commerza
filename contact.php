@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-include "backend/data.php";
+include "backend/core/data.php";
 
 if (empty($_SESSION['csrf_token'])) {
   $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -626,9 +626,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="frontend/assets/js/global-protection.js" defer></script>
+  <script src="frontend/assets/js/modules/core/global-protection.js" defer></script>
   <?= commerza_captcha_script_tag($con) ?>
-  <script src="frontend/assets/js/script.js" defer></script>
+  <script src="frontend/assets/js/modules/bootstrap/script.js" defer></script>
   <script src="frontend/assets/js/pages/contact.js"></script>
 </body>
 

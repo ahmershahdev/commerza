@@ -1,7 +1,7 @@
 <?php
 
-include __DIR__ . '/data.php';
-require_once __DIR__ . '/notifications.php';
+include __DIR__ . '/../data.php';
+require_once __DIR__ . '/../helpers/notifications.php';
 
 if (PHP_SAPI !== 'cli') {
     http_response_code(403);

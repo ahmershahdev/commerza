@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 header('Content-Type: application/json; charset=utf-8');
 
-require_once __DIR__ . '/data.php';
-require_once __DIR__ . '/media_image_helpers.php';
+require_once __DIR__ . '/../data.php';
+require_once __DIR__ . '/../helpers/media_image_helpers.php';
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -355,7 +355,7 @@ function reviews_api_store_images(array $files, int $reviewId, int $userId): arr
 {
     $stored = [];
     $storageDirRelative = 'frontend/assets/images/reviews';
-    $storageDirAbsolute = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'images' . DIRECTORY_SEPARATOR . 'reviews';
+    $storageDirAbsolute = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'images' . DIRECTORY_SEPARATOR . 'reviews';
 
     if (!is_dir($storageDirAbsolute) && !mkdir($storageDirAbsolute, 0755, true) && !is_dir($storageDirAbsolute)) {
         return [false, [], 'Unable to prepare review image storage directory.'];
@@ -488,7 +488,7 @@ function reviews_api_delete_files(array $paths): void
             continue;
         }
 
-        $absolutePath = dirname(__DIR__) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+        $absolutePath = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
         if (is_file($absolutePath)) {
             @unlink($absolutePath);
         }

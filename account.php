@@ -1,8 +1,8 @@
 <?php
-include "backend/data.php";
-require_once __DIR__ . '/backend/notifications.php';
-require_once __DIR__ . '/backend/mailer.php';
-require_once __DIR__ . '/backend/media_image_helpers.php';
+include "backend/core/data.php";
+require_once __DIR__ . '/backend/helpers/notifications.php';
+require_once __DIR__ . '/backend/mailer/mailer.php';
+require_once __DIR__ . '/backend/helpers/media_image_helpers.php';
 
 if (!isset($_SESSION['user_id']) || !is_numeric($_SESSION['user_id'])) {
   header("Location: login.php");
@@ -98,7 +98,7 @@ function account_username_change_lock_state(?string $usernameChangedAt): array
 function account_send_reset_code_email(string $recipientEmail, string $recipientName, string $code, ?string &$errorMessage = null): bool
 {
   $subject = "Commerza Password Reset Code";
-  $resetUrl = commerza_absolute_url('/reset-password.php') . '?email=' . urlencode($recipientEmail);
+  $resetUrl = commerza_absolute_url('/reset-password.php');
   $supportEmail = trim((string)(getenv('COMMERZA_SUPPORT_EMAIL') ?: 'support@ahmershah.dev'));
   if (!filter_var($supportEmail, FILTER_VALIDATE_EMAIL)) {
     $supportEmail = 'support@ahmershah.dev';
@@ -773,54 +773,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors) && $freshUser) {
       $resetCode = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
       $tokenHash = commerza_password_hash($resetCode);
-      $expiry = date('Y-m-d H:i:s', time() + (15 * 60));
+      if ($tokenHash === '') {
+        $errors[] = 'Unable to generate reset code. Please try again.';
+      }
 
-      $updateStmt = $con->prepare('UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE id = ? LIMIT 1');
-      if (!$updateStmt) {
-        $errors[] = 'Unable to process request right now.';
-      } else {
-        $updateStmt->bind_param('ssi', $tokenHash, $expiry, $user_id);
-        $updated = $updateStmt->execute();
-        $updateStmt->close();
-
-        if (!$updated) {
-          $errors[] = 'Unable to generate reset code. Please try again.';
+      if (empty($errors)) {
+        $updateStmt = $con->prepare('UPDATE users SET reset_token = ?, reset_token_expiry = DATE_ADD(NOW(), INTERVAL 15 MINUTE) WHERE id = ? LIMIT 1');
+        if (!$updateStmt) {
+          $errors[] = 'Unable to process request right now.';
         } else {
-          $mailError = null;
-          $mailSent = account_send_reset_code_email(
-            $accountEmail,
-            (string)($freshUser['full_name'] ?? ''),
-            $resetCode,
-            $mailError
-          );
+          $updateStmt->bind_param('si', $tokenHash, $user_id);
+          $updated = $updateStmt->execute();
+          $updateStmt->close();
 
-          if ($mailSent) {
-            commerza_security_log_event($con, [
-              'event_type' => 'password_reset_code_sent_from_account',
-              'severity' => 'info',
-              'actor_type' => 'user',
-              'actor_identifier' => $accountEmail,
-              'user_id' => $user_id,
-              'ip_address' => $clientIp,
-            ]);
-
-            $_SESSION['account_forgot_password_last_sent_at'] = time();
-            $_SESSION['account_forgot_password_last_sent_email'] = $accountEmail;
-            $success[] = 'Reset code sent to your account email. Use it below to set a new password.';
+          if (!$updated) {
+            $errors[] = 'Unable to generate reset code. Please try again.';
           } else {
-            commerza_security_log_event($con, [
-              'event_type' => 'password_reset_email_send_failed_from_account',
-              'severity' => 'warning',
-              'actor_type' => 'user',
-              'actor_identifier' => $accountEmail,
-              'user_id' => $user_id,
-              'ip_address' => $clientIp,
-              'details' => [
-                'mail_error' => $mailError ?? '',
-              ],
-            ]);
+            $mailError = null;
+            $mailSent = account_send_reset_code_email(
+              $accountEmail,
+              (string)($freshUser['full_name'] ?? ''),
+              $resetCode,
+              $mailError
+            );
 
-            $errors[] = $mailError ?: 'Unable to send reset code email right now.';
+            if ($mailSent) {
+              commerza_security_log_event($con, [
+                'event_type' => 'password_reset_code_sent_from_account',
+                'severity' => 'info',
+                'actor_type' => 'user',
+                'actor_identifier' => $accountEmail,
+                'user_id' => $user_id,
+                'ip_address' => $clientIp,
+              ]);
+
+              $_SESSION['account_forgot_password_last_sent_at'] = time();
+              $_SESSION['account_forgot_password_last_sent_email'] = $accountEmail;
+              $success[] = 'Reset code sent to your account email. Use it below to set a new password.';
+            } else {
+              $clearStmt = $con->prepare('UPDATE users SET reset_token = NULL, reset_token_expiry = NULL WHERE id = ? LIMIT 1');
+              if ($clearStmt) {
+                $clearStmt->bind_param('i', $user_id);
+                $clearStmt->execute();
+                $clearStmt->close();
+              }
+
+              commerza_security_log_event($con, [
+                'event_type' => 'password_reset_email_send_failed_from_account',
+                'severity' => 'warning',
+                'actor_type' => 'user',
+                'actor_identifier' => $accountEmail,
+                'user_id' => $user_id,
+                'ip_address' => $clientIp,
+                'details' => [
+                  'mail_error' => $mailError ?? '',
+                ],
+              ]);
+
+              $errors[] = $mailError ?: 'Unable to send reset code email right now.';
+            }
           }
         }
       }
@@ -871,34 +882,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       }
 
       if (!$isValidCode) {
+        if ($storedResetToken !== '' && ($expiryTs === false || $expiryTs < time())) {
+          $clearStmt = $con->prepare('UPDATE users SET reset_token = NULL, reset_token_expiry = NULL WHERE id = ? LIMIT 1');
+          if ($clearStmt) {
+            $clearStmt->bind_param('i', $user_id);
+            $clearStmt->execute();
+            $clearStmt->close();
+          }
+        }
+
         $errors[] = 'Invalid or expired reset code.';
       } else {
         $newHash = commerza_password_hash($newPassword);
-        $updateStmt = $con->prepare('UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ? AND reset_token = ? AND reset_token_expiry IS NOT NULL AND reset_token_expiry >= NOW() LIMIT 1');
+        if ($newHash === '') {
+          $errors[] = 'Unable to update password right now. Please try again.';
+        }
 
-        if (!$updateStmt) {
-          $errors[] = 'Something went wrong. Please try again.';
-        } else {
-          $updateStmt->bind_param('sis', $newHash, $user_id, $storedResetToken);
-          $updated = $updateStmt->execute();
-          $affectedRows = $updated ? (int)$updateStmt->affected_rows : 0;
-          $updateStmt->close();
+        if (empty($errors)) {
+          $updateStmt = $con->prepare('UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ? AND reset_token = ? AND reset_token_expiry IS NOT NULL AND reset_token_expiry >= NOW() LIMIT 1');
 
-          if (!$updated) {
-            $errors[] = 'Unable to reset password right now.';
-          } elseif ($affectedRows !== 1) {
-            $errors[] = 'Reset code was already used or expired. Request a new code.';
+          if (!$updateStmt) {
+            $errors[] = 'Something went wrong. Please try again.';
           } else {
-            commerza_security_log_event($con, [
-              'event_type' => 'password_reset_success_from_account',
-              'severity' => 'info',
-              'actor_type' => 'user',
-              'actor_identifier' => (string)($resetUserRow['email'] ?? ''),
-              'user_id' => $user_id,
-              'ip_address' => $clientIp,
-            ]);
+            $updateStmt->bind_param('sis', $newHash, $user_id, $storedResetToken);
+            $updated = $updateStmt->execute();
+            $affectedRows = $updated ? (int)$updateStmt->affected_rows : 0;
+            $updateStmt->close();
 
-            $success[] = 'Password reset successful. Your new password is now active.';
+            if (!$updated) {
+              $errors[] = 'Unable to reset password right now.';
+            } elseif ($affectedRows !== 1) {
+              $errors[] = 'Reset code was already used or expired. Request a new code.';
+            } else {
+              commerza_security_log_event($con, [
+                'event_type' => 'password_reset_success_from_account',
+                'severity' => 'info',
+                'actor_type' => 'user',
+                'actor_identifier' => (string)($resetUserRow['email'] ?? ''),
+                'user_id' => $user_id,
+                'ip_address' => $clientIp,
+              ]);
+
+              $success[] = 'Password reset successful. Your new password is now active.';
+            }
           }
         }
       }
@@ -1569,7 +1595,7 @@ if (is_array($accountDeletePending)) {
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="frontend/assets/css/pages/account-inline.css">
+  <link rel="stylesheet" href="frontend/assets/css/pages/account-inline.css">
 </head>
 
 <body class="dark-theme account-page">
@@ -2331,8 +2357,8 @@ if (is_array($accountDeletePending)) {
   </footer>
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="frontend/assets/js/global-protection.js" defer></script>
-  <script src="frontend/assets/js/script.js" defer></script>
+  <script src="frontend/assets/js/modules/core/global-protection.js" defer></script>
+  <script src="frontend/assets/js/modules/bootstrap/script.js" defer></script>
   <?= commerza_captcha_script_tag($con) ?>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"

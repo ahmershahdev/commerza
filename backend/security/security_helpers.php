@@ -28,15 +28,31 @@ function commerza_password_hash_options(): array
     ];
 }
 
+function commerza_password_hash_with_algo(string $password, $algo, array $options = []): string
+{
+    $hash = password_hash($password, $algo, $options);
+    return is_string($hash) && $hash !== '' ? $hash : '';
+}
+
 function commerza_password_hash(string $password): string
 {
-    $hash = password_hash($password, commerza_password_algo(), commerza_password_hash_options());
-    if (is_string($hash) && $hash !== '') {
+    $algo = commerza_password_algo();
+    $options = commerza_password_hash_options();
+
+    $hash = commerza_password_hash_with_algo($password, $algo, $options);
+    if ($hash !== '') {
         return $hash;
     }
 
+    if ($algo !== PASSWORD_BCRYPT) {
+        $bcryptFallback = commerza_password_hash_with_algo($password, PASSWORD_BCRYPT, ['cost' => 12]);
+        if ($bcryptFallback !== '') {
+            return $bcryptFallback;
+        }
+    }
+
     $fallback = password_hash($password, PASSWORD_DEFAULT);
-    return is_string($fallback) ? $fallback : '';
+    return is_string($fallback) && $fallback !== '' ? $fallback : '';
 }
 
 function commerza_password_verify(string $password, string $hash): bool

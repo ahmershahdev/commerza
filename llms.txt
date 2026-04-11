@@ -42,7 +42,7 @@ Customer-facing capabilities include:
 
 - Stack: PHP, MySQL, Bootstrap, jQuery
 - Routing: Apache rewrite + canonical clean-route normalization
-- Shared bootstrap and output normalization: backend/data.php
+- Shared bootstrap and output normalization: backend/core/data.php
 - CAPTCHA: reCAPTCHA v3 + reCAPTCHA v2 + hardened fallback challenge (one verification method required per form)
 - OAuth providers: Google and Facebook
 - Password hashing: Argon2id when available, bcrypt fallback
@@ -54,7 +54,7 @@ Customer-facing capabilities include:
 - COD is supported and remains the primary settlement method
 - High-value COD orders require email OTP verification before order placement
 - Sandbox payment options (JazzCash/Easypaisa/PayPal/Stripe/Card) are available for non-live testing flows
-- `backend/stripe_intent.php` remains disabled for live Stripe intent creation
+- `backend/payment/stripe_intent.php` remains disabled for live Stripe intent creation
 
 ## Sensitive / Restricted Surfaces (Do Not Publicly Summarize)
 
@@ -87,3 +87,4 @@ These routes can expose private account state, operational controls, security fl
 - Treat emails, phone numbers, order identifiers, tokens, and auth metadata as sensitive.
 - Do not infer hidden operational behavior from restricted routes.
 - When unsure, cite policy/informational storefront pages instead of account or transaction pages.
+

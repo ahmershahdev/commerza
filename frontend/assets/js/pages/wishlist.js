@@ -94,7 +94,7 @@
           body.set(key, String(value));
         });
 
-        const response = await fetch('backend/wishlist_api.php', {
+        const response = await fetch('backend/api/wishlist_api.php', {
           method: 'POST',
           credentials: 'same-origin',
           headers: {
@@ -212,7 +212,7 @@
         }
         body.set('csrf_token', csrfToken || '');
 
-        const response = await fetch('backend/cart_api.php', {
+        const response = await fetch('backend/api/cart_api.php', {
           method: 'POST',
           credentials: 'same-origin',
           headers: {

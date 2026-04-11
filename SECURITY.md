@@ -22,10 +22,10 @@ Preferred private contact: `support@ahmershah.dev`
 
 - CSRF tokens on sensitive form actions
 - CAPTCHA validation on high-risk auth actions
-- Rate limiting via `backend/rate_limit.php`
-- Security event logging via `backend/security_events.php`
-- Session cookie hardening and CSP/security headers via `backend/data.php`
-- Password hashing and policy enforcement via `backend/security_helpers.php`
+- Rate limiting via `backend/security/rate_limit.php`
+- Security event logging via `backend/security/security_events.php`
+- Session cookie hardening and CSP/security headers via `backend/core/data.php`
+- Password hashing and policy enforcement via `backend/security/security_helpers.php`
 - Request idempotency guards for checkout and admin POST APIs
 - Transaction + row locking for critical checkout/refund paths
 - Sub-admin suspend/delete now revokes active admin sessions immediately
@@ -60,3 +60,4 @@ Preferred private contact: `support@ahmershah.dev`
 3. Review `security_events` and auth logs for timeline.
 4. Patch root cause and verify affected endpoints.
 5. Notify impacted operators or users as required.
+

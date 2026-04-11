@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/backend/data.php';
+require_once __DIR__ . '/backend/core/data.php';
 
 $appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
 $publicSettings = $GLOBALS['commerza_public_site_settings_payload'] ?? [];

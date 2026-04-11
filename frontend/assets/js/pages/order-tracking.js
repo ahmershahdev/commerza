@@ -119,7 +119,7 @@
     submitBtn.textContent = "Tracking...";
 
     try {
-      const response = await fetch("backend/order_tracking_api.php", {
+      const response = await fetch("backend/api/order_tracking_api.php", {
         method: "POST",
         credentials: "same-origin",
         body: formData,

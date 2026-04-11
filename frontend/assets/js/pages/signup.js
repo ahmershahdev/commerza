@@ -57,7 +57,7 @@ $(function () {
   }
 
   function checkField(input, field, value, message) {
-    $.post("backend/check_exists.php", {
+    $.post("backend/api/check_exists.php", {
       csrf_token: csrf,
       field,
       value,

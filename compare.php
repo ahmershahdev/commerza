@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-include "backend/data.php";
-require_once __DIR__ . '/backend/nav_state.php';
+include "backend/core/data.php";
+require_once __DIR__ . '/backend/helpers/nav_state.php';
 
 $nav_counts = commerza_get_nav_counts($con);
 
@@ -538,7 +538,7 @@ $highestStock = !empty($stockValues) ? max($stockValues) : 0;
   </footer>
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="frontend/assets/js/global-protection.js" defer></script>
+  <script src="frontend/assets/js/modules/core/global-protection.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>

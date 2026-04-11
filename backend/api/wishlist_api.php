@@ -1,10 +1,10 @@
 <?php
 header('Content-Type: application/json');
 
-include __DIR__ . '/data.php';
-require_once __DIR__ . '/notifications.php';
-require_once __DIR__ . '/server_timing_helpers.php';
-require_once __DIR__ . '/wishlist_schema_helpers.php';
+include __DIR__ . '/../data.php';
+require_once __DIR__ . '/../helpers/notifications.php';
+require_once __DIR__ . '/../helpers/server_timing_helpers.php';
+require_once __DIR__ . '/../helpers/wishlist_schema_helpers.php';
 
 commerza_wishlist_ensure_schema($con);
 

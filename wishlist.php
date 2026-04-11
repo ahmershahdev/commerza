@@ -1,7 +1,7 @@
 <?php
-include "backend/data.php";
-require_once __DIR__ . '/backend/products_schema_helpers.php';
-require_once __DIR__ . '/backend/wishlist_schema_helpers.php';
+include "backend/core/data.php";
+require_once __DIR__ . '/backend/helpers/products_schema_helpers.php';
+require_once __DIR__ . '/backend/helpers/wishlist_schema_helpers.php';
 
 commerza_products_ensure_schema($con);
 commerza_wishlist_ensure_schema($con);
@@ -543,7 +543,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
   </footer>
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="frontend/assets/js/global-protection.js"></script>
+  <script src="frontend/assets/js/modules/core/global-protection.js"></script>
   <script src="frontend/assets/js/modules/core/site-settings.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
@@ -552,3 +552,4 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
 </body>
 
 </html>
+
