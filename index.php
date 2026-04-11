@@ -11,19 +11,6 @@ $appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
 
 $canonicalHomeUrl = commerza_absolute_url('/');
 $logoShareImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.webp');
-$bookBrandName = trim(commerza_site_setting_value($con, 'site_name', 'COMMERZA'));
-if ($bookBrandName === '') {
-  $bookBrandName = 'COMMERZA';
-}
-
-$bookBrandLogo = trim(commerza_site_setting_value($con, 'logo_url', 'frontend/assets/images/logo/commerza-logo.webp'));
-if (
-  $bookBrandLogo === '' ||
-  strpos($bookBrandLogo, '..') !== false ||
-  strpos($bookBrandLogo, '\\') !== false
-) {
-  $bookBrandLogo = 'frontend/assets/images/logo/commerza-logo.webp';
-}
 
 $home_feature_video = commerza_site_setting_value($con, 'home_feature_video', 'frontend/assets/videos/slider/steel_watch_1.mp4');
 if (
@@ -36,87 +23,6 @@ if (
 } else {
   $home_feature_video = 'frontend/assets/videos/slider/steel_watch_1.mp4';
 }
-
-$defaultStorybookPages = [
-  [
-    'subtitle' => 'Design Language',
-    'title' => 'Built For Modern Legacy',
-    'body_primary' => 'Every release begins with silhouette drafts, dial proportion studies, and wrist-balance tests so the final watch feels premium in real daily wear.',
-    'body_secondary' => 'Prototype variants are reviewed under indoor, outdoor, and low-light scenes before any design moves to production.',
-    'footnote' => 'Chapter note: precision starts before production.',
-  ],
-  [
-    'subtitle' => 'Material and Movement',
-    'title' => 'Casework, Crystal, and Caliber Harmony',
-    'body_primary' => 'Brushed and polished surfaces are tuned together to create visual depth while preserving a clean edge profile and comfortable wrist feel.',
-    'body_secondary' => 'Lume balance, dial contrast, and movement stability are stress-tested so readability and reliability stay sharp over time.',
-    'footnote' => 'Every layer must earn its place.',
-  ],
-  [
-    'subtitle' => 'Wrist Presence',
-    'title' => 'Designed To Transition Across Moments',
-    'body_primary' => 'A Commerza watch is styled to move from office hours to evening plans without looking out of place or overdesigned.',
-    'body_secondary' => 'The goal is repeat wear value: strong identity from distance and refined detailing when seen up close.',
-    'footnote' => 'Form and confidence in one profile.',
-  ],
-  [
-    'subtitle' => 'Service and Trust',
-    'title' => 'Refined Through Real Customer Signals',
-    'body_primary' => 'Feedback on strap comfort, dial clarity, and case finishing is reviewed each cycle and translated into practical product updates.',
-    'body_secondary' => 'Packaging quality, dispatch handling, and support response are treated as part of the product, not an afterthought.',
-    'footnote' => 'Experience matters beyond the watch itself.',
-  ],
-  [
-    'subtitle' => 'Final Note',
-    'title' => 'The Next Chapter Starts On Your Wrist',
-    'body_primary' => 'From first sketch to final shipment, the same premium standard shapes each release in the catalog.',
-    'body_secondary' => 'Explore references built for precision, comfort, and long-term style confidence in everyday life.',
-    'footnote' => 'End of lookbook.',
-  ],
-];
-
-$normalizeStorybookText = static function ($value, int $maxLen): string {
-  $text = trim(preg_replace('/\s+/u', ' ', (string)$value) ?? '');
-  if ($text === '') {
-    return '';
-  }
-
-  if (strlen($text) > $maxLen) {
-    $text = substr($text, 0, $maxLen);
-  }
-
-  return $text;
-};
-
-$storybookPages = $defaultStorybookPages;
-$storybookRaw = trim(commerza_site_setting_value($con, 'home_storybook_content', ''));
-if ($storybookRaw !== '') {
-  $decodedStorybook = json_decode($storybookRaw, true);
-  if (is_array($decodedStorybook)) {
-    foreach ($defaultStorybookPages as $index => $fallbackPage) {
-      $entry = $decodedStorybook[$index] ?? null;
-      if (!is_array($entry)) {
-        continue;
-      }
-
-      $subtitle = $normalizeStorybookText($entry['subtitle'] ?? '', 120);
-      $title = $normalizeStorybookText($entry['title'] ?? '', 150);
-      $bodyPrimary = $normalizeStorybookText($entry['body_primary'] ?? '', 700);
-      $bodySecondary = $normalizeStorybookText($entry['body_secondary'] ?? '', 700);
-      $footnote = $normalizeStorybookText($entry['footnote'] ?? '', 180);
-
-      $storybookPages[$index] = [
-        'subtitle' => $subtitle !== '' ? $subtitle : (string)$fallbackPage['subtitle'],
-        'title' => $title !== '' ? $title : (string)$fallbackPage['title'],
-        'body_primary' => $bodyPrimary !== '' ? $bodyPrimary : (string)$fallbackPage['body_primary'],
-        'body_secondary' => $bodySecondary !== '' ? $bodySecondary : (string)$fallbackPage['body_secondary'],
-        'footnote' => $footnote !== '' ? $footnote : (string)$fallbackPage['footnote'],
-      ];
-    }
-  }
-}
-
-$storybookPageCount = count($storybookPages);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -581,44 +487,6 @@ $storybookPageCount = count($storybookPages);
               <strong>Travel + Performance</strong>
             </div>
           </article>
-        </div>
-      </section>
-
-      <section class="storybook-showcase mt-5" aria-label="Interactive premium lookbook">
-        <div class="storybook-stage" id="storyBookStage">
-          <div class="storybook-book storybook-fallback" id="commerzaStoryBook" tabindex="0" aria-label="Interactive <?= htmlspecialchars($bookBrandName, ENT_QUOTES, 'UTF-8') ?> lookbook">
-            <?php foreach ($storybookPages as $index => $page): ?>
-              <?php $pageTheme = ($index % 5) + 1; ?>
-              <article class="book-page page-theme-<?= (int)$pageTheme ?>">
-                <header class="book-page-brand">
-                  <img src="<?= htmlspecialchars($bookBrandLogo, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($bookBrandName, ENT_QUOTES, 'UTF-8') ?> logo" class="book-page-logo" loading="lazy">
-                  <div>
-                    <span class="book-page-brand-name"><?= htmlspecialchars($bookBrandName, ENT_QUOTES, 'UTF-8') ?></span>
-                    <span class="book-page-brand-sub"><?= htmlspecialchars((string)($page['subtitle'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
-                  </div>
-                </header>
-                <span class="book-page-index"><?= str_pad((string)($index + 1), 2, '0', STR_PAD_LEFT) ?></span>
-                <h3><?= htmlspecialchars((string)($page['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?></h3>
-                <p><?= htmlspecialchars((string)($page['body_primary'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
-                <?php if (trim((string)($page['body_secondary'] ?? '')) !== ''): ?>
-                  <p><?= htmlspecialchars((string)($page['body_secondary'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
-                <?php endif; ?>
-                <?php if (trim((string)($page['footnote'] ?? '')) !== ''): ?>
-                  <p class="book-page-footnote"><?= htmlspecialchars((string)($page['footnote'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
-                <?php endif; ?>
-              </article>
-            <?php endforeach; ?>
-          </div>
-        </div>
-
-        <div class="storybook-controls" aria-label="Lookbook page navigation">
-          <button type="button" class="storybook-nav" data-storybook-nav="previous" aria-label="Previous lookbook page">
-            <span aria-hidden="true">&#10094;</span>
-          </button>
-          <p id="storyBookPageIndicator" class="storybook-page-indicator" aria-live="polite">1 / <?= (int)$storybookPageCount ?></p>
-          <button type="button" class="storybook-nav" data-storybook-nav="next" aria-label="Next lookbook page">
-            <span aria-hidden="true">&#10095;</span>
-          </button>
         </div>
       </section>
 
@@ -1250,8 +1118,6 @@ $storybookPageCount = count($storybookPages);
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="frontend/assets/js/global-protection.js" defer></script>
   <script src="frontend/assets/js/auth.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/gh/blasten/turn.js@master/turn.min.js" onerror="this.onerror=null;this.src='frontend/assets/vendor/turnjs/turn.min.js';"></script>
-  <script src="https://cdn.jsdelivr.net/npm/vanilla-tilt@1.8.1/dist/vanilla-tilt.min.js" onerror="this.onerror=null;this.src='frontend/assets/vendor/tiltjs/tilt.min.js';"></script>
   <script src="frontend/assets/js/script.js" defer></script>
   <script src="frontend/assets/js/pages/index.js" data-csrf-token="<?= htmlspecialchars((string)$_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>"></script>
 </body>

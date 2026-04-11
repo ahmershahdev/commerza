@@ -402,6 +402,53 @@
     enforceHiddenTabPermissionConstraints(false);
   }
 
+  function normalizeVerificationCode(value) {
+    return (value || "").toString().replace(/\D+/g, "").slice(0, 6);
+  }
+
+  function syncVerificationSection(entry = null) {
+    const wrap = $("#subAdminVerificationWrap");
+    if (!wrap.length) {
+      return;
+    }
+
+    const editId = Number($("#subAdminEditId").val() || 0) || 0;
+    const row =
+      entry && typeof entry === "object"
+        ? entry
+        : editId > 0
+          ? rowById(editId)
+          : null;
+    const isPending =
+      !!row &&
+      (Number(row?.id || 0) || 0) > 0 &&
+      !(row?.emailVerified || false);
+
+    wrap.prop("hidden", !isPending);
+
+    const verifyBtn = $("#verifySubAdminCodeBtn");
+    const resendBtn = $("#subAdminResendVerifyFromFormBtn");
+    const codeInput = $("#subAdminVerificationCode");
+    const hint = $("#subAdminVerificationHint");
+
+    if (!isPending) {
+      verifyBtn.prop("disabled", true);
+      resendBtn.prop("disabled", true);
+      codeInput.val("");
+      hint.text("Enter the 6-digit code sent to this sub-admin email.");
+      return;
+    }
+
+    verifyBtn.prop("disabled", false);
+    resendBtn.prop("disabled", false);
+    const email = (row?.email || "").toString().trim();
+    hint.text(
+      email !== ""
+        ? `Enter the 6-digit code sent to ${email} to verify this sub-admin account.`
+        : "Enter the 6-digit code sent to this sub-admin email.",
+    );
+  }
+
   function resetForm(forceRoleDefaults = true) {
     const form = document.getElementById("subAdminForm");
     if (form) {
@@ -420,6 +467,8 @@
       applyRoleDefaults(defaultRole);
     }
     applyHiddenTabsSelection([]);
+    $("#subAdminVerificationCode").val("");
+    syncVerificationSection(null);
   }
 
   function roleBadgeClass(role) {
@@ -483,6 +532,9 @@
     if (!entry?.emailVerified) {
       actionButtons.push(
         `<button type="button" class="btn btn-sm btn-outline-info sub-admin-resend-btn" data-admin-id="${id}"><i class="bi bi-envelope-arrow-up me-1"></i>Resend Code</button>`,
+      );
+      actionButtons.push(
+        `<button type="button" class="btn btn-sm btn-outline-info sub-admin-open-verify-btn" data-admin-id="${id}"><i class="bi bi-key me-1"></i>Enter Code</button>`,
       );
     }
 
@@ -671,6 +723,8 @@
     applyPermissionSelection(entry.permissions || []);
     applyHiddenTabsSelection(entry.hiddenTabs || []);
     enforceHiddenTabPermissionConstraints(false);
+    $("#subAdminVerificationCode").val("");
+    syncVerificationSection(entry);
 
     if (!roleMatchesPermissionDefaults(role, entry.permissions || [])) {
       markRoleCard("custom");
@@ -786,12 +840,26 @@
       renderPermissionGrid();
       renderHiddenTabsGrid();
       renderRows();
-      resetForm(true);
-      notify(
+
+      const successMessage =
         result?.message ||
-          (editId > 0 ? "Sub-admin access updated." : "Sub-admin created."),
-        "success",
-      );
+        (editId > 0 ? "Sub-admin access updated." : "Sub-admin created.");
+
+      if (editId > 0) {
+        const refreshed = rowById(editId);
+        if (refreshed && !refreshed.emailVerified) {
+          loadFormFromRow(refreshed);
+          $("#subAdminVerificationCode").trigger("focus");
+          notify(
+            `${successMessage} Enter the verification code below to complete verification.`,
+            "success",
+          );
+          return;
+        }
+      }
+
+      resetForm(true);
+      notify(successMessage, "success");
     } catch (error) {
       notify(error?.message || "Unable to save sub-admin access.", "danger");
     } finally {
@@ -913,9 +981,103 @@
         ? nextPayload.subAdmins
         : [];
       renderRows();
+      const currentEditId = Number($("#subAdminEditId").val() || 0) || 0;
+      if (currentEditId === Number(adminId || 0)) {
+        const refreshed = rowById(adminId);
+        if (refreshed) {
+          loadFormFromRow(refreshed);
+          $("#subAdminVerificationCode").trigger("focus");
+        } else {
+          syncVerificationSection(null);
+        }
+      }
       notify(result?.message || "Verification code sent.", "success");
     } catch (error) {
       notify(error?.message || "Unable to resend verification code.", "danger");
+    }
+  }
+
+  async function verifySubAdminCode() {
+    const editId = Number($("#subAdminEditId").val() || 0) || 0;
+    if (editId <= 0) {
+      notify(
+        "Select a sub-admin first, then enter the verification code.",
+        "warning",
+      );
+      return;
+    }
+
+    const row = rowById(editId);
+    if (!row) {
+      notify("Sub-admin account not found.", "warning");
+      syncVerificationSection(null);
+      return;
+    }
+
+    if (row.emailVerified) {
+      notify("This sub-admin email is already verified.", "info");
+      syncVerificationSection(row);
+      return;
+    }
+
+    const codeInput = $("#subAdminVerificationCode");
+    const code = normalizeVerificationCode(codeInput.val());
+    codeInput.val(code);
+
+    if (!/^\d{6}$/.test(code)) {
+      notify("Enter a valid 6-digit verification code.", "warning");
+      codeInput.trigger("focus");
+      return;
+    }
+
+    const verifyBtn = $("#verifySubAdminCodeBtn");
+    const resendBtn = $("#subAdminResendVerifyFromFormBtn");
+
+    try {
+      verifyBtn.prop("disabled", true);
+      resendBtn.prop("disabled", true);
+
+      const result = await apiPost({
+        action: "verify-email",
+        admin_id: editId,
+        verification_code: code,
+      });
+
+      const nextPayload = result?.payload || {};
+      state.rows = Array.isArray(nextPayload?.subAdmins)
+        ? nextPayload.subAdmins
+        : [];
+      state.roles = Array.isArray(nextPayload?.roles)
+        ? nextPayload.roles
+        : state.roles;
+      state.permissions = Array.isArray(nextPayload?.permissions)
+        ? nextPayload.permissions
+        : state.permissions;
+      state.tabs = Array.isArray(nextPayload?.tabs)
+        ? nextPayload.tabs
+        : state.tabs;
+
+      renderRoleCards();
+      renderPermissionGrid();
+      renderHiddenTabsGrid();
+      renderRows();
+
+      const refreshed = rowById(editId);
+      if (refreshed) {
+        loadFormFromRow(refreshed);
+      } else {
+        resetForm(true);
+      }
+
+      codeInput.val("");
+      notify(result?.message || "Sub-admin email verified.", "success");
+    } catch (error) {
+      notify(error?.message || "Unable to verify code.", "danger");
+    } finally {
+      verifyBtn.prop("disabled", false);
+      resendBtn.prop("disabled", false);
+      const freshRow = rowById(editId);
+      syncVerificationSection(freshRow);
     }
   }
 
@@ -1003,10 +1165,55 @@
       });
 
     $(document)
+      .off("click.subAdminOpenVerify", ".sub-admin-open-verify-btn")
+      .on(
+        "click.subAdminOpenVerify",
+        ".sub-admin-open-verify-btn",
+        function () {
+          const adminId = Number($(this).data("adminId") || 0) || 0;
+          const row = rowById(adminId);
+          if (!row) {
+            notify("Sub-admin account not found.", "warning");
+            return;
+          }
+          loadFormFromRow(row);
+          $("#subAdminVerificationCode").trigger("focus");
+        },
+      );
+
+    $(document)
       .off("click.subAdminResend", ".sub-admin-resend-btn")
       .on("click.subAdminResend", ".sub-admin-resend-btn", function () {
         const adminId = Number($(this).data("adminId") || 0) || 0;
         resendVerification(adminId);
+      });
+
+    $("#subAdminResendVerifyFromFormBtn")
+      .off("click")
+      .on("click", function () {
+        const adminId = Number($("#subAdminEditId").val() || 0) || 0;
+        resendVerification(adminId);
+      });
+
+    $("#verifySubAdminCodeBtn")
+      .off("click")
+      .on("click", function () {
+        verifySubAdminCode();
+      });
+
+    $("#subAdminVerificationCode")
+      .off("input.subAdminVerifyCode")
+      .on("input.subAdminVerifyCode", function () {
+        $(this).val(normalizeVerificationCode($(this).val()));
+      })
+      .off("keydown.subAdminVerifyCode")
+      .on("keydown.subAdminVerifyCode", function (event) {
+        if (event.key !== "Enter") {
+          return;
+        }
+
+        event.preventDefault();
+        verifySubAdminCode();
       });
 
     $(document)

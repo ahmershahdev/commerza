@@ -360,6 +360,7 @@ function sub_admins_api_apply_action_rate_limit(mysqli $con, array $admin, strin
         'update' => [16, 60, 24, 300],
         'set-suspension' => [20, 60, 30, 300],
         'resend-verification' => [16, 60, 24, 300],
+        'verify-email' => [24, 60, 36, 300],
         'delete' => [8, 60, 12, 300],
     ];
 
@@ -1094,6 +1095,52 @@ if ($action === 'resend-verification') {
     sub_admins_api_json([
         'ok' => true,
         'message' => 'Verification code sent to sub-admin email.',
+        'payload' => sub_admins_api_response_payload($con),
+    ]);
+}
+
+if ($action === 'verify-email') {
+    $targetId = (int)($body['admin_id'] ?? 0);
+    $code = admin_normalize_numeric_code((string)($body['verification_code'] ?? ''));
+
+    if ($targetId <= 0) {
+        sub_admins_api_json(['ok' => false, 'message' => 'Invalid sub-admin id.'], 422);
+    }
+
+    if ($targetId === (int)($admin['id'] ?? 0)) {
+        sub_admins_api_json(['ok' => false, 'message' => 'You cannot verify your own email from this tab.'], 422);
+    }
+
+    $target = admin_get_by_id($con, $targetId);
+    if (!$target || admin_is_deleted($target) || admin_normalize_role((string)($target['role'] ?? 'custom')) === 'admin') {
+        sub_admins_api_json(['ok' => false, 'message' => 'Sub-admin account not found.'], 404);
+    }
+
+    $verify = admin_verify_email_verification_code($con, $targetId, $code);
+    if (!(bool)($verify['ok'] ?? false)) {
+        $status = strtolower(trim((string)($verify['status'] ?? 'failed')));
+        $statusCode = 422;
+
+        if (in_array($status, ['server_error'], true)) {
+            $statusCode = 500;
+        } elseif (in_array($status, ['invalid_admin', 'deleted'], true)) {
+            $statusCode = 404;
+        }
+
+        sub_admins_api_json([
+            'ok' => false,
+            'message' => (string)($verify['message'] ?? 'Unable to verify code.'),
+        ], $statusCode);
+    }
+
+    admin_api_log_security_event($con, $admin, 'sub_admin.email_verified', 'info', [
+        'sub_admin_id' => $targetId,
+        'status' => (string)($verify['status'] ?? 'verified'),
+    ]);
+
+    sub_admins_api_json([
+        'ok' => true,
+        'message' => (string)($verify['message'] ?? 'Sub-admin email verified successfully.'),
         'payload' => sub_admins_api_response_payload($con),
     ]);
 }

@@ -71,6 +71,13 @@ body {
   padding: 10px 12px;
 }
 
+#adminVerify2faSubmitBtn.btn,
+#adminVerify2faSubmitBtn.btn-primary {
+  --bs-btn-disabled-bg: orangered;
+  --bs-btn-disabled-border-color: orangered;
+  --bs-btn-disabled-color: #fff;
+}
+
 .btn-primary:hover {
   background: linear-gradient(90deg, #ff4500, #ffcc00);
   border-color: #ffcc00;
@@ -79,8 +86,8 @@ body {
 
 .btn-primary:disabled,
 .btn-primary.disabled {
-  background: #ff4500 !important;
-  border-color: #ff4500 !important;
+  background: orangered !important;
+  border-color: orangered !important;
   color: #fff !important;
   opacity: 0.72;
   box-shadow: none;
@@ -92,8 +99,8 @@ body {
 #adminVerify2faSubmitBtn.btn.btn-primary:disabled:hover,
 #adminVerify2faSubmitBtn.btn.btn-primary:disabled:focus,
 #adminVerify2faSubmitBtn.btn.btn-primary:disabled:active {
-  background: #ff4500 !important;
-  border-color: #ff4500 !important;
+  background: orangered !important;
+  border-color: orangered !important;
   color: #fff !important;
   box-shadow: none !important;
 }

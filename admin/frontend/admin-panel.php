@@ -1101,6 +1101,27 @@ $adminTabCatalog = admin_tabs_payload();
                                                 </div>
                                             </div>
 
+                                            <div class="sub-admin-custom-access mt-4" id="subAdminVerificationWrap" hidden>
+                                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                                                    <h4 class="h6 text-light mb-0">Email Verification</h4>
+                                                    <button type="button" class="btn btn-sm btn-outline-info" id="subAdminResendVerifyFromFormBtn">
+                                                        <i class="bi bi-envelope-arrow-up me-1"></i>Resend Code
+                                                    </button>
+                                                </div>
+                                                <p class="field-hint mb-2" id="subAdminVerificationHint">Enter the 6-digit code sent to this sub-admin email.</p>
+                                                <div class="row g-2 align-items-end">
+                                                    <div class="col-12 col-md-8">
+                                                        <label for="subAdminVerificationCode" class="form-label text-light mb-1">Verification Code</label>
+                                                        <input type="text" class="form-control bg-secondary border-0 text-light" id="subAdminVerificationCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" minlength="6" placeholder="123456" autocomplete="one-time-code">
+                                                    </div>
+                                                    <div class="col-12 col-md-4 d-grid">
+                                                        <button type="button" class="btn btn-outline-orange" id="verifySubAdminCodeBtn">
+                                                            <i class="bi bi-shield-check me-1"></i>Verify Code
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
                                             <div class="d-flex flex-wrap gap-2 mt-4">
                                                 <button type="submit" class="btn btn-orange" id="saveSubAdminBtn">
                                                     <i class="bi bi-person-plus me-1"></i>Create Sub Admin
