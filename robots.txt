@@ -1,5 +1,5 @@
 # Commerza crawler policy
-# Updated: 2026-04-10
+# Updated: 2026-04-12
 
 Sitemap: https://commerza.ahmershah.dev/sitemap.xml
 Host: commerza.ahmershah.dev

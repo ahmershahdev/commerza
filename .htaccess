@@ -62,7 +62,7 @@ RewriteRule ^(?:scripts|\.github|\.vscode)(?:/|$) - [F,L,NC]
 RewriteRule ^backend/database(?:/|$) - [F,L,NC]
 RewriteRule ^backend/(?:auth|cache|domain|helpers|jobs|mailer|payment|repositories|security|services)(?:/|$) - [F,L,NC]
 RewriteRule ^backend/(?:data|opcache\.preload)\.php$ - [F,L,NC]
-RewriteRule ^admin/backend/auth\.php$ - [F,L,NC]
+RewriteRule ^admin/backend/auth/auth\.php$ - [F,L,NC]
 
 # Block direct browser navigation to backend/admin backend PHP scripts.
 # Keep non-navigation API calls (fetch/XHR or JSON clients) operational.

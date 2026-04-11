@@ -61,7 +61,7 @@ Checkout supports COD and sandbox payment options for test/manual workflows.
 
 ### Notes
 
-- `backend/payment/stripe_intent.php` remains disabled for live Stripe intent creation.
+- `backend/stripe_intent.php` remains disabled for live Stripe intent creation.
 - Keep CAPTCHA, CSRF, idempotency, and stock checks enabled.
 - High-value COD protection is controlled by:
   - `COMMERZA_COD_OTP_THRESHOLD` (default: 15000)
@@ -115,11 +115,11 @@ Trigger real flow emails and confirm delivery:
 ### Commands
 
 - Engagement reminders:
-  - `C:\xampp\php\php.exe C:\xampp\htdocs\commerza\backend\send_engagement_reminders.php 180`
+  - `C:\xampp\php\php.exe C:\xampp\htdocs\commerza\backend\jobs\send_engagement_reminders.php 180`
 - Monthly report:
-  - `C:\xampp\php\php.exe C:\xampp\htdocs\commerza\backend\monthly_profit_report.php`
+  - `C:\xampp\php\php.exe C:\xampp\htdocs\commerza\backend\jobs\monthly_profit_report.php`
 - Weekly report:
-  - `C:\xampp\php\php.exe C:\xampp\htdocs\commerza\backend\weekly_analytics_report.php`
+  - `C:\xampp\php\php.exe C:\xampp\htdocs\commerza\backend\jobs\weekly_analytics_report.php`
 
 ## 7) Go-Live Validation
 

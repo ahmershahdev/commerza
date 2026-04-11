@@ -4,6 +4,8 @@ Commerza is a PHP + MySQL ecommerce platform with a customer storefront and an o
 
 This README is the canonical engineering guide for setup, security posture, feature boundaries, and production operations.
 
+Last updated: 2026-04-12
+
 ## 1. Stack and Runtime
 
 - Backend: PHP (mysqli), Apache, MySQL
@@ -13,7 +15,7 @@ This README is the canonical engineering guide for setup, security posture, feat
 
 ## 2. Project Structure
 
-- admin/: admin panel UI and admin-only APIs
+- admin/: admin frontend UI plus admin backend split into auth/ and api/<domain>/
 - backend/: shared helpers, storefront APIs, cron/report scripts, schema
 - frontend/: storefront static assets (css, js, images, videos)
 - root \*.php pages: storefront and auth/public entrypoints
@@ -323,7 +325,7 @@ Automation examples:
 
 Backup/restore verification:
 
-- powershell -ExecutionPolicy Bypass -File backend/backup_restore_test.ps1 -MySqlBinPath "C:/xampp/mysql/bin"
+- powershell -ExecutionPolicy Bypass -File scripts/maintenance/backup_restore_test.ps1 -MySqlBinPath "C:/xampp/mysql/bin"
 
 ## 20. Release Checklist
 
@@ -342,8 +344,8 @@ Backup/restore verification:
 - SECURITY.md: security policy and disclosure channel
 - llms.txt: LLM-safe discovery guidance
 - instructions.md: integration requirements reference
-- backend/BACKUP_RESTORE_TESTS.md: backup and restore runbook
-- backend/backup_restore_test.ps1: automated backup/restore verification script
+- scripts/maintenance/BACKUP_RESTORE_TESTS.md: backup and restore runbook
+- scripts/maintenance/backup_restore_test.ps1: automated backup/restore verification script
 
 ## 22. Environment Profiles and Test-Only Admin Keys
 

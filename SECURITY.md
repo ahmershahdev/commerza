@@ -1,12 +1,14 @@
 # Security Policy
 
+Last updated: 2026-04-12
+
 ## Supported Scope
 
 This project applies security controls across:
 
 - Customer auth, account, and checkout flows
 - Admin authentication and admin APIs
-- Database-backed APIs in `backend/` and `admin/backend/`
+- Database-backed APIs in `backend/`, `admin/backend/auth/`, and `admin/backend/api/`
 
 ## Reporting a Vulnerability
 
@@ -60,4 +62,3 @@ Preferred private contact: `support@ahmershah.dev`
 3. Review `security_events` and auth logs for timeline.
 4. Patch root cause and verify affected endpoints.
 5. Notify impacted operators or users as required.
-

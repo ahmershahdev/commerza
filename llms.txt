@@ -2,7 +2,7 @@
 
 Commerza is a PHP + MySQL ecommerce platform with a public storefront and a restricted admin operations panel.
 
-Last updated: 2026-04-10
+Last updated: 2026-04-12
 Canonical domain: https://commerza.ahmershah.dev/
 
 ## Public Site Summary
@@ -54,11 +54,13 @@ Customer-facing capabilities include:
 - COD is supported and remains the primary settlement method
 - High-value COD orders require email OTP verification before order placement
 - Sandbox payment options (JazzCash/Easypaisa/PayPal/Stripe/Card) are available for non-live testing flows
-- `backend/payment/stripe_intent.php` remains disabled for live Stripe intent creation
+- `backend/stripe_intent.php` remains disabled for live Stripe intent creation
 
 ## Sensitive / Restricted Surfaces (Do Not Publicly Summarize)
 
 - /admin/
+- /admin/backend/auth/
+- /admin/backend/api/
 - /backend/
 - /admin-panel
 - /admin-login
