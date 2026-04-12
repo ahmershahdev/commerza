@@ -477,8 +477,7 @@ if ($categoryBVideoStmt) {
           <li class="nav-item"><a class="nav-link" href="terms-of-service.php">Terms</a></li>
           <li class="nav-item"><a class="nav-link" href="privacy-policy.php">Privacy</a></li>
           <li class="nav-item">
-            <a class="nav-link text-uppercase fw-bold mt-3 mb-2"
-              style="color: #ffcc00; font-size: 0.85rem; letter-spacing: 2px;">Series</a>
+            <a class="nav-link text-uppercase fw-bold mt-3 mb-2 series-nav-heading">Series</a>
           </li>
           <li class="nav-item">
             <a class="nav-link ps-4" href="shop-category-a.php">The Automatic Vault</a>

@@ -1070,7 +1070,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
     <section class="page-hero mb-5">
       <div class="hero-content">
         <span class="hero-badge"><i class="bi bi-cart3"></i> Checkout</span>
-        <h1 class="mt-3" style="color: #ff6600">Shopping Cart</h1>
+        <h1 class="mt-3 cart-hero-title">Shopping Cart</h1>
         <p class="product-desc mt-2">Review your items and complete your order securely.</p>
         <div class="hero-actions d-flex flex-wrap gap-2 mt-3">
           <a href="index.php" class="btn product-btn-buy">Continue Shopping</a>
@@ -1107,7 +1107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
 
     <section class="mb-4" aria-label="Checkout guide">
       <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-        <h2 class="mb-0" style="color: #ff6600; font-size: 1.2rem;">Step-by-Step Checkout Guide</h2>
+        <h2 class="mb-0 cart-guide-title">Step-by-Step Checkout Guide</h2>
         <span class="step-chip">Follow these steps for a smooth order flow.</span>
       </div>
       <div class="row g-3">
@@ -1163,7 +1163,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       Your cart is empty. Please add products before checkout.
     </div>
 
-    <h2 class="mb-4" style="color: #ff6600">Step 5: Confirm Cart Items</h2>
+    <h2 class="mb-4 cart-confirm-title">Step 5: Confirm Cart Items</h2>
 
     <div class="row cart-layout-shell">
       <div class="col-lg-8 mb-4 cart-list-panel" id="cart-items-container"></div>
@@ -1171,7 +1171,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       <div class="col-lg-4 summary-sticky">
         <div class="card product-card cart-summary-card">
           <div class="card-body">
-            <h4 class="mb-3" style="color: #ff6600">Order Summary</h4>
+            <h4 class="mb-3 cart-summary-title">Order Summary</h4>
             <p class="text-white mb-3">Total Items: <span id="total-items-qty">0</span></p>
 
             <div class="mb-3">
@@ -1201,7 +1201,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
             <hr />
             <div class="d-flex justify-content-between mb-3">
               <strong>Total</strong>
-              <strong id="cart-total" style="color: #e05e00">0 PKR</strong>
+              <strong id="cart-total" class="cart-total-value">0 PKR</strong>
             </div>
             <button class="btn product-btn-buy w-100" data-bs-toggle="modal" data-bs-target="#checkoutModal">Proceed to
               Checkout</button>
@@ -1215,7 +1215,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="checkoutModalLabel" style="color: #ff6600;">Checkout</h5>
+          <h5 class="modal-title cart-modal-title" id="checkoutModalLabel">Checkout</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">

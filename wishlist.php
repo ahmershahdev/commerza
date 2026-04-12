@@ -217,7 +217,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="frontend/assets/css/pages/wishlist-inline.css">
+  <link rel="stylesheet" href="frontend/assets/css/pages/wishlist-inline.css">
 </head>
 
 <body class="dark-theme">
@@ -316,7 +316,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
     <section class="page-hero mb-5">
       <div class="hero-content">
         <span class="hero-badge"><i class="bi bi-heart"></i> Wishlist</span>
-        <h1 class="mt-3" style="color: #ff6600">Your Wishlist</h1>
+        <h1 class="mt-3 wishlist-hero-title">Your Wishlist</h1>
         <p class="product-desc mt-2">Save your favorite watches for later.</p>
         <div class="hero-actions d-flex flex-wrap gap-2 mt-3">
           <a href="index.php" class="btn product-btn-buy">Browse Products</a>
@@ -334,11 +334,11 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
             <p class="product-desc">Turn saved products into a buying shortlist by checking price fit, delivery timing, and warranty terms in one flow.</p>
             <div class="wishlist-stats">
               <div class="stat-card">
-                <h3 style="color:#ff6600; margin:0;"><?= $wishlist_count ?></h3>
+                <h3 class="wishlist-stat-value"><?= $wishlist_count ?></h3>
                 <p class="product-desc mb-0">Items saved</p>
               </div>
               <div class="stat-card">
-                <h3 style="color:#ff6600; margin:0;">Smart</h3>
+                <h3 class="wishlist-stat-value">Smart</h3>
                 <p class="product-desc mb-0">Decision mode</p>
               </div>
             </div>
@@ -393,7 +393,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
 
     <section class="mb-4" aria-label="Wishlist guide">
       <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-        <h2 class="mb-0" style="color: #ff6600; font-size: 1.2rem;">Step-by-Step Wishlist Flow</h2>
+        <h2 class="mb-0 wishlist-flow-title">Step-by-Step Wishlist Flow</h2>
         <span class="step-chip">Use this flow to keep saved products organized.</span>
       </div>
       <div class="row g-3">
@@ -443,7 +443,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
     <section id="wishlist-container" class="wishlist-list" data-csrf-token="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
       <?php if ($wishlist_count === 0): ?>
         <div class="text-center py-5 wishlist-empty-state">
-          <i class="bi bi-heart" style="font-size: 3rem; color: #ff6600;"></i>
+          <i class="bi bi-heart wishlist-empty-icon"></i>
           <h3 class="text-white mt-3">Your wishlist is empty</h3>
           <p class="text-secondary">Start saving your favorite watches.</p>
           <a href="index.php" class="btn product-btn-buy mt-3">Browse Products</a>
@@ -467,7 +467,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
                 </div>
                 <div class="mb-2">
                   <span class="original-price" style="text-decoration: line-through; color: #b0b0b0;"><?= number_format((float)$item['price'], 2) ?> PKR</span>
-                  <span class="sale-price" style="color: #ff6600; font-weight: bold; margin-left: 6px;"><?= number_format((float)($item['salePrice'] ?? $item['price']), 2) ?> PKR</span>
+                  <span class="sale-price wishlist-sale-price"><?= number_format((float)($item['salePrice'] ?? $item['price']), 2) ?> PKR</span>
                 </div>
                 <div class="wishlist-actions">
                   <a href="products.php?id=<?= (int)$item['id'] ?>" class="btn product-btn-buy">View</a>
@@ -552,4 +552,3 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
 </body>
 
 </html>
-

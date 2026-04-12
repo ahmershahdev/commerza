@@ -971,6 +971,26 @@ function commerza_captcha_script_tag(mysqli $con): string
         return element.getClientRects && element.getClientRects().length > 0;
     }
 
+    function resolveThemePreference() {
+        var root = document.documentElement;
+        var rootTheme = (root && (root.getAttribute('data-commerza-theme') || root.getAttribute('data-bs-theme')) || '').toString().trim().toLowerCase();
+        if (rootTheme === 'light' || rootTheme === 'dark') {
+            return rootTheme;
+        }
+
+        var body = document.body;
+        if (body && body.classList) {
+            if (body.classList.contains('light-theme')) {
+                return 'light';
+            }
+            if (body.classList.contains('dark-theme')) {
+                return 'dark';
+            }
+        }
+
+        return 'dark';
+    }
+
     function renderV2Widget(container) {
         if (!v2Enabled || !container) {
             return false;
@@ -979,10 +999,6 @@ function commerza_captcha_script_tag(mysqli $con): string
         var slot = container.querySelector('.captcha-widget[data-commerza-v2-slot="1"]');
         if (!slot) {
             return false;
-        }
-
-        if (slot.dataset.commerzaV2Rendered === '1') {
-            return true;
         }
 
         if (!window.grecaptcha || typeof window.grecaptcha.render !== 'function') {
@@ -994,18 +1010,72 @@ function commerza_captcha_script_tag(mysqli $con): string
             return false;
         }
 
-        var theme = (slot.getAttribute('data-theme') || 'dark').toString().trim() || 'dark';
+        var requestedTheme = (slot.getAttribute('data-theme') || '').toString().trim().toLowerCase();
+        var theme = requestedTheme === 'light' || requestedTheme === 'dark'
+            ? requestedTheme
+            : resolveThemePreference();
+        slot.setAttribute('data-theme', theme);
+
+        if (slot.dataset.commerzaV2Rendered === '1') {
+            var renderedTheme = (slot.dataset.commerzaV2Theme || '').toString().trim().toLowerCase();
+            if (renderedTheme === theme) {
+                return true;
+            }
+
+            slot.innerHTML = '';
+            slot.dataset.commerzaV2Rendered = '0';
+        }
 
         try {
-            window.grecaptcha.render(slot, {
+            var widgetId = window.grecaptcha.render(slot, {
                 sitekey: siteKey,
                 theme: theme,
             });
             slot.dataset.commerzaV2Rendered = '1';
+            slot.dataset.commerzaV2Theme = theme;
+            slot.dataset.commerzaV2WidgetId = String(widgetId);
             return true;
         } catch (_error) {
             return false;
         }
+    }
+
+    function syncV2ThemeAcrossWidgets() {
+        if (!v2Enabled) {
+            return;
+        }
+
+        eachCaptchaContainer(function (container) {
+            renderV2Widget(container);
+        });
+    }
+
+    function watchThemeChanges() {
+        if (!v2Enabled || typeof MutationObserver === 'undefined') {
+            return;
+        }
+
+        var root = document.documentElement;
+        if (!root || root.dataset.commerzaCaptchaThemeWatchBound === '1') {
+            return;
+        }
+
+        root.dataset.commerzaCaptchaThemeWatchBound = '1';
+
+        var observer = new MutationObserver(function (mutations) {
+            var shouldSync = mutations.some(function (mutation) {
+                return mutation.type === 'attributes';
+            });
+
+            if (shouldSync) {
+                syncV2ThemeAcrossWidgets();
+            }
+        });
+
+        observer.observe(root, {
+            attributes: true,
+            attributeFilter: ['data-commerza-theme', 'data-bs-theme'],
+        });
     }
 
     function issueV3Token(form, action) {
@@ -1311,10 +1381,12 @@ function commerza_captcha_script_tag(mysqli $con): string
         document.addEventListener('DOMContentLoaded', function () {
             attachFormSubmitGuards();
             scheduleHealthCheck();
+            watchThemeChanges();
         }, { once: true });
     } else {
         attachFormSubmitGuards();
         scheduleHealthCheck();
+        watchThemeChanges();
     }
 })();
 </script>
@@ -1358,7 +1430,7 @@ function commerza_captcha_widget_html(mysqli $con, string $context = ''): string
     $renderGoogleWidget = $v2Enabled;
     if ($renderGoogleWidget) {
         $siteKey = htmlspecialchars((string)($config['site_key'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $widget = '<div class="captcha-widget" data-commerza-v2-slot="1" data-theme="dark" data-sitekey="' . $siteKey . '" style="margin:0 auto;min-height:78px;"></div>';
+        $widget = '<div class="captcha-widget" data-commerza-v2-slot="1" data-theme="auto" data-sitekey="' . $siteKey . '" style="margin:0 auto;min-height:78px;"></div>';
     }
 
     if (!$useRemoteCaptcha && commerza_captcha_is_local_request()) {
@@ -1373,7 +1445,7 @@ function commerza_captcha_widget_html(mysqli $con, string $context = ''): string
     $toggleDisplay = 'none';
 
     $wrapperStyle = 'display:flex;justify-content:center;width:100%;';
-    $shellStyle = 'display:flex;flex-direction:column;justify-content:center;align-items:center;width:min(100%,390px);padding:12px;border-radius:16px;border:0;background:linear-gradient(180deg,rgba(18,18,18,.96),rgba(8,8,8,.96));box-shadow:0 16px 32px rgba(0,0,0,.45),inset 0 0 0 1px rgba(255,255,255,.03);';
+    $shellStyle = 'display:flex;flex-direction:column;justify-content:center;align-items:center;width:min(100%,390px);padding:12px;border-radius:16px;';
 
     return '<div class="captcha-wrapper mt-3 commerza-captcha-wrapper" data-commerza-captcha-context="' . $contextSafe . '" style="' . $wrapperStyle . '">'
         . '<div class="captcha-shell" style="' . $shellStyle . '">'
@@ -1385,12 +1457,12 @@ function commerza_captcha_widget_html(mysqli $con, string $context = ''): string
         . '<input type="text" name="' . $honeypotField . '" value="" autocomplete="off" tabindex="-1">'
         . '</div>'
         . $widget
-        . '<button type="button" data-commerza-fallback-toggle style="display:' . $toggleDisplay . ';align-items:center;justify-content:center;margin-top:10px;padding:8px 10px;border-radius:10px;border:1px solid rgba(255,165,110,.35);background:rgba(255,122,26,.08);color:#ffd3ab;font:600 12px/1.35 Inter,Arial,sans-serif;cursor:pointer;">Use backup question</button>'
-        . '<div class="commerza-captcha-fallback" style="display:' . $fallbackDisplay . ';margin-top:10px;padding:10px;border-radius:12px;border:1px solid rgba(255,168,96,.35);background:rgba(22,22,22,.74);">'
-        . '<div data-commerza-captcha-fallback-message style="color:#ffd8b6;font-size:12px;line-height:1.45;margin-bottom:8px;user-select:none;-webkit-user-select:none;">' . htmlspecialchars($fallbackMessage, ENT_QUOTES, 'UTF-8') . '</div>'
-        . '<label style="display:block;color:#f3e7da;font-size:13px;font-weight:600;margin-bottom:6px;user-select:none;-webkit-user-select:none;">Security question: ' . $question . '</label>'
-        . '<div style="color:#d0d0d0;font-size:11px;line-height:1.4;margin-bottom:8px;user-select:none;-webkit-user-select:none;">Type the exact answer and submit.</div>'
-        . '<input type="text" name="' . $answerField . '" inputmode="text" pattern="[A-Za-z0-9\- ]{1,64}" maxlength="64" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-commerza-captcha-answer="1" class="form-control bg-secondary border-0 text-light" style="min-height:42px;user-select:none;-webkit-user-select:none;">'
+        . '<button type="button" class="commerza-captcha-toggle" data-commerza-fallback-toggle style="display:' . $toggleDisplay . ';">Use backup question</button>'
+        . '<div class="commerza-captcha-fallback" style="display:' . $fallbackDisplay . ';">'
+        . '<div class="commerza-captcha-fallback-note" data-commerza-captcha-fallback-message>' . htmlspecialchars($fallbackMessage, ENT_QUOTES, 'UTF-8') . '</div>'
+        . '<label class="commerza-captcha-question-label">Security question: ' . $question . '</label>'
+        . '<div class="commerza-captcha-question-help">Type the exact answer and submit.</div>'
+        . '<input type="text" name="' . $answerField . '" inputmode="text" pattern="[A-Za-z0-9\- ]{1,64}" maxlength="64" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-commerza-captcha-answer="1" class="form-control commerza-captcha-answer-input">'
         . '<input type="hidden" name="' . $tokenField . '" value="' . $token . '">'
         . '</div>'
         . '</div>'

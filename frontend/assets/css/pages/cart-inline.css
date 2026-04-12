@@ -16,6 +16,22 @@ img {
   user-select: none;
 }
 
+.cart-hero-title,
+.cart-guide-title,
+.cart-confirm-title,
+.cart-summary-title,
+.cart-modal-title {
+  color: #ff6600;
+}
+
+.cart-guide-title {
+  font-size: 1.2rem;
+}
+
+.cart-total-value {
+  color: #e05e00;
+}
+
 #serverAlert,
 #successAlert,
 #checkoutEmptyAlert {

@@ -127,6 +127,14 @@ body.dark-theme.light-theme .testimonial-card {
   box-shadow: 0 12px 24px var(--cmrz-light-shadow);
 }
 
+body.dark-theme.light-theme .highlight-card:hover,
+body.dark-theme.light-theme .home-match-card:hover,
+body.dark-theme.light-theme .point-card:hover,
+body.dark-theme.light-theme .testimonial-card:hover {
+  border-color: rgba(37, 82, 214, 0.34);
+  box-shadow: 0 18px 34px rgba(37, 82, 214, 0.16);
+}
+
 body.dark-theme.light-theme .home-match-index,
 body.dark-theme.light-theme .testimonial-meta,
 body.dark-theme.light-theme .highlight-icon {

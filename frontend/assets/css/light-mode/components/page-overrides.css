@@ -2,6 +2,10 @@
 body.dark-theme.light-theme .product-info-strip,
 body.dark-theme.light-theme .product-info-item,
 body.dark-theme.light-theme .share-panel,
+body.dark-theme.light-theme .page-hero,
+body.dark-theme.light-theme .info-card,
+body.dark-theme.light-theme .stat-card,
+body.dark-theme.light-theme .filter-bar,
 body.dark-theme.light-theme .review-card,
 body.dark-theme.light-theme .review-form-card,
 body.dark-theme.light-theme .upload-progress-shell,
@@ -48,6 +52,15 @@ body.dark-theme.light-theme .account-visibility-dropdown .dropdown-menu {
   color: var(--cmrz-light-text) !important;
 }
 
+body.dark-theme.light-theme .page-hero::before {
+  background: radial-gradient(
+    circle at top left,
+    rgba(96, 165, 250, 0.24),
+    transparent 56%
+  ) !important;
+  opacity: 0.58;
+}
+
 body.dark-theme.light-theme .product-section-title,
 body.dark-theme.light-theme .product-info-item h3,
 body.dark-theme.light-theme .tracking-title,
@@ -59,10 +72,58 @@ body.dark-theme.light-theme .order-guide-card h3,
 body.dark-theme.light-theme .contact-step-card h3,
 body.dark-theme.light-theme .checkout-guide-card h3,
 body.dark-theme.light-theme .about-highlight-card h3,
+body.dark-theme.light-theme .contact-touch-meta-title,
 body.dark-theme.light-theme .store-chip strong,
 body.dark-theme.light-theme .about-app-col h3,
-body.dark-theme.light-theme .detail-highlight-value {
+body.dark-theme.light-theme .detail-highlight-value,
+body.dark-theme.light-theme .about-hero-title,
+body.dark-theme.light-theme .about-stat-value,
+body.dark-theme.light-theme .about-standard-title,
+body.dark-theme.light-theme .about-app-launch-title,
+body.dark-theme.light-theme .about-cta-title,
+body.dark-theme.light-theme .contact-hero-title,
+body.dark-theme.light-theme .contact-flow-title,
+body.dark-theme.light-theme .contact-form-title,
+body.dark-theme.light-theme .cart-hero-title,
+body.dark-theme.light-theme .cart-guide-title,
+body.dark-theme.light-theme .cart-confirm-title,
+body.dark-theme.light-theme .cart-summary-title,
+body.dark-theme.light-theme .cart-modal-title,
+body.dark-theme.light-theme .cart-total-value,
+body.dark-theme.light-theme .wishlist-hero-title,
+body.dark-theme.light-theme .wishlist-stat-value,
+body.dark-theme.light-theme .wishlist-flow-title,
+body.dark-theme.light-theme .wishlist-empty-icon,
+body.dark-theme.light-theme .wishlist-sale-price,
+body.dark-theme.light-theme .series-nav-heading,
+body.dark-theme.light-theme .filter-title,
+body.dark-theme.light-theme .filter-results,
+body.dark-theme.light-theme .info-card .product-name,
+body.dark-theme.light-theme .account-page-title,
+body.dark-theme.light-theme .account-empty-icon {
   color: var(--cmrz-light-navy) !important;
+}
+
+body.dark-theme.light-theme .about-stat-value {
+  margin: 0;
+}
+
+body.dark-theme.light-theme .wishlist-stat-value {
+  margin: 0;
+}
+
+body.dark-theme.light-theme .contact-flow-title {
+  font-size: 1.2rem;
+}
+
+body.dark-theme.light-theme .cart-guide-title,
+body.dark-theme.light-theme .wishlist-flow-title {
+  font-size: 1.2rem;
+}
+
+body.dark-theme.light-theme .cart-total-value,
+body.dark-theme.light-theme .wishlist-sale-price {
+  color: var(--cmrz-light-navy-bright) !important;
 }
 
 body.dark-theme.light-theme .share-description,
@@ -93,7 +154,9 @@ body.dark-theme.light-theme .account-recovery-shell .recovery-help,
 body.dark-theme.light-theme .review-file-selection,
 body.dark-theme.light-theme .upload-progress-shell [data-upload-stage],
 body.dark-theme.light-theme .review-rating-label,
-body.dark-theme.light-theme .step-chip {
+body.dark-theme.light-theme .filter-hint,
+body.dark-theme.light-theme .info-card .product-desc,
+body.dark-theme.light-theme .stat-card .product-desc {
   color: #475569 !important;
 }
 
@@ -103,6 +166,8 @@ body.dark-theme.light-theme .tracking-kicker,
 body.dark-theme.light-theme .order-step-pill,
 body.dark-theme.light-theme .contact-step-pill,
 body.dark-theme.light-theme .wishlist-step-pill,
+body.dark-theme.light-theme .wishlist-decision-item .kicker,
+body.dark-theme.light-theme .step-chip,
 body.dark-theme.light-theme .checkout-guide-step,
 body.dark-theme.light-theme .compare-summary-chip,
 body.dark-theme.light-theme .compare-badge,
@@ -110,6 +175,8 @@ body.dark-theme.light-theme .wishlist-detail-chip,
 body.dark-theme.light-theme .series-pulse-chip .chip-kicker,
 body.dark-theme.light-theme .series-pulse-chip strong,
 body.dark-theme.light-theme .about-step-dot,
+body.dark-theme.light-theme .hero-badge,
+body.dark-theme.light-theme .filter-kicker,
 body.dark-theme.light-theme .username-lock-label {
   border: 1px solid rgba(30, 58, 138, 0.3) !important;
   background: rgba(37, 82, 214, 0.1) !important;
@@ -142,6 +209,14 @@ body.dark-theme.light-theme .account-personal-form .form-label i,
 body.dark-theme.light-theme .account-toggle-password,
 body.dark-theme.light-theme .review-score {
   color: var(--cmrz-light-navy-bright) !important;
+}
+
+body.dark-theme.light-theme .info-card .icon-badge,
+body.dark-theme.light-theme .contact-touch-icon {
+  border: 1px solid rgba(30, 58, 138, 0.28) !important;
+  background: rgba(37, 82, 214, 0.1) !important;
+  color: var(--cmrz-light-navy) !important;
+  box-shadow: none !important;
 }
 
 body.dark-theme.light-theme .tracking-step .step-index {
@@ -190,6 +265,64 @@ body.dark-theme.light-theme .contact-dropdown-menu .dropdown-item,
 body.dark-theme.light-theme .account-visibility-dropdown .dropdown-item,
 body.dark-theme.light-theme #checkoutModal .checkout-payment-option {
   color: var(--cmrz-light-text) !important;
+}
+
+body.dark-theme.light-theme .contact-touch-meta-value a {
+  color: var(--cmrz-light-navy) !important;
+}
+
+body.dark-theme.light-theme .contact-touch-meta-value a:hover,
+body.dark-theme.light-theme .contact-touch-meta-value a:focus-visible {
+  color: var(--cmrz-light-navy-bright) !important;
+}
+
+body.dark-theme.light-theme .filter-dropdown-btn,
+body.dark-theme.light-theme .filter-select,
+body.dark-theme.light-theme .filter-bar .form-select {
+  background: #ffffff !important;
+  border: 1px solid rgba(30, 58, 138, 0.28) !important;
+  color: var(--cmrz-light-text) !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme.light-theme .filter-dropdown-btn:focus,
+body.dark-theme.light-theme .filter-dropdown-btn.show,
+body.dark-theme.light-theme .filter-select:focus,
+body.dark-theme.light-theme .filter-bar .form-select:focus {
+  border-color: rgba(37, 82, 214, 0.52) !important;
+  box-shadow: 0 0 0 0.18rem rgba(37, 82, 214, 0.16) !important;
+}
+
+body.dark-theme.light-theme .filter-select {
+  background-image:
+    linear-gradient(45deg, transparent 50%, #1e3a8a 50%),
+    linear-gradient(135deg, #1e3a8a 50%, transparent 50%) !important;
+}
+
+body.dark-theme.light-theme .filter-select option,
+body.dark-theme.light-theme .filter-dropdown-menu {
+  background: #ffffff !important;
+  color: var(--cmrz-light-text) !important;
+  border-color: rgba(30, 58, 138, 0.22) !important;
+}
+
+body.dark-theme.light-theme .filter-dropdown-menu .dropdown-item {
+  color: var(--cmrz-light-text) !important;
+}
+
+body.dark-theme.light-theme .filter-dropdown-menu .dropdown-item:hover,
+body.dark-theme.light-theme .filter-dropdown-menu .dropdown-item:focus,
+body.dark-theme.light-theme .filter-dropdown-menu .dropdown-item.active {
+  background: rgba(37, 82, 214, 0.1) !important;
+  color: var(--cmrz-light-navy) !important;
+}
+
+body.dark-theme.light-theme .filter-bar .form-label {
+  color: var(--cmrz-light-navy) !important;
+}
+
+body.dark-theme.light-theme .filter-results {
+  border-top-color: rgba(30, 58, 138, 0.2) !important;
 }
 
 body.dark-theme.light-theme .contact-dropdown-menu .dropdown-item:hover,
@@ -312,6 +445,15 @@ body.dark-theme.light-theme .series-pulse-board {
     linear-gradient(160deg, #ffffff, #f8fafc) !important;
 }
 
+body.dark-theme.light-theme .series-pulse-board::before {
+  background: linear-gradient(
+    118deg,
+    transparent 40%,
+    rgba(96, 165, 250, 0.18) 50%,
+    transparent 62%
+  ) !important;
+}
+
 body.dark-theme.light-theme .series-pulse-chip,
 body.dark-theme.light-theme .about-app-col,
 body.dark-theme.light-theme .store-chip {
@@ -326,6 +468,10 @@ body.dark-theme.light-theme .store-chip span {
 
 body.dark-theme.light-theme .account-page label,
 body.dark-theme.light-theme .form-label {
+  color: var(--cmrz-light-navy) !important;
+}
+
+body.dark-theme.light-theme #my-orders-container .text-white {
   color: var(--cmrz-light-navy) !important;
 }
 
@@ -443,5 +589,16 @@ body.dark-theme.light-theme .policy-mail {
 }
 
 body.dark-theme.light-theme .policy-mail:hover {
+  color: var(--cmrz-light-navy) !important;
+}
+
+body.dark-theme.light-theme .wishlist-playbook-list .index {
+  border: 1px solid rgba(30, 58, 138, 0.34) !important;
+  background: rgba(37, 82, 214, 0.1) !important;
+  color: var(--cmrz-light-navy) !important;
+}
+
+body.dark-theme.light-theme #wishlist-container .text-white,
+body.dark-theme.light-theme .wishlist-shell .text-white {
   color: var(--cmrz-light-navy) !important;
 }

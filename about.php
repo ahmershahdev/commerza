@@ -144,7 +144,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
     <section class="page-hero mb-5">
       <div class="hero-content">
         <span class="hero-badge"><i class="bi bi-gem"></i> About <?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?></span>
-        <h1 class="mt-3" style="color: #ff6600">Precision Craft, Built For Real Life</h1>
+        <h1 class="mt-3 about-hero-title">Precision Craft, Built For Real Life</h1>
         <p class="product-desc mt-2"><?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> started with a simple goal: build premium watches that look bold, wear comfortably, and stay reliable day after day. From the first sketch to final QC, every piece is selected for durability, clarity, and timeless style.</p>
         <div class="hero-actions d-flex flex-wrap gap-2 mt-3">
           <a href="index.php" class="btn product-btn-buy">Shop Collection</a>
@@ -157,15 +157,15 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
       <h2 class="visually-hidden">By the numbers</h2>
       <div class="stat-grid">
         <div class="stat-card">
-          <h3 style="color:#ff6600; margin:0;">10k+</h3>
+          <h3 class="about-stat-value">10k+</h3>
           <p class="product-desc mb-0">Happy Customers</p>
         </div>
         <div class="stat-card">
-          <h3 style="color:#ff6600; margin:0;">24h</h3>
+          <h3 class="about-stat-value">24h</h3>
           <p class="product-desc mb-0">Support Response</p>
         </div>
         <div class="stat-card">
-          <h3 style="color:#ff6600; margin:0;">12 Mo</h3>
+          <h3 class="about-stat-value">12 Mo</h3>
           <p class="product-desc mb-0">Warranty Included</p>
         </div>
       </div>
@@ -208,7 +208,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
     </section>
 
     <section class="mb-5">
-      <h2 class="mb-3" style="color:#ff6600;">The <?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> Standard</h2>
+      <h2 class="mb-3 about-standard-title">The <?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> Standard</h2>
       <div class="about-highlight-grid">
         <article class="about-highlight-card">
           <i class="bi bi-shield-check"></i>
@@ -235,7 +235,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
 
     <section class="about-app-launch mb-5" aria-labelledby="aboutAppLaunchTitle">
       <span class="hero-badge"><i class="bi bi-phone"></i> Mobile Roadmap</span>
-      <h2 id="aboutAppLaunchTitle" class="mt-3" style="color:#ff6600;"><?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> App Is Coming Soon</h2>
+      <h2 id="aboutAppLaunchTitle" class="mt-3 about-app-launch-title"><?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> App Is Coming Soon</h2>
       <p class="product-desc mb-0">We are building a faster mobile experience for watch discovery, personalized recommendations, wishlist sync, and order tracking. Early access starts soon.</p>
 
       <div class="about-app-columns" aria-label="<?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> app roadmap details">
@@ -284,7 +284,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
     </section>
 
     <div class="text-center">
-      <h3 class="mb-3" style="color: #ff6600">Timeless Style Starts Here</h3>
+      <h3 class="mb-3 about-cta-title">Timeless Style Starts Here</h3>
       <p class="product-desc mb-4">Discover watches designed to match your ambition, routine, and signature look.</p>
       <a href="index.php" class="btn product-btn-buy px-5">Shop Now</a>
     </div>

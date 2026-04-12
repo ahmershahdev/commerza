@@ -53,9 +53,23 @@ body.dark-theme.light-theme .verify-title {
   text-shadow: none;
 }
 
+body.dark-theme.light-theme h1,
+body.dark-theme.light-theme h2,
+body.dark-theme.light-theme .hero-title,
+body.dark-theme.light-theme .product-name {
+  background: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  -webkit-text-fill-color: var(--cmrz-light-navy) !important;
+  color: var(--cmrz-light-navy) !important;
+  animation: none !important;
+  filter: none !important;
+  text-shadow: none !important;
+}
+
 body.dark-theme.light-theme h2 {
-  border-left-color: rgba(30, 58, 138, 0.36);
-  box-shadow: -10px 0 18px -14px rgba(30, 58, 138, 0.32);
+  border-left-color: rgba(30, 58, 138, 0.36) !important;
+  box-shadow: -10px 0 18px -14px rgba(30, 58, 138, 0.32) !important;
 }
 
 body.dark-theme.light-theme a,
@@ -88,9 +102,21 @@ html[data-commerza-theme="light"] textarea::selection {
   color: #ffffff !important;
 }
 
+html[data-commerza-theme="light"] body *::selection,
+html[data-commerza-theme="light"] body *::-moz-selection {
+  background: rgba(30, 58, 138, 0.9) !important;
+  color: #ffffff !important;
+}
+
 html[data-commerza-theme="light"]::-webkit-scrollbar-track,
 html[data-commerza-theme="light"] *::-webkit-scrollbar-track {
   background: #eef2f7;
+}
+
+html[data-commerza-theme="light"]::-webkit-scrollbar,
+html[data-commerza-theme="light"] *::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
 }
 
 html[data-commerza-theme="light"],
@@ -105,12 +131,19 @@ html[data-commerza-theme="light"] *::-webkit-scrollbar-thumb {
     var(--cmrz-light-navy-bright) 0%,
     var(--cmrz-light-navy) 100%
   );
+  cursor: grab;
   box-shadow: inset 0 0 6px rgba(30, 58, 138, 0.2);
 }
 
 html[data-commerza-theme="light"]::-webkit-scrollbar-thumb:hover,
 html[data-commerza-theme="light"] *::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #3b82f6 0%, var(--cmrz-light-navy) 100%);
+}
+
+html[data-commerza-theme="light"]::-webkit-scrollbar-thumb:active,
+html[data-commerza-theme="light"] *::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(180deg, #1d4ed8 0%, #1e3a8a 100%);
+  cursor: grabbing;
 }
 
 body.dark-theme.light-theme .bg-dark,

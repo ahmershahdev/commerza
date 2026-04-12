@@ -1,9 +1,15 @@
-::selection {
+body.dark-theme:not(.light-theme)::selection,
+body.dark-theme:not(.light-theme) *::selection,
+html[data-commerza-theme="dark"]::selection,
+html[data-commerza-theme="dark"] *::selection {
   background: orangered;
   color: black;
 }
 
-::-moz-selection {
+body.dark-theme:not(.light-theme)::-moz-selection,
+body.dark-theme:not(.light-theme) *::-moz-selection,
+html[data-commerza-theme="dark"]::-moz-selection,
+html[data-commerza-theme="dark"] *::-moz-selection {
   background: orangered;
   color: black;
 }
@@ -15,31 +21,35 @@ video {
   touch-action: manipulation;
 }
 
-html::-webkit-scrollbar,
-body::-webkit-scrollbar,
-*::-webkit-scrollbar {
+body.dark-theme:not(.light-theme)::-webkit-scrollbar,
+body.dark-theme:not(.light-theme) *::-webkit-scrollbar,
+html[data-commerza-theme="dark"]::-webkit-scrollbar,
+html[data-commerza-theme="dark"] *::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
-html::-webkit-scrollbar-track,
-body::-webkit-scrollbar-track,
-*::-webkit-scrollbar-track {
+body.dark-theme:not(.light-theme)::-webkit-scrollbar-track,
+body.dark-theme:not(.light-theme) *::-webkit-scrollbar-track,
+html[data-commerza-theme="dark"]::-webkit-scrollbar-track,
+html[data-commerza-theme="dark"] *::-webkit-scrollbar-track {
   background: #000000;
 }
 
-html::-webkit-scrollbar-thumb,
-body::-webkit-scrollbar-thumb,
-*::-webkit-scrollbar-thumb {
+body.dark-theme:not(.light-theme)::-webkit-scrollbar-thumb,
+body.dark-theme:not(.light-theme) *::-webkit-scrollbar-thumb,
+html[data-commerza-theme="dark"]::-webkit-scrollbar-thumb,
+html[data-commerza-theme="dark"] *::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, #ff4500 0%, #ffcc00 100%);
   border-radius: 10px;
   box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2);
   cursor: grab;
 }
 
-html::-webkit-scrollbar-thumb:hover,
-body::-webkit-scrollbar-thumb:hover,
-*::-webkit-scrollbar-thumb:hover {
+body.dark-theme:not(.light-theme)::-webkit-scrollbar-thumb:hover,
+body.dark-theme:not(.light-theme) *::-webkit-scrollbar-thumb:hover,
+html[data-commerza-theme="dark"]::-webkit-scrollbar-thumb:hover,
+html[data-commerza-theme="dark"] *::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #ffcc00 0%, #ff4500 100%);
 }
 
@@ -263,6 +273,58 @@ main {
 
 .captcha-shell .g-recaptcha {
   transform-origin: top center;
+}
+
+.captcha-shell [data-commerza-fallback-toggle],
+.captcha-shell .commerza-captcha-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 165, 110, 0.35);
+  background: rgba(255, 122, 26, 0.08);
+  color: #ffd3ab;
+  font:
+    600 12px/1.35 Inter,
+    Arial,
+    sans-serif;
+  cursor: pointer;
+}
+
+.captcha-shell .commerza-captcha-fallback {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 168, 96, 0.35);
+  background: rgba(22, 22, 22, 0.74);
+}
+
+.captcha-shell .commerza-captcha-fallback-note {
+  color: #ffd8b6;
+  font-size: 12px;
+  line-height: 1.45;
+  margin-bottom: 8px;
+}
+
+.captcha-shell .commerza-captcha-question-label {
+  display: block;
+  color: #f3e7da;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.captcha-shell .commerza-captcha-question-help {
+  color: #d0d0d0;
+  font-size: 11px;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.captcha-shell .commerza-captcha-answer-input {
+  min-height: 42px;
 }
 
 @media (max-width: 420px) {

@@ -44,7 +44,7 @@ $logoUrl = $siteBaseUrl . '/frontend/assets/images/logo/commerza-logo.webp';
 	<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet" />
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
 	<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-		<link rel="stylesheet" href="frontend/assets/css/pages/privacy-policy-inline.css">
+	<link rel="stylesheet" href="frontend/assets/css/pages/privacy-policy-inline.css">
 	<script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
 		{
 			"@context": "https://schema.org",
@@ -214,8 +214,7 @@ $logoUrl = $siteBaseUrl . '/frontend/assets/images/logo/commerza-logo.webp';
 					<h3 class="accordion-header" id="privacyFaqOne">
 						<button class="accordion-button collapsed" type="button"
 							data-bs-toggle="collapse" data-bs-target="#privacyFaqPanelOne"
-							aria-expanded="false" aria-controls="privacyFaqPanelOne"
-							style="color: #ff6600 !important; background-color: #1a1a1a !important; border: 1px solid #ff6600;">
+							aria-expanded="false" aria-controls="privacyFaqPanelOne">
 							How can I request a data update?
 						</button>
 					</h3>
@@ -231,8 +230,7 @@ $logoUrl = $siteBaseUrl . '/frontend/assets/images/logo/commerza-logo.webp';
 					<h3 class="accordion-header" id="privacyFaqTwo">
 						<button class="accordion-button collapsed" type="button"
 							data-bs-toggle="collapse" data-bs-target="#privacyFaqPanelTwo"
-							aria-expanded="false" aria-controls="privacyFaqPanelTwo"
-							style="color: #ff6600 !important; background-color: #1a1a1a !important; border: 1px solid #ff6600;">
+							aria-expanded="false" aria-controls="privacyFaqPanelTwo">
 							How do I report a privacy or security concern?
 						</button>
 					</h3>

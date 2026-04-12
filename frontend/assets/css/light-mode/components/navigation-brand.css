@@ -25,21 +25,21 @@ body.dark-theme.light-theme .navbar-brand {
 
 body.dark-theme.light-theme .brand-text {
   background: linear-gradient(
-    118deg,
-    #ffffff 0%,
-    #dbeafe 28%,
-    #93c5fd 52%,
-    #3b82f6 76%,
-    #1e3a8a 100%
+    112deg,
+    #0f172a 0%,
+    #1e3a8a 26%,
+    #2563eb 52%,
+    #38bdf8 76%,
+    #1d4ed8 100%
   );
-  background-size: 260% auto;
+  background-size: 220% auto;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
   filter: none;
-  text-shadow: 0 3px 12px rgba(37, 82, 214, 0.2);
-  animation: commerza-brand-light-shift 5.5s ease-in-out infinite;
+  text-shadow: 0 2px 8px rgba(37, 82, 214, 0.14);
+  animation: commerza-brand-light-shift 4.8s ease-in-out infinite;
 }
 
 @keyframes commerza-brand-light-shift {
@@ -47,7 +47,7 @@ body.dark-theme.light-theme .brand-text {
     background-position: 0% 50%;
   }
 
-  50% {
+  45% {
     background-position: 100% 50%;
   }
 
@@ -126,20 +126,54 @@ body.dark-theme.light-theme .nav-icon-link.dropdown-toggle::after {
 }
 
 body.dark-theme.light-theme .navbar-nav .nav-link::before,
-body.dark-theme.light-theme .nav-link[aria-current="page"]::after,
 body.dark-theme.light-theme .footer-links a[aria-current="page"]::after {
   background: linear-gradient(
     90deg,
     var(--cmrz-light-navy),
     var(--cmrz-light-navy-bright)
   );
-  box-shadow: 0 0 8px rgba(30, 58, 138, 0.24);
+  box-shadow: 0 0 8px rgba(30, 58, 138, 0.24) !important;
+}
+
+body.dark-theme.light-theme .navbar-nav .nav-link[aria-current="page"]::before {
+  display: none !important;
+}
+
+body.dark-theme.light-theme .nav-link[aria-current="page"]::after {
+  background: linear-gradient(
+    90deg,
+    var(--cmrz-light-navy),
+    var(--cmrz-light-navy-bright)
+  ) !important;
+  box-shadow: 0 0 8px rgba(30, 58, 138, 0.24) !important;
+  animation: active-slide 0.35s ease forwards !important;
+  filter: none !important;
 }
 
 body.dark-theme.light-theme .nav-link[aria-current="page"],
 body.dark-theme.light-theme .footer-links a[aria-current="page"] {
   color: var(--cmrz-light-navy) !important;
-  text-shadow: none;
+  text-shadow: none !important;
+}
+
+body.dark-theme.light-theme
+  .navbar-nav
+  .nav-link.nav-icon-link[aria-current="page"],
+body.dark-theme.light-theme
+  .offcanvas
+  .nav-link.nav-icon-link[aria-current="page"] {
+  color: #ffffff !important;
+}
+
+body.dark-theme.light-theme
+  .navbar-nav
+  .nav-link.nav-icon-link[aria-current="page"]
+  i,
+body.dark-theme.light-theme
+  .offcanvas
+  .nav-link.nav-icon-link[aria-current="page"]
+  i {
+  color: #ffffff !important;
 }
 
 body.dark-theme.light-theme .search-form {

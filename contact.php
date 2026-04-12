@@ -330,7 +330,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <section class="page-hero mb-5">
       <div class="hero-content">
         <span class="hero-badge"><i class="bi bi-chat-dots"></i> Support</span>
-        <h1 class="mt-3" style="color: #ff6600">Contact Commerza</h1>
+        <h1 class="mt-3 contact-hero-title">Contact Commerza</h1>
         <p class="product-desc mt-2">We’re here to help with orders, products, and warranty questions.</p>
         <div class="hero-actions d-flex flex-wrap gap-2 mt-3">
           <a href="#contactForm" class="btn product-btn-buy">Contact Us</a>
@@ -367,7 +367,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <section class="mb-4" aria-label="Contact support steps">
       <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-        <h2 class="mb-0" style="color: #ff6600; font-size: 1.2rem;">Step-by-Step Contact Flow</h2>
+        <h2 class="mb-0 contact-flow-title">Step-by-Step Contact Flow</h2>
         <span class="step-chip">Follow these steps for faster support resolution.</span>
       </div>
       <div class="row g-3">
@@ -415,7 +415,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </section>
 
     <div class="text-center mb-5">
-      <h1 style="color: #ff6600">Contact Us</h1>
+      <h1 class="contact-form-title">Contact Us</h1>
       <p class="product-desc mt-3">
         Have questions or need help? We’d love to hear from you.
       </p>

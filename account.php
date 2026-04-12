@@ -1726,7 +1726,7 @@ if (is_array($accountDeletePending)) {
       </ol>
     </nav>
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-      <h1 class="mb-0" style="color: #ff6600; user-select: none">My Account</h1>
+      <h1 class="mb-0 account-page-title" style="user-select: none">My Account</h1>
       <button type="button" class="btn btn-outline-warning d-inline-flex align-items-center gap-2"
         data-theme-toggle="account-page" data-theme-origin="center">
         <i class="bi" data-theme-icon></i>
@@ -2150,7 +2150,7 @@ if (is_array($accountDeletePending)) {
             <div id="my-orders-container">
               <?php if (empty($orders)): ?>
                 <div class="text-center py-5">
-                  <i class="bi bi-bag-x" style="font-size: 3rem; color: #ff6600;"></i>
+                  <i class="bi bi-bag-x account-empty-icon" style="font-size: 3rem;"></i>
                   <h3 class="text-white mt-3">No Orders Yet</h3>
                   <p class="text-secondary">You haven't placed any orders. Start shopping now!</p>
                   <a href="index.php" class="btn product-btn-buy mt-3">Start Shopping</a>
