@@ -111,6 +111,17 @@ body.dark-theme.light-theme .nav-icon-link[aria-current="page"] {
   transform: translateY(-2px);
 }
 
+body.dark-theme.light-theme
+  .navbar-nav
+  .nav-link.nav-icon-link[aria-current="page"] {
+  width: 42px !important;
+  height: 42px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+}
+
 body.dark-theme.light-theme .navbar-nav .nav-link:hover,
 body.dark-theme.light-theme .navbar-nav .nav-link:focus-visible,
 body.dark-theme.light-theme .offcanvas .nav-link:hover,
@@ -148,6 +159,12 @@ body.dark-theme.light-theme .nav-link[aria-current="page"]::after {
   box-shadow: 0 0 8px rgba(30, 58, 138, 0.24) !important;
   animation: active-slide 0.35s ease forwards !important;
   filter: none !important;
+}
+
+body.dark-theme.light-theme
+  .nav-link.nav-icon-link[aria-current="page"]::after {
+  display: none !important;
+  content: none !important;
 }
 
 body.dark-theme.light-theme .nav-link[aria-current="page"],
@@ -228,6 +245,34 @@ body.dark-theme.light-theme .offcanvas-action-btn {
 body.dark-theme.light-theme .offcanvas-action-btn:hover {
   border-color: var(--cmrz-light-border-strong);
   box-shadow: 0 12px 20px var(--cmrz-light-shadow);
+}
+
+body.dark-theme.light-theme .offcanvas-action-btn[aria-current="page"] {
+  background: linear-gradient(
+    130deg,
+    var(--cmrz-light-navy),
+    var(--cmrz-light-navy-bright)
+  ) !important;
+  border-color: rgba(30, 58, 138, 0.52) !important;
+  box-shadow: 0 12px 22px rgba(37, 82, 214, 0.24) !important;
+  color: #ffffff !important;
+  transform: none !important;
+}
+
+body.dark-theme.light-theme .offcanvas-action-btn[aria-current="page"] i,
+body.dark-theme.light-theme .offcanvas-action-btn[aria-current="page"] span {
+  color: #ffffff !important;
+}
+
+body.dark-theme.light-theme .offcanvas .nav-link[aria-current="page"] {
+  color: var(--cmrz-light-navy) !important;
+  background: rgba(37, 82, 214, 0.1) !important;
+  border-left-color: rgba(37, 82, 214, 0.5) !important;
+  text-shadow: none !important;
+}
+
+body.dark-theme.light-theme .offcanvas .nav-link[aria-current="page"]::after {
+  display: none !important;
 }
 
 body.dark-theme.light-theme .offcanvas-action-btn i {

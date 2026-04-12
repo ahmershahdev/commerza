@@ -2,9 +2,9 @@ body.dark-theme.light-theme .hero-block,
 body.dark-theme.light-theme .home-premium .hero-block {
   background:
     radial-gradient(circle at 0% 0%, rgba(37, 82, 214, 0.12), transparent 44%),
-    linear-gradient(145deg, #ffffff, #f8fafc);
-  border: 1px solid rgba(30, 58, 138, 0.18);
-  box-shadow: 0 24px 48px var(--cmrz-light-shadow);
+    linear-gradient(145deg, #ffffff, #f8fafc) !important;
+  border: 1px solid rgba(30, 58, 138, 0.18) !important;
+  box-shadow: 0 24px 48px var(--cmrz-light-shadow) !important;
 }
 
 body.dark-theme.light-theme .home-premium .hero-block::after {
@@ -12,8 +12,8 @@ body.dark-theme.light-theme .home-premium .hero-block::after {
     circle at top right,
     rgba(59, 130, 246, 0.14),
     transparent 58%
-  );
-  opacity: 1;
+  ) !important;
+  opacity: 1 !important;
 }
 
 body.dark-theme.light-theme .hero-kicker,
@@ -252,12 +252,13 @@ body.dark-theme.light-theme .hero-typing-shell {
 }
 
 body.dark-theme.light-theme .hero-typing-prefix {
-  color: #64748b;
+  color: var(--cmrz-light-navy-bright);
 }
 
 body.dark-theme.light-theme .hero-typing-text {
   color: var(--cmrz-light-navy);
   text-shadow: none;
+  animation: none;
 }
 
 body.dark-theme.light-theme .hero-typing-caret {

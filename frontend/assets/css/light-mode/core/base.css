@@ -90,6 +90,14 @@ body.dark-theme.light-theme .social-links a:hover {
   color: var(--cmrz-light-accent);
 }
 
+body.dark-theme.light-theme .footer-links a:hover {
+  text-shadow: none !important;
+}
+
+body.dark-theme.light-theme .social-links a:hover {
+  filter: drop-shadow(0 0 8px rgba(37, 82, 214, 0.28)) !important;
+}
+
 body.dark-theme.light-theme ::selection,
 body.dark-theme.light-theme ::-moz-selection,
 html[data-commerza-theme="light"]::selection,
@@ -115,8 +123,8 @@ html[data-commerza-theme="light"] *::-webkit-scrollbar-track {
 
 html[data-commerza-theme="light"]::-webkit-scrollbar,
 html[data-commerza-theme="light"] *::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
 }
 
 html[data-commerza-theme="light"],
@@ -131,6 +139,7 @@ html[data-commerza-theme="light"] *::-webkit-scrollbar-thumb {
     var(--cmrz-light-navy-bright) 0%,
     var(--cmrz-light-navy) 100%
   );
+  border-radius: 10px;
   cursor: grab;
   box-shadow: inset 0 0 6px rgba(30, 58, 138, 0.2);
 }

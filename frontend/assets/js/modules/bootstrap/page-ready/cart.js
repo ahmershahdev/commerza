@@ -841,10 +841,10 @@ function displayCartItems(changedProductId = null) {
   if (cart.length === 0) {
     container.html(`
                 <div class="text-center py-5">
-                    <i class="bi bi-cart-x" style="font-size: 4rem; color: #ff6600;"></i>
-                    <h2 class="text-white mt-3">Your Cart is Empty</h2>
+                    <i class="bi bi-cart-x cart-empty-icon"></i>
+                    <h2 class="text-white mt-3 cart-empty-title">Your Cart is Empty</h2>
                     <p class="text-secondary">Looks like you haven't added anything to your cart yet.</p>
-                    <a href="index.php" class="btn product-btn-buy mt-3 px-4 py-2">Continue Shopping</a>
+                    <a href="index.php" class="btn product-btn-buy mt-3 px-4 py-2 cart-empty-cta">Continue Shopping</a>
                 </div>
             `);
     updateSummary(0, 0);

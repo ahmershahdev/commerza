@@ -32,6 +32,19 @@ img {
   color: #e05e00;
 }
 
+.cart-empty-icon {
+  font-size: 4rem;
+  color: #ff6600;
+}
+
+.cart-empty-title {
+  color: #ffffff;
+}
+
+.cart-empty-cta {
+  color: #111111;
+}
+
 #serverAlert,
 #successAlert,
 #checkoutEmptyAlert {
