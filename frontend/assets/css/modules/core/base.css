@@ -52,7 +52,15 @@ html[data-commerza-theme="dark"]::-webkit-scrollbar-thumb:hover,
 html[data-commerza-theme="dark"] *::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #ffcc00 0%, #ff4500 100%);
 }
-
+ 
+ body.dark-theme.dark-theme::-webkit-scrollbar-thumb:active,
+  body.dark-theme.dark-theme *::-webkit-scrollbar-thumb:active,
+  html[data-commerza-theme="dark"]::-webkit-scrollbar-thumb:active,
+  html[data-commerza-theme="dark"] *::-webkit-scrollbar-thumb:active {
+    background: linear-gradient(180deg, #ffcc00 0%, #ff4500 100%);
+    cursor: grabbing;
+  }
+  
 html {
   scroll-behavior: smooth;
 }
