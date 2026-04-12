@@ -44,10 +44,18 @@
 }
 
 .navbar-logo {
-  height: 46px;
+  height: 52px;
   user-select: none;
   width: auto;
-  filter: drop-shadow(0 0 5px rgba(255, 69, 0, 0.5));
+  filter: brightness(1.24) contrast(1.12) saturate(1.08)
+    drop-shadow(0 0 9px rgba(255, 204, 0, 0.42))
+    drop-shadow(0 0 14px rgba(255, 96, 41, 0.28));
+}
+
+.navbar-logo[src$="commerza_logo.svg"] {
+  filter: brightness(1.32) contrast(1.16) saturate(1.1)
+    drop-shadow(0 0 10px rgba(255, 204, 0, 0.44))
+    drop-shadow(0 0 16px rgba(255, 96, 41, 0.3));
 }
 
 .navbar-nav .nav-link {
@@ -400,7 +408,7 @@
   }
 
   .navbar-logo {
-    height: 40px;
+    height: 44px;
   }
 
   .navbar-nav .nav-link {

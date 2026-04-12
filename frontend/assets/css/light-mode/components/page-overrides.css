@@ -105,6 +105,14 @@ body.dark-theme.light-theme .cart-empty-title {
   color: var(--cmrz-light-navy) !important;
 }
 
+body.dark-theme.light-theme .product-name,
+body.dark-theme.light-theme .product-desc,
+body.dark-theme.light-theme .cart-summary-title,
+body.dark-theme.light-theme .account-section-subtitle {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
 body.dark-theme.light-theme .about-stat-value {
   margin: 0;
 }

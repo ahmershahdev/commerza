@@ -12,9 +12,17 @@ body.dark-theme.light-theme .carousel-overlay {
 }
 
 body.dark-theme.light-theme .carousel-label {
-  color: var(--cmrz-light-navy);
-  background: rgba(37, 82, 214, 0.1);
-  border-color: rgba(30, 58, 138, 0.28);
+  color: #ffffff;
+  background: linear-gradient(
+    130deg,
+    rgba(30, 58, 138, 0.92),
+    rgba(37, 82, 214, 0.86)
+  );
+  border-color: rgba(219, 234, 254, 0.78);
+  text-shadow: 0 1px 6px rgba(15, 23, 42, 0.45);
+  box-shadow:
+    0 10px 22px rgba(30, 58, 138, 0.26),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.2);
 }
 
 body.dark-theme.light-theme .carousel-heading {

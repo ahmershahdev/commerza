@@ -68,8 +68,9 @@ body.dark-theme.light-theme .product-name {
 }
 
 body.dark-theme.light-theme h2 {
-  border-left-color: rgba(30, 58, 138, 0.36) !important;
-  box-shadow: -10px 0 18px -14px rgba(30, 58, 138, 0.32) !important;
+  border-left: 0 !important;
+  box-shadow: none !important;
+  padding-left: 0 !important;
 }
 
 body.dark-theme.light-theme a,
@@ -116,22 +117,30 @@ html[data-commerza-theme="light"] body *::-moz-selection {
   color: #ffffff !important;
 }
 
-html[data-commerza-theme="light"]::-webkit-scrollbar-track,
-html[data-commerza-theme="light"] *::-webkit-scrollbar-track {
-  background: #eef2f7;
-}
-
+body.dark-theme.light-theme::-webkit-scrollbar,
+body.dark-theme.light-theme *::-webkit-scrollbar,
 html[data-commerza-theme="light"]::-webkit-scrollbar,
 html[data-commerza-theme="light"] *::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
+body.dark-theme.light-theme::-webkit-scrollbar-track,
+body.dark-theme.light-theme *::-webkit-scrollbar-track,
+html[data-commerza-theme="light"]::-webkit-scrollbar-track,
+html[data-commerza-theme="light"] *::-webkit-scrollbar-track {
+  background: linear-gradient(180deg, #f8fbff 0%, #e9f0fb 100%);
+}
+
+body.dark-theme.light-theme,
+body.dark-theme.light-theme *,
 html[data-commerza-theme="light"],
 html[data-commerza-theme="light"] * {
-  scrollbar-color: #2552d6 #eef2f7;
+  scrollbar-color: #2552d6 #e9f0fb;
 }
 
+body.dark-theme.light-theme::-webkit-scrollbar-thumb,
+body.dark-theme.light-theme *::-webkit-scrollbar-thumb,
 html[data-commerza-theme="light"]::-webkit-scrollbar-thumb,
 html[data-commerza-theme="light"] *::-webkit-scrollbar-thumb {
   background: linear-gradient(
@@ -144,11 +153,15 @@ html[data-commerza-theme="light"] *::-webkit-scrollbar-thumb {
   box-shadow: inset 0 0 6px rgba(30, 58, 138, 0.2);
 }
 
+body.dark-theme.light-theme::-webkit-scrollbar-thumb:hover,
+body.dark-theme.light-theme *::-webkit-scrollbar-thumb:hover,
 html[data-commerza-theme="light"]::-webkit-scrollbar-thumb:hover,
 html[data-commerza-theme="light"] *::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #3b82f6 0%, var(--cmrz-light-navy) 100%);
 }
 
+body.dark-theme.light-theme::-webkit-scrollbar-thumb:active,
+body.dark-theme.light-theme *::-webkit-scrollbar-thumb:active,
 html[data-commerza-theme="light"]::-webkit-scrollbar-thumb:active,
 html[data-commerza-theme="light"] *::-webkit-scrollbar-thumb:active {
   background: linear-gradient(180deg, #1d4ed8 0%, #1e3a8a 100%);
