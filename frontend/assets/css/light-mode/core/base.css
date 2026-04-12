@@ -133,11 +133,13 @@ html[data-commerza-theme="light"] body *::-moz-selection {
     background: #000000;
   }
 
-  body.dark-theme.light-theme,
-  body.dark-theme.light-theme *,
-  html[data-commerza-theme="light"],
-  html[data-commerza-theme="light"] * {
-    scrollbar-color: #2552d6 #000000;
+  @media (hover: none) {
+    body.dark-theme.light-theme,
+    body.dark-theme.light-theme *,
+    html[data-commerza-theme="light"],
+    html[data-commerza-theme="light"] * {
+      scrollbar-color: #2552d6 #000000;
+    }
   }
 
   body.dark-theme.light-theme::-webkit-scrollbar-thumb,
