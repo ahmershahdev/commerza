@@ -1,8 +1,2 @@
-﻿@import url("modules/core/base.css");
-@import url("modules/layout/layout.css");
-@import url("modules/components/data-display/tables-dropdown-content.css");
-@import url("modules/components/interaction/forms-security-modals.css");
-@import url("modules/utilities/dashboard/workbench-overview.css");
-@import url("modules/utilities/support/upload-email-controls.css");
-@import url("modules/responsive/responsive.css");
+﻿@import url("modules/dark-mode/theme.css");
 @import url("modules/light-mode/theme.css");

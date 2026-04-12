@@ -1527,7 +1527,35 @@ function admin_session_validate(mysqli $con, int $adminId): bool
     $exists = $stmt->num_rows > 0;
     $stmt->close();
 
-    return $exists;
+    if (!$exists) {
+        return false;
+    }
+
+    $latestStmt = $con->prepare(
+        'SELECT token
+         FROM admin_sessions
+         WHERE admin_id = ?
+           AND expires_at >= NOW()
+         ORDER BY id DESC
+         LIMIT 1'
+    );
+
+    if (!$latestStmt) {
+        return false;
+    }
+
+    $latestStmt->bind_param('i', $adminId);
+    $latestStmt->execute();
+    $latestStmt->bind_result($latestToken);
+    $latestStmt->fetch();
+    $latestStmt->close();
+
+    $latestToken = trim((string)$latestToken);
+    if ($latestToken === '') {
+        return false;
+    }
+
+    return hash_equals($latestToken, $token);
 }
 
 function admin_session_touch(mysqli $con, int $adminId): void

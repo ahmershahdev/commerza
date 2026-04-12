@@ -66,6 +66,22 @@ body.dark-theme.light-theme .offcanvas-logo[src$="commerza_logo.svg"] {
   filter: brightness(0) saturate(100%) invert(22%) sepia(61%) saturate(1198%)
     hue-rotate(199deg) brightness(95%) contrast(96%)
     drop-shadow(0 3px 7px rgba(30, 58, 138, 0.22));
+  animation: commerzaLogoBlueGlow 2.8s ease-in-out infinite;
+}
+
+@keyframes commerzaLogoBlueGlow {
+  0%,
+  100% {
+    filter: brightness(0) saturate(100%) invert(22%) sepia(61%) saturate(1198%)
+      hue-rotate(199deg) brightness(95%) contrast(96%)
+      drop-shadow(0 3px 7px rgba(30, 58, 138, 0.22));
+  }
+
+  50% {
+    filter: brightness(0) saturate(100%) invert(22%) sepia(61%) saturate(1198%)
+      hue-rotate(199deg) brightness(100%) contrast(100%)
+      drop-shadow(0 0 16px rgba(56, 189, 248, 0.52));
+  }
 }
 
 body.dark-theme.light-theme .navbar-nav .nav-link,

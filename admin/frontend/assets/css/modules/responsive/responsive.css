@@ -185,7 +185,7 @@ body.sidebar-open .admin-backdrop {
 
 @media (max-width: 576px) {
   .navbar-logo {
-    height: 32px;
+    height: 42px;
   }
 
   .brand-text {

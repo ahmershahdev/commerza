@@ -44,7 +44,7 @@
 }
 
 .navbar-logo {
-  height: 40px;
+  height: 46px;
   user-select: none;
   width: auto;
   filter: drop-shadow(0 0 5px rgba(255, 69, 0, 0.5));
@@ -400,7 +400,7 @@
   }
 
   .navbar-logo {
-    height: 34px;
+    height: 40px;
   }
 
   .navbar-nav .nav-link {

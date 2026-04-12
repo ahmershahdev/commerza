@@ -169,8 +169,8 @@ function renderRefundRequests() {
     const row = document.createElement("tr");
     row.className = "border-bottom border-secondary";
     row.innerHTML = `
-      <td class="ps-4 py-3 text-light fw-semibold">${orderNumber}</td>
-      <td class="py-3 text-light">${customerName}</td>
+      <td class="ps-4 py-3 admin-order-cell-text fw-semibold">${orderNumber}</td>
+      <td class="py-3 admin-order-cell-text">${customerName}</td>
       <td class="py-3 text-secondary small">${requestedAt}</td>
       <td class="py-3"><span class="badge ${refundBadgeClass(status)} rounded-pill">${escapeHtml(statusLabel)}</span></td>
       <td class="py-3"><span class="badge ${paymentBadge.className} rounded-pill">${escapeHtml(paymentBadge.label)}</span></td>
@@ -271,10 +271,10 @@ function displayRecentOrders() {
     const row = document.createElement("tr");
     row.className = "border-bottom border-secondary";
     row.innerHTML = `
-        <td class="ps-4 py-3 fw-semibold text-light">${safeOrderId}</td>
-      <td class="py-3 text-light">${safeShortName}</td>
+        <td class="ps-4 py-3 fw-semibold admin-order-cell-text">${safeOrderId}</td>
+      <td class="py-3 admin-order-cell-text">${safeShortName}</td>
         <td class="py-3 text-secondary small">${safeOrderDate}</td>
-        <td class="py-3 text-light fw-semibold">PKR ${totalAmount.toLocaleString()}</td>
+        <td class="py-3 admin-order-cell-text fw-semibold">PKR ${totalAmount.toLocaleString()}</td>
             <td class="pe-4 py-3">
           <span class="badge ${statusColor} rounded-pill px-3 py-2">${safeStatus}</span>
             </td>
@@ -285,10 +285,10 @@ function displayRecentOrders() {
     const detailsRow = document.createElement("tr");
     detailsRow.id = "recentOrderDetails-" + idx;
     detailsRow.style.display = "none";
-    detailsRow.className = "bg-dark";
+    detailsRow.className = "admin-order-details-row";
     detailsRow.innerHTML = `
             <td colspan="5" class="py-3 px-4">
-                <div style="background-color: #2a2a2a; padding: 15px; border-radius: 6px;">
+          <div style="background-color: var(--admin-order-detail-surface, #2a2a2a); padding: 15px; border-radius: 6px; border: 1px solid var(--admin-order-item-border, #444);">
             <h6 class="text-orange mb-3 fw-bold">Products in Order</h6>
                     <div style="display: flex; flex-direction: column; gap: 10px;">
                         ${items
@@ -312,10 +312,10 @@ function displayRecentOrders() {
                               item.name || "Item",
                             );
                             return `
-                            <div style="background-color: #1a1a1a; padding: 12px; border-radius: 4px; border: 1px solid #444; display: flex; gap: 12px;">
-                                <img src="${imgSrc}" alt="${safeItemName}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; background-color: #333;" onerror="this.src='https://via.placeholder.com/50?text=No+Image';">
+                            <div style="background-color: var(--admin-order-item-surface, #1a1a1a); padding: 12px; border-radius: 4px; border: 1px solid var(--admin-order-item-border, #444); display: flex; gap: 12px;">
+                                <img src="${imgSrc}" alt="${safeItemName}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; background-color: var(--admin-order-item-image-bg, #333);" onerror="this.src='https://via.placeholder.com/50?text=No+Image';">
                                 <div style="flex: 1;">
-                                    <p class="text-light fw-semibold mb-1" style="font-size: 0.95rem;">${safeItemName}</p>
+                                    <p class="admin-order-cell-text fw-semibold mb-1" style="font-size: 0.95rem;">${safeItemName}</p>
                                   <p class="text-secondary mb-0" style="font-size: 0.85rem;">Price: <strong class="text-orange">PKR ${price.toLocaleString()}</strong> x <strong>${qty}</strong> = <strong class="text-orange">PKR ${lineTotal.toLocaleString()}</strong></p>
                                 </div>
                             </div>
@@ -390,10 +390,10 @@ function displayAllOrders() {
             <td class="ps-4 py-3" onclick="event.stopPropagation();">
           <input type="checkbox" class="form-check-input order-select-row" value="${encodedOrderId}">
             </td>
-            <td class="ps-4 py-3 fw-semibold text-light">${safeOrderId}</td>
-            <td class="py-3 text-light">${safeCustomerName}</td>
+            <td class="ps-4 py-3 fw-semibold admin-order-cell-text">${safeOrderId}</td>
+            <td class="py-3 admin-order-cell-text">${safeCustomerName}</td>
             <td class="py-3 text-secondary small">${safeDate}</td>
-            <td class="py-3 text-light fw-semibold">${formatPkr(totalAmount)}</td>
+            <td class="py-3 admin-order-cell-text fw-semibold">${formatPkr(totalAmount)}</td>
             <td class="py-3"><span class="badge ${paymentBadge.className} rounded-pill">${escapeHtml(paymentBadge.label)}</span></td>
             <td class="py-3"><span class="badge ${statusClass(statusValue)} rounded-pill">${escapeHtml(statusValue)}</span></td>
             <td class="pe-4 py-3">
@@ -407,26 +407,26 @@ function displayAllOrders() {
     const detailsRow = document.createElement("tr");
     detailsRow.id = "orderDetails-" + idx;
     detailsRow.style.display = "none";
-    detailsRow.className = "bg-dark";
+    detailsRow.className = "admin-order-details-row";
     detailsRow.innerHTML = `
             <td colspan="8" class="py-3 px-4">
-                <div style="background-color: #2a2a2a; padding: 20px; border-radius: 6px;">
+          <div style="background-color: var(--admin-order-detail-surface, #2a2a2a); padding: 20px; border-radius: 6px; border: 1px solid var(--admin-order-item-border, #444);">
                     <div class="row mb-3">
                         <div class="col-md-6">
                       <h6 class="text-orange mb-3 fw-bold">Customer Details</h6>
-                            <p class="text-secondary mb-1"><strong class="text-light">Name:</strong> ${safeCustomerName}</p>
-                            <p class="text-secondary mb-1"><strong class="text-light">Email:</strong> ${safeEmail}</p>
-                            <p class="text-secondary mb-1"><strong class="text-light">Phone:</strong> ${safePhone}</p>
-                            <p class="text-secondary"><strong class="text-light">Address:</strong> ${safeAddress}</p>
+                            <p class="text-secondary mb-1"><strong class="admin-order-cell-text">Name:</strong> ${safeCustomerName}</p>
+                            <p class="text-secondary mb-1"><strong class="admin-order-cell-text">Email:</strong> ${safeEmail}</p>
+                            <p class="text-secondary mb-1"><strong class="admin-order-cell-text">Phone:</strong> ${safePhone}</p>
+                            <p class="text-secondary"><strong class="admin-order-cell-text">Address:</strong> ${safeAddress}</p>
                         </div>
                         <div class="col-md-6">
                       <h6 class="text-orange mb-3 fw-bold">Order Summary</h6>
-                            <p class="text-secondary mb-1"><strong class="text-light">Subtotal:</strong> ${formatPkr(order.subtotal || 0)}</p>
-                            <p class="text-secondary mb-1"><strong class="text-light">Shipping:</strong> ${formatPkr(order.shipping || 0)}</p>
-                            <p class="text-secondary mb-1"><strong class="text-light">Discount:</strong> ${Number(order.discount || 0) > 0 ? `- ${formatPkr(order.discount || 0)}` : formatPkr(0)}${order.couponCode ? ` <span class="badge bg-dark border border-secondary ms-1">${escapeHtml(order.couponCode)}</span>` : ""}</p>
-                            <p class="text-secondary mb-1"><strong class="text-light">Delivery Estimate:</strong> ${safeDeliveryEstimate || "Not set"}</p>
-                            <p class="text-secondary mb-1"><strong class="text-light">Customer Note:</strong> ${safeUserNote || "-"}</p>
-                            <p class="text-secondary mb-1"><strong class="text-light">Admin Note:</strong> ${safeAdminNote || "-"}</p>
+                            <p class="text-secondary mb-1"><strong class="admin-order-cell-text">Subtotal:</strong> ${formatPkr(order.subtotal || 0)}</p>
+                            <p class="text-secondary mb-1"><strong class="admin-order-cell-text">Shipping:</strong> ${formatPkr(order.shipping || 0)}</p>
+                            <p class="text-secondary mb-1"><strong class="admin-order-cell-text">Discount:</strong> ${Number(order.discount || 0) > 0 ? `- ${formatPkr(order.discount || 0)}` : formatPkr(0)}${order.couponCode ? ` <span class="badge admin-order-coupon-badge border border-secondary ms-1">${escapeHtml(order.couponCode)}</span>` : ""}</p>
+                            <p class="text-secondary mb-1"><strong class="admin-order-cell-text">Delivery Estimate:</strong> ${safeDeliveryEstimate || "Not set"}</p>
+                            <p class="text-secondary mb-1"><strong class="admin-order-cell-text">Customer Note:</strong> ${safeUserNote || "-"}</p>
+                            <p class="text-secondary mb-1"><strong class="admin-order-cell-text">Admin Note:</strong> ${safeAdminNote || "-"}</p>
                             <p class="text-orange fw-bold"><strong>Total:</strong> ${formatPkr(order.total || 0)}</p>
                             <div style="margin-top: 15px;">
                         <h6 class="text-orange mb-2 fw-bold">Change Status</h6>
@@ -442,7 +442,7 @@ function displayAllOrders() {
                             </div>
                         </div>
                     </div>
-                    <hr style="border-color: #444;">
+                    <hr style="border-color: var(--admin-order-divider, #444);">
                       <h6 class="text-orange mb-3 fw-bold">Products in Order</h6>
                     <div style="display: flex; flex-direction: column; gap: 12px;">
                         ${items
@@ -463,10 +463,10 @@ function displayAllOrders() {
                                 "https://via.placeholder.com/60?text=No+Image",
                             );
                             return `
-                              <div style="background-color: #1a1a1a; padding: 12px; border-radius: 4px; border: 1px solid #444; display: flex; gap: 12px;">
-                                <img src="${imgSrc}" alt="${escapeHtml(item.name || "Item")}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; background-color: #333;" onerror="this.src='https://via.placeholder.com/60?text=No+Image';">
+                              <div style="background-color: var(--admin-order-item-surface, #1a1a1a); padding: 12px; border-radius: 4px; border: 1px solid var(--admin-order-item-border, #444); display: flex; gap: 12px;">
+                                <img src="${imgSrc}" alt="${escapeHtml(item.name || "Item")}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; background-color: var(--admin-order-item-image-bg, #333);" onerror="this.src='https://via.placeholder.com/60?text=No+Image';">
                                 <div style="flex: 1;">
-                                  <p class="text-light fw-semibold mb-1" style="font-size: 0.95rem;">${escapeHtml(item.name || "Item")}</p>
+                                  <p class="admin-order-cell-text fw-semibold mb-1" style="font-size: 0.95rem;">${escapeHtml(item.name || "Item")}</p>
                                   <p class="text-secondary mb-0" style="font-size: 0.9rem;"><strong>Unit Price:</strong> ${formatPkr(price)} | <strong>Quantity:</strong> ${qty} | <strong class="text-orange">Total: ${formatPkr(lineTotal)}</strong></p>
                                 </div>
                               </div>
@@ -480,4 +480,3 @@ function displayAllOrders() {
     tbody.appendChild(detailsRow);
   });
 }
-

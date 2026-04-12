@@ -72,6 +72,20 @@
   color: #b9b0a8 !important;
 }
 
+.admin-order-details-row > td {
+  background: rgba(10, 10, 14, 0.96);
+}
+
+.admin-order-cell-text {
+  color: #f3eee8 !important;
+}
+
+.admin-order-coupon-badge {
+  background: #1a1a1a;
+  color: #f2e6d8;
+  border-color: rgba(255, 153, 92, 0.3) !important;
+}
+
 .tab-pane .table .btn-sm {
   border-radius: 9px;
 }
@@ -223,4 +237,3 @@
 .dropdown-divider {
   border-color: rgba(255, 69, 0, 0.2) !important;
 }
-

@@ -890,6 +890,19 @@ function commerza_captcha_script_tag(mysqli $con): string
         }
     }
 
+    function ensureFallbackVisible(container) {
+        if (!container) {
+            return;
+        }
+
+        var shell = container.querySelector('.commerza-captcha-fallback');
+        if (!shell) {
+            return;
+        }
+
+        shell.style.display = 'block';
+    }
+
     function showFallbackEverywhere(message) {
         eachCaptchaContainer(function (container) {
             showFallback(container, message);
@@ -1155,6 +1168,7 @@ function commerza_captcha_script_tag(mysqli $con): string
         eachCaptchaContainer(function (container) {
             bindFallbackToggle(container);
             hardenFallbackInput(container);
+            ensureFallbackVisible(container);
 
             var form = container.closest('form');
             if (!form || form.dataset.commerzaCaptchaSubmitBound === '1') {

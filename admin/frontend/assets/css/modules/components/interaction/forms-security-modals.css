@@ -176,6 +176,11 @@ img {
   transform-origin: top center;
 }
 
+.captcha-shell .captcha-widget[data-commerza-v2-slot="1"] {
+  width: 100%;
+  min-height: 78px;
+}
+
 .captcha-shell [data-commerza-fallback-toggle],
 .captcha-shell .commerza-captcha-toggle {
   display: inline-flex;
@@ -195,6 +200,8 @@ img {
 }
 
 .captcha-shell .commerza-captcha-fallback {
+  display: block;
+  width: 100%;
   margin-top: 10px;
   padding: 10px;
   border-radius: 12px;

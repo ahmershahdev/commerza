@@ -8,6 +8,11 @@ body.dark-theme.light-theme {
   --admin-accent-2: #3b82f6;
   --admin-text: #1e293b;
   --admin-muted: #64748b;
+  --admin-order-detail-surface: #f3f7ff;
+  --admin-order-item-surface: #ffffff;
+  --admin-order-item-border: rgba(30, 58, 138, 0.2);
+  --admin-order-item-image-bg: #e8f0ff;
+  --admin-order-divider: rgba(30, 58, 138, 0.25);
   background:
     radial-gradient(circle at top, rgba(96, 165, 250, 0.2), transparent 45%),
     linear-gradient(165deg, #f6f9ff 0%, #edf3ff 55%, #f8fbff 100%);
@@ -30,6 +35,22 @@ body.dark-theme.light-theme .navbar-logo[src$="commerza_logo.svg"] {
   filter: brightness(0) saturate(100%) invert(20%) sepia(54%) saturate(1252%)
     hue-rotate(204deg) brightness(92%) contrast(93%)
     drop-shadow(0 3px 8px rgba(37, 82, 214, 0.24));
+  animation: adminLogoLightGlow 2.8s ease-in-out infinite;
+}
+
+@keyframes adminLogoLightGlow {
+  0%,
+  100% {
+    filter: brightness(0) saturate(100%) invert(20%) sepia(54%) saturate(1252%)
+      hue-rotate(204deg) brightness(92%) contrast(93%)
+      drop-shadow(0 3px 8px rgba(37, 82, 214, 0.24));
+  }
+
+  50% {
+    filter: brightness(0) saturate(100%) invert(20%) sepia(54%) saturate(1252%)
+      hue-rotate(204deg) brightness(98%) contrast(98%)
+      drop-shadow(0 0 16px rgba(56, 189, 248, 0.55));
+  }
 }
 
 body.dark-theme.light-theme .admin-sidebar {
@@ -125,6 +146,47 @@ body.dark-theme.light-theme .field-hint {
   color: #64748b !important;
 }
 
+body.dark-theme.light-theme .action-tile p,
+body.dark-theme.light-theme .dashboard-spotlight-kicker,
+body.dark-theme.light-theme .dashboard-spotlight-strips span,
+body.dark-theme.light-theme .step-chip,
+body.dark-theme.light-theme .tab-playbook-intro,
+body.dark-theme.light-theme .tab-playbook-note,
+body.dark-theme.light-theme .tab-playbook-list li {
+  color: #475569 !important;
+}
+
+body.dark-theme.light-theme .action-icon {
+  background: rgba(37, 82, 214, 0.12) !important;
+  color: #1e3a8a !important;
+  border: 1px solid rgba(37, 82, 214, 0.26);
+}
+
+body.dark-theme.light-theme .dashboard-spotlight-kicker {
+  color: #1e3a8a !important;
+}
+
+body.dark-theme.light-theme .dashboard-spotlight-strips span {
+  border-color: rgba(37, 82, 214, 0.28) !important;
+  background: rgba(219, 234, 254, 0.56) !important;
+}
+
+body.dark-theme.light-theme .step-chip {
+  background: rgba(219, 234, 254, 0.58) !important;
+  border-color: rgba(37, 82, 214, 0.32) !important;
+  color: #1e3a8a !important;
+}
+
+body.dark-theme.light-theme .tab-playbook-list li {
+  border-color: rgba(30, 58, 138, 0.2) !important;
+  background: rgba(255, 255, 255, 0.86) !important;
+}
+
+body.dark-theme.light-theme .tab-playbook-list li::before {
+  background: linear-gradient(135deg, #1e3a8a, #60a5fa) !important;
+  color: #ffffff !important;
+}
+
 body.dark-theme.light-theme .card-header,
 body.dark-theme.light-theme .review-workbench-card .card-header {
   background: linear-gradient(150deg, #f8fbff, #edf3ff) !important;
@@ -158,6 +220,34 @@ body.dark-theme.light-theme .tab-pane .table-responsive {
   color: var(--admin-text) !important;
 }
 
+body.dark-theme.light-theme .table.table-dark {
+  --bs-table-bg: #ffffff !important;
+  --bs-table-color: #334155 !important;
+  --bs-table-border-color: rgba(30, 58, 138, 0.18) !important;
+  --bs-table-striped-bg: #f8fbff !important;
+  --bs-table-striped-color: #334155 !important;
+  --bs-table-hover-bg: rgba(59, 130, 246, 0.08) !important;
+  --bs-table-hover-color: #1e3a8a !important;
+  --bs-table-active-bg: rgba(59, 130, 246, 0.12) !important;
+  --bs-table-active-color: #1e3a8a !important;
+}
+
+body.dark-theme.light-theme .table.table-dark > :not(caption) > * > * {
+  background-color: var(--bs-table-bg) !important;
+  color: var(--bs-table-color) !important;
+  border-color: var(--bs-table-border-color) !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme.light-theme .table.table-dark > tbody > tr:nth-child(even) > * {
+  background-color: #f8fbff !important;
+}
+
+body.dark-theme.light-theme .table.table-dark > tbody > tr:hover > * {
+  background-color: rgba(59, 130, 246, 0.08) !important;
+  color: #1e3a8a !important;
+}
+
 body.dark-theme.light-theme .table-dark thead th,
 body.dark-theme.light-theme .tab-pane .table thead th {
   background: #edf3ff !important;
@@ -173,6 +263,25 @@ body.dark-theme.light-theme .tab-pane .table tbody td .small {
   border-color: rgba(30, 58, 138, 0.15) !important;
 }
 
+body.dark-theme.light-theme
+  .table.table-dark
+  > tbody
+  > tr.admin-order-details-row
+  > td {
+  background: #f3f7ff !important;
+  border-color: rgba(30, 58, 138, 0.18) !important;
+}
+
+body.dark-theme.light-theme .admin-order-cell-text {
+  color: #1e3a8a !important;
+}
+
+body.dark-theme.light-theme .admin-order-coupon-badge {
+  background: #e8f0ff !important;
+  color: #1e3a8a !important;
+  border-color: rgba(30, 58, 138, 0.28) !important;
+}
+
 body.dark-theme.light-theme .tab-pane .table tbody tr:nth-child(even) {
   background: #f8fbff;
 }
@@ -181,6 +290,25 @@ body.dark-theme.light-theme .tab-pane .table tbody tr:hover,
 body.dark-theme.light-theme .table-hover tbody tr:hover {
   background: rgba(59, 130, 246, 0.08) !important;
   box-shadow: inset 3px 0 0 rgba(37, 82, 214, 0.42);
+}
+
+body.dark-theme.light-theme .table .btn-outline-light {
+  border-color: rgba(30, 58, 138, 0.36) !important;
+  color: #1e3a8a !important;
+  background: #ffffff !important;
+}
+
+body.dark-theme.light-theme .table .btn-outline-light:hover,
+body.dark-theme.light-theme .table .btn-outline-light:focus {
+  border-color: rgba(37, 82, 214, 0.45) !important;
+  color: #1d4ed8 !important;
+  background: rgba(37, 82, 214, 0.1) !important;
+}
+
+body.dark-theme.light-theme .table .badge.bg-dark {
+  background: #e8f0ff !important;
+  color: #1e3a8a !important;
+  border-color: rgba(30, 58, 138, 0.28) !important;
 }
 
 body.dark-theme.light-theme .btn-orange {
