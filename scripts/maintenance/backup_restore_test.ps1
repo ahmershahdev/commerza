@@ -175,8 +175,7 @@ $restoreDb = ("${DbName}_restore_test_$timestamp" -replace '[^A-Za-z0-9_]', '_')
 $mediaTargets = @(
     'frontend/assets/images',
     'frontend/assets/videos',
-    'admin/frontend/assets/images',
-    'admin/frontend/assets/videos'
+    'admin/frontend/assets/images'
 )
 
 $backupManifest = @()

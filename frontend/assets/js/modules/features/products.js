@@ -107,6 +107,13 @@ function productsResolveBasePath() {
   return normalizeBase(window.location.pathname) || "/";
 }
 
+function productsResolveApiUrl(path) {
+  const basePath = productsResolveBasePath();
+  const normalizedBase = basePath.endsWith("/") ? basePath : `${basePath}/`;
+  const normalizedPath = (path || "").toString().replace(/^\/+/, "");
+  return `${normalizedBase}${normalizedPath}`;
+}
+
 function productsBuildDetailPath(product) {
   const slug = productsResolveSlug(product);
   if (!slug) {
@@ -222,11 +229,14 @@ function fetchProductsPayload() {
     return commerzaProductsPayloadPromise;
   }
 
-  commerzaProductsPayloadPromise = fetch("backend/api/products_api.php", {
-    method: "GET",
-    credentials: "same-origin",
-    cache: "no-store",
-  })
+  commerzaProductsPayloadPromise = fetch(
+    productsResolveApiUrl("backend/api/products_api.php"),
+    {
+      method: "GET",
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  )
     .then((response) => {
       if (!response.ok) {
         throw new Error("Unable to load products.");
@@ -371,10 +381,8 @@ function createProductCard(product) {
               ${ratingMarkup}
             <p class="card-text product-desc">${safeDescription}</p>
                     <div class="mb-3">
-                        <span class="original-price"
-                            style="text-decoration: line-through; color: #b0b0b0;">${originalPrice} PKR</span>
-                        <span class="sale-price"
-                            style="color: #ff6600; font-weight: bold; margin-left: 5px;">${salePrice} PKR</span>
+                      <span class="original-price">${originalPrice} PKR</span>
+                      <span class="sale-price">${salePrice} PKR</span>
                     </div>
                     <div class="d-flex gap-2">
                   <a href="#" class="btn product-btn-buy product-btn-cart flex-fill text-center justify-content-center align-items-center" data-product-id="${safeProductId}" data-product-name="${safeName}" data-product-code="${safeProductCode}" data-product-image="${safeImage}" data-product-price="${safePriceValue}" data-product-sale-price="${safeSalePriceValue}">Buy Now</a>

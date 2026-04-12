@@ -650,6 +650,32 @@ function commerza_html_meta_normalize(string $buffer): string
         }, $buffer, 1) ?? $buffer;
     }
 
+    if (stripos($buffer, 'id="commerzaLightThemeStylesheet"') === false) {
+        $lightThemeHref = htmlspecialchars(
+            rtrim(commerza_public_base_url(), '/') . '/frontend/assets/css/light-mode/theme.css?v=20260412-7',
+            ENT_QUOTES,
+            'UTF-8'
+        );
+        $lightThemeTag = '<link id="commerzaLightThemeStylesheet" rel="stylesheet" href="' . $lightThemeHref . '">';
+        $buffer = preg_replace('/<\/head>/i', "\n  {$lightThemeTag}\n</head>", $buffer, 1) ?? $buffer;
+    }
+
+    if (stripos($buffer, 'id="commerzaThemeBoot"') === false) {
+        $themeBootScript = '<script ' . commerza_csp_nonce_attr() . ' id="commerzaThemeBoot">(function(){try{var stored=localStorage.getItem("commerza_theme");var theme=stored==="light"?"light":"dark";var root=document.documentElement;root.setAttribute("data-commerza-theme",theme);root.setAttribute("data-bs-theme",theme);}catch(_error){var root=document.documentElement;root.setAttribute("data-commerza-theme","dark");root.setAttribute("data-bs-theme","dark");}})();</script>';
+        $buffer = preg_replace('/<\/head>/i', "\n  {$themeBootScript}\n</head>", $buffer, 1) ?? $buffer;
+    }
+
+    if (stripos($buffer, 'id="commerzaThemeRuntime"') === false) {
+        $themeRuntimeSrc = htmlspecialchars(rtrim(commerza_public_base_url(), '/') . '/frontend/assets/js/modules/core/theme-manager.js?v=20260412', ENT_QUOTES, 'UTF-8');
+        $themeRuntimeScript = '<script ' . commerza_csp_nonce_attr() . ' id="commerzaThemeRuntime" src="' . $themeRuntimeSrc . '" defer></script>';
+
+        if (stripos($buffer, '</body>') !== false) {
+            $buffer = preg_replace('/<\/body>/i', "\n  {$themeRuntimeScript}\n</body>", $buffer, 1) ?? $buffer;
+        } else {
+            $buffer = preg_replace('/<\/head>/i', "\n  {$themeRuntimeScript}\n</head>", $buffer, 1) ?? $buffer;
+        }
+    }
+
     $manualStyles = commerza_frontend_manual_stylesheet_links_html();
     $buffer = preg_replace_callback(
         '/<link\b[^>]*\brel\s*=\s*(["\'])stylesheet\1[^>]*\bhref\s*=\s*(["\'])([^"\']+)\2[^>]*>/i',

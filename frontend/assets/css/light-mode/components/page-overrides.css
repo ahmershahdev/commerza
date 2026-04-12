@@ -1,0 +1,447 @@
+/* Page-level light-mode overrides for dark/orange inline page styles */
+body.dark-theme.light-theme .product-info-strip,
+body.dark-theme.light-theme .product-info-item,
+body.dark-theme.light-theme .share-panel,
+body.dark-theme.light-theme .review-card,
+body.dark-theme.light-theme .review-form-card,
+body.dark-theme.light-theme .upload-progress-shell,
+body.dark-theme.light-theme .detail-highlight-item,
+body.dark-theme.light-theme .account-personal-form .account-field,
+body.dark-theme.light-theme .account-recovery-shell,
+body.dark-theme.light-theme .wishlist-shell,
+body.dark-theme.light-theme .wishlist-playbook,
+body.dark-theme.light-theme .wishlist-decision-item,
+body.dark-theme.light-theme .wishlist-guide-card,
+body.dark-theme.light-theme .wishlist-precaution-panel,
+body.dark-theme.light-theme .compare-shell,
+body.dark-theme.light-theme .compare-product-card,
+body.dark-theme.light-theme .compare-table-wrap,
+body.dark-theme.light-theme .tracking-shell,
+body.dark-theme.light-theme .tracking-form-card,
+body.dark-theme.light-theme .tracking-panel,
+body.dark-theme.light-theme .tip-card,
+body.dark-theme.light-theme .order-guide-card,
+body.dark-theme.light-theme .order-precaution-panel,
+body.dark-theme.light-theme .contact-touch-item,
+body.dark-theme.light-theme .contact-step-card,
+body.dark-theme.light-theme .contact-precaution-panel,
+body.dark-theme.light-theme .cart-summary-card,
+body.dark-theme.light-theme .checkout-guide-card,
+body.dark-theme.light-theme .checkout-precaution-panel,
+body.dark-theme.light-theme .cart-list-panel .product-card,
+body.dark-theme.light-theme .series-pulse-board,
+body.dark-theme.light-theme .series-pulse-chip,
+body.dark-theme.light-theme .about-story-card,
+body.dark-theme.light-theme .about-highlight-card,
+body.dark-theme.light-theme .about-app-launch,
+body.dark-theme.light-theme .about-app-col,
+body.dark-theme.light-theme .store-chip,
+body.dark-theme.light-theme .compare-matrix thead th,
+body.dark-theme.light-theme .compare-matrix .feature-col,
+body.dark-theme.light-theme #checkoutModal .modal-content,
+body.dark-theme.light-theme #checkoutModal .payment-dropdown-menu,
+body.dark-theme.light-theme .contact-dropdown-menu,
+body.dark-theme.light-theme .account-visibility-dropdown .dropdown-menu {
+  background: linear-gradient(160deg, #ffffff, #f8fafc) !important;
+  border: 1px solid rgba(30, 58, 138, 0.22) !important;
+  box-shadow: 0 14px 28px var(--cmrz-light-shadow) !important;
+  color: var(--cmrz-light-text) !important;
+}
+
+body.dark-theme.light-theme .product-section-title,
+body.dark-theme.light-theme .product-info-item h3,
+body.dark-theme.light-theme .tracking-title,
+body.dark-theme.light-theme .tracking-step h5,
+body.dark-theme.light-theme .compare-product-name,
+body.dark-theme.light-theme .wishlist-decision-item .value,
+body.dark-theme.light-theme .wishlist-guide-card h3,
+body.dark-theme.light-theme .order-guide-card h3,
+body.dark-theme.light-theme .contact-step-card h3,
+body.dark-theme.light-theme .checkout-guide-card h3,
+body.dark-theme.light-theme .about-highlight-card h3,
+body.dark-theme.light-theme .store-chip strong,
+body.dark-theme.light-theme .about-app-col h3,
+body.dark-theme.light-theme .detail-highlight-value {
+  color: var(--cmrz-light-navy) !important;
+}
+
+body.dark-theme.light-theme .share-description,
+body.dark-theme.light-theme .product-info-item p,
+body.dark-theme.light-theme .tracking-subtitle,
+body.dark-theme.light-theme .tracking-step p,
+body.dark-theme.light-theme .tracking-step,
+body.dark-theme.light-theme .tip-card,
+body.dark-theme.light-theme .compare-meta,
+body.dark-theme.light-theme .order-guide-card p,
+body.dark-theme.light-theme .contact-step-card p,
+body.dark-theme.light-theme .wishlist-playbook-list li,
+body.dark-theme.light-theme .wishlist-meta,
+body.dark-theme.light-theme .wishlist-guide-card p,
+body.dark-theme.light-theme .wishlist-precaution-list li,
+body.dark-theme.light-theme .contact-touch-meta-value,
+body.dark-theme.light-theme .contact-touch-note,
+body.dark-theme.light-theme .checkout-guide-card p,
+body.dark-theme.light-theme .checkout-precaution-list li,
+body.dark-theme.light-theme .about-story-step,
+body.dark-theme.light-theme .about-app-list li,
+body.dark-theme.light-theme .store-chip small,
+body.dark-theme.light-theme .series-pulse-chip p,
+body.dark-theme.light-theme .detail-highlight-title,
+body.dark-theme.light-theme .account-section-subtitle,
+body.dark-theme.light-theme .account-personal-form .account-help,
+body.dark-theme.light-theme .account-recovery-shell .recovery-help,
+body.dark-theme.light-theme .review-file-selection,
+body.dark-theme.light-theme .upload-progress-shell [data-upload-stage],
+body.dark-theme.light-theme .review-rating-label,
+body.dark-theme.light-theme .step-chip {
+  color: #475569 !important;
+}
+
+body.dark-theme.light-theme .assurance-chip,
+body.dark-theme.light-theme .profile-visibility-pill,
+body.dark-theme.light-theme .tracking-kicker,
+body.dark-theme.light-theme .order-step-pill,
+body.dark-theme.light-theme .contact-step-pill,
+body.dark-theme.light-theme .wishlist-step-pill,
+body.dark-theme.light-theme .checkout-guide-step,
+body.dark-theme.light-theme .compare-summary-chip,
+body.dark-theme.light-theme .compare-badge,
+body.dark-theme.light-theme .wishlist-detail-chip,
+body.dark-theme.light-theme .series-pulse-chip .chip-kicker,
+body.dark-theme.light-theme .series-pulse-chip strong,
+body.dark-theme.light-theme .about-step-dot,
+body.dark-theme.light-theme .username-lock-label {
+  border: 1px solid rgba(30, 58, 138, 0.3) !important;
+  background: rgba(37, 82, 214, 0.1) !important;
+  color: var(--cmrz-light-navy) !important;
+}
+
+body.dark-theme.light-theme .compare-badge.good,
+body.dark-theme.light-theme .compare-cell-highlight,
+body.dark-theme.light-theme #checkoutModal .checkout-payment-tag,
+body.dark-theme.light-theme #checkoutModal #codOtpHint {
+  border: 1px solid rgba(37, 82, 214, 0.34) !important;
+  background: rgba(37, 82, 214, 0.12) !important;
+  color: #1d4ed8 !important;
+}
+
+body.dark-theme.light-theme .product-info-item i,
+body.dark-theme.light-theme .detail-highlight-item i,
+body.dark-theme.light-theme .assurance-chip i,
+body.dark-theme.light-theme .tracking-step .step-index,
+body.dark-theme.light-theme .tip-card i,
+body.dark-theme.light-theme .contact-touch-icon,
+body.dark-theme.light-theme .contact-precaution-list i,
+body.dark-theme.light-theme .order-precaution-list i,
+body.dark-theme.light-theme .wishlist-detail-chip i,
+body.dark-theme.light-theme .wishlist-precaution-list i,
+body.dark-theme.light-theme .about-highlight-card i,
+body.dark-theme.light-theme .about-app-list i,
+body.dark-theme.light-theme .store-chip i,
+body.dark-theme.light-theme .account-personal-form .form-label i,
+body.dark-theme.light-theme .account-toggle-password,
+body.dark-theme.light-theme .review-score {
+  color: var(--cmrz-light-navy-bright) !important;
+}
+
+body.dark-theme.light-theme .tracking-step .step-index {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(37, 82, 214, 0.34) !important;
+  background: rgba(37, 82, 214, 0.12) !important;
+}
+
+body.dark-theme.light-theme .tracking-input,
+body.dark-theme.light-theme .contact-input,
+body.dark-theme.light-theme .contact-dropdown-toggle,
+body.dark-theme.light-theme .account-visibility-dropdown .dropdown-toggle,
+body.dark-theme.light-theme #checkoutModal .checkout-field,
+body.dark-theme.light-theme #checkoutModal .payment-dropdown-toggle,
+body.dark-theme.light-theme .review-form-card .form-control,
+body.dark-theme.light-theme .review-form-card .form-select,
+body.dark-theme.light-theme .review-file-input {
+  background: #ffffff !important;
+  border: 1px solid rgba(30, 58, 138, 0.28) !important;
+  color: var(--cmrz-light-text) !important;
+}
+
+body.dark-theme.light-theme .tracking-input:focus,
+body.dark-theme.light-theme .contact-input:focus,
+body.dark-theme.light-theme .contact-dropdown-toggle:focus,
+body.dark-theme.light-theme .contact-dropdown-toggle:active,
+body.dark-theme.light-theme .account-visibility-dropdown .dropdown-toggle:focus,
+body.dark-theme.light-theme .account-visibility-dropdown .dropdown-toggle:hover,
+body.dark-theme.light-theme #checkoutModal .checkout-field:focus,
+body.dark-theme.light-theme #checkoutModal .payment-dropdown-toggle:focus,
+body.dark-theme.light-theme #checkoutModal .payment-dropdown-toggle:hover,
+body.dark-theme.light-theme .review-form-card .form-control:focus,
+body.dark-theme.light-theme .review-form-card .form-select:focus {
+  border-color: rgba(37, 82, 214, 0.52) !important;
+  box-shadow: 0 0 0 0.16rem rgba(37, 82, 214, 0.16) !important;
+  color: var(--cmrz-light-text) !important;
+  background: #ffffff !important;
+}
+
+body.dark-theme.light-theme .contact-dropdown-menu .dropdown-item,
+body.dark-theme.light-theme .account-visibility-dropdown .dropdown-item,
+body.dark-theme.light-theme #checkoutModal .checkout-payment-option {
+  color: var(--cmrz-light-text) !important;
+}
+
+body.dark-theme.light-theme .contact-dropdown-menu .dropdown-item:hover,
+body.dark-theme.light-theme .contact-dropdown-menu .dropdown-item:focus,
+body.dark-theme.light-theme .contact-dropdown-menu .dropdown-item.active,
+body.dark-theme.light-theme .account-visibility-dropdown .dropdown-item:hover,
+body.dark-theme.light-theme .account-visibility-dropdown .dropdown-item:focus,
+body.dark-theme.light-theme .account-visibility-dropdown .dropdown-item.active,
+body.dark-theme.light-theme #checkoutModal .checkout-payment-option:hover,
+body.dark-theme.light-theme #checkoutModal .checkout-payment-option:focus,
+body.dark-theme.light-theme #checkoutModal .checkout-payment-option.active {
+  background: rgba(37, 82, 214, 0.1) !important;
+  color: var(--cmrz-light-navy) !important;
+  border-color: rgba(37, 82, 214, 0.36) !important;
+}
+
+body.dark-theme.light-theme .share-buttons .share-btn {
+  border: 1px solid rgba(30, 58, 138, 0.28) !important;
+  color: var(--cmrz-light-navy) !important;
+  background: rgba(37, 82, 214, 0.08) !important;
+}
+
+body.dark-theme.light-theme .share-buttons .share-btn:hover,
+body.dark-theme.light-theme .share-buttons .share-btn:focus-visible,
+body.dark-theme.light-theme .share-buttons .share-btn.share-btn-copy.is-copied {
+  border-color: rgba(37, 82, 214, 0.48) !important;
+  color: #ffffff !important;
+  background: linear-gradient(
+    120deg,
+    var(--cmrz-light-navy),
+    #3b82f6
+  ) !important;
+}
+
+body.dark-theme.light-theme .review-file-input::file-selector-button {
+  border: 1px solid rgba(30, 58, 138, 0.45) !important;
+  background: linear-gradient(
+    120deg,
+    var(--cmrz-light-navy),
+    #3b82f6
+  ) !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.light-theme .review-file-input:hover::file-selector-button,
+body.dark-theme.light-theme
+  .review-file-input:focus-visible::file-selector-button {
+  background: linear-gradient(120deg, #1d4ed8, #1e3a8a) !important;
+}
+
+body.dark-theme.light-theme #checkoutModal .modal-header,
+body.dark-theme.light-theme #checkoutModal .modal-footer {
+  border-color: rgba(30, 58, 138, 0.22) !important;
+}
+
+body.dark-theme.light-theme #checkoutModal .payment-method-card,
+body.dark-theme.light-theme #checkoutModal .payment-extra-fields {
+  border: 1px solid rgba(30, 58, 138, 0.24) !important;
+  background: rgba(37, 82, 214, 0.08) !important;
+}
+
+body.dark-theme.light-theme #checkoutModal .payment-method-icon {
+  color: #ffffff;
+  background: linear-gradient(130deg, var(--cmrz-light-navy), #3b82f6);
+  box-shadow: 0 10px 20px rgba(37, 82, 214, 0.2);
+}
+
+body.dark-theme.light-theme #checkoutEmptyAlert {
+  background: linear-gradient(
+    135deg,
+    var(--cmrz-light-navy),
+    #3b82f6
+  ) !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.light-theme .cart-qty-control {
+  border: 1px solid rgba(30, 58, 138, 0.24) !important;
+  background: rgba(37, 82, 214, 0.08) !important;
+}
+
+body.dark-theme.light-theme .cart-qty-control .change-qty {
+  color: var(--cmrz-light-navy) !important;
+}
+
+body.dark-theme.light-theme .cart-qty-control .change-qty:hover,
+body.dark-theme.light-theme .cart-qty-control .change-qty:focus-visible,
+body.dark-theme.light-theme .cart-item-row.is-cooldown .cart-qty-hint {
+  color: var(--cmrz-light-navy-bright) !important;
+}
+
+body.dark-theme.light-theme .cart-layout-shell span,
+body.dark-theme.light-theme .cart-layout-shell strong,
+body.dark-theme.light-theme .cart-layout-shell hr {
+  color: var(--cmrz-light-text) !important;
+}
+
+body.dark-theme.light-theme .compare-price-current,
+body.dark-theme.light-theme .sale-price,
+body.dark-theme.light-theme .price-sale {
+  color: var(--cmrz-light-navy) !important;
+}
+
+body.dark-theme.light-theme .compare-price-old,
+body.dark-theme.light-theme .wishlist-playbook h3,
+body.dark-theme.light-theme .wishlist-precaution-panel h3,
+body.dark-theme.light-theme .order-precaution-panel h3,
+body.dark-theme.light-theme .contact-precaution-panel h3 {
+  color: #1e40af !important;
+}
+
+body.dark-theme.light-theme .about-app-launch,
+body.dark-theme.light-theme .series-pulse-board {
+  background:
+    radial-gradient(
+      circle at 10% 6%,
+      rgba(96, 165, 250, 0.16),
+      transparent 38%
+    ),
+    linear-gradient(160deg, #ffffff, #f8fafc) !important;
+}
+
+body.dark-theme.light-theme .series-pulse-chip,
+body.dark-theme.light-theme .about-app-col,
+body.dark-theme.light-theme .store-chip {
+  background: linear-gradient(165deg, #ffffff, #f7faff) !important;
+}
+
+body.dark-theme.light-theme .store-chip span {
+  border: 1px solid rgba(30, 58, 138, 0.3) !important;
+  color: var(--cmrz-light-navy) !important;
+  background: rgba(37, 82, 214, 0.08) !important;
+}
+
+body.dark-theme.light-theme .account-page label,
+body.dark-theme.light-theme .form-label {
+  color: var(--cmrz-light-navy) !important;
+}
+
+body.dark-theme.light-theme .profile-img {
+  border-color: rgba(37, 82, 214, 0.42) !important;
+}
+
+body.dark-theme.light-theme .account-recovery-shell .recovery-divider {
+  border-color: rgba(30, 58, 138, 0.24) !important;
+}
+
+body.dark-theme.light-theme .account-recovery-shell .recovery-title {
+  color: var(--cmrz-light-navy) !important;
+}
+
+body.dark-theme.light-theme .account-recovery-toggle {
+  border: 1px solid rgba(30, 58, 138, 0.36) !important;
+  background: linear-gradient(
+    120deg,
+    rgba(37, 82, 214, 0.16),
+    rgba(96, 165, 250, 0.14)
+  ) !important;
+  color: var(--cmrz-light-navy) !important;
+}
+
+body.dark-theme.light-theme .account-recovery-toggle:hover,
+body.dark-theme.light-theme .account-recovery-toggle:focus {
+  border-color: rgba(37, 82, 214, 0.52) !important;
+  color: #1d4ed8 !important;
+  box-shadow: 0 0 0 0.15rem rgba(37, 82, 214, 0.16) !important;
+}
+
+body.dark-theme.light-theme .login-title,
+body.dark-theme.light-theme .signup-title,
+body.dark-theme.light-theme .forgot-title,
+body.dark-theme.light-theme .reset-title {
+  background: none !important;
+  -webkit-text-fill-color: var(--cmrz-light-navy) !important;
+  color: var(--cmrz-light-navy) !important;
+  text-shadow: none !important;
+}
+
+body.dark-theme.light-theme .signup-panel {
+  border-color: rgba(30, 58, 138, 0.2) !important;
+  background: linear-gradient(
+    165deg,
+    rgba(37, 82, 214, 0.1),
+    rgba(219, 234, 254, 0.4)
+  ) !important;
+}
+
+body.dark-theme.light-theme .signup-points li {
+  border: 1px solid rgba(30, 58, 138, 0.2) !important;
+  background: rgba(37, 82, 214, 0.08) !important;
+  color: #334155 !important;
+}
+
+body.dark-theme.light-theme .oauth-divider::before,
+body.dark-theme.light-theme .oauth-divider::after {
+  background: rgba(30, 58, 138, 0.22) !important;
+}
+
+body.dark-theme.light-theme .login-links a,
+body.dark-theme.light-theme .signup-links a,
+body.dark-theme.light-theme .forgot-links a,
+body.dark-theme.light-theme .reset-links a,
+body.dark-theme.light-theme #togglePassword,
+body.dark-theme.light-theme .toggle-password,
+body.dark-theme.light-theme .account-toggle-password {
+  color: var(--cmrz-light-navy) !important;
+}
+
+body.dark-theme.light-theme .login-links a:hover,
+body.dark-theme.light-theme .signup-links a:hover,
+body.dark-theme.light-theme .forgot-links a:hover,
+body.dark-theme.light-theme .reset-links a:hover,
+body.dark-theme.light-theme #togglePassword:hover,
+body.dark-theme.light-theme .toggle-password:hover,
+body.dark-theme.light-theme .account-toggle-password:hover {
+  color: var(--cmrz-light-navy-bright) !important;
+  text-shadow: none !important;
+}
+
+body.dark-theme.light-theme .accordion-button {
+  color: var(--cmrz-light-navy) !important;
+  background: linear-gradient(165deg, #ffffff, #f8fafc) !important;
+  border: 1px solid rgba(30, 58, 138, 0.3) !important;
+  border-radius: 8px;
+}
+
+body.dark-theme.light-theme .accordion-button:hover {
+  background: #eef4ff !important;
+  border-color: rgba(37, 82, 214, 0.5) !important;
+}
+
+body.dark-theme.light-theme .accordion-button::after {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%231e3a8a'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important;
+}
+
+body.dark-theme.light-theme .accordion-collapse,
+body.dark-theme.light-theme .accordion-collapse.active {
+  border: 1px solid rgba(30, 58, 138, 0.24) !important;
+  border-top: 0 !important;
+  border-radius: 0 0 8px 8px;
+}
+
+body.dark-theme.light-theme .accordion-body {
+  background: #f8fafc !important;
+  color: #334155 !important;
+  border-radius: 0 0 8px 8px;
+}
+
+body.dark-theme.light-theme .policy-mail {
+  color: var(--cmrz-light-navy-bright) !important;
+}
+
+body.dark-theme.light-theme .policy-mail:hover {
+  color: var(--cmrz-light-navy) !important;
+}

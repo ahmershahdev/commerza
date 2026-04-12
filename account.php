@@ -1629,9 +1629,22 @@ if (is_array($accountDeletePending)) {
                 <span class="nav-badge" id="wishlist-count">0</span>
               </a>
             </li>
-            <li class="nav-item">
-              <a class="nav-link nav-icon-link" aria-current="page" href="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" aria-label="Account"><i
-                  class="bi bi-person"></i></a>
+            <li class="nav-item dropdown">
+              <a class="nav-link nav-icon-link dropdown-toggle" href="#" id="accountQuickMenu" role="button"
+                data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
+                <i class="bi bi-person"></i>
+              </a>
+              <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark account-quick-menu border-secondary"
+                aria-labelledby="accountQuickMenu">
+                <li><a class="dropdown-item" aria-current="page" href="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>">My Account</a></li>
+                <li>
+                  <button type="button" class="dropdown-item d-flex align-items-center gap-2"
+                    data-theme-toggle="account-navbar" data-theme-origin="center">
+                    <i class="bi" data-theme-icon></i>
+                    <span data-theme-label>Dark Mode</span>
+                  </button>
+                </li>
+              </ul>
             </li>
           </ul>
           <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#navbarOffcanvas"
@@ -1682,6 +1695,11 @@ if (is_array($accountDeletePending)) {
             <i class="bi bi-person"></i>
             <span>Account</span>
           </a>
+          <button type="button" class="offcanvas-action-btn offcanvas-action-btn-theme"
+            data-theme-toggle="account-offcanvas" data-theme-origin="left-top">
+            <i class="bi" data-theme-icon></i>
+            <span data-theme-label>Dark Mode</span>
+          </button>
         </div>
         <ul class="navbar-nav">
           <li class="nav-item">
@@ -1707,7 +1725,14 @@ if (is_array($accountDeletePending)) {
         <li class="breadcrumb-item active" aria-current="page">Account</li>
       </ol>
     </nav>
-    <h1 class="mb-4" style="color: #ff6600; user-select: none">My Account</h1>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+      <h1 class="mb-0" style="color: #ff6600; user-select: none">My Account</h1>
+      <button type="button" class="btn btn-outline-warning d-inline-flex align-items-center gap-2"
+        data-theme-toggle="account-page" data-theme-origin="center">
+        <i class="bi" data-theme-icon></i>
+        <span data-theme-label>Dark Mode</span>
+      </button>
+    </div>
 
     <?php if ($accountShowBlacklistNotice): ?>
       <div class="alert alert-warning border border-warning-subtle bg-dark text-warning d-flex align-items-start gap-2" role="alert">

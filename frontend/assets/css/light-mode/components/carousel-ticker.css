@@ -1,0 +1,147 @@
+body.dark-theme.light-theme .hero-carousel {
+  box-shadow: 0 18px 34px var(--cmrz-light-shadow-strong);
+}
+
+body.dark-theme.light-theme .carousel-overlay {
+  background: linear-gradient(
+    135deg,
+    rgba(16, 24, 40, 0.52) 0%,
+    rgba(16, 24, 40, 0.2) 56%,
+    transparent 100%
+  );
+}
+
+body.dark-theme.light-theme .carousel-label {
+  color: var(--cmrz-light-navy);
+  background: rgba(37, 82, 214, 0.1);
+  border-color: rgba(30, 58, 138, 0.28);
+}
+
+body.dark-theme.light-theme .carousel-heading {
+  color: #ffffff !important;
+  text-shadow: 0 3px 16px rgba(15, 23, 42, 0.5);
+}
+
+body.dark-theme.light-theme .carousel-text {
+  color: #eaf2ff !important;
+}
+
+body.dark-theme.light-theme .carousel-btn {
+  background: linear-gradient(
+    120deg,
+    var(--cmrz-light-navy),
+    var(--cmrz-light-navy-bright)
+  );
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14);
+}
+
+body.dark-theme.light-theme .carousel-btn:hover {
+  background: linear-gradient(120deg, #1d4ed8, #1e3a8a);
+  color: #ffffff;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.16);
+}
+
+body.dark-theme.light-theme .carousel-indicators button {
+  background-color: transparent !important;
+  border-color: rgba(30, 58, 138, 0.45) !important;
+}
+
+body.dark-theme.light-theme .carousel-indicators button:hover {
+  border-color: var(--cmrz-light-navy-bright) !important;
+}
+
+body.dark-theme.light-theme .carousel-indicators button.active {
+  background: linear-gradient(
+    130deg,
+    var(--cmrz-light-navy),
+    #3b82f6
+  ) !important;
+  border-color: var(--cmrz-light-navy) !important;
+  box-shadow: 0 0 14px rgba(30, 58, 138, 0.3);
+}
+
+body.dark-theme.light-theme .carousel-controls-top {
+  gap: 24px;
+}
+
+body.dark-theme.light-theme .carousel-control-btn,
+body.dark-theme.light-theme .carousel-play-pause {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1.5px solid rgba(30, 58, 138, 0.34);
+  color: var(--cmrz-light-navy);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
+}
+
+body.dark-theme.light-theme .carousel-control-btn:hover,
+body.dark-theme.light-theme .carousel-play-pause:hover {
+  background: linear-gradient(120deg, var(--cmrz-light-navy), #1f4ac2);
+  border-color: rgba(30, 58, 138, 0.62);
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(30, 58, 138, 0.28);
+}
+
+body.dark-theme.light-theme .carousel-control-btn:active,
+body.dark-theme.light-theme .carousel-play-pause:active {
+  transform: scale(0.94);
+}
+
+body.dark-theme.light-theme .carousel-control-prev-icon,
+body.dark-theme.light-theme .carousel-control-next-icon {
+  filter: invert(20%) sepia(54%) saturate(1525%) hue-rotate(210deg)
+    brightness(92%) contrast(88%);
+}
+
+body.dark-theme.light-theme .ticker-container {
+  background:
+    radial-gradient(
+      circle at 12% 50%,
+      rgba(37, 82, 214, 0.08),
+      transparent 36%
+    ),
+    radial-gradient(
+      circle at 78% 50%,
+      rgba(96, 165, 250, 0.12),
+      transparent 42%
+    ),
+    linear-gradient(100deg, #ffffff 0%, #f6f9ff 52%, #f1f5fb 100%);
+  border-top: 1px solid rgba(30, 58, 138, 0.18);
+  border-bottom: 1px solid rgba(30, 58, 138, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 8px 20px var(--cmrz-light-shadow);
+}
+
+body.dark-theme.light-theme .ticker-kicker {
+  background: linear-gradient(
+    135deg,
+    rgba(37, 82, 214, 0.15),
+    rgba(96, 165, 250, 0.14)
+  );
+  border: 1px solid rgba(30, 58, 138, 0.3);
+  color: var(--cmrz-light-navy);
+  box-shadow: 0 8px 18px var(--cmrz-light-shadow);
+}
+
+body.dark-theme.light-theme .ticker-container::before {
+  background: linear-gradient(90deg, #f9fafb 0%, rgba(249, 250, 251, 0) 100%);
+}
+
+body.dark-theme.light-theme .ticker-container::after {
+  background: linear-gradient(270deg, #f9fafb 0%, rgba(249, 250, 251, 0) 100%);
+}
+
+body.dark-theme.light-theme .ticker-scroll span {
+  color: var(--cmrz-light-text);
+}
+
+body.dark-theme.light-theme .ticker-scroll span:nth-child(odd) {
+  color: var(--cmrz-light-navy);
+  text-shadow: none;
+}
+
+body.dark-theme.light-theme .ticker-scroll span::before {
+  background: linear-gradient(135deg, var(--cmrz-light-navy-bright), #60a5fa);
+  box-shadow: 0 0 8px rgba(37, 82, 214, 0.24);
+}

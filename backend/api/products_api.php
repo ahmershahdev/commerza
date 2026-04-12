@@ -1,6 +1,6 @@
 <?php
 
-require_once __DIR__ . '/../data.php';
+require_once __DIR__ . '/../core/data.php';
 require_once __DIR__ . '/../helpers/products_schema_helpers.php';
 
 commerza_products_ensure_schema($con);

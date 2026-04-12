@@ -1,0 +1,17 @@
+/* Commerza light mode design tokens */
+html[data-commerza-theme="light"] {
+  color-scheme: light;
+  --cmrz-light-bg: #f9fafb;
+  --cmrz-light-bg-soft: #f3f4f6;
+  --cmrz-light-surface: #ffffff;
+  --cmrz-light-surface-muted: #f8fafc;
+  --cmrz-light-text: #1f2937;
+  --cmrz-light-text-muted: #64748b;
+  --cmrz-light-navy: #1e3a8a;
+  --cmrz-light-navy-bright: #2552d6;
+  --cmrz-light-accent: #2563eb;
+  --cmrz-light-border: rgba(30, 58, 138, 0.16);
+  --cmrz-light-border-strong: rgba(30, 58, 138, 0.3);
+  --cmrz-light-shadow: rgba(0, 0, 0, 0.05);
+  --cmrz-light-shadow-strong: rgba(15, 23, 42, 0.12);
+}
