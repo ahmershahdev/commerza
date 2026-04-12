@@ -1474,7 +1474,7 @@ function commerza_captcha_widget_html(mysqli $con, string $context = ''): string
         . '<button type="button" class="commerza-captcha-toggle" data-commerza-fallback-toggle style="display:' . $toggleDisplay . ';">Use backup question</button>'
         . '<div class="commerza-captcha-fallback" style="display:' . $fallbackDisplay . ';">'
         . '<div class="commerza-captcha-fallback-note" data-commerza-captcha-fallback-message>' . htmlspecialchars($fallbackMessage, ENT_QUOTES, 'UTF-8') . '</div>'
-        . '<label class="commerza-captcha-question-label">Security question: ' . $question . '</label>'
+        . '<label class="commerza-captcha-question-label" style="user-select:none;-webkit-user-select:none;">Security question: ' . $question . '</label>'
         . '<div class="commerza-captcha-question-help">Type the exact answer and submit.</div>'
         . '<input type="text" name="' . $answerField . '" inputmode="text" pattern="[A-Za-z0-9\- ]{1,64}" maxlength="64" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-commerza-captcha-answer="1" class="form-control commerza-captcha-answer-input">'
         . '<input type="hidden" name="' . $tokenField . '" value="' . $token . '">'

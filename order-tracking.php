@@ -397,44 +397,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
               <div class="row g-3 mb-3">
                 <div class="col-md-6">
-                  <div class="p-3 rounded" style="background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 102, 0, 0.2);">
-                    <p class="mb-1 text-secondary">Customer</p>
-                    <p class="mb-1 text-white fw-semibold"><?= htmlspecialchars((string)$order_lookup['customer_name']) ?></p>
-                    <p class="mb-1 text-secondary"><?= htmlspecialchars((string)$order_lookup['customer_email']) ?></p>
-                    <p class="mb-0 text-secondary"><?= htmlspecialchars((string)$order_lookup['customer_phone']) ?></p>
+                  <div class="p-3 rounded tracking-detail-card" style="background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 102, 0, 0.2);">
+                    <p class="mb-1 text-secondary tracking-detail-meta">Customer</p>
+                    <p class="mb-1 text-white fw-semibold tracking-detail-value"><?= htmlspecialchars((string)$order_lookup['customer_name']) ?></p>
+                    <p class="mb-1 text-secondary tracking-detail-meta"><?= htmlspecialchars((string)$order_lookup['customer_email']) ?></p>
+                    <p class="mb-0 text-secondary tracking-detail-meta"><?= htmlspecialchars((string)$order_lookup['customer_phone']) ?></p>
                   </div>
                 </div>
                 <div class="col-md-6">
-                  <div class="p-3 rounded" style="background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 102, 0, 0.2);">
-                    <p class="mb-1 text-secondary">Shipping Address</p>
-                    <p class="mb-0 text-white"><?= nl2br(htmlspecialchars((string)$order_lookup['address'])) ?></p>
+                  <div class="p-3 rounded tracking-detail-card" style="background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 102, 0, 0.2);">
+                    <p class="mb-1 text-secondary tracking-detail-meta">Shipping Address</p>
+                    <p class="mb-0 text-white tracking-detail-value"><?= nl2br(htmlspecialchars((string)$order_lookup['address'])) ?></p>
                   </div>
                 </div>
               </div>
 
               <div class="mb-3">
-                <p class="text-secondary mb-2">Items</p>
+                <p class="text-secondary mb-2 tracking-detail-meta">Items</p>
                 <?php if (empty($order_items)): ?>
-                  <p class="text-secondary mb-0">No line items found for this order.</p>
+                  <p class="text-secondary mb-0 tracking-detail-meta">No line items found for this order.</p>
                 <?php else: ?>
                   <?php foreach ($order_items as $item): ?>
-                    <div class="d-flex align-items-center gap-3 mb-2 p-2 rounded" style="background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.06);">
+                    <div class="d-flex align-items-center gap-3 mb-2 p-2 rounded tracking-line-item" style="background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.06);">
                       <?php if (!empty($item['product_img'])): ?>
                         <img src="<?= htmlspecialchars((string)$item['product_img']) ?>" alt="<?= htmlspecialchars((string)$item['product_name']) ?>" style="width: 56px; height: 56px; object-fit: cover; border-radius: 8px;">
                       <?php endif; ?>
                       <div class="flex-grow-1">
-                        <p class="mb-0 text-white fw-semibold"><?= htmlspecialchars((string)$item['product_name']) ?></p>
-                        <small class="text-secondary">Qty: <?= (int)$item['quantity'] ?> | Unit: <?= number_format((float)$item['unit_price'], 0) ?> PKR</small>
+                        <p class="mb-0 text-white fw-semibold tracking-detail-value"><?= htmlspecialchars((string)$item['product_name']) ?></p>
+                        <small class="text-secondary tracking-line-meta">Qty: <?= (int)$item['quantity'] ?> | Unit: <?= number_format((float)$item['unit_price'], 0) ?> PKR</small>
                       </div>
-                      <p class="mb-0 text-white fw-semibold"><?= number_format((float)$item['line_total'], 0) ?> PKR</p>
+                      <p class="mb-0 text-white fw-semibold tracking-detail-value"><?= number_format((float)$item['line_total'], 0) ?> PKR</p>
                     </div>
                   <?php endforeach; ?>
                 <?php endif; ?>
               </div>
 
-              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 pt-2 border-top border-secondary-subtle">
-                <p class="mb-0 text-secondary">Payment: <?= htmlspecialchars((string)$order_lookup['payment_method']) ?> (<?= htmlspecialchars((string)$order_lookup['payment_status']) ?>)</p>
-                <p class="mb-0 text-white fw-bold">Total: <?= number_format((float)$order_lookup['grand_total'], 0) ?> PKR</p>
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 pt-2 border-top border-secondary-subtle tracking-summary-row">
+                <p class="mb-0 text-secondary tracking-payment-meta">Payment: <?= htmlspecialchars((string)$order_lookup['payment_method']) ?> (<?= htmlspecialchars((string)$order_lookup['payment_status']) ?>)</p>
+                <p class="mb-0 text-white fw-bold tracking-total-value">Total: <?= number_format((float)$order_lookup['grand_total'], 0) ?> PKR</p>
               </div>
             </div>
           </div>

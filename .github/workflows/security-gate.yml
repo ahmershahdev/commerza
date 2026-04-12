@@ -17,13 +17,14 @@ concurrency:
 
 env:
   SECURITY_BASE_URL: ${{ secrets.SECURITY_BASE_URL }}
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   static-security-gate:
     runs-on: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Run static security gate
         shell: pwsh
@@ -65,7 +66,7 @@ jobs:
       COMMERZA_ADMIN_TEST_SESSION_ID: ${{ secrets.COMMERZA_ADMIN_TEST_SESSION_ID }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Guard dynamic probes
         id: dynamic_guard

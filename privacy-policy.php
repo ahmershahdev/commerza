@@ -19,6 +19,26 @@ if ($configuredAppUrl !== '' && filter_var($configuredAppUrl, FILTER_VALIDATE_UR
 $homeUrl = $siteBaseUrl . '/';
 $privacyUrl = $siteBaseUrl . '/privacy-policy.php';
 $logoUrl = $siteBaseUrl . '/frontend/assets/images/logo/commerza_logo.svg';
+
+$publicSettings = $GLOBALS['commerza_public_site_settings_payload'] ?? [];
+$contactSettings = [];
+if (is_array($publicSettings) && isset($publicSettings['contact']) && is_array($publicSettings['contact'])) {
+	$contactSettings = $publicSettings['contact'];
+}
+
+$supportEmail = trim((string)($contactSettings['email'] ?? 'commerza.ahmer@gmail.com'));
+if (!filter_var($supportEmail, FILTER_VALIDATE_EMAIL)) {
+	$supportEmail = 'commerza.ahmer@gmail.com';
+}
+
+$supportPhone = trim((string)($contactSettings['phone'] ?? '+92 314 8396293'));
+if ($supportPhone === '') {
+	$supportPhone = '+92 314 8396293';
+}
+
+$dataCorrectionMailto = 'mailto:' . $supportEmail . '?subject=' . rawurlencode('Commerza Data Correction Request');
+$privacyConcernMailto = 'mailto:' . $supportEmail . '?subject=' . rawurlencode('Commerza Privacy Security Concern');
+$privacySupportMailto = 'mailto:' . $supportEmail . '?subject=' . rawurlencode('Commerza Privacy Support');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -57,8 +77,8 @@ $logoUrl = $siteBaseUrl . '/frontend/assets/images/logo/commerza_logo.svg';
 					"contactPoint": {
 						"@type": "ContactPoint",
 						"contactType": "Privacy Support",
-						"email": "commerza.ahmer@gmail.com",
-						"telephone": "+923148396293"
+						"email": "<?= htmlspecialchars($supportEmail, ENT_QUOTES, 'UTF-8') ?>",
+						"telephone": "<?= htmlspecialchars($supportPhone, ENT_QUOTES, 'UTF-8') ?>"
 					}
 				},
 				{
@@ -221,7 +241,7 @@ $logoUrl = $siteBaseUrl . '/frontend/assets/images/logo/commerza_logo.svg';
 					<div id="privacyFaqPanelOne" class="accordion-collapse collapse" aria-labelledby="privacyFaqOne" data-bs-parent="#faqAccordion">
 						<div class="accordion-body product-desc">
 							Email your registered account address and requested correction to
-							<a class="policy-mail" href="mailto:commerza.ahmer@gmail.com?subject=Commerza%20Data%20Correction%20Request">commerza.ahmer@gmail.com</a>.
+							<a class="policy-mail" href="<?= htmlspecialchars($dataCorrectionMailto, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($supportEmail, ENT_QUOTES, 'UTF-8') ?></a>.
 						</div>
 					</div>
 				</div>
@@ -237,7 +257,7 @@ $logoUrl = $siteBaseUrl . '/frontend/assets/images/logo/commerza_logo.svg';
 					<div id="privacyFaqPanelTwo" class="accordion-collapse collapse" aria-labelledby="privacyFaqTwo" data-bs-parent="#faqAccordion">
 						<div class="accordion-body product-desc">
 							Send full details, screenshots, and your account email (if applicable) to
-							<a class="policy-mail" href="mailto:commerza.ahmer@gmail.com?subject=Commerza%20Privacy%20Security%20Concern">commerza.ahmer@gmail.com</a>.
+							<a class="policy-mail" href="<?= htmlspecialchars($privacyConcernMailto, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($supportEmail, ENT_QUOTES, 'UTF-8') ?></a>.
 						</div>
 					</div>
 				</div>
@@ -324,7 +344,7 @@ $logoUrl = $siteBaseUrl . '/frontend/assets/images/logo/commerza_logo.svg';
 		<section class="card product-card">
 			<div class="card-body">
 				<h2 class="product-name mb-3">12. Contact</h2>
-				<p class="product-desc mb-0">For privacy questions, data requests, or security concerns, contact <a class="policy-mail" href="mailto:commerza.ahmer@gmail.com?subject=Commerza%20Privacy%20Support">commerza.ahmer@gmail.com</a> and include your registered email for faster verification.</p>
+				<p class="product-desc mb-0">For privacy questions, data requests, or security concerns, contact <a class="policy-mail" href="<?= htmlspecialchars($privacySupportMailto, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($supportEmail, ENT_QUOTES, 'UTF-8') ?></a> and include your registered email for faster verification.</p>
 			</div>
 		</section>
 	</main>
@@ -364,7 +384,7 @@ $logoUrl = $siteBaseUrl . '/frontend/assets/images/logo/commerza_logo.svg';
 						<a href="https://x.com/commerza_ahmer" target="_blank" rel="noopener" aria-label="Commerza on X"><i class="bi bi-twitter"></i></a>
 						<a href="https://www.instagram.com/commerza.ahmer" target="_blank" rel="noopener" aria-label="Commerza on Instagram"><i class="bi bi-instagram"></i></a>
 					</div>
-					<p class="footer-text mt-3">Email: commerza.ahmer@gmail.com</p>
+					<p class="footer-text mt-3">Email: <?= htmlspecialchars($supportEmail, ENT_QUOTES, 'UTF-8') ?></p>
 					<p class="footer-text">Phone: +92 314 8396293</p>
 				</div>
 			</div>

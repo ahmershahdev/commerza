@@ -1,0 +1,130 @@
+/* Final light-mode polish for readability, borders, ticker, and newsletter/modal surfaces. */
+
+body.dark-theme.light-theme .tracking-step p,
+body.dark-theme.light-theme .tracking-result .tracking-line-meta,
+body.dark-theme.light-theme .tracking-result .tracking-detail-meta,
+body.dark-theme.light-theme .tracking-result .tracking-payment-meta {
+  color: var(--cmrz-light-text) !important;
+}
+
+body.dark-theme.light-theme .tracking-step h5,
+body.dark-theme.light-theme .tracking-result .tracking-detail-value,
+body.dark-theme.light-theme .tracking-result .tracking-total-value {
+  color: var(--cmrz-light-navy) !important;
+}
+
+body.dark-theme.light-theme .tracking-result .tracking-detail-card,
+body.dark-theme.light-theme .tracking-result .tracking-line-item {
+  background: linear-gradient(160deg, #ffffff, #f8fbff) !important;
+  border: 1px solid rgba(30, 58, 138, 0.18) !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme.light-theme .tracking-result .tracking-summary-row {
+  border-top-color: rgba(30, 58, 138, 0.2) !important;
+}
+
+body.dark-theme.light-theme .policy-faq-accordion .accordion-button {
+  border-color: rgba(30, 58, 138, 0.2) !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme.light-theme
+  .policy-faq-accordion
+  .accordion-button:not(.collapsed) {
+  box-shadow: none !important;
+}
+
+body.dark-theme.light-theme .policy-faq-accordion .accordion-collapse {
+  border-color: rgba(30, 58, 138, 0.16) !important;
+}
+
+body.dark-theme.light-theme .policy-faq-accordion .accordion-body {
+  background: linear-gradient(180deg, #fbfdff, #f6faff) !important;
+}
+
+body.dark-theme.light-theme .cart-list-panel .product-card,
+body.dark-theme.light-theme .cart-summary-card,
+body.dark-theme.light-theme .account-page .card.product-card,
+body.dark-theme.light-theme .account-personal-form .account-field,
+body.dark-theme.light-theme .account-recovery-shell,
+body.dark-theme.light-theme .upload-progress-shell {
+  border: 1px solid rgba(30, 58, 138, 0.16) !important;
+  box-shadow: 0 10px 22px var(--cmrz-light-shadow) !important;
+}
+
+body.dark-theme.light-theme .account-breadcrumb .breadcrumb {
+  background: #ffffff !important;
+  border: 1px solid rgba(30, 58, 138, 0.16) !important;
+  box-shadow: 0 8px 18px var(--cmrz-light-shadow) !important;
+}
+
+body.dark-theme.light-theme .ticker-container {
+  background:
+    radial-gradient(circle at 10% 42%, rgba(37, 82, 214, 0.1), transparent 34%),
+    radial-gradient(
+      circle at 88% 58%,
+      rgba(96, 165, 250, 0.16),
+      transparent 44%
+    ),
+    linear-gradient(106deg, #ffffff 0%, #f7faff 52%, #f3f8ff 100%);
+  border: 1px solid rgba(30, 58, 138, 0.18);
+  border-left: 0;
+  border-right: 0;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.86),
+    0 10px 22px var(--cmrz-light-shadow);
+}
+
+body.dark-theme.light-theme .ticker-kicker {
+  background: linear-gradient(
+    135deg,
+    rgba(37, 82, 214, 0.14),
+    rgba(147, 197, 253, 0.2)
+  );
+  border-color: rgba(30, 58, 138, 0.26);
+  color: #1d3f93;
+}
+
+body.dark-theme.light-theme .ticker-scroll span {
+  color: #294063;
+  font-weight: 600;
+}
+
+body.dark-theme.light-theme .newsletter-cta {
+  background:
+    radial-gradient(
+      circle at 92% 12%,
+      rgba(96, 165, 250, 0.22),
+      transparent 40%
+    ),
+    linear-gradient(152deg, #ffffff 0%, #f2f7ff 62%, #edf5ff 100%) !important;
+  border: 1px solid rgba(30, 58, 138, 0.18) !important;
+  box-shadow: 0 20px 40px rgba(37, 82, 214, 0.14) !important;
+}
+
+body.dark-theme.light-theme .newsletter-text,
+body.dark-theme.light-theme .newsletter-footnote,
+body.dark-theme.light-theme .newsletter-modal-text {
+  color: #475569 !important;
+}
+
+body.dark-theme.light-theme .newsletter-input-wrap,
+body.dark-theme.light-theme .newsletter-modal-input-wrap {
+  border-color: rgba(30, 58, 138, 0.22) !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+}
+
+body.dark-theme.light-theme .newsletter-modal-content {
+  background: linear-gradient(162deg, #ffffff 0%, #f4f8ff 100%) !important;
+  border: 1px solid rgba(30, 58, 138, 0.2) !important;
+  box-shadow: 0 24px 46px rgba(15, 23, 42, 0.16) !important;
+}
+
+body.dark-theme.light-theme .newsletter-modal-header {
+  border-bottom: 1px solid rgba(30, 58, 138, 0.16) !important;
+}
+
+body.dark-theme.light-theme .newsletter-modal-title {
+  color: var(--cmrz-light-navy) !important;
+}
