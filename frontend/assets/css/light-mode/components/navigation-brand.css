@@ -97,6 +97,38 @@ body.dark-theme.light-theme .nav-icon-link .bi-cart3 {
   color: inherit;
 }
 
+body.dark-theme.light-theme .shake-animation {
+  color: var(--cmrz-light-navy-bright) !important;
+  animation: cartImpactGlowLight 0.45s ease-out both !important;
+}
+
+@keyframes cartImpactGlowLight {
+  0% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(37, 82, 214, 0));
+  }
+
+  25% {
+    transform: scale(1.4) rotate(-15deg);
+    filter: drop-shadow(0 0 15px rgba(37, 82, 214, 0.82));
+  }
+
+  50% {
+    transform: scale(1.4) rotate(15deg);
+    filter: drop-shadow(0 0 20px rgba(37, 82, 214, 0.96));
+  }
+
+  75% {
+    transform: scale(1.2) rotate(-10deg);
+    filter: drop-shadow(0 0 10px rgba(37, 82, 214, 0.55));
+  }
+
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(37, 82, 214, 0));
+  }
+}
+
 body.dark-theme.light-theme .nav-icon-link:hover,
 body.dark-theme.light-theme .nav-icon-link:focus-visible,
 body.dark-theme.light-theme .nav-icon-link[aria-current="page"] {

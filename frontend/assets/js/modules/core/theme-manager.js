@@ -86,6 +86,17 @@
         font-size: 1rem;
       }
 
+      #${FLOATING_TOGGLE_ID} [data-theme-icon],
+      [data-theme-toggle] [data-theme-icon] {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        min-width: 1rem;
+        opacity: 1 !important;
+        visibility: visible !important;
+        color: currentColor !important;
+      }
+
       .commerza-theme-toggle-label {
         letter-spacing: 0.01em;
       }

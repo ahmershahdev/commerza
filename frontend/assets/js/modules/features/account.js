@@ -3,12 +3,21 @@ function initAccountPage() {
   const logoutForm = $("#logoutForm");
 
   logoutBtn.off("click").on("click", function (event) {
-    if (logoutForm.length) {
+    if (!logoutForm.length) {
+      event.preventDefault();
+      window.location.href = "login.php";
       return;
     }
 
     event.preventDefault();
-    window.location.href = "login.php";
+
+    const nativeForm = logoutForm.get(0);
+    if (nativeForm && typeof nativeForm.requestSubmit === "function") {
+      nativeForm.requestSubmit();
+      return;
+    }
+
+    logoutForm.trigger("submit");
   });
 
   $(".toggle-password").on("click", function () {

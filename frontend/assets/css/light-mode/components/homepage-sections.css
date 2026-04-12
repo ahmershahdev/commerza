@@ -8,12 +8,8 @@ body.dark-theme.light-theme .home-premium .hero-block {
 }
 
 body.dark-theme.light-theme .home-premium .hero-block::after {
-  background: radial-gradient(
-    circle at top right,
-    rgba(59, 130, 246, 0.14),
-    transparent 58%
-  ) !important;
-  opacity: 1 !important;
+  background: none !important;
+  opacity: 0 !important;
 }
 
 body.dark-theme.light-theme .hero-kicker,

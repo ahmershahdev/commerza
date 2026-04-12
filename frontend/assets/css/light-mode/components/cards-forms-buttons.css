@@ -133,26 +133,37 @@ body.dark-theme.light-theme .price-sale {
   text-shadow: none;
 }
 
+body.dark-theme.light-theme .product-card .original-price,
+body.dark-theme.light-theme .product-card .price-original,
+body.dark-theme.light-theme .product-card .sale-price,
+body.dark-theme.light-theme .product-card .price-sale {
+  color: var(--cmrz-light-navy-bright) !important;
+  text-shadow: none !important;
+}
+
+body.dark-theme.light-theme .product-card .original-price,
+body.dark-theme.light-theme .product-card .price-original {
+  opacity: 0.72;
+}
+
+body.dark-theme.light-theme .product-card .card-body > .mb-3,
 body.dark-theme.light-theme .premium-cards .product-card .card-body > .mb-3 {
-  background: #ffffff;
-  border: 1px solid rgba(30, 58, 138, 0.26);
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.98) !important;
+  border: 1px solid rgba(30, 58, 138, 0.3) !important;
+  border-radius: 14px !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.85);
 }
 
 body.dark-theme.light-theme .product-detail-card,
 body.dark-theme.light-theme .product-page .product-detail-card {
-  background: linear-gradient(145deg, #ffffff, #f8fafc) !important;
+  background: linear-gradient(158deg, #ffffff 0%, #f8fbff 100%) !important;
   border: 1px solid rgba(30, 58, 138, 0.18) !important;
-  box-shadow: 0 22px 40px var(--cmrz-light-shadow) !important;
+  box-shadow: 0 20px 40px rgba(30, 58, 138, 0.14) !important;
 }
 
 body.dark-theme.light-theme .product-page .product-detail-card::before {
-  background: radial-gradient(
-    circle at top right,
-    rgba(37, 82, 214, 0.12),
-    transparent 58%
-  ) !important;
-  opacity: 1 !important;
+  background: none !important;
+  opacity: 0 !important;
 }
 
 body.dark-theme.light-theme .product-media {
@@ -439,9 +450,26 @@ body.dark-theme.light-theme .newsletter-input-wrap i,
 body.dark-theme.light-theme .newsletter-modal-input-wrap i,
 body.dark-theme.light-theme .toggle-password,
 body.dark-theme.light-theme #togglePassword,
-body.dark-theme.light-theme .toggle-password-btn,
-body.dark-theme.light-theme .oauth-google i {
+body.dark-theme.light-theme .toggle-password-btn {
   color: var(--cmrz-light-navy);
+}
+
+body.dark-theme.light-theme .oauth-google i {
+  color: #ea4335 !important;
+}
+
+body.dark-theme.light-theme .oauth-facebook i {
+  color: #1877f2 !important;
+}
+
+body.dark-theme.light-theme .oauth-google:hover i,
+body.dark-theme.light-theme .oauth-google:focus-visible i {
+  color: #ea4335 !important;
+}
+
+body.dark-theme.light-theme .oauth-facebook:hover i,
+body.dark-theme.light-theme .oauth-facebook:focus-visible i {
+  color: #1877f2 !important;
 }
 
 body.dark-theme.light-theme .captcha-shell [data-commerza-fallback-toggle] {
@@ -451,8 +479,9 @@ body.dark-theme.light-theme .captcha-shell [data-commerza-fallback-toggle] {
 }
 
 body.dark-theme.light-theme .captcha-shell .commerza-captcha-fallback {
-  border: 1px solid rgba(30, 58, 138, 0.22) !important;
+  border: 0 !important;
   background: rgba(37, 82, 214, 0.06) !important;
+  box-shadow: none !important;
 }
 
 body.dark-theme.light-theme .captcha-shell .commerza-captcha-fallback-note,
@@ -468,6 +497,7 @@ body.dark-theme.light-theme .captcha-shell input[data-commerza-captcha-answer] {
   background: #ffffff !important;
   border: 1px solid rgba(30, 58, 138, 0.28) !important;
   color: var(--cmrz-light-text) !important;
+  box-shadow: none !important;
 }
 
 body.dark-theme.light-theme .page-link {

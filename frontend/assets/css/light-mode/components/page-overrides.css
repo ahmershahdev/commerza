@@ -201,8 +201,28 @@ body.dark-theme.light-theme .step-chip {
 }
 
 body.dark-theme.light-theme .wishlist-decision-item {
-  border-radius: 14px !important;
+  border-radius: 20px !important;
+  border-color: rgba(30, 58, 138, 0.24) !important;
+  background: linear-gradient(160deg, #ffffff, #f8fafc) !important;
+  padding: 12px !important;
   overflow: hidden;
+}
+
+body.dark-theme.light-theme .wishlist-decision-item .kicker {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  border: 1px solid rgba(37, 82, 214, 0.34);
+  background: rgba(37, 82, 214, 0.1);
+  color: var(--cmrz-light-navy) !important;
+  padding: 4px 10px;
+}
+
+body.dark-theme.light-theme .wishlist-decision-item .value {
+  border-radius: 12px;
+  background: rgba(37, 82, 214, 0.06);
+  color: var(--cmrz-light-navy) !important;
+  padding: 7px 9px;
 }
 
 body.dark-theme.light-theme .compare-badge.good,
@@ -468,6 +488,41 @@ body.dark-theme.light-theme #cart-items-container .text-white {
   color: var(--cmrz-light-navy) !important;
 }
 
+body.dark-theme.light-theme .checkout-precaution-list li,
+body.dark-theme.light-theme .checkout-precaution-list li span {
+  color: var(--cmrz-light-navy) !important;
+}
+
+body.dark-theme.light-theme #checkoutModal .payment-dropdown-toggle,
+body.dark-theme.light-theme #checkoutModal .checkout-payment-option,
+body.dark-theme.light-theme #checkoutModal #paymentMethodTitle,
+body.dark-theme.light-theme #checkoutModal .payment-hint,
+body.dark-theme.light-theme #checkoutModal .checkout-payment-option small,
+body.dark-theme.light-theme #checkoutModal .field-hint {
+  color: var(--cmrz-light-navy) !important;
+}
+
+body.dark-theme.light-theme #checkoutModal .checkout-payment-option small,
+body.dark-theme.light-theme #checkoutModal .payment-hint,
+body.dark-theme.light-theme #checkoutModal .field-hint {
+  opacity: 0.9;
+}
+
+body.dark-theme.light-theme .account-page .card.product-card,
+body.dark-theme.light-theme .cart-summary-card,
+body.dark-theme.light-theme .cart-list-panel .product-card,
+body.dark-theme.light-theme .checkout-guide-card,
+body.dark-theme.light-theme .checkout-precaution-panel,
+body.dark-theme.light-theme .account-personal-form .account-field,
+body.dark-theme.light-theme .account-recovery-shell,
+body.dark-theme.light-theme .account-recovery-toggle,
+body.dark-theme.light-theme .username-lock-label,
+body.dark-theme.light-theme .profile-visibility-pill,
+body.dark-theme.light-theme .account-visibility-dropdown .dropdown-toggle {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
 body.dark-theme.light-theme #cart-items-container .cart-empty-cta {
   background: #ffffff !important;
   border-color: rgba(30, 58, 138, 0.4) !important;
@@ -539,6 +594,9 @@ body.dark-theme.light-theme #my-orders-container .text-white {
 }
 
 body.dark-theme.light-theme .profile-img {
+  border-radius: 50% !important;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
   border-color: rgba(37, 82, 214, 0.42) !important;
 }
 

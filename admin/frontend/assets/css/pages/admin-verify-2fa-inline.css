@@ -1,3 +1,16 @@
+::selection {
+  background-color: #ff4500;
+  color: #ffffff;
+}
+
+body.dark-theme.light-theme ::selection,
+body.dark-theme.light-theme ::-moz-selection,
+html[data-commerza-theme="light"] ::selection,
+html[data-commerza-theme="light"] ::-moz-selection {
+  background-color: rgba(30, 58, 138, 0.9) !important;
+  color: #ffffff !important;
+}
+
 body {
   background: #050505;
   color: #d1d1d1;
@@ -114,6 +127,87 @@ body {
 .btn-link:hover {
   text-decoration: underline;
   color: #ffd966;
+}
+
+body.dark-theme.light-theme {
+  background:
+    radial-gradient(circle at 8% 4%, rgba(96, 165, 250, 0.2), transparent 40%),
+    linear-gradient(165deg, #f7faff 0%, #edf3ff 52%, #f8fbff 100%);
+  color: #1e293b;
+}
+
+body.dark-theme.light-theme .verify-card {
+  background: linear-gradient(155deg, #ffffff, #f8fbff);
+  border: 1px solid rgba(30, 58, 138, 0.24);
+  border-radius: 18px;
+  box-shadow: 0 20px 38px rgba(30, 58, 138, 0.14);
+}
+
+body.dark-theme.light-theme .title {
+  color: #1e3a8a;
+}
+
+body.dark-theme.light-theme .subtitle {
+  color: #64748b;
+}
+
+body.dark-theme.light-theme .form-label {
+  color: #1e3a8a;
+}
+
+body.dark-theme.light-theme .form-control {
+  background: #ffffff;
+  border: 1px solid rgba(30, 58, 138, 0.3);
+  color: #1f2937;
+}
+
+body.dark-theme.light-theme .form-control:focus {
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 0.2rem rgba(37, 82, 214, 0.2);
+  background: #ffffff;
+  color: #1f2937;
+}
+
+body.dark-theme.light-theme .btn-primary,
+body.dark-theme.light-theme #adminVerify2faSubmitBtn.btn,
+body.dark-theme.light-theme #adminVerify2faSubmitBtn.btn-primary {
+  background: linear-gradient(130deg, #1e3a8a, #3b82f6) !important;
+  border-color: rgba(30, 58, 138, 0.55) !important;
+  color: #ffffff !important;
+  --bs-btn-disabled-bg: #1d4ed8;
+  --bs-btn-disabled-border-color: #1d4ed8;
+  --bs-btn-disabled-color: #ffffff;
+}
+
+body.dark-theme.light-theme .btn-primary:hover,
+body.dark-theme.light-theme .btn-primary:focus {
+  background: linear-gradient(130deg, #1d4ed8, #1e3a8a) !important;
+  border-color: #1d4ed8 !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.light-theme .btn-primary:disabled,
+body.dark-theme.light-theme .btn-primary.disabled,
+body.dark-theme.light-theme #adminVerify2faSubmitBtn.btn.btn-primary:disabled,
+body.dark-theme.light-theme #adminVerify2faSubmitBtn.btn.btn-primary.disabled,
+body.dark-theme.light-theme #adminVerify2faSubmitBtn.btn.btn-primary[disabled],
+body.dark-theme.light-theme
+  #adminVerify2faSubmitBtn.btn.btn-primary:disabled:hover,
+body.dark-theme.light-theme
+  #adminVerify2faSubmitBtn.btn.btn-primary:disabled:focus,
+body.dark-theme.light-theme
+  #adminVerify2faSubmitBtn.btn.btn-primary:disabled:active {
+  background: #1d4ed8 !important;
+  border-color: #1d4ed8 !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.light-theme .btn-link {
+  color: #1e3a8a;
+}
+
+body.dark-theme.light-theme .btn-link:hover {
+  color: #1d4ed8;
 }
 
 @media (max-height: 700px) {

@@ -73,6 +73,7 @@ $adminTabCatalog = admin_tabs_payload();
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/style.css?v=<?= (int)$adminCssVersion ?>">
     <script <?= commerza_csp_nonce_attr() ?> src="assets/js/core/admin-config.js"></script>
+    <script <?= commerza_csp_nonce_attr() ?> src="assets/js/core/admin-theme-manager.js"></script>
 </head>
 
 <body class="dark-theme">
