@@ -855,7 +855,7 @@ function website_api_payload(mysqli $con): array
     return [
         'brand' => [
             'name' => website_api_get_setting($con, 'site_name', 'COMMERZA'),
-            'logo' => website_api_get_setting($con, 'logo_url', 'frontend/assets/images/logo/commerza-logo.webp'),
+            'logo' => website_api_get_setting($con, 'logo_url', 'frontend/assets/images/logo/commerza_logo.svg'),
             'favicon' => website_api_get_setting($con, 'favicon_url', 'frontend/assets/images/favicon/commerza-watches-icon.ico'),
         ],
         'contact' => [

@@ -9,9 +9,12 @@
   const LIGHT_THEME = "light";
   const RUNTIME_STYLE_ID = "commerza-theme-runtime-style";
   const FLOATING_TOGGLE_ID = "commerza-theme-floating-toggle";
+  const TOGGLE_LOCK_MS = 3000;
   const ROOT = document.documentElement;
 
   let transitionTimer = 0;
+  let toggleLockTimer = 0;
+  let isToggleLocked = false;
   let activeTheme = sanitizeTheme(
     ROOT.getAttribute("data-commerza-theme") || readStoredTheme(),
   );
@@ -101,28 +104,124 @@
         letter-spacing: 0.01em;
       }
 
-      .commerza-theme-wipe {
+      [data-theme-toggle] {
+        position: relative;
+        overflow: hidden;
+        isolation: isolate;
+      }
+
+      [data-theme-toggle]::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        padding: 2px;
+        background: conic-gradient(
+          from 0deg,
+          rgba(147, 197, 253, 0.08),
+          rgba(96, 165, 250, 0.86),
+          rgba(30, 58, 138, 0.92),
+          rgba(147, 197, 253, 0.08)
+        );
+        -webkit-mask:
+          linear-gradient(#000 0 0) content-box,
+          linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        opacity: 0;
+        pointer-events: none;
+        z-index: 2;
+      }
+
+      [data-theme-toggle]::after {
+        content: "";
+        position: absolute;
+        left: -42%;
+        top: 0;
+        width: 42%;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(
+          100deg,
+          rgba(255, 255, 255, 0),
+          rgba(191, 219, 254, 0.84),
+          rgba(255, 255, 255, 0)
+        );
+        opacity: 0;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      [data-theme-toggle][data-theme-locked="1"] {
+        cursor: wait !important;
+        pointer-events: none !important;
+      }
+
+      [data-theme-toggle][data-theme-locked="1"]::before {
+        opacity: 1;
+        animation: commerzaThemeLockRing 1.04s linear infinite;
+      }
+
+      [data-theme-toggle][data-theme-locked="1"]::after {
+        opacity: 0.96;
+        animation: commerzaThemeLockFlare 1.16s ease-in-out infinite;
+      }
+
+      @keyframes commerzaThemeLockRing {
+        to {
+          transform: rotate(1turn);
+        }
+      }
+
+      @keyframes commerzaThemeLockFlare {
+        0% {
+          transform: translateX(0%);
+        }
+
+        100% {
+          transform: translateX(340%);
+        }
+      }
+
+      .commerza-theme-curtain {
         position: fixed;
         inset: 0;
         pointer-events: none;
         z-index: 2147483550;
-        background: var(--commerza-wipe-color, rgba(244, 248, 255, 0.92));
-        clip-path: circle(0 at var(--commerza-wipe-x, 0px) var(--commerza-wipe-y, 0px));
+        opacity: 0;
+        transform: translateY(-12%) scale(1.02);
+        background:
+          radial-gradient(
+            circle at var(--commerza-curtain-x, 50%) var(--commerza-curtain-y, 50%),
+            var(--commerza-curtain-focus, rgba(147, 197, 253, 0.4)),
+            transparent 56%
+          ),
+          linear-gradient(
+            180deg,
+            var(--commerza-curtain-tone, rgba(246, 250, 255, 0.92)),
+            transparent 70%
+          );
       }
 
-      .commerza-theme-wipe.is-active {
-        animation: commerzaThemeWipe 560ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      .commerza-theme-curtain.is-active {
+        animation: commerzaThemeCurtain 760ms cubic-bezier(0.22, 1, 0.36, 1)
+          forwards;
       }
 
-      @keyframes commerzaThemeWipe {
+      @keyframes commerzaThemeCurtain {
         0% {
-          clip-path: circle(0 at var(--commerza-wipe-x, 0px) var(--commerza-wipe-y, 0px));
-          opacity: 0.98;
+          opacity: 0;
+          transform: translateY(-12%) scale(1.02);
+        }
+
+        38% {
+          opacity: 0.94;
+          transform: translateY(0%) scale(1);
         }
 
         100% {
-          clip-path: circle(165vmax at var(--commerza-wipe-x, 0px) var(--commerza-wipe-y, 0px));
           opacity: 0;
+          transform: translateY(14%) scale(1.01);
         }
       }
 
@@ -200,7 +299,27 @@
     window.clearTimeout(transitionTimer);
     transitionTimer = window.setTimeout(() => {
       ROOT.classList.remove("commerza-theme-animating");
-    }, 420);
+    }, 640);
+  }
+
+  function setToggleLockedState(locked) {
+    isToggleLocked = locked;
+
+    document.querySelectorAll("[data-theme-toggle]").forEach((button) => {
+      button.dataset.themeLocked = locked ? "1" : "0";
+      button.setAttribute("aria-busy", locked ? "true" : "false");
+      if (button.tagName === "BUTTON") {
+        button.disabled = locked;
+      }
+    });
+  }
+
+  function startToggleCooldown() {
+    setToggleLockedState(true);
+    window.clearTimeout(toggleLockTimer);
+    toggleLockTimer = window.setTimeout(() => {
+      setToggleLockedState(false);
+    }, TOGGLE_LOCK_MS);
   }
 
   function renderToggleVisualState(button) {
@@ -295,31 +414,37 @@
     };
   }
 
-  function runThemeWipe(nextTheme, origin) {
+  function runThemeCurtain(nextTheme, origin) {
     if (!document.body) {
       return;
     }
 
-    const wipe = document.createElement("span");
-    wipe.className = "commerza-theme-wipe";
-    wipe.style.setProperty("--commerza-wipe-x", `${origin.x}px`);
-    wipe.style.setProperty("--commerza-wipe-y", `${origin.y}px`);
-    wipe.style.setProperty(
-      "--commerza-wipe-color",
+    const curtain = document.createElement("span");
+    curtain.className = "commerza-theme-curtain";
+    curtain.style.setProperty("--commerza-curtain-x", `${origin.x}px`);
+    curtain.style.setProperty("--commerza-curtain-y", `${origin.y}px`);
+    curtain.style.setProperty(
+      "--commerza-curtain-tone",
       nextTheme === LIGHT_THEME
-        ? "rgba(246, 250, 255, 0.94)"
-        : "rgba(6, 11, 22, 0.92)",
+        ? "rgba(246, 250, 255, 0.9)"
+        : "rgba(8, 13, 24, 0.9)",
+    );
+    curtain.style.setProperty(
+      "--commerza-curtain-focus",
+      nextTheme === LIGHT_THEME
+        ? "rgba(147, 197, 253, 0.5)"
+        : "rgba(30, 58, 138, 0.42)",
     );
 
-    document.body.appendChild(wipe);
+    document.body.appendChild(curtain);
     window.requestAnimationFrame(() => {
-      wipe.classList.add("is-active");
+      curtain.classList.add("is-active");
     });
 
-    wipe.addEventListener(
+    curtain.addEventListener(
       "animationend",
       () => {
-        wipe.remove();
+        curtain.remove();
       },
       { once: true },
     );
@@ -332,13 +457,25 @@
 
     button.dataset.themeToggleBound = "1";
     renderToggleVisualState(button);
+    if (isToggleLocked) {
+      button.dataset.themeLocked = "1";
+      button.setAttribute("aria-busy", "true");
+      if (button.tagName === "BUTTON") {
+        button.disabled = true;
+      }
+    }
 
     button.addEventListener("click", (event) => {
       event.preventDefault();
 
+      if (isToggleLocked) {
+        return;
+      }
+
       const nextTheme = activeTheme === DARK_THEME ? LIGHT_THEME : DARK_THEME;
       const origin = resolveOrigin(button, event);
-      runThemeWipe(nextTheme, origin);
+      startToggleCooldown();
+      runThemeCurtain(nextTheme, origin);
       applyTheme(nextTheme, { persist: true, animate: true });
     });
   }

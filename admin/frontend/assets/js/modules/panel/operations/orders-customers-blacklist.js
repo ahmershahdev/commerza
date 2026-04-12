@@ -119,7 +119,7 @@ function displayAllCustomers() {
               <input type="checkbox" class="form-check-input customer-select-row" value="${customerId}" ${canDelete ? "" : "disabled"}>
             </td>
             <td class="ps-4 py-3">
-                <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(customer.name || "Customer")}&background=ff6600&color=000" alt="Customer" class="rounded-circle" width="40" height="40">
+              <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(customer.name || "Customer")}&background=1d4ed8&color=fff" alt="Customer" class="rounded-circle" width="40" height="40">
             </td>
             <td class="py-3 text-light fw-semibold">${customerName}</td>
             <td class="py-3 text-secondary">${customerUsername}</td>
@@ -827,4 +827,3 @@ function toggleOrderDetails(elementId) {
       element.style.display === "none" ? "table-row" : "none";
   }
 }
-

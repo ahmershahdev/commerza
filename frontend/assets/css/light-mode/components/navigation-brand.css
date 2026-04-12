@@ -61,6 +61,13 @@ body.dark-theme.light-theme .offcanvas-logo {
   filter: drop-shadow(0 3px 7px rgba(30, 58, 138, 0.22));
 }
 
+body.dark-theme.light-theme .navbar-logo[src$="commerza_logo.svg"],
+body.dark-theme.light-theme .offcanvas-logo[src$="commerza_logo.svg"] {
+  filter: brightness(0) saturate(100%) invert(22%) sepia(61%) saturate(1198%)
+    hue-rotate(199deg) brightness(95%) contrast(96%)
+    drop-shadow(0 3px 7px rgba(30, 58, 138, 0.22));
+}
+
 body.dark-theme.light-theme .navbar-nav .nav-link,
 body.dark-theme.light-theme .offcanvas .nav-link {
   color: #243656;

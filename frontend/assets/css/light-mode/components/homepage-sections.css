@@ -4,7 +4,44 @@ body.dark-theme.light-theme .home-premium .hero-block {
     radial-gradient(circle at 0% 0%, rgba(37, 82, 214, 0.12), transparent 44%),
     linear-gradient(145deg, #ffffff, #f8fafc) !important;
   border: 1px solid rgba(30, 58, 138, 0.18) !important;
-  box-shadow: 0 24px 48px var(--cmrz-light-shadow) !important;
+  box-shadow:
+    0 18px 36px rgba(15, 23, 42, 0.09),
+    0 4px 12px rgba(30, 58, 138, 0.08) !important;
+}
+
+body.dark-theme.light-theme .app-coming-home {
+  background:
+    radial-gradient(circle at 12% 4%, rgba(37, 82, 214, 0.14), transparent 36%),
+    radial-gradient(
+      circle at 92% 98%,
+      rgba(96, 165, 250, 0.14),
+      transparent 44%
+    ),
+    linear-gradient(158deg, #ffffff, #f6faff) !important;
+  border: 1px solid rgba(30, 58, 138, 0.2) !important;
+  box-shadow:
+    0 20px 40px rgba(15, 23, 42, 0.09),
+    0 6px 14px rgba(30, 58, 138, 0.08) !important;
+}
+
+body.dark-theme.light-theme .app-coming-stage-glow {
+  background:
+    radial-gradient(
+      circle at 50% -6%,
+      rgba(148, 197, 255, 0.3),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 50% 108%,
+      rgba(96, 165, 250, 0.18),
+      transparent 44%
+    ) !important;
+}
+
+body.dark-theme.light-theme .app-coming-copy {
+  border: 1px solid rgba(30, 58, 138, 0.18);
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.88);
 }
 
 body.dark-theme.light-theme .home-premium .hero-block::after {
@@ -32,8 +69,81 @@ body.dark-theme.light-theme .home-match-intro,
 body.dark-theme.light-theme .experience-text,
 body.dark-theme.light-theme .highlight-text,
 body.dark-theme.light-theme .testimonial-text,
+body.dark-theme.light-theme .app-launch-step,
 body.dark-theme.light-theme .app-coming-copy p {
   color: #4b5563;
+}
+
+body.dark-theme.light-theme .app-bullet {
+  border-color: rgba(37, 82, 214, 0.24);
+  background: rgba(219, 234, 254, 0.58);
+  color: #1e3a8a;
+}
+
+body.dark-theme.light-theme .app-launch-step span {
+  background: rgba(37, 82, 214, 0.14);
+  border-color: rgba(37, 82, 214, 0.28);
+  color: #1e40af;
+}
+
+body.dark-theme.light-theme .app-device-frame,
+body.dark-theme.light-theme .app-feature-col,
+body.dark-theme.light-theme .store-pill {
+  background: linear-gradient(160deg, #ffffff, #f8fafc);
+  border-color: rgba(30, 58, 138, 0.18);
+}
+
+body.dark-theme.light-theme .app-feature-col h3,
+body.dark-theme.light-theme .store-pill small,
+body.dark-theme.light-theme .store-pill span {
+  color: #1e3a8a;
+}
+
+body.dark-theme.light-theme .store-pill strong,
+body.dark-theme.light-theme .app-feature-list li {
+  color: #1f2937;
+}
+
+body.dark-theme.light-theme .store-pill i,
+body.dark-theme.light-theme .app-feature-list i {
+  color: #2552d6;
+}
+
+body.dark-theme.light-theme .store-pill span {
+  border-color: rgba(37, 82, 214, 0.34);
+  background: rgba(219, 234, 254, 0.62);
+}
+
+body.dark-theme.light-theme .hero-typing-shell {
+  border-color: rgba(37, 82, 214, 0.3);
+  background:
+    radial-gradient(
+      circle at 0% 0%,
+      rgba(147, 197, 253, 0.26),
+      transparent 48%
+    ),
+    linear-gradient(132deg, #ffffff, #f3f8ff);
+  box-shadow:
+    0 10px 24px rgba(15, 23, 42, 0.09),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.9);
+}
+
+body.dark-theme.light-theme .hero-typing-prefix {
+  color: #1e3a8a;
+}
+
+body.dark-theme.light-theme .hero-typing-text {
+  color: #1e3a8a;
+  text-shadow: none;
+}
+
+body.dark-theme.light-theme .hero-typing-caret {
+  background: linear-gradient(180deg, #60a5fa, #2552d6);
+  box-shadow: 0 0 8px rgba(37, 82, 214, 0.32);
+}
+
+body.dark-theme.light-theme .app-live-dot {
+  background: #2552d6;
 }
 
 body.dark-theme.light-theme .hero-actions .hero-btn-outline,
@@ -158,42 +268,44 @@ body.dark-theme.light-theme .testimonial-marquee {
 }
 
 body.dark-theme.light-theme .app-coming-home {
-  border: 1px solid rgba(30, 58, 138, 0.22);
+  border: 1px solid rgba(30, 58, 138, 0.2);
   background:
+    radial-gradient(circle at 10% 4%, rgba(37, 82, 214, 0.14), transparent 36%),
     radial-gradient(
-      circle at 10% 4%,
-      rgba(59, 130, 246, 0.12),
-      transparent 34%
+      circle at 92% 98%,
+      rgba(96, 165, 250, 0.14),
+      transparent 44%
     ),
-    radial-gradient(circle at 92% 98%, rgba(37, 82, 214, 0.1), transparent 44%),
-    linear-gradient(150deg, #ffffff, #f8fafc);
-  box-shadow: 0 24px 48px var(--cmrz-light-shadow);
+    linear-gradient(158deg, #ffffff, #f6faff);
+  box-shadow:
+    0 20px 40px rgba(15, 23, 42, 0.09),
+    0 6px 14px rgba(30, 58, 138, 0.08);
 }
 
 body.dark-theme.light-theme .app-coming-stage-glow {
   background:
     radial-gradient(
       circle at 50% -6%,
-      rgba(191, 219, 254, 0.5),
+      rgba(148, 197, 255, 0.3),
       transparent 34%
     ),
     radial-gradient(
       circle at 50% 108%,
-      rgba(59, 130, 246, 0.16),
+      rgba(96, 165, 250, 0.18),
       transparent 44%
     );
 }
 
 body.dark-theme.light-theme .app-coming-copy {
   border: 1px solid rgba(30, 58, 138, 0.18);
-  background: linear-gradient(180deg, #ffffff, #f8fafc);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.8);
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.88);
 }
 
 body.dark-theme.light-theme .app-bullet {
-  border: 1px solid rgba(30, 58, 138, 0.26);
-  background: rgba(37, 82, 214, 0.08);
-  color: var(--cmrz-light-navy);
+  border: 1px solid rgba(37, 82, 214, 0.24);
+  background: rgba(219, 234, 254, 0.58);
+  color: #1e3a8a;
 }
 
 body.dark-theme.light-theme .app-launch-step {
@@ -201,30 +313,30 @@ body.dark-theme.light-theme .app-launch-step {
 }
 
 body.dark-theme.light-theme .app-launch-step span {
-  background: rgba(37, 82, 214, 0.1);
-  border: 1px solid rgba(30, 58, 138, 0.24);
-  color: var(--cmrz-light-navy);
+  background: rgba(37, 82, 214, 0.14);
+  border: 1px solid rgba(37, 82, 214, 0.28);
+  color: #1e40af;
 }
 
 body.dark-theme.light-theme .app-device-frame {
-  border: 1px solid rgba(30, 58, 138, 0.2);
-  background: linear-gradient(165deg, #ffffff, #f8fafc);
+  border: 1px solid rgba(30, 58, 138, 0.18);
+  background: linear-gradient(160deg, #ffffff, #f8fafc);
 }
 
 body.dark-theme.light-theme .app-device-head,
 body.dark-theme.light-theme .store-pill small,
 body.dark-theme.light-theme .app-feature-col h3 {
-  color: var(--cmrz-light-navy);
+  color: #1e3a8a;
 }
 
 body.dark-theme.light-theme .app-live-dot {
-  background: var(--cmrz-light-navy-bright);
-  box-shadow: 0 0 0 0 rgba(37, 82, 214, 0.35);
+  background: #2552d6;
+  box-shadow: 0 0 0 0 rgba(37, 82, 214, 0.55);
 }
 
 body.dark-theme.light-theme .app-feature-col {
-  border: 1px solid rgba(30, 58, 138, 0.16);
-  background: linear-gradient(165deg, #ffffff, #f8fafc);
+  border: 1px solid rgba(30, 58, 138, 0.18);
+  background: linear-gradient(160deg, #ffffff, #f8fafc);
 }
 
 body.dark-theme.light-theme .app-feature-list li,
@@ -238,17 +350,21 @@ body.dark-theme.light-theme .store-pill i {
 }
 
 body.dark-theme.light-theme .hero-typing-shell {
-  border: 1px solid rgba(30, 58, 138, 0.24);
+  border: 1px solid rgba(37, 82, 214, 0.3);
   background:
-    radial-gradient(circle at 0% 0%, rgba(191, 219, 254, 0.4), transparent 42%),
-    linear-gradient(132deg, #ffffff, #f8fafc);
+    radial-gradient(
+      circle at 0% 0%,
+      rgba(147, 197, 253, 0.26),
+      transparent 48%
+    ),
+    linear-gradient(132deg, #ffffff, #f3f8ff);
   box-shadow:
-    0 12px 22px var(--cmrz-light-shadow),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.85);
+    0 10px 24px rgba(15, 23, 42, 0.09),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.9);
 }
 
 body.dark-theme.light-theme .hero-typing-prefix {
-  color: var(--cmrz-light-navy-bright);
+  color: #1e3a8a;
 }
 
 body.dark-theme.light-theme .hero-typing-text {
@@ -258,13 +374,13 @@ body.dark-theme.light-theme .hero-typing-text {
 }
 
 body.dark-theme.light-theme .hero-typing-caret {
-  background: linear-gradient(180deg, #60a5fa, #1d4ed8);
-  box-shadow: 0 0 8px rgba(37, 82, 214, 0.22);
+  background: linear-gradient(180deg, #60a5fa, #2552d6);
+  box-shadow: 0 0 8px rgba(37, 82, 214, 0.32);
 }
 
 body.dark-theme.light-theme .store-pill {
-  border: 1px solid rgba(30, 58, 138, 0.2);
-  background: linear-gradient(165deg, #ffffff, #f8fafc);
+  border: 1px solid rgba(30, 58, 138, 0.18);
+  background: linear-gradient(160deg, #ffffff, #f8fafc);
 }
 
 body.dark-theme.light-theme .store-pill:hover,
@@ -273,7 +389,7 @@ body.dark-theme.light-theme .store-pill:focus-within {
 }
 
 body.dark-theme.light-theme .store-pill span {
-  border: 1px solid rgba(30, 58, 138, 0.25);
-  color: var(--cmrz-light-navy);
-  background: rgba(37, 82, 214, 0.08);
+  border: 1px solid rgba(37, 82, 214, 0.34);
+  color: #1e3a8a;
+  background: rgba(219, 234, 254, 0.62);
 }

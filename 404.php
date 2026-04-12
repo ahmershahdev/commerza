@@ -9,9 +9,9 @@ if ($siteBrandName === '') {
     $siteBrandName = 'Commerza';
 }
 
-$logoPath = trim((string)($publicSettings['brand']['logo'] ?? 'frontend/assets/images/logo/commerza-logo.webp'));
+$logoPath = trim((string)($publicSettings['brand']['logo'] ?? 'frontend/assets/images/logo/commerza_logo.svg'));
 if ($logoPath === '') {
-    $logoPath = 'frontend/assets/images/logo/commerza-logo.webp';
+    $logoPath = 'frontend/assets/images/logo/commerza_logo.svg';
 }
 
 $faviconPath = trim((string)($publicSettings['brand']['favicon'] ?? 'frontend/assets/images/favicon/commerza-watches-icon.ico'));

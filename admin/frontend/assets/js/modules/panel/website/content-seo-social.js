@@ -283,7 +283,7 @@ function buildDefaultSiteSettings() {
   return {
     brand: {
       name: "COMMERZA",
-      logo: "frontend/assets/images/logo/commerza-logo.webp",
+      logo: "frontend/assets/images/logo/commerza_logo.svg",
       favicon: "frontend/assets/images/favicon/commerza-watches-icon.ico",
     },
     contact: {
@@ -975,7 +975,7 @@ function renderSliderTable() {
       : "";
     tbody.append(`
             <tr class="border-bottom border-secondary">
-                <td class="ps-4 py-3"><img src="${preview}" alt="${safeAlt}" style="width: 90px; height: 50px; object-fit: cover; border-radius: 6px;" onerror="this.src='assets/images/products/placeholder.webp'"></td>
+                <td class="ps-4 py-3"><img src="${preview}" alt="${safeAlt}" style="width: 90px; height: 50px; object-fit: cover; border-radius: 6px;" onerror="this.src='../../frontend/assets/images/products/placeholder.webp'"></td>
                 <td class="py-3 text-light fw-semibold">${safeHeading}${videoBadge}</td>
                 <td class="py-3 text-secondary small">${safeButtonText} -> ${safeButtonLink}</td>
                 <td class="pe-4 py-3">

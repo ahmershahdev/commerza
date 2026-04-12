@@ -221,11 +221,17 @@ function commerza_mail_preferred_logo_relative_path(): string
         . DIRECTORY_SEPARATOR . 'images'
         . DIRECTORY_SEPARATOR . 'logo';
 
+    $svgPath = $logoDir . DIRECTORY_SEPARATOR . 'commerza_logo.svg';
     $webpPath = $logoDir . DIRECTORY_SEPARATOR . 'commerza-logo.webp';
     $pngPath = $logoDir . DIRECTORY_SEPARATOR . 'commerza-logo-email.png';
 
     if (is_file($pngPath) && (int)filesize($pngPath) > 0) {
         $cachedRelativePath = '/frontend/assets/images/logo/commerza-logo-email.png';
+        return $cachedRelativePath;
+    }
+
+    if (is_file($svgPath) && (int)filesize($svgPath) > 0) {
+        $cachedRelativePath = '/frontend/assets/images/logo/commerza_logo.svg';
         return $cachedRelativePath;
     }
 
@@ -250,7 +256,7 @@ function commerza_mail_preferred_logo_relative_path(): string
     }
 
     if (is_file($webpPath) && (int)filesize($webpPath) > 0) {
-        $cachedRelativePath = '/frontend/assets/images/logo/commerza-logo.webp';
+        $cachedRelativePath = '/frontend/assets/images/logo/commerza_logo.svg';
         return $cachedRelativePath;
     }
 
@@ -276,7 +282,7 @@ function commerza_mail_inline_logo_data_uri(): string
             . DIRECTORY_SEPARATOR . 'assets'
             . DIRECTORY_SEPARATOR . 'images'
             . DIRECTORY_SEPARATOR . 'logo'
-            . DIRECTORY_SEPARATOR . 'commerza-logo.webp'
+            . DIRECTORY_SEPARATOR . 'commerza_logo.svg'
         );
 
     if (!is_file($logoPath) || !is_readable($logoPath)) {
@@ -290,7 +296,15 @@ function commerza_mail_inline_logo_data_uri(): string
         return $cachedDataUri;
     }
 
-    $mime = str_ends_with(strtolower($logoPath), '.png') ? 'image/png' : 'image/webp';
+    $ext = strtolower((string)pathinfo($logoPath, PATHINFO_EXTENSION));
+    $mime = 'application/octet-stream';
+    if ($ext === 'png') {
+        $mime = 'image/png';
+    } elseif ($ext === 'svg') {
+        $mime = 'image/svg+xml';
+    } elseif ($ext === 'webp') {
+        $mime = 'image/webp';
+    }
 
     $cachedDataUri = 'data:' . $mime . ';base64,' . base64_encode($binary);
     return $cachedDataUri;
@@ -310,7 +324,7 @@ function commerza_mail_logo_src(string $fallbackAbsoluteUrl = ''): string
     if ($fallback !== '') {
         if ($preferredRelative !== '' && str_ends_with($preferredRelative, '.png')) {
             $fallback = preg_replace(
-                '#/frontend/assets/images/logo/commerza-logo\.webp$#i',
+                '#/frontend/assets/images/logo/(commerza-logo\.webp|commerza_logo\.svg)$#i',
                 '/frontend/assets/images/logo/commerza-logo-email.png',
                 $fallback
             ) ?: $fallback;

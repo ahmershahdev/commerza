@@ -319,6 +319,20 @@ body.sidebar-open .admin-backdrop {
     gap: 8px;
   }
 
+  .admin-action-toolbar [data-theme-toggle="admin-topbar"] {
+    width: auto;
+    justify-self: start;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding-inline: 0.7rem;
+  }
+
+  .admin-action-toolbar [data-theme-toggle="admin-topbar"] [data-theme-label] {
+    display: none;
+  }
+
   #actionButtons .btn-group {
     width: 100%;
   }

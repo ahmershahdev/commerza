@@ -1,8 +1,26 @@
 $(document).ready(function () {
   const adminIdentity = ADMIN_RUNTIME.admin || {};
+  const sidebarEmailEl = document.getElementById("adminSidebarEmail");
 
   function normalizeAdminEmail(value) {
     return (value || "").toString().trim().toLowerCase();
+  }
+
+  function enforceSidebarEmailLowercase() {
+    if (!sidebarEmailEl) {
+      return;
+    }
+
+    const normalized = normalizeAdminEmail(sidebarEmailEl.textContent || "");
+    if (normalized === "") {
+      return;
+    }
+
+    if ((sidebarEmailEl.textContent || "") !== normalized) {
+      sidebarEmailEl.textContent = normalized;
+    }
+
+    sidebarEmailEl.setAttribute("title", normalized);
   }
 
   function syncAdminIdentityUi(nextIdentity = {}) {
@@ -24,13 +42,38 @@ $(document).ready(function () {
 
     const normalizedEmail = normalizeAdminEmail(nextIdentity?.email || "");
     if (normalizedEmail !== "") {
+      adminIdentity.email = normalizedEmail;
+      if (typeof ADMIN_RUNTIME === "object" && ADMIN_RUNTIME?.admin) {
+        ADMIN_RUNTIME.admin.email = normalizedEmail;
+      }
       window.CommerzaAdminRuntime.admin.email = normalizedEmail;
-      $("#adminSidebarEmail").text(normalizedEmail);
+      $("#adminSidebarEmail")
+        .text(normalizedEmail)
+        .attr("title", normalizedEmail);
       $("#securityPasswordEmail, #securityKeyEmail").val(normalizedEmail);
     }
+
+    enforceSidebarEmailLowercase();
   }
 
-  syncAdminIdentityUi(adminIdentity);
+  syncAdminIdentityUi({
+    ...adminIdentity,
+    email: normalizeAdminEmail(
+      adminIdentity?.email || sidebarEmailEl?.textContent || "",
+    ),
+  });
+
+  if (sidebarEmailEl && window.MutationObserver) {
+    const sidebarEmailObserver = new MutationObserver(() => {
+      enforceSidebarEmailLowercase();
+    });
+
+    sidebarEmailObserver.observe(sidebarEmailEl, {
+      characterData: true,
+      childList: true,
+      subtree: true,
+    });
+  }
 
   const canProductsManage = admin_has_permission("products.manage");
   const canProductTrashManage = admin_has_any_permission([
@@ -1214,4 +1257,3 @@ $(document).ready(function () {
       });
   });
 });
-

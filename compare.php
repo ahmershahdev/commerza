@@ -52,7 +52,7 @@ function compare_image_path(string $value): string
 {
   $path = trim(str_replace('\\', '/', $value));
   if ($path === '') {
-    return 'frontend/assets/images/logo/commerza-logo.webp';
+    return 'frontend/assets/images/logo/commerza_logo.svg';
   }
 
   if (preg_match('#^https?://#i', $path) === 1) {
@@ -70,7 +70,7 @@ function compare_image_path(string $value): string
   $sanitized = preg_replace('/[\x00-\x1F\x7F]/', '', $path);
   return $sanitized !== null && $sanitized !== ''
     ? $sanitized
-    : 'frontend/assets/images/logo/commerza-logo.webp';
+    : 'frontend/assets/images/logo/commerza_logo.svg';
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -206,7 +206,7 @@ $highestStock = !empty($stockValues) ? max($stockValues) : 0;
   <meta property="og:description" content="Compare Commerza watches side by side." />
   <meta property="og:url" content="https://commerza.ahmershah.dev/compare.php" />
   <meta property="og:type" content="website" />
-  <meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp" />
+  <meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza_logo.svg" />
   <title>Compare | Commerza</title>
   <link rel="canonical" href="https://commerza.ahmershah.dev/compare.php" />
   <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
@@ -234,7 +234,7 @@ $highestStock = !empty($stockValues) ? max($stockValues) : 0;
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
       <div class="container-fluid">
         <a class="navbar-brand fw-bold" href="index.php">
-          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy"
+          <img src="frontend/assets/images/logo/commerza_logo.svg" alt="Commerza Logo" loading="lazy"
             class="navbar-logo me-2" />
           <span class="brand-text">COMMERZA</span>
         </a>
@@ -283,7 +283,7 @@ $highestStock = !empty($stockValues) ? max($stockValues) : 0;
     <div class="offcanvas offcanvas-start" tabindex="-1" id="navbarOffcanvas" aria-labelledby="offcanvasNavbarLabel">
       <div class="offcanvas-header">
         <h5 class="offcanvas-title" id="offcanvasNavbarLabel">
-          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy"
+          <img src="frontend/assets/images/logo/commerza_logo.svg" alt="Commerza Logo" loading="lazy"
             class="offcanvas-logo me-2" />
           <span class="brand-text">COMMERZA</span>
         </h5>

@@ -144,7 +144,7 @@ if (isset($_GET['slug'])) {
 }
 
 $productsPageUrl = commerza_absolute_url($productsCanonicalPath);
-$productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.webp');
+$productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza_logo.svg');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -194,7 +194,7 @@ $productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
       <div class="container-fluid">
         <a class="navbar-brand fw-bold" href="index.php">
-          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy"
+          <img src="frontend/assets/images/logo/commerza_logo.svg" alt="Commerza Logo" loading="lazy"
             class="navbar-logo me-2" />
           <span class="brand-text">COMMERZA</span>
         </a>
@@ -243,7 +243,7 @@ $productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza
     <div class="offcanvas offcanvas-start" tabindex="-1" id="navbarOffcanvas" aria-labelledby="offcanvasNavbarLabel">
       <div class="offcanvas-header">
         <h5 class="offcanvas-title" id="offcanvasNavbarLabel">
-          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy"
+          <img src="frontend/assets/images/logo/commerza_logo.svg" alt="Commerza Logo" loading="lazy"
             class="offcanvas-logo me-2" />
           <span class="brand-text">COMMERZA</span>
         </h5>

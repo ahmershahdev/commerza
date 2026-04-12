@@ -45,7 +45,7 @@ function renderComparePage() {
       render: (item) => {
         const resolvedImage =
           compareSanitizeAssetUrl(item.image) ||
-          "frontend/assets/images/logo/commerza-logo.webp";
+          "frontend/assets/images/logo/commerza_logo.svg";
         const safeImage = compareEscapeHtml(resolvedImage);
         const safeName = compareEscapeHtml(item.name || "Product image");
         return `<img src="${safeImage}" alt="${safeName}" style="width: 120px; height: 120px; object-fit: contain; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); padding: 4px;" />`;

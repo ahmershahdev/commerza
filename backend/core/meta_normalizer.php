@@ -860,7 +860,7 @@ function commerza_html_meta_normalize(string $buffer): string
         }
     }
 
-    $pageImage = rtrim(commerza_public_base_url(), '/') . '/frontend/assets/images/logo/commerza-logo.webp';
+    $pageImage = rtrim(commerza_public_base_url(), '/') . '/frontend/assets/images/logo/commerza_logo.svg';
     if (preg_match('/property="og:image"\s+content="([^"]*)"/i', $buffer, $ogImageMatch)) {
         $candidateImage = trim((string)$ogImageMatch[1]);
         if ($candidateImage !== '') {

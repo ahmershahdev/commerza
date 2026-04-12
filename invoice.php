@@ -134,7 +134,7 @@ $invoiceNumber = $order ? (string)$order['order_number'] : $orderInput;
 $invoiceDate = $order ? invoice_format_datetime((string)($order['created_at'] ?? '')) : '';
 $invoiceUpdatedDate = $order ? invoice_format_datetime((string)($order['updated_at'] ?? '')) : '';
 $adminPanelUrl = 'admin/frontend/admin-panel.php';
-$logoUrl = commerza_absolute_url('frontend/assets/images/logo/commerza-logo.webp');
+$logoUrl = commerza_absolute_url('frontend/assets/images/logo/commerza_logo.svg');
 ?>
 <!DOCTYPE html>
 <html lang="en">

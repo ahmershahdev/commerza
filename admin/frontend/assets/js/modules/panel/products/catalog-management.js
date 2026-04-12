@@ -85,7 +85,7 @@ function renderProductsTable() {
         : `<span class="badge bg-warning text-dark rounded-pill">Low (${product.stock})</span>`;
     tbody.append(`
             <tr class="border-bottom border-secondary">
-                <td class="ps-4 py-3"><img src="../../${safeImage}" alt="${safeName}" class="rounded" width="50" height="50" style="object-fit: cover; cursor: pointer;" onerror="this.src='assets/images/products/placeholder.webp'"></td>
+                <td class="ps-4 py-3"><img src="../../${safeImage}" alt="${safeName}" class="rounded" width="50" height="50" style="object-fit: cover; cursor: pointer;" onerror="this.src='../../frontend/assets/images/products/placeholder.webp'"></td>
                 <td class="py-3 text-light fw-semibold" style="max-width: 260px;">
                   <div>${safeName}</div>
                   <div class="text-secondary small mt-1">Code: <span class="text-orange">${productCode}</span></div>
@@ -316,4 +316,3 @@ function selectProductMovement(movementId, movementName) {
   $("#productMovementBtn").text(movementName);
   $("#productMovement").val(movementId);
 }
-

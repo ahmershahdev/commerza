@@ -382,7 +382,7 @@ if (!empty($_SESSION['oauth_error'])) {
 }
 
 $signupUrl = commerza_absolute_url('/signup.php');
-$signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.webp');
+$signupImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza_logo.svg');
 ?>
 <!DOCTYPE html>
 <html lang="en">

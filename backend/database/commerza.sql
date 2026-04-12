@@ -814,7 +814,7 @@ INSERT INTO `site_settings` (`id`, `setting_key`, `setting_val`, `label`, `setti
 (6, 'currency_code', 'PKR', 'Currency Code', 'general', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
 (7, 'currency_symbol', 'Rs.', 'Currency Symbol', 'general', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
 (8, 'timezone', 'Asia/Karachi', 'Timezone', 'general', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
-(9, 'logo_url', 'frontend/assets/images/logo/commerza-logo.webp', 'Logo Image URL', 'general', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
+(9, 'logo_url', 'frontend/assets/images/logo/commerza_logo.svg', 'Logo Image URL', 'general', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
 (10, 'favicon_url', 'frontend/assets/images/favicon/commerza-watches-icon.ico', 'Favicon URL', 'general', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
 (11, 'meta_title', 'Commerza | Full-Stack Ecommerce', 'Default Meta Title', 'seo', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
 (12, 'meta_description', 'Commerza brings you premium automatic watches—crafted with elegant leather, gold dials, and modern design.', 'Default Meta Description', 'seo', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),

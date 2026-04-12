@@ -14,7 +14,7 @@ $adminJsVersion = @filemtime(__DIR__ . '/assets/js/modules/panel/init/document-r
 $adminSubAdminsJsVersion = @filemtime(__DIR__ . '/assets/js/modules/panel/sub-admins.js') ?: $adminJsVersion;
 $adminFrontendBaseHref = rtrim(admin_public_url('/admin/frontend/'), '/') . '/';
 $adminPanelCanonicalUrl = admin_public_url('/admin-panel');
-$adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.webp');
+$adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza_logo.svg');
 $adminDisplayNameRaw = trim((string)($adminUser['full_name'] ?? 'Admin User'));
 if ($adminDisplayNameRaw === '') {
     $adminDisplayNameRaw = 'Admin User';
@@ -62,7 +62,7 @@ $adminTabCatalog = admin_tabs_payload();
     <meta property="og:url" content="<?= htmlspecialchars($adminPanelCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>">
     <meta property="og:image" content="<?= htmlspecialchars($adminOgImageUrl, ENT_QUOTES, 'UTF-8') ?>">
     <title>Admin Panel | Commerza</title>
-    <link rel="icon" href="assets/images/favicon/commerza-watches-icon.ico">
+    <link rel="icon" href="../../frontend/assets/images/favicon/commerza-watches-icon.ico">
     <link id="bootstrapCssCdn" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
         integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous"
         onerror="this.onerror=null;this.href='../../frontend/assets/vendor/bootstrap/bootstrap.min.css'">
@@ -89,7 +89,7 @@ $adminTabCatalog = admin_tabs_payload();
                     <div class="pt-4">
                         <div class="text-center mb-4 pb-3 border-bottom border-secondary">
                             <a class="navbar-brand d-inline-flex flex-column align-items-center text-decoration-none">
-                                <img src="assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy"
+                                <img src="../../frontend/assets/images/logo/commerza_logo.svg" alt="Commerza Logo" loading="lazy"
                                     class="navbar-logo mb-2">
                                 <span class="brand-text d-block">COMMERZA</span>
                             </a>
@@ -2169,7 +2169,7 @@ $adminTabCatalog = admin_tabs_payload();
                                             </div>
                                             <div class="col-12 col-lg-4">
                                                 <label for="siteLogo" class="form-label text-light">Logo Path</label>
-                                                <input type="text" class="form-control bg-secondary border-0 text-light" id="siteLogo" placeholder="frontend/assets/images/logo/commerza-logo.webp">
+                                                <input type="text" class="form-control bg-secondary border-0 text-light" id="siteLogo" placeholder="frontend/assets/images/logo/commerza_logo.svg">
                                                 <div class="d-flex gap-2 mt-2">
                                                     <input type="file" class="form-control bg-secondary border-0 text-light" id="siteLogoFile" accept="image/*">
                                                     <button class="btn btn-outline-orange" id="uploadSiteLogoBtn" type="button"><i class="bi bi-upload"></i></button>

@@ -463,6 +463,10 @@ if ($action === 'update-email') {
         ], 500);
     }
 
+    if (isset($_SESSION['admin_email_verify_pending']) && is_array($_SESSION['admin_email_verify_pending'])) {
+        $_SESSION['admin_email_verify_pending']['email'] = $newEmail;
+    }
+
     admin_api_log_security_event($con, $admin, 'admin.email_updated', 'warning', [
         'previous_email' => (string)$currentAdmin['email'],
         'new_email' => $newEmail,

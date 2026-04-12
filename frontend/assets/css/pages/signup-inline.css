@@ -3,10 +3,14 @@
   color: #fff;
 }
 
-body.dark-theme.light-theme ::selection,
-body.dark-theme.light-theme ::-moz-selection,
-html[data-commerza-theme="light"] ::selection,
-html[data-commerza-theme="light"] ::-moz-selection {
+body.dark-theme.light-theme *::selection,
+html[data-commerza-theme="light"] *::selection {
+  background-color: rgba(30, 58, 138, 0.9) !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.light-theme *::-moz-selection,
+html[data-commerza-theme="light"] *::-moz-selection {
   background-color: rgba(30, 58, 138, 0.9) !important;
   color: #ffffff !important;
 }

@@ -39,11 +39,11 @@ if ($categoryVideoStmt) {
     content="Discover the intersection of tradition and technology. Shop the Automatic Vault and Smart Grid collections.">
   <meta property="og:url" content="https://commerza.ahmershah.dev/shop-category-a.php">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
+  <meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza_logo.svg">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Commerza | The Elite Engineering Series">
   <meta name="twitter:description" content="Discover the intersection of tradition and technology. Shop the Automatic Vault and Smart Grid collections.">
-  <meta name="twitter:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
+  <meta name="twitter:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza_logo.svg">
   <title>Commerza | The Elite Engineering Series – Precision & Tech</title>
   <link rel="canonical" href="https://commerza.ahmershah.dev/shop-category-a.php" />
   <link rel="icon" href="frontend/assets/images/favicon/commerza-watches-icon.ico">
@@ -74,7 +74,7 @@ if ($categoryVideoStmt) {
       "publisher": {
         "@type": "Organization",
         "name": "Commerza",
-        "logo": "https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp"
+        "logo": "https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza_logo.svg"
       }
     }
   </script>
@@ -361,7 +361,7 @@ if ($categoryVideoStmt) {
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
       <div class="container-fluid">
         <a class="navbar-brand fw-bold" href="index.php">
-          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy"
+          <img src="frontend/assets/images/logo/commerza_logo.svg" alt="Commerza Logo" loading="lazy"
             class="navbar-logo me-2">
           <span class="brand-text">COMMERZA</span>
         </a>
@@ -437,7 +437,7 @@ if ($categoryVideoStmt) {
     <div class="offcanvas offcanvas-start" tabindex="-1" id="navbarOffcanvas" aria-labelledby="offcanvasNavbarLabel">
       <div class="offcanvas-header">
         <h5 class="offcanvas-title" id="offcanvasNavbarLabel">
-          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy"
+          <img src="frontend/assets/images/logo/commerza_logo.svg" alt="Commerza Logo" loading="lazy"
             class="offcanvas-logo me-2">
           <span class="brand-text">COMMERZA</span>
         </h5>

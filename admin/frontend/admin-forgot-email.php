@@ -135,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $csrfToken = admin_generate_csrf_token();
 $adminFrontendBaseHref = rtrim(admin_public_url('/admin/frontend/'), '/') . '/';
 $forgotEmailCanonicalUrl = admin_public_url('/admin-forgot-email');
-$adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.webp');
+$adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza_logo.svg');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -158,7 +158,7 @@ $adminOgImageUrl = admin_public_url('/frontend/assets/images/logo/commerza-logo.
   <meta property="og:image" content="<?= htmlspecialchars($adminOgImageUrl, ENT_QUOTES, 'UTF-8') ?>">
   <title>Admin Forgot Email | Commerza</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="icon" href="assets/images/favicon/commerza-watches-icon.ico" />
+  <link rel="icon" href="../../frontend/assets/images/favicon/commerza-watches-icon.ico" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">

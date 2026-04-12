@@ -170,7 +170,7 @@ function commerza_build_public_site_settings_payload(mysqli $con): array
             'logo' => commerza_site_setting_value(
                 $con,
                 'logo_url',
-                'frontend/assets/images/logo/commerza-logo.webp'
+                'frontend/assets/images/logo/commerza_logo.svg'
             ),
             'favicon' => commerza_site_setting_value(
                 $con,

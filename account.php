@@ -1399,7 +1399,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $profilePicture = !empty($user['profile_picture'])
       ? (string)$user['profile_picture']
-      : 'frontend/assets/images/logo/commerza-logo.webp';
+      : 'frontend/assets/images/logo/commerza_logo.svg';
 
     $primaryMessage = '';
     if (!empty($success)) {
@@ -1482,7 +1482,7 @@ if ($refundStmt) {
   $refundStmt->close();
 }
 
-$profile_picture = !empty($user['profile_picture']) ? (string)$user['profile_picture'] : 'frontend/assets/images/logo/commerza-logo.webp';
+$profile_picture = !empty($user['profile_picture']) ? (string)$user['profile_picture'] : 'frontend/assets/images/logo/commerza_logo.svg';
 $username_value = commerza_username_slug((string)($user['username'] ?? ''));
 if (!commerza_username_is_valid($username_value)) {
   $username_value = commerza_username_base_from_identity(
@@ -1529,7 +1529,7 @@ $accountBlacklistNoticeText = $accountShowBlacklistNotice
 $appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
 $accountCleanPath = '/account/' . rawurlencode($username_value);
 $accountCanonicalUrl = commerza_absolute_url($accountCleanPath);
-$accountImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.webp');
+$accountImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza_logo.svg');
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
   $requestPath = (string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?? '');
@@ -1611,7 +1611,7 @@ if (is_array($accountDeletePending)) {
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
       <div class="container-fluid">
         <a class="navbar-brand fw-bold" href="index.php">
-          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy"
+          <img src="frontend/assets/images/logo/commerza_logo.svg" alt="Commerza Logo" loading="lazy"
             class="navbar-logo me-2" />
           <span class="brand-text">COMMERZA</span>
         </a>
@@ -1629,22 +1629,10 @@ if (is_array($accountDeletePending)) {
                 <span class="nav-badge" id="wishlist-count">0</span>
               </a>
             </li>
-            <li class="nav-item dropdown">
-              <a class="nav-link nav-icon-link dropdown-toggle" href="#" id="accountQuickMenu" role="button"
-                data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
+            <li class="nav-item">
+              <a class="nav-link nav-icon-link" href="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>" aria-current="page" aria-label="Account">
                 <i class="bi bi-person"></i>
               </a>
-              <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark account-quick-menu border-secondary"
-                aria-labelledby="accountQuickMenu">
-                <li><a class="dropdown-item" aria-current="page" href="<?= htmlspecialchars($accountCanonicalUrl, ENT_QUOTES, 'UTF-8') ?>">My Account</a></li>
-                <li>
-                  <button type="button" class="dropdown-item d-flex align-items-center gap-2"
-                    data-theme-toggle="account-navbar" data-theme-origin="center">
-                    <i class="bi" data-theme-icon></i>
-                    <span data-theme-label>Dark Mode</span>
-                  </button>
-                </li>
-              </ul>
             </li>
           </ul>
           <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#navbarOffcanvas"
@@ -1673,7 +1661,7 @@ if (is_array($accountDeletePending)) {
     <div class="offcanvas offcanvas-start" tabindex="-1" id="navbarOffcanvas" aria-labelledby="offcanvasNavbarLabel">
       <div class="offcanvas-header">
         <h5 class="offcanvas-title" id="offcanvasNavbarLabel">
-          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy"
+          <img src="frontend/assets/images/logo/commerza_logo.svg" alt="Commerza Logo" loading="lazy"
             class="offcanvas-logo me-2" />
           <span class="brand-text">COMMERZA</span>
         </h5>

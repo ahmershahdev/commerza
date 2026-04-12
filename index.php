@@ -10,7 +10,7 @@ if (empty($_SESSION['csrf_token'])) {
 $appBaseHref = rtrim(commerza_public_base_url(), '/') . '/';
 
 $canonicalHomeUrl = commerza_absolute_url('/');
-$logoShareImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza-logo.webp');
+$logoShareImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza_logo.svg');
 
 $home_feature_video = commerza_site_setting_value($con, 'home_feature_video', 'frontend/assets/videos/slider/steel_watch_1.mp4');
 if (
@@ -68,7 +68,7 @@ if (
           "@id": "https://commerza.ahmershah.dev/#organization",
           "name": "Commerza",
           "url": "https://commerza.ahmershah.dev/",
-          "logo": "https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp",
+          "logo": "https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza_logo.svg",
           "description": "Premium automatic watches with elegant leather and gold dials.",
           "contactPoint": {
             "@type": "ContactPoint",
@@ -103,7 +103,7 @@ if (
           "@id": "https://commerza.ahmershah.dev/#store",
           "name": "Commerza",
           "url": "https://commerza.ahmershah.dev/",
-          "image": "https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp",
+          "image": "https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza_logo.svg",
           "priceRange": "$$",
           "currenciesAccepted": "PKR",
           "paymentAccepted": "Cash on Delivery, JazzCash Sandbox, Easypaisa Sandbox, PayPal Sandbox, Stripe Sandbox, Card Sandbox",
@@ -132,7 +132,7 @@ if (
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
       <div class="container-fluid">
         <a class="navbar-brand fw-bold" href="index.php">
-          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy"
+          <img src="frontend/assets/images/logo/commerza_logo.svg" alt="Commerza Logo" loading="lazy"
             class="navbar-logo me-2">
           <span class="brand-text">COMMERZA</span>
         </a>
@@ -207,7 +207,7 @@ if (
     <div class="offcanvas offcanvas-start" tabindex="-1" id="navbarOffcanvas" aria-labelledby="offcanvasNavbarLabel">
       <div class="offcanvas-header">
         <h5 class="offcanvas-title" id="offcanvasNavbarLabel">
-          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy"
+          <img src="frontend/assets/images/logo/commerza_logo.svg" alt="Commerza Logo" loading="lazy"
             class="offcanvas-logo me-2">
           <span class="brand-text">COMMERZA</span>
         </h5>

@@ -14,7 +14,7 @@ require_once __DIR__ . '/backend/core/data.php';
 	<meta property="og:description" content="Commerza terms and conditions for using our website and services." />
 	<meta property="og:url" content="https://commerza.ahmershah.dev/terms-of-service.php" />
 	<meta property="og:type" content="website" />
-	<meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp" />
+	<meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza_logo.svg" />
 	<title>Terms of Service | Commerza</title>
 	<link rel="canonical" href="https://commerza.ahmershah.dev/terms-of-service.php" />
 
@@ -34,7 +34,7 @@ require_once __DIR__ . '/backend/core/data.php';
 					"@id": "https://commerza.ahmershah.dev/#organization",
 					"name": "Commerza",
 					"url": "https://commerza.ahmershah.dev/",
-					"logo": "https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp",
+					"logo": "https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza_logo.svg",
 					"contactPoint": {
 						"@type": "ContactPoint",
 						"contactType": "Customer Service",
@@ -107,7 +107,7 @@ require_once __DIR__ . '/backend/core/data.php';
 		<nav class="navbar navbar-expand-lg navbar-dark fixed-top">
 			<div class="container-fluid">
 				<a class="navbar-brand fw-bold" href="index.php">
-					<img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy" class="navbar-logo me-2" />
+					<img src="frontend/assets/images/logo/commerza_logo.svg" alt="Commerza Logo" loading="lazy" class="navbar-logo me-2" />
 					<span class="brand-text">COMMERZA</span>
 				</a>
 
@@ -150,7 +150,7 @@ require_once __DIR__ . '/backend/core/data.php';
 		<div class="offcanvas offcanvas-start" tabindex="-1" id="navbarOffcanvas" aria-labelledby="offcanvasNavbarLabel">
 			<div class="offcanvas-header">
 				<h5 class="offcanvas-title" id="offcanvasNavbarLabel">
-					<img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy" class="offcanvas-logo me-2" />
+					<img src="frontend/assets/images/logo/commerza_logo.svg" alt="Commerza Logo" loading="lazy" class="offcanvas-logo me-2" />
 					<span class="brand-text">COMMERZA</span>
 				</h5>
 				<button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>

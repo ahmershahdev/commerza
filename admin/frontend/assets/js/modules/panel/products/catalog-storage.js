@@ -196,8 +196,8 @@ function renderProductTrashTable() {
         </td>
         <td class="pe-4 py-3">
           <div class="d-flex gap-1 flex-wrap">
-            <button class="btn btn-sm btn-outline-success" type="button" title="Restore this item to catalog" onclick="restoreTrashProductById(${trashId})">Restore</button>
-            <button class="btn btn-sm btn-outline-danger" type="button" title="Permanently delete this trash item" onclick="deleteTrashItemById(${trashId})">Delete</button>
+            <button class="btn btn-sm btn-outline-success product-trash-restore-btn" type="button" title="Restore this item to catalog" onclick="restoreTrashProductById(${trashId})">Restore</button>
+            <button class="btn btn-sm btn-outline-danger product-trash-delete-btn" type="button" title="Permanently delete this trash item" onclick="deleteTrashItemById(${trashId})">Delete</button>
           </div>
         </td>
       </tr>
@@ -370,4 +370,3 @@ function saveProductsToJSON() {
       return null;
     });
 }
-

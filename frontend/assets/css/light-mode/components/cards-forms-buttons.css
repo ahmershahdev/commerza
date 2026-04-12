@@ -18,7 +18,9 @@ body.dark-theme.light-theme .captcha-shell {
   ) !important;
   border-color: var(--cmrz-light-border) !important;
   color: var(--cmrz-light-text) !important;
-  box-shadow: 0 14px 28px var(--cmrz-light-shadow) !important;
+  box-shadow:
+    0 12px 24px rgba(15, 23, 42, 0.08),
+    0 3px 10px rgba(30, 58, 138, 0.06) !important;
 }
 
 body.dark-theme.light-theme .card-header,
@@ -32,9 +34,9 @@ body.dark-theme.light-theme .offcanvas-footer {
 body.dark-theme.light-theme .product-card::after {
   background: linear-gradient(
     135deg,
-    rgba(30, 58, 138, 0.28),
+    rgba(30, 58, 138, 0.18),
     transparent,
-    rgba(59, 130, 246, 0.2)
+    rgba(59, 130, 246, 0.12)
   );
 }
 
@@ -54,7 +56,7 @@ body.dark-theme.light-theme .product-card .product-image {
 body.dark-theme.light-theme .product-card:hover {
   border-color: var(--cmrz-light-border-strong);
   box-shadow:
-    0 24px 40px var(--cmrz-light-shadow-strong),
+    0 18px 32px rgba(15, 23, 42, 0.14),
     0 0 0 1px rgba(37, 82, 214, 0.12) !important;
 }
 

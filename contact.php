@@ -196,11 +196,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta property="og:description" content="Get in touch with Commerza customer service for premium watch inquiries.">
   <meta property="og:url" content="https://commerza.ahmershah.dev/contact.php">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
+  <meta property="og:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza_logo.svg">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Contact Us | Commerza">
   <meta name="twitter:description" content="Get in touch with Commerza customer service for premium watch inquiries.">
-  <meta name="twitter:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza-logo.webp">
+  <meta name="twitter:image" content="https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza_logo.svg">
   <title>Contact Us | Commerza</title>
   <link rel="canonical" href="https://commerza.ahmershah.dev/contact.php" />
   <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
@@ -236,7 +236,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
       <div class="container-fluid">
         <a class="navbar-brand fw-bold" href="index.php">
-          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy"
+          <img src="frontend/assets/images/logo/commerza_logo.svg" alt="Commerza Logo" loading="lazy"
             class="navbar-logo me-2" />
           <span class="brand-text">COMMERZA</span>
         </a>
@@ -285,7 +285,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="offcanvas offcanvas-start" tabindex="-1" id="navbarOffcanvas" aria-labelledby="offcanvasNavbarLabel">
       <div class="offcanvas-header">
         <h5 class="offcanvas-title" id="offcanvasNavbarLabel">
-          <img src="frontend/assets/images/logo/commerza-logo.webp" alt="Commerza Logo" loading="lazy"
+          <img src="frontend/assets/images/logo/commerza_logo.svg" alt="Commerza Logo" loading="lazy"
             class="offcanvas-logo me-2" />
           <span class="brand-text">COMMERZA</span>
         </h5>
