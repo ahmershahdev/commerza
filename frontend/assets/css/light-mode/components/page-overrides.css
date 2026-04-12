@@ -113,6 +113,11 @@ body.dark-theme.light-theme .account-section-subtitle {
   box-shadow: none !important;
 }
 
+body.dark-theme.light-theme .about-story-step .text-light,
+body.dark-theme.light-theme .about-story-step strong.text-light {
+  color: var(--cmrz-light-navy) !important;
+}
+
 body.dark-theme.light-theme .about-stat-value {
   margin: 0;
 }
@@ -206,6 +211,18 @@ body.dark-theme.light-theme .step-chip {
   align-items: center;
   border-radius: 999px !important;
   padding: 6px 12px;
+}
+
+body.dark-theme.light-theme .series-pulse-chip,
+body.dark-theme.light-theme .series-pulse-chip .chip-kicker,
+body.dark-theme.light-theme .series-pulse-chip strong {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme.light-theme .series-pulse-chip .chip-kicker {
+  background: transparent !important;
+  padding: 0 !important;
 }
 
 body.dark-theme.light-theme .wishlist-decision-item {
@@ -525,9 +542,8 @@ body.dark-theme.light-theme .account-personal-form .account-field,
 body.dark-theme.light-theme .account-recovery-shell,
 body.dark-theme.light-theme .account-recovery-toggle,
 body.dark-theme.light-theme .username-lock-label,
-body.dark-theme.light-theme .profile-visibility-pill,
-body.dark-theme.light-theme .account-visibility-dropdown .dropdown-toggle {
-  border-color: transparent !important;
+body.dark-theme.light-theme .profile-visibility-pill {
+  border: 0 !important;
   box-shadow: none !important;
 }
 

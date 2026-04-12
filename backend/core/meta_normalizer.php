@@ -652,7 +652,7 @@ function commerza_html_meta_normalize(string $buffer): string
 
     if (stripos($buffer, 'id="commerzaLightThemeStylesheet"') === false) {
         $lightThemeHref = htmlspecialchars(
-            rtrim(commerza_public_base_url(), '/') . '/frontend/assets/css/light-mode/theme.css?v=20260412-7',
+            rtrim(commerza_public_base_url(), '/') . '/frontend/assets/css/light-mode/theme.css?v=20260412-8',
             ENT_QUOTES,
             'UTF-8'
         );
@@ -666,7 +666,7 @@ function commerza_html_meta_normalize(string $buffer): string
     }
 
     if (stripos($buffer, 'id="commerzaThemeRuntime"') === false) {
-        $themeRuntimeSrc = htmlspecialchars(rtrim(commerza_public_base_url(), '/') . '/frontend/assets/js/modules/core/theme-manager.js?v=20260412', ENT_QUOTES, 'UTF-8');
+        $themeRuntimeSrc = htmlspecialchars(rtrim(commerza_public_base_url(), '/') . '/frontend/assets/js/modules/core/theme-manager.js?v=20260412-1', ENT_QUOTES, 'UTF-8');
         $themeRuntimeScript = '<script ' . commerza_csp_nonce_attr() . ' id="commerzaThemeRuntime" src="' . $themeRuntimeSrc . '" defer></script>';
 
         if (stripos($buffer, '</body>') !== false) {

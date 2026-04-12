@@ -81,8 +81,14 @@
 
       #${FLOATING_TOGGLE_ID}[data-theme-current="light"] {
         background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(225, 238, 255, 0.94));
-        color: #0e234a;
-        border-color: rgba(13, 42, 92, 0.28);
+        color: #0a2d66;
+        border-color: rgba(13, 42, 92, 0.42);
+        box-shadow: 0 14px 30px rgba(30, 58, 138, 0.2);
+      }
+
+      #${FLOATING_TOGGLE_ID}[data-theme-current="light"] .commerza-theme-toggle-label {
+        color: #0a2d66;
+        font-weight: 700;
       }
 
       #${FLOATING_TOGGLE_ID} .bi {
@@ -248,10 +254,13 @@
           bottom: 0.75rem;
           padding: 0.68rem 0.78rem;
           border-radius: 14px;
+          gap: 0.4rem;
         }
 
         #${FLOATING_TOGGLE_ID} .commerza-theme-toggle-label {
-          display: none;
+          display: inline;
+          font-size: 0.78rem;
+          line-height: 1;
         }
       }
     `;
