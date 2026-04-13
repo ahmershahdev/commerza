@@ -250,8 +250,8 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
       </div>
     </div>
 
-    <div class="text-center mt-5">
-      <h3 style="color: #ff6600">Still have questions?</h3>
+    <div class="text-center mt-5 about-cta-title">
+      <h3>Still have questions?</h3>
       <p class="product-desc mb-4">
         Our support team is always happy to help.
       </p>

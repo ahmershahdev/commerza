@@ -282,7 +282,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </form>
           </div>
         </div>
-        <div class="col-lg-6">
+        <div class="col-lg-6"> 
           <div class="tracking-panel">
             <div class="tracking-header">
               <span class="tracking-kicker">Tracking Steps</span>

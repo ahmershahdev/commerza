@@ -254,11 +254,7 @@ $adminTabCatalog = admin_tabs_payload();
                         </div>
                     </div>
                     <div class="btn-toolbar mb-2 mb-md-0 gap-2 admin-action-toolbar" id="actionButtons">
-                        <button type="button" class="btn btn-sm btn-outline-orange d-inline-flex align-items-center gap-2"
-                            data-theme-toggle="admin-topbar" data-theme-origin="center">
-                            <i class="bi" data-theme-icon></i>
-                            <span class="d-none d-sm-inline" data-theme-label>Dark Mode</span>
-                        </button>
+
                         <div class="btn-group admin-export-group">
                             <button type="button" class="btn btn-sm btn-outline-orange dropdown-toggle" id="exportBtn" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" aria-label="Export options">
                                 <i class="bi bi-download me-1"></i>

@@ -195,7 +195,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
             <h3 class="product-name">Standard Shipping</h3>
             <p class="product-desc">
               Delivery within 5–7 business days.
-              <br /><strong>Cost:</strong> $10
+              <br /><strong>Cost:</strong> 1000 PKR
             </p>
           </div>
         </div>
@@ -208,7 +208,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
             <h3 class="product-name">Express Shipping</h3>
             <p class="product-desc">
               Delivery within 2–3 business days.
-              <br /><strong>Cost:</strong> $20
+              <br /><strong>Cost:</strong> 1200 PKR
             </p>
           </div>
         </div>
@@ -256,7 +256,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
     </div>
 
     <div class="text-center">
-      <h3 class="mb-3" style="color: #ff6600">Questions About Shipping?</h3>
+      <h3 class="mb-3 about-cta-title">Questions About Shipping?</h3>
       <p class="product-desc mb-4">
         Our support team is here to help with any shipping-related inquiries.
       </p>

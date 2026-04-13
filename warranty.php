@@ -272,7 +272,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
     </div>
 
     <div class="text-center">
-      <h3 class="mb-3" style="color: #ff6600">Need Warranty Support?</h3>
+      <h3 class="mb-3" about-cta-title>Need Warranty Support?</h3>
       <p class="product-desc mb-4">
         Our support team is here to help you with any warranty-related
         questions.

@@ -61,6 +61,11 @@ body.dark-theme.light-theme .page-hero::before {
   opacity: 0.58;
 }
 
+body.dark-theme.light-theme .tracking-step {
+  background-color: white !important;
+  border: 1px solid var(--cmrz-light-navy);
+}
+
 body.dark-theme.light-theme .product-section-title,
 body.dark-theme.light-theme .product-info-item h3,
 body.dark-theme.light-theme .tracking-title,
@@ -103,6 +108,10 @@ body.dark-theme.light-theme .account-page-title,
 body.dark-theme.light-theme .account-empty-icon,
 body.dark-theme.light-theme .cart-empty-title {
   color: var(--cmrz-light-navy) !important;
+}
+
+body.dark-theme .about-cta-title {
+  color: orangered;
 }
 
 body.dark-theme.light-theme .product-name,
@@ -295,7 +304,7 @@ body.dark-theme.light-theme .tracking-step .step-index {
   align-items: center;
   justify-content: center;
   border: 1px solid rgba(37, 82, 214, 0.34) !important;
-  background: rgba(37, 82, 214, 0.12) !important;
+  background: rgba(37, 81, 214, 0.233) !important;
 }
 
 body.dark-theme.light-theme .tracking-input,
@@ -536,8 +545,6 @@ body.dark-theme.light-theme #checkoutModal .field-hint {
 body.dark-theme.light-theme .account-page .card.product-card,
 body.dark-theme.light-theme .cart-summary-card,
 body.dark-theme.light-theme .cart-list-panel .product-card,
-body.dark-theme.light-theme .checkout-guide-card,
-body.dark-theme.light-theme .checkout-precaution-panel,
 body.dark-theme.light-theme .account-personal-form .account-field,
 body.dark-theme.light-theme .account-recovery-shell,
 body.dark-theme.light-theme .account-recovery-toggle,
@@ -545,6 +552,11 @@ body.dark-theme.light-theme .username-lock-label,
 body.dark-theme.light-theme .profile-visibility-pill {
   border: 0 !important;
   box-shadow: none !important;
+}
+
+body.dark-theme.light-theme .checkout-guide-card, body.dark-theme.light-theme .checkout-precaution-panel{
+  border: 1px solid var(--cmrz-light-navy);
+  box-shadow: 0 14px 28px var(--cmrz-light-shadow) !important;
 }
 
 body.dark-theme.light-theme #cart-items-container .cart-empty-cta {

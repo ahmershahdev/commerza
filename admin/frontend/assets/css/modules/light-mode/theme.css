@@ -46,13 +46,6 @@ html[data-commerza-theme="light"] *::-webkit-scrollbar-track {
   background: linear-gradient(180deg, #f8fbff 0%, #e9f0fb 100%);
 }
 
-body.dark-theme.light-theme,
-body.dark-theme.light-theme *,
-html[data-commerza-theme="light"],
-html[data-commerza-theme="light"] * {
-  scrollbar-color: #2552d6 #e9f0fb;
-}
-
 body.dark-theme.light-theme::-webkit-scrollbar-thumb,
 body.dark-theme.light-theme *::-webkit-scrollbar-thumb,
 html[data-commerza-theme="light"]::-webkit-scrollbar-thumb,
@@ -67,6 +60,15 @@ body.dark-theme.light-theme *::-webkit-scrollbar-thumb:hover,
 html[data-commerza-theme="light"]::-webkit-scrollbar-thumb:hover,
 html[data-commerza-theme="light"] *::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #60a5fa 0%, #1d4ed8 100%);
+}
+
+@media (hover: none) {
+  body.dark-theme.light-theme,
+  body.dark-theme.light-theme *,
+  html[data-commerza-theme="light"],
+  html[data-commerza-theme="light"] * {
+    scrollbar-color: #2552d6 #000000;
+  }
 }
 
 body.dark-theme.light-theme .navbar-logo[src$="commerza_logo.svg"] {
