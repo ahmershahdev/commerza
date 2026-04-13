@@ -1,14 +1,54 @@
 <?php
 
+function commerza_html_tag_attribute_value(string $tag, string $attribute): string
+{
+    $name = trim($attribute);
+    if ($tag === '' || $name === '') {
+        return '';
+    }
+
+    $pattern = "/\\b" . preg_quote($name, '/') . "\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))/i";
+    if (preg_match($pattern, $tag, $match) !== 1) {
+        return '';
+    }
+
+    $value = '';
+    if (isset($match[1]) && $match[1] !== '') {
+        $value = (string)$match[1];
+    } elseif (isset($match[2]) && $match[2] !== '') {
+        $value = (string)$match[2];
+    } elseif (isset($match[3])) {
+        $value = (string)$match[3];
+    }
+
+    return html_entity_decode(trim($value), ENT_QUOTES, 'UTF-8');
+}
+
+function commerza_is_stylesheet_link_tag(string $tag): bool
+{
+    $rel = strtolower(commerza_html_tag_attribute_value($tag, 'rel'));
+    if ($rel === '') {
+        return false;
+    }
+
+    $parts = preg_split('/\s+/', $rel) ?: [];
+    return in_array('stylesheet', $parts, true);
+}
+
 function commerza_collect_preload_assets(string $buffer): array
 {
     $assets = [];
     $seen = [];
 
-    $styleTags = [];
-    if (preg_match_all('/<link\b[^>]*\brel\s*=\s*(["\'])stylesheet\1[^>]*\bhref\s*=\s*(["\'])([^"\']+)\2[^>]*>/i', $buffer, $styleTags, PREG_SET_ORDER) === 1 || !empty($styleTags)) {
-        foreach ($styleTags as $tag) {
-            $href = trim((string)($tag[3] ?? ''));
+    $linkTags = [];
+    if (preg_match_all('/<link\b[^>]*>/i', $buffer, $linkTags, PREG_SET_ORDER) !== false) {
+        foreach ($linkTags as $match) {
+            $tag = (string)($match[0] ?? '');
+            if ($tag === '' || !commerza_is_stylesheet_link_tag($tag)) {
+                continue;
+            }
+
+            $href = trim(commerza_html_tag_attribute_value($tag, 'href'));
             if ($href === '') {
                 continue;
             }
@@ -81,24 +121,21 @@ function commerza_inject_preload_links(string $buffer): string
 function commerza_optimize_stylesheet_links(string $buffer): string
 {
     return preg_replace_callback(
-        '/<link\b[^>]*\brel\s*=\s*(["\'])stylesheet\1[^>]*>/i',
+        '/<link\b[^>]*>/i',
         static function (array $matches): string {
             $tag = (string)($matches[0] ?? '');
-            if ($tag === '') {
+            if ($tag === '' || !commerza_is_stylesheet_link_tag($tag)) {
                 return $tag;
             }
 
-            $href = '';
-            if (preg_match('/\bhref\s*=\s*(["\'])([^"\']+)\1/i', $tag, $hrefMatch) === 1) {
-                $href = (string)($hrefMatch[2] ?? '');
-            }
+            $href = commerza_html_tag_attribute_value($tag, 'href');
 
             $fallbackHref = $href !== '' ? commerza_cdn_fallback_asset_for_url($href) : '';
             if ($fallbackHref !== '' && preg_match('/\bonerror\s*=\s*(["\']).*?\1/i', $tag) !== 1) {
                 $safeFallback = htmlspecialchars($fallbackHref, ENT_QUOTES, 'UTF-8');
                 $tag = commerza_insert_tag_attribute(
                     $tag,
-                    'onerror="this.onerror=null;this.href=\'' . $safeFallback . '\'"'
+                    'onerror="this.onerror=null;this.removeAttribute(\'integrity\');this.removeAttribute(\'crossorigin\');this.href=\'' . $safeFallback . '\'"'
                 );
             }
 
@@ -153,7 +190,7 @@ function commerza_optimize_head_script_defer(string $buffer): string
                 $safeFallback = htmlspecialchars($fallbackSrc, ENT_QUOTES, 'UTF-8');
                 $tag = commerza_insert_tag_attribute(
                     $tag,
-                    'onerror="this.onerror=null;this.src=\'' . $safeFallback . '\'"'
+                    'onerror="this.onerror=null;this.removeAttribute(\'integrity\');this.removeAttribute(\'crossorigin\');this.src=\'' . $safeFallback . '\'"'
                 );
             }
 
@@ -222,7 +259,7 @@ function commerza_optimize_script_tag_fallbacks(string $buffer): string
             $safeFallback = htmlspecialchars($fallbackSrc, ENT_QUOTES, 'UTF-8');
             return commerza_insert_tag_attribute(
                 $tag,
-                'onerror="this.onerror=null;this.src=\'' . $safeFallback . '\'"'
+                'onerror="this.onerror=null;this.removeAttribute(\'integrity\');this.removeAttribute(\'crossorigin\');this.src=\'' . $safeFallback . '\'"'
             );
         },
         $buffer
@@ -652,7 +689,7 @@ function commerza_html_meta_normalize(string $buffer): string
 
     if (stripos($buffer, 'id="commerzaLightThemeStylesheet"') === false) {
         $lightThemeHref = htmlspecialchars(
-            rtrim(commerza_public_base_url(), '/') . '/frontend/assets/css/light-mode/theme.css?v=20260412-8',
+            rtrim(commerza_public_base_url(), '/') . '/frontend/assets/css/light-mode/theme.css?v=20260413-1',
             ENT_QUOTES,
             'UTF-8'
         );
@@ -677,11 +714,20 @@ function commerza_html_meta_normalize(string $buffer): string
     }
 
     $manualStyles = commerza_frontend_manual_stylesheet_links_html();
+    $manualStylesInjected = false;
     $buffer = preg_replace_callback(
-        '/<link\b[^>]*\brel\s*=\s*(["\'])stylesheet\1[^>]*\bhref\s*=\s*(["\'])([^"\']+)\2[^>]*>/i',
-        static function (array $matches) use ($manualStyles): string {
+        '/<link\b[^>]*>/i',
+        static function (array $matches) use ($manualStyles, &$manualStylesInjected): string {
             $tag = (string)($matches[0] ?? '');
-            $href = html_entity_decode(strtolower(trim((string)($matches[3] ?? ''))), ENT_QUOTES, 'UTF-8');
+            if ($tag === '' || $manualStylesInjected || !commerza_is_stylesheet_link_tag($tag)) {
+                return $tag;
+            }
+
+            $href = html_entity_decode(
+                strtolower(trim(commerza_html_tag_attribute_value($tag, 'href'))),
+                ENT_QUOTES,
+                'UTF-8'
+            );
             $isFrontendBundleLink = str_contains($href, 'frontend/assets/css/modules/core/style.css')
                 || str_contains($href, 'frontend/assets/css/style.css');
 
@@ -696,10 +742,10 @@ function commerza_html_meta_normalize(string $buffer): string
                 return $tag;
             }
 
+            $manualStylesInjected = true;
             return $manualStyles;
         },
-        $buffer,
-        1
+        $buffer
     ) ?? $buffer;
 
     $buffer = commerza_optimize_stylesheet_links($buffer);

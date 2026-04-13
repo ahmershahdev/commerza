@@ -556,8 +556,11 @@ function commerza_cdn_fallback_asset_for_url(string $url): string
     }
 
     if (
-        str_contains($normalized, 'cdn.jsdelivr.net/npm/bootstrap-icons@')
-        && str_contains($normalized, '/font/bootstrap-icons.min.css')
+        str_contains($normalized, 'cdn.jsdelivr.net/npm/bootstrap-icons')
+        && (
+            str_contains($normalized, '/font/bootstrap-icons.min.css')
+            || str_contains($normalized, '/font/bootstrap-icons.css')
+        )
     ) {
         return $prefix . 'frontend/assets/vendor/bootstrap-icons/bootstrap-icons.min.css';
     }
@@ -592,8 +595,13 @@ function commerza_insert_tag_attribute(string $tag, string $attribute): string
         return $tag;
     }
 
-    return substr($tag, 0, $tagEnd)
-        . ' '
-        . $attr
-        . substr($tag, $tagEnd);
+    $openingTag = substr($tag, 0, $tagEnd);
+    $remainder = substr($tag, $tagEnd);
+
+    if (preg_match('/\/\s*$/', $openingTag) === 1) {
+        $openingTag = preg_replace('/\/\s*$/', '', $openingTag) ?? $openingTag;
+        return rtrim($openingTag) . ' ' . $attr . ' /' . $remainder;
+    }
+
+    return $openingTag . ' ' . $attr . $remainder;
 }

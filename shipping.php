@@ -191,7 +191,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
       <div class="col-md-4 mb-4">
         <div class="card product-card h-100 text-center">
           <div class="card-body">
-            <i class="bi bi-truck fs-1 mb-3" style="color: #ff6600"></i>
+            <i class="bi bi-truck fs-1 mb-3" style="color: var(--cmrz-light-navy, #ff6600)"></i>
             <h3 class="product-name">Standard Shipping</h3>
             <p class="product-desc">
               Delivery within 5–7 business days.
@@ -204,7 +204,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
       <div class="col-md-4 mb-4">
         <div class="card product-card h-100 text-center">
           <div class="card-body">
-            <i class="bi bi-lightning-charge fs-1 mb-3" style="color: #ff6600"></i>
+            <i class="bi bi-lightning-charge fs-1 mb-3" style="color: var(--cmrz-light-navy, #ff6600)"></i>
             <h3 class="product-name">Express Shipping</h3>
             <p class="product-desc">
               Delivery within 2–3 business days.
@@ -217,7 +217,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
       <div class="col-md-4 mb-4">
         <div class="card product-card h-100 text-center">
           <div class="card-body">
-            <i class="bi bi-globe fs-1 mb-3" style="color: #ff6600"></i>
+            <i class="bi bi-globe fs-1 mb-3" style="color: var(--cmrz-light-navy, #ff6600)"></i>
             <h3 class="product-name">International Shipping</h3>
             <p class="product-desc">
               Delivery within 7–14 business days.
