@@ -5,19 +5,23 @@ function showNotification(message, type) {
       : type === "danger"
         ? "alert-danger"
         : "alert-warning";
+
+  const safeMessage = escapeHtml((message || "").toString());
+
   $("body").append(`
-        <div class="alert ${alertClass} alert-dismissible fade show" role="alert" style="position: fixed; top: 80px; right: 20px; z-index: 9999; min-width: 300px;">
-            ${message}
+        <div class="alert ${alertClass} alert-dismissible fade show admin-floating-alert" role="alert">
+            <span class="admin-floating-alert-message">${safeMessage}</span>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     `);
-  setTimeout(
-    () =>
-      $(".alert").fadeOut("slow", function () {
+
+  setTimeout(() => {
+    $(".admin-floating-alert")
+      .first()
+      .fadeOut("slow", function () {
         $(this).remove();
-      }),
-    3000,
-  );
+      });
+  }, 3000);
 }
 
 function showAdminDialog(options = {}) {
@@ -152,8 +156,12 @@ function showCustomPromptDialog(
 }
 
 function showStatusNotification(orderId, oldStatus, newStatus) {
+  const safeOrderId = escapeHtml((orderId || "").toString());
+  const safeOldStatus = escapeHtml((oldStatus || "").toString());
+  const safeNewStatus = escapeHtml((newStatus || "").toString());
+
   const notif = $(
-    `<div class="alert alert-info alert-dismissible fade show" role="alert" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; min-width: 380px; background-color: #1a3a4a; border: 2px solid #0d6efd; border-radius: 8px; padding: 30px; box-shadow: 0 4px 15px rgba(13, 110, 253, 0.3);"><div style="color: #fff; text-align: center;"><i class="bi bi-arrow-left-right" style="font-size: 2rem; color: #0d6efd; display: block; margin-bottom: 10px;"></i><h5 style="margin: 10px 0; color: #0d6efd;">Order Status Updated!</h5><p style="margin: 5px 0; font-size: 0.95rem;">Order: <strong>${orderId}</strong></p><p style="margin: 10px 0; font-size: 0.9rem; color: #b0b0b0;"><span style="background-color: #332a1a; padding: 4px 8px; border-radius: 4px;">${oldStatus}</span><i class="bi bi-arrow-right" style="margin: 0 8px; color: #0d6efd;"></i><span style="background-color: #1a332a; padding: 4px 8px; border-radius: 4px;">${newStatus}</span></p></div><button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button></div>`,
+    `<div class="alert alert-info alert-dismissible fade show admin-status-alert" role="alert"><div class="admin-status-alert-body"><i class="bi bi-arrow-left-right admin-status-alert-icon"></i><h5 class="admin-status-alert-title">Order Status Updated!</h5><p class="admin-status-alert-order">Order: <strong>${safeOrderId}</strong></p><p class="admin-status-alert-transition"><span class="admin-status-pill admin-status-pill-old">${safeOldStatus}</span><i class="bi bi-arrow-right admin-status-arrow"></i><span class="admin-status-pill admin-status-pill-new">${safeNewStatus}</span></p></div><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>`,
   );
   $("body").append(notif);
   setTimeout(() => notif.remove(), 4000);

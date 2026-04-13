@@ -326,6 +326,14 @@
     applyBodyTheme(activeTheme);
     renderAllToggles();
 
+    document.dispatchEvent(
+      new CustomEvent("commerza:admin-theme-change", {
+        detail: {
+          theme: activeTheme,
+        },
+      }),
+    );
+
     if (persist) {
       writeStoredTheme(activeTheme);
     }

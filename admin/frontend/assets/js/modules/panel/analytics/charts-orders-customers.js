@@ -1,3 +1,33 @@
+function isAdminLightThemeActive() {
+  const rootTheme = (
+    document.documentElement.getAttribute("data-commerza-theme") ||
+    document.documentElement.getAttribute("data-bs-theme") ||
+    ""
+  )
+    .toString()
+    .trim()
+    .toLowerCase();
+
+  if (rootTheme === "light") {
+    return true;
+  }
+
+  return document.body?.classList?.contains("light-theme") === true;
+}
+
+function setAnalyticsChartUnavailableState(canvas, isUnavailable) {
+  if (!canvas) {
+    return;
+  }
+
+  const shell = canvas.closest(".analytics-chart-shell");
+  if (!shell) {
+    return;
+  }
+
+  shell.classList.toggle("is-chart-unavailable", Boolean(isUnavailable));
+}
+
 function renderAnalyticsProfitLossChart(weekly) {
   const canvas = document.getElementById("analyticsProfitLossChart");
   if (!canvas) {
@@ -9,6 +39,7 @@ function renderAnalyticsProfitLossChart(weekly) {
       analyticsProfitLossChart.destroy();
       analyticsProfitLossChart = null;
     }
+    setAnalyticsChartUnavailableState(canvas, true);
     return;
   }
 
@@ -29,96 +60,130 @@ function renderAnalyticsProfitLossChart(weekly) {
   const revenueData = series.map((row) => Number(row?.revenue || 0));
   const lossData = series.map((row) => Number(row?.loss || 0));
   const netData = series.map((row) => Number(row?.net || 0));
+  const isLightTheme = isAdminLightThemeActive();
+
+  const palette = isLightTheme
+    ? {
+        legend: "#1e3a8a",
+        axis: "#334155",
+        gridX: "rgba(30,58,138,0.12)",
+        gridY: "rgba(30,58,138,0.16)",
+        revenueFill: "rgba(37, 82, 214, 0.58)",
+        revenueBorder: "rgba(30, 58, 138, 0.95)",
+        lossFill: "rgba(220, 53, 69, 0.52)",
+        lossBorder: "rgba(190, 24, 93, 0.88)",
+        netStroke: "rgba(22, 163, 74, 0.95)",
+        netFill: "rgba(22, 163, 74, 0.22)",
+      }
+    : {
+        legend: "#d9d9d9",
+        axis: "#bcbcbc",
+        gridX: "rgba(255,255,255,0.05)",
+        gridY: "rgba(255,255,255,0.06)",
+        revenueFill: "rgba(255, 122, 26, 0.72)",
+        revenueBorder: "rgba(255, 166, 64, 0.95)",
+        lossFill: "rgba(220, 53, 69, 0.72)",
+        lossBorder: "rgba(255, 99, 132, 0.95)",
+        netStroke: "rgba(40, 167, 69, 1)",
+        netFill: "rgba(40, 167, 69, 0.25)",
+      };
 
   if (analyticsProfitLossChart) {
     analyticsProfitLossChart.destroy();
     analyticsProfitLossChart = null;
   }
 
-  analyticsProfitLossChart = new window.Chart(canvas.getContext("2d"), {
-    type: "bar",
-    data: {
-      labels,
-      datasets: [
-        {
-          label: "Revenue",
-          data: revenueData,
-          backgroundColor: "rgba(255, 122, 26, 0.72)",
-          borderColor: "rgba(255, 166, 64, 0.95)",
-          borderWidth: 1,
-          borderRadius: 8,
-          borderSkipped: false,
-        },
-        {
-          label: "Loss",
-          data: lossData,
-          backgroundColor: "rgba(220, 53, 69, 0.72)",
-          borderColor: "rgba(255, 99, 132, 0.95)",
-          borderWidth: 1,
-          borderRadius: 8,
-          borderSkipped: false,
-        },
-        {
-          type: "line",
-          label: "Net Progress",
-          data: netData,
-          borderColor: "rgba(40, 167, 69, 1)",
-          backgroundColor: "rgba(40, 167, 69, 0.25)",
-          borderWidth: 2,
-          tension: 0.35,
-          pointRadius: 3,
-          pointHoverRadius: 5,
-          fill: false,
-          yAxisID: "y",
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {
-        mode: "index",
-        intersect: false,
+  try {
+    analyticsProfitLossChart = new window.Chart(canvas.getContext("2d"), {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Revenue",
+            data: revenueData,
+            backgroundColor: palette.revenueFill,
+            borderColor: palette.revenueBorder,
+            borderWidth: 1,
+            borderRadius: 8,
+            borderSkipped: false,
+          },
+          {
+            label: "Loss",
+            data: lossData,
+            backgroundColor: palette.lossFill,
+            borderColor: palette.lossBorder,
+            borderWidth: 1,
+            borderRadius: 8,
+            borderSkipped: false,
+          },
+          {
+            type: "line",
+            label: "Net Progress",
+            data: netData,
+            borderColor: palette.netStroke,
+            backgroundColor: palette.netFill,
+            borderWidth: 2,
+            tension: 0.35,
+            pointRadius: 3,
+            pointHoverRadius: 5,
+            fill: false,
+            yAxisID: "y",
+          },
+        ],
       },
-      plugins: {
-        legend: {
-          labels: {
-            color: "#d9d9d9",
-            boxWidth: 12,
-            boxHeight: 12,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: "index",
+          intersect: false,
+        },
+        plugins: {
+          legend: {
+            labels: {
+              color: palette.legend,
+              boxWidth: 12,
+              boxHeight: 12,
+            },
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const value = Number(context?.raw || 0);
+                return `${context.dataset.label}: ${formatPkr(value)}`;
+              },
+            },
           },
         },
-        tooltip: {
-          callbacks: {
-            label: (context) => {
-              const value = Number(context?.raw || 0);
-              return `${context.dataset.label}: ${formatPkr(value)}`;
+        scales: {
+          x: {
+            ticks: {
+              color: palette.axis,
+            },
+            grid: {
+              color: palette.gridX,
+            },
+          },
+          y: {
+            beginAtZero: true,
+            ticks: {
+              color: palette.axis,
+              callback: (value) => formatPkr(Number(value || 0)),
+            },
+            grid: {
+              color: palette.gridY,
             },
           },
         },
       },
-      scales: {
-        x: {
-          ticks: {
-            color: "#bcbcbc",
-          },
-          grid: {
-            color: "rgba(255,255,255,0.05)",
-          },
-        },
-        y: {
-          beginAtZero: true,
-          ticks: {
-            color: "#bcbcbc",
-            callback: (value) => formatPkr(Number(value || 0)),
-          },
-          grid: {
-            color: "rgba(255,255,255,0.06)",
-          },
-        },
-      },
-    },
-  });
+    });
+    setAnalyticsChartUnavailableState(canvas, false);
+  } catch (error) {
+    analyticsProfitLossChart = null;
+    setAnalyticsChartUnavailableState(canvas, true);
+    console.error("Failed to render analytics chart", error);
+  }
 }
 
 function refundBadgeClass(status) {
@@ -172,8 +237,8 @@ function renderRefundRequests() {
       <td class="ps-4 py-3 admin-order-cell-text fw-semibold">${orderNumber}</td>
       <td class="py-3 admin-order-cell-text">${customerName}</td>
       <td class="py-3 text-secondary small">${requestedAt}</td>
-      <td class="py-3"><span class="badge ${refundBadgeClass(status)} rounded-pill">${escapeHtml(statusLabel)}</span></td>
-      <td class="py-3"><span class="badge ${paymentBadge.className} rounded-pill">${escapeHtml(paymentBadge.label)}</span></td>
+      <td class="py-3"><span class="badge ${refundBadgeClass(status)} admin-status-badge rounded-pill">${escapeHtml(statusLabel)}</span></td>
+      <td class="py-3"><span class="badge ${paymentBadge.className} admin-status-badge rounded-pill">${escapeHtml(paymentBadge.label)}</span></td>
       <td class="py-3 text-secondary small">${reason}</td>
       <td class="py-3 text-secondary small">${evidenceUrl ? `<a href="${safeEvidenceUrl}" target="_blank" rel="noopener" class="text-warning text-decoration-underline">${evidenceName}</a>` : "No file"}</td>
       <td class="pe-4 py-3">
@@ -276,7 +341,7 @@ function displayRecentOrders() {
         <td class="py-3 text-secondary small">${safeOrderDate}</td>
         <td class="py-3 admin-order-cell-text fw-semibold">PKR ${totalAmount.toLocaleString()}</td>
             <td class="pe-4 py-3">
-          <span class="badge ${statusColor} rounded-pill px-3 py-2">${safeStatus}</span>
+          <span class="badge ${statusColor} admin-status-badge rounded-pill px-3 py-2">${safeStatus}</span>
             </td>
         `;
     row.style.cursor = "pointer";
@@ -312,11 +377,11 @@ function displayRecentOrders() {
                               item.name || "Item",
                             );
                             return `
-                            <div style="background-color: var(--admin-order-item-surface, #1a1a1a); padding: 12px; border-radius: 4px; border: 1px solid var(--admin-order-item-border, #444); display: flex; gap: 12px;">
-                                <img src="${imgSrc}" alt="${safeItemName}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; background-color: var(--admin-order-item-image-bg, #333);" onerror="this.src='https://via.placeholder.com/50?text=No+Image';">
+                            <div class="admin-order-product-card" style="background-color: var(--admin-order-item-surface, #1a1a1a); padding: 12px; border-radius: 4px; border: 1px solid var(--admin-order-item-border, #444); display: flex; gap: 12px;">
+                                <img src="${imgSrc}" alt="${safeItemName}" class="admin-order-product-thumb" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; background-color: var(--admin-order-item-image-bg, #333);" onerror="this.src='https://via.placeholder.com/50?text=No+Image';">
                                 <div style="flex: 1;">
-                                    <p class="admin-order-cell-text fw-semibold mb-1" style="font-size: 0.95rem;">${safeItemName}</p>
-                                  <p class="text-secondary mb-0" style="font-size: 0.85rem;">Price: <strong class="text-orange">PKR ${price.toLocaleString()}</strong> x <strong>${qty}</strong> = <strong class="text-orange">PKR ${lineTotal.toLocaleString()}</strong></p>
+                                    <p class="admin-order-cell-text admin-order-product-name fw-semibold mb-1" style="font-size: 0.95rem;">${safeItemName}</p>
+                                  <p class="text-secondary admin-order-product-meta mb-0" style="font-size: 0.85rem;">Price: <strong class="text-orange admin-order-product-price-value">PKR ${price.toLocaleString()}</strong> x <strong class="admin-order-product-qty">${qty}</strong> = <strong class="text-orange admin-order-product-price-value">PKR ${lineTotal.toLocaleString()}</strong></p>
                                 </div>
                             </div>
                         `;
@@ -394,8 +459,8 @@ function displayAllOrders() {
             <td class="py-3 admin-order-cell-text">${safeCustomerName}</td>
             <td class="py-3 text-secondary small">${safeDate}</td>
             <td class="py-3 admin-order-cell-text fw-semibold">${formatPkr(totalAmount)}</td>
-            <td class="py-3"><span class="badge ${paymentBadge.className} rounded-pill">${escapeHtml(paymentBadge.label)}</span></td>
-            <td class="py-3"><span class="badge ${statusClass(statusValue)} rounded-pill">${escapeHtml(statusValue)}</span></td>
+            <td class="py-3"><span class="badge ${paymentBadge.className} admin-status-badge rounded-pill">${escapeHtml(paymentBadge.label)}</span></td>
+            <td class="py-3"><span class="badge ${statusClass(statusValue)} admin-status-badge rounded-pill">${escapeHtml(statusValue)}</span></td>
             <td class="pe-4 py-3">
               <button class="btn btn-sm btn-outline-danger" onclick="deleteOrder(decodeURIComponent('${encodedOrderId}')); event.stopPropagation();"><i class="bi bi-trash"></i></button>
             </td>
@@ -410,7 +475,7 @@ function displayAllOrders() {
     detailsRow.className = "admin-order-details-row";
     detailsRow.innerHTML = `
             <td colspan="8" class="py-3 px-4">
-          <div style="background-color: var(--admin-order-detail-surface, #2a2a2a); padding: 20px; border-radius: 6px; border: 1px solid var(--admin-order-item-border, #444);">
+          <div class="admin-order-details-card" style="background-color: var(--admin-order-detail-surface, #2a2a2a); padding: 20px; border-radius: 6px; border: 1px solid var(--admin-order-item-border, #444);">
                     <div class="row mb-3">
                         <div class="col-md-6">
                       <h6 class="text-orange mb-3 fw-bold">Customer Details</h6>
@@ -463,11 +528,11 @@ function displayAllOrders() {
                                 "https://via.placeholder.com/60?text=No+Image",
                             );
                             return `
-                              <div style="background-color: var(--admin-order-item-surface, #1a1a1a); padding: 12px; border-radius: 4px; border: 1px solid var(--admin-order-item-border, #444); display: flex; gap: 12px;">
-                                <img src="${imgSrc}" alt="${escapeHtml(item.name || "Item")}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; background-color: var(--admin-order-item-image-bg, #333);" onerror="this.src='https://via.placeholder.com/60?text=No+Image';">
+                              <div class="admin-order-product-card" style="background-color: var(--admin-order-item-surface, #1a1a1a); padding: 12px; border-radius: 4px; border: 1px solid var(--admin-order-item-border, #444); display: flex; gap: 12px;">
+                                <img src="${imgSrc}" alt="${escapeHtml(item.name || "Item")}" class="admin-order-product-thumb" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; background-color: var(--admin-order-item-image-bg, #333);" onerror="this.src='https://via.placeholder.com/60?text=No+Image';">
                                 <div style="flex: 1;">
-                                  <p class="admin-order-cell-text fw-semibold mb-1" style="font-size: 0.95rem;">${escapeHtml(item.name || "Item")}</p>
-                                  <p class="text-secondary mb-0" style="font-size: 0.9rem;"><strong>Unit Price:</strong> ${formatPkr(price)} | <strong>Quantity:</strong> ${qty} | <strong class="text-orange">Total: ${formatPkr(lineTotal)}</strong></p>
+                                  <p class="admin-order-cell-text admin-order-product-name fw-semibold mb-1" style="font-size: 0.95rem;">${escapeHtml(item.name || "Item")}</p>
+                                  <p class="text-secondary admin-order-product-meta mb-0" style="font-size: 0.9rem;"><strong>Unit Price:</strong> <span class="admin-order-product-price-value">${formatPkr(price)}</span> | <strong>Quantity:</strong> <span class="admin-order-product-qty">${qty}</span> | <strong class="text-orange admin-order-product-price-value">Total: ${formatPkr(lineTotal)}</strong></p>
                                 </div>
                               </div>
                             `;

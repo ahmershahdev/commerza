@@ -88,6 +88,18 @@ $(document).ready(function () {
   const canViewersManage = admin_has_permission("viewers.manage");
   const canEmailManage = admin_has_permission("email.manage");
 
+  document.addEventListener("commerza:admin-theme-change", () => {
+    if (!canOrdersSummaryData) {
+      return;
+    }
+
+    if (!document.getElementById("analyticsProfitLossChart")) {
+      return;
+    }
+
+    renderAnalyticsSection();
+  });
+
   const sidebar = document.getElementById("sidebarMenu");
   if (sidebar) {
     sidebar.addEventListener("shown.bs.collapse", () => {

@@ -86,6 +86,132 @@
   border-color: rgba(255, 153, 92, 0.3) !important;
 }
 
+.admin-status-badge {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.admin-order-product-card {
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.admin-order-product-card:hover {
+  border-color: rgba(255, 166, 105, 0.45) !important;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
+}
+
+.admin-order-product-thumb {
+  flex-shrink: 0;
+}
+
+.admin-order-product-name {
+  letter-spacing: 0.01em;
+}
+
+.admin-order-product-meta {
+  line-height: 1.45;
+}
+
+.admin-order-product-price-value {
+  color: #ff9f5c;
+  font-weight: 700;
+}
+
+.admin-order-product-qty {
+  color: #ffe3bd;
+  font-weight: 700;
+}
+
+.admin-floating-alert {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  z-index: 9999;
+  min-width: 300px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 153, 92, 0.35);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.45);
+  color: #f8f2eb;
+}
+
+.admin-floating-alert .btn-close {
+  filter: invert(1) grayscale(1) brightness(200%);
+}
+
+.admin-status-alert {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  min-width: 380px;
+  border-radius: 12px;
+  padding: 30px;
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  background: linear-gradient(145deg, #152b3c, #132735);
+  color: #e5edf7;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+}
+
+.admin-status-alert-body {
+  text-align: center;
+}
+
+.admin-status-alert-icon {
+  font-size: 2rem;
+  color: #60a5fa;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.admin-status-alert-title {
+  margin: 10px 0;
+  color: #93c5fd;
+}
+
+.admin-status-alert-order {
+  margin: 5px 0;
+  font-size: 0.95rem;
+  color: #e2e8f0;
+}
+
+.admin-status-alert-transition {
+  margin: 10px 0;
+  font-size: 0.9rem;
+  color: #cbd5e1;
+}
+
+.admin-status-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-weight: 700;
+}
+
+.admin-status-pill-old {
+  background: rgba(217, 119, 6, 0.2);
+  border-color: rgba(217, 119, 6, 0.38);
+  color: #fcd9a8;
+}
+
+.admin-status-pill-new {
+  background: rgba(22, 163, 74, 0.2);
+  border-color: rgba(22, 163, 74, 0.38);
+  color: #b8f2cf;
+}
+
+.admin-status-arrow {
+  margin: 0 8px;
+  color: #93c5fd;
+}
+
+.admin-status-alert .btn-close {
+  filter: invert(1) grayscale(1) brightness(200%);
+}
+
 .tab-pane .table .btn-sm {
   border-radius: 9px;
 }
