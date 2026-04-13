@@ -1,5 +1,24 @@
 <?php
 require_once __DIR__ . '/backend/core/data.php';
+
+$publicSettings = $GLOBALS['commerza_public_site_settings_payload'] ?? [];
+$contactSettings = [];
+if (is_array($publicSettings) && isset($publicSettings['contact']) && is_array($publicSettings['contact'])) {
+	$contactSettings = $publicSettings['contact'];
+}
+
+$supportEmail = trim((string)($contactSettings['email'] ?? 'commerza.ahmer@gmail.com'));
+if (!filter_var($supportEmail, FILTER_VALIDATE_EMAIL)) {
+	$supportEmail = 'commerza.ahmer@gmail.com';
+}
+
+$supportPhone = trim((string)($contactSettings['phone'] ?? '+92 314 8396293'));
+if ($supportPhone === '') {
+	$supportPhone = '+92 314 8396293';
+}
+
+$refundSupportMailto = 'mailto:' . $supportEmail . '?subject=' . rawurlencode('Commerza Refund Support');
+$termsSupportMailto = 'mailto:' . $supportEmail . '?subject=' . rawurlencode('Commerza Terms Support');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -25,7 +44,7 @@ require_once __DIR__ . '/backend/core/data.php';
 	<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet" />
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
 	<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-		<link rel="stylesheet" href="frontend/assets/css/pages/terms-of-service-inline.css">
+	<link rel="stylesheet" href="frontend/assets/css/pages/terms-of-service-inline.css">
 	<script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
 		{
 			"@context": "https://schema.org",
@@ -38,8 +57,8 @@ require_once __DIR__ . '/backend/core/data.php';
 					"contactPoint": {
 						"@type": "ContactPoint",
 						"contactType": "Customer Service",
-						"email": "commerza.ahmer@gmail.com",
-						"telephone": "+923148396293"
+						"email": "<?= htmlspecialchars($supportEmail, ENT_QUOTES, 'UTF-8') ?>",
+						"telephone": "<?= htmlspecialchars($supportPhone, ENT_QUOTES, 'UTF-8') ?>"
 					},
 					"sameAs": [
 						"https://www.facebook.com/commerza.ahmer",
@@ -244,7 +263,7 @@ require_once __DIR__ . '/backend/core/data.php';
 					<li>Customers can submit requests from <a href="account.php" class="policy-mail">My Account</a> using the Refund Me option.</li>
 					<li>Unauthorized, damaged, incomplete, or out-of-window claims may be declined.</li>
 				</ul>
-				<p class="product-desc mb-0">If you need review support, contact <a class="policy-mail" href="mailto:commerza.ahmer@gmail.com?subject=Commerza%20Refund%20Support">commerza.ahmer@gmail.com</a>.</p>
+				<p class="product-desc mb-0">If you need review support, contact <a class="policy-mail" href="<?= htmlspecialchars($refundSupportMailto, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($supportEmail, ENT_QUOTES, 'UTF-8') ?></a>.</p>
 			</div>
 		</section>
 
@@ -279,7 +298,7 @@ require_once __DIR__ . '/backend/core/data.php';
 		<section class="card product-card">
 			<div class="card-body">
 				<h2 class="product-name mb-3">12. Contact</h2>
-				<p class="product-desc mb-0">For legal requests, policy clarifications, or dispute support, email <a class="policy-mail" href="mailto:commerza.ahmer@gmail.com?subject=Commerza%20Terms%20Support">commerza.ahmer@gmail.com</a> with your account email and order number (if applicable).</p>
+				<p class="product-desc mb-0">For legal requests, policy clarifications, or dispute support, email <a class="policy-mail" href="<?= htmlspecialchars($termsSupportMailto, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($supportEmail, ENT_QUOTES, 'UTF-8') ?></a> with your account email and order number (if applicable).</p>
 			</div>
 		</section>
 	</main>
@@ -319,8 +338,8 @@ require_once __DIR__ . '/backend/core/data.php';
 						<a href="https://x.com/commerza_ahmer" target="_blank" rel="noopener" aria-label="Commerza on X"><i class="bi bi-twitter"></i></a>
 						<a href="https://www.instagram.com/commerza.ahmer" target="_blank" rel="noopener" aria-label="Commerza on Instagram"><i class="bi bi-instagram"></i></a>
 					</div>
-					<p class="footer-text mt-3">Email: commerza.ahmer@gmail.com</p>
-					<p class="footer-text">Phone: +92 314 8396293</p>
+					<p class="footer-text mt-3">Email: <?= htmlspecialchars($supportEmail, ENT_QUOTES, 'UTF-8') ?></p>
+					<p class="footer-text">Phone: <?= htmlspecialchars($supportPhone, ENT_QUOTES, 'UTF-8') ?></p>
 				</div>
 			</div>
 			<div class="row">

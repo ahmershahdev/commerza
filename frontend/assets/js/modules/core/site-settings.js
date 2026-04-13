@@ -154,9 +154,25 @@ function applyBrandSettings(brand) {
   }
 }
 
+function replaceStandaloneBrandToken(value, brandName) {
+  if (!value || !brandName) {
+    return (value || "").toString();
+  }
+
+  return value
+    .toString()
+    .replace(
+      /(^|[^A-Za-z0-9._%+-])(Commerza)(?=$|[^A-Za-z0-9._%+-])/gi,
+      function (_, prefix) {
+        return `${prefix}${brandName}`;
+      },
+    );
+}
+
 function updateMetaForBrand(brandName) {
   if (!brandName) return;
-  const replaceBrand = (value) => value.replace(/\bCommerza\b/gi, brandName);
+  const replaceBrand = (value) =>
+    replaceStandaloneBrandToken(value || "", brandName);
 
   if (document.title) {
     document.title = replaceBrand(document.title);
@@ -192,8 +208,15 @@ function replaceBrandTextNodes(root, brandName) {
   while (node) {
     const parent = node.parentElement;
     if (!parent || !skipTags.has(parent.tagName)) {
-      if (/\bCommerza\b/i.test(node.nodeValue)) {
-        node.nodeValue = node.nodeValue.replace(/\bCommerza\b/gi, brandName);
+      const currentValue = (node.nodeValue || "").toString();
+      if (/commerza/i.test(currentValue)) {
+        const replacedValue = replaceStandaloneBrandToken(
+          currentValue,
+          brandName,
+        );
+        if (replacedValue !== currentValue) {
+          node.nodeValue = replacedValue;
+        }
       }
     }
     node = walker.nextNode();
@@ -202,8 +225,8 @@ function replaceBrandTextNodes(root, brandName) {
 
 function applyContactSettings(contact) {
   if (!contact) return;
-  const email = contact.email;
-  const phone = contact.phone;
+  const email = (contact.email || "").toString().trim();
+  const phone = (contact.phone || "").toString().trim();
   const address = contact.address;
 
   if (address) {
@@ -217,6 +240,9 @@ function applyContactSettings(contact) {
     const emailEl = document.getElementById("contactEmail");
     if (emailEl) {
       emailEl.textContent = email;
+      if (emailEl.tagName === "A") {
+        emailEl.setAttribute("href", `mailto:${email}`);
+      }
     }
   }
 
@@ -235,6 +261,22 @@ function applyContactSettings(contact) {
         node.textContent = `Email: ${email}`;
       } else if (text.includes("@")) {
         node.textContent = email;
+      }
+    });
+
+    document.querySelectorAll('a[href^="mailto:"]').forEach((anchor) => {
+      const href = (anchor.getAttribute("href") || "").trim();
+      const match = href.match(/^mailto:([^?]*)(\?.*)?$/i);
+      if (!match) {
+        return;
+      }
+
+      const queryString = match[2] || "";
+      anchor.setAttribute("href", `mailto:${email}${queryString}`);
+
+      const text = (anchor.textContent || "").trim();
+      if (text.includes("@")) {
+        anchor.textContent = email;
       }
     });
   }
@@ -384,12 +426,30 @@ function normalizeCollectorEntry(entry) {
     return null;
   }
 
-  const normalizedQuote = quote.replace(/^"+|"+$/g, "").trim();
-  return {
-    name,
-    tagline,
-    quote: normalizedQuote || quote,
-  };
+  return value
+    .toString()
+    .replace(/\bCommerza\b/gi, function (match, offset, fullText) {
+      const beforeIndex = Math.max(0, offset - 1);
+      const afterIndex = offset + match.length;
+      const beforeChar = offset > 0 ? fullText.charAt(beforeIndex) : "";
+      const afterChar =
+        afterIndex < fullText.length ? fullText.charAt(afterIndex) : "";
+      const beforePrevChar =
+        beforeIndex > 0 ? fullText.charAt(beforeIndex - 1) : "";
+      const afterNextChar =
+        afterIndex + 1 < fullText.length ? fullText.charAt(afterIndex + 1) : "";
+
+      const continuesAsDomainToken =
+        (beforeChar === "." && /[A-Za-z0-9]/.test(beforePrevChar)) ||
+        (afterChar === "." && /[A-Za-z0-9]/.test(afterNextChar));
+      const adjacentEmailToken = /[@_%+-]/.test(beforeChar + afterChar);
+
+      if (continuesAsDomainToken || adjacentEmailToken) {
+        return match;
+      }
+
+      return brandName;
+    });
 }
 
 function applyCollectorsSpeakSettings(collectorsSpeak) {

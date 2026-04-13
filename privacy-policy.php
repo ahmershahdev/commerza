@@ -385,7 +385,7 @@ $privacySupportMailto = 'mailto:' . $supportEmail . '?subject=' . rawurlencode('
 						<a href="https://www.instagram.com/commerza.ahmer" target="_blank" rel="noopener" aria-label="Commerza on Instagram"><i class="bi bi-instagram"></i></a>
 					</div>
 					<p class="footer-text mt-3">Email: <?= htmlspecialchars($supportEmail, ENT_QUOTES, 'UTF-8') ?></p>
-					<p class="footer-text">Phone: +92 314 8396293</p>
+					<p class="footer-text">Phone: <?= htmlspecialchars($supportPhone, ENT_QUOTES, 'UTF-8') ?></p>
 				</div>
 			</div>
 			<div class="row">

@@ -18,6 +18,23 @@ if ($siteFaviconPath === '') {
   $siteFaviconPath = 'frontend/assets/images/favicon/commerza-watches-icon.ico';
 }
 
+$contactSettings = [];
+if (isset($publicSettings['contact']) && is_array($publicSettings['contact'])) {
+  $contactSettings = $publicSettings['contact'];
+}
+
+$supportEmail = trim((string)($contactSettings['email'] ?? 'commerza.ahmer@gmail.com'));
+if (!filter_var($supportEmail, FILTER_VALIDATE_EMAIL)) {
+  $supportEmail = 'commerza.ahmer@gmail.com';
+}
+
+$supportPhone = trim((string)($contactSettings['phone'] ?? '+92 314 8396293'));
+if ($supportPhone === '') {
+  $supportPhone = '+92 314 8396293';
+}
+
+$faqSupportMailto = 'mailto:' . $supportEmail . '?subject=' . rawurlencode($siteBrandName . ' FAQ Support');
+
 $pageCanonicalUrl = commerza_absolute_url('/faq');
 $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
 ?>
@@ -244,7 +261,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
         <div id="faq5" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
           <div class="accordion-body product-desc">
             You can reach us through our Contact page or email us directly at
-            commerza.ahmer@gmail.com.
+            <a class="policy-mail" href="<?= htmlspecialchars($faqSupportMailto, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($supportEmail, ENT_QUOTES, 'UTF-8') ?></a>.
           </div>
         </div>
       </div>
@@ -297,8 +314,8 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
             <a href="https://x.com/commerza_ahmer" target="_blank" aria-label="<?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> on X"><i class="bi bi-twitter"></i></a>
             <a href="https://www.instagram.com/commerza.ahmer" target="_blank" aria-label="<?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> on Instagram"><i class="bi bi-instagram"></i></a>
           </div>
-          <p class="footer-text mt-3">Email: commerza.ahmer@gmail.com</p>
-          <p class="footer-text">Phone: +92 314 8396293</p>
+          <p class="footer-text mt-3">Email: <?= htmlspecialchars($supportEmail, ENT_QUOTES, 'UTF-8') ?></p>
+          <p class="footer-text">Phone: <?= htmlspecialchars($supportPhone, ENT_QUOTES, 'UTF-8') ?></p>
         </div>
       </div>
       <div class="row">

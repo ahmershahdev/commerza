@@ -18,6 +18,24 @@ if ($siteFaviconPath === '') {
   $siteFaviconPath = 'frontend/assets/images/favicon/commerza-watches-icon.ico';
 }
 
+$contactSettings = [];
+if (isset($publicSettings['contact']) && is_array($publicSettings['contact'])) {
+  $contactSettings = $publicSettings['contact'];
+}
+
+$supportEmail = trim((string)($contactSettings['email'] ?? 'commerza.ahmer@gmail.com'));
+if (!filter_var($supportEmail, FILTER_VALIDATE_EMAIL)) {
+  $supportEmail = 'commerza.ahmer@gmail.com';
+}
+
+$supportPhone = trim((string)($contactSettings['phone'] ?? '+92 314 8396293'));
+if ($supportPhone === '') {
+  $supportPhone = '+92 314 8396293';
+}
+
+$refundSupportMailto = 'mailto:' . $supportEmail . '?subject=' . rawurlencode($siteBrandName . ' Refund Support');
+$warrantySupportMailto = 'mailto:' . $supportEmail . '?subject=' . rawurlencode($siteBrandName . ' Warranty Support');
+
 $pageCanonicalUrl = commerza_absolute_url('/warranty');
 $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
 ?>
@@ -263,7 +281,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
             </ul>
             <p class="product-desc mb-0">
               Need help with a refund decision? Email
-              <a class="policy-mail" href="mailto:commerza.ahmer@gmail.com?subject=<?= rawurlencode($siteBrandName . ' Refund Support') ?>">commerza.ahmer@gmail.com</a>
+              <a class="policy-mail" href="<?= htmlspecialchars($refundSupportMailto, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($supportEmail, ENT_QUOTES, 'UTF-8') ?></a>
               with your order number.
             </p>
           </div>
@@ -278,7 +296,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
         questions.
       </p>
       <a href="contact.php" class="btn product-btn-buy px-5">Contact Support</a>
-      <p class="product-desc mt-3 mb-0">or email <a class="policy-mail" href="mailto:commerza.ahmer@gmail.com?subject=<?= rawurlencode($siteBrandName . ' Warranty Support') ?>">commerza.ahmer@gmail.com</a></p>
+      <p class="product-desc mt-3 mb-0">or email <a class="policy-mail" href="<?= htmlspecialchars($warrantySupportMailto, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($supportEmail, ENT_QUOTES, 'UTF-8') ?></a></p>
     </div>
   </main>
 
@@ -320,8 +338,8 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
             <a href="https://x.com/commerza_ahmer" target="_blank" aria-label="<?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> on X"><i class="bi bi-twitter"></i></a>
             <a href="https://www.instagram.com/commerza.ahmer" target="_blank" aria-label="<?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> on Instagram"><i class="bi bi-instagram"></i></a>
           </div>
-          <p class="footer-text mt-3">Email: commerza.ahmer@gmail.com</p>
-          <p class="footer-text">Phone: +92 314 8396293</p>
+          <p class="footer-text mt-3">Email: <?= htmlspecialchars($supportEmail, ENT_QUOTES, 'UTF-8') ?></p>
+          <p class="footer-text">Phone: <?= htmlspecialchars($supportPhone, ENT_QUOTES, 'UTF-8') ?></p>
         </div>
       </div>
       <div class="row">
