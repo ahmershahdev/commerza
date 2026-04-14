@@ -62,6 +62,9 @@ function commerza_collect_preload_assets(string $buffer): array
             $assets[] = [
                 'as' => 'style',
                 'href' => $href,
+                'integrity' => trim(commerza_html_tag_attribute_value($tag, 'integrity')),
+                'crossorigin' => trim(commerza_html_tag_attribute_value($tag, 'crossorigin')),
+                'referrerpolicy' => trim(commerza_html_tag_attribute_value($tag, 'referrerpolicy')),
             ];
 
             if (count($assets) >= 3) {
@@ -95,16 +98,27 @@ function commerza_inject_preload_links(string $buffer): string
     foreach ($assets as $asset) {
         $href = trim((string)($asset['href'] ?? ''));
         $as = strtolower(trim((string)($asset['as'] ?? '')));
+        $integrity = trim((string)($asset['integrity'] ?? ''));
+        $crossorigin = trim((string)($asset['crossorigin'] ?? ''));
+        $referrerPolicy = trim((string)($asset['referrerpolicy'] ?? ''));
 
         if ($href === '' || !in_array($as, ['style', 'script', 'image', 'font'], true)) {
             continue;
         }
 
         $isExternal = preg_match('#^(https?:)?//#i', $href) === 1;
-        $needsCrossOrigin = $isExternal && in_array($as, ['font', 'fetch'], true);
+        $needsCrossOrigin = $isExternal && (in_array($as, ['font'], true) || $integrity !== '');
         $tag = '<link rel="preload" as="' . htmlspecialchars($as, ENT_QUOTES, 'UTF-8') . '" href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '"';
-        if ($needsCrossOrigin) {
+        if ($integrity !== '') {
+            $tag .= ' integrity="' . htmlspecialchars($integrity, ENT_QUOTES, 'UTF-8') . '"';
+        }
+        if ($crossorigin !== '') {
+            $tag .= ' crossorigin="' . htmlspecialchars($crossorigin, ENT_QUOTES, 'UTF-8') . '"';
+        } elseif ($needsCrossOrigin) {
             $tag .= ' crossorigin="anonymous"';
+        }
+        if ($referrerPolicy !== '') {
+            $tag .= ' referrerpolicy="' . htmlspecialchars($referrerPolicy, ENT_QUOTES, 'UTF-8') . '"';
         }
         $tag .= '>';
         $tags[] = $tag;

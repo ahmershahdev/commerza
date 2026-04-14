@@ -286,14 +286,48 @@ if (
             style="display:none; position:fixed; top:20px; right:0; left:0; margin:auto; width:300px; z-index:9998;">
             You cannot add more than 10 products!
           </div>
-          <div class="ticker-container bg-dark text-white" role="status" aria-live="polite" aria-label="Commerza live updates">
+          <?php
+          $tickerEnabled = true;
+          $tickerMessages = [
+            'Private drop unlocked: signature chronographs now shipping nationwide',
+            'Members perk: free premium case with selected limited editions',
+            'New arrival: skeleton gold steel collection is now in stock',
+          ];
+
+          if (
+            isset($GLOBALS['commerza_public_site_settings_payload']['ticker'])
+            && is_array($GLOBALS['commerza_public_site_settings_payload']['ticker'])
+          ) {
+            $tickerPayload = $GLOBALS['commerza_public_site_settings_payload']['ticker'];
+            $tickerEnabled = !isset($tickerPayload['enabled']) || (bool)$tickerPayload['enabled'];
+
+            $candidateMessages = [];
+            if (isset($tickerPayload['messages']) && is_array($tickerPayload['messages'])) {
+              foreach ($tickerPayload['messages'] as $tickerEntry) {
+                if (is_array($tickerEntry)) {
+                  $message = trim((string)($tickerEntry['message'] ?? ''));
+                } else {
+                  $message = trim((string)$tickerEntry);
+                }
+
+                if ($message !== '') {
+                  $candidateMessages[] = $message;
+                }
+              }
+            }
+
+            if (!empty($candidateMessages)) {
+              $tickerMessages = array_slice($candidateMessages, 0, 20);
+            }
+          }
+
+          $tickerRenderMessages = array_merge($tickerMessages, $tickerMessages);
+          ?>
+          <div class="ticker-container bg-dark text-white" role="status" aria-live="polite" aria-label="Commerza live updates" <?= $tickerEnabled ? '' : ' style="display:none;"' ?>>
             <div class="ticker-scroll">
-              <span>Private drop unlocked: signature chronographs now shipping nationwide</span>
-              <span>Members perk: free premium case with selected limited editions</span>
-              <span>New arrival: skeleton gold steel collection is now in stock</span>
-              <span>Private drop unlocked: signature chronographs now shipping nationwide</span>
-              <span>Members perk: free premium case with selected limited editions</span>
-              <span>New arrival: skeleton gold steel collection is now in stock</span>
+              <?php foreach ($tickerRenderMessages as $tickerMessage): ?>
+                <span><?= htmlspecialchars((string)$tickerMessage, ENT_QUOTES, 'UTF-8') ?></span>
+              <?php endforeach; ?>
             </div>
           </div>
           <div id="carouselExampleIndicators" class="carousel slide carousel-fade hero-carousel" data-bs-ride="carousel"
@@ -799,102 +833,48 @@ if (
         </div>
         <div class="testimonial-marquee" id="collectorsSpeakMarquee">
           <div class="testimonial-track" id="collectorsSpeakTrack">
-            <div class="testimonial-card">
-              <p class="testimonial-text">"The Skeleton Gold Steel feels premium in every detail. The
-                movement is smooth and the dial steals attention."</p>
-              <div class="testimonial-meta">
-                <span class="meta-name">A. Khan</span>
-                <span class="meta-role">Lahore</span>
-              </div>
-            </div>
-            <div class="testimonial-card">
-              <p class="testimonial-text">"I've worn the Black Gold Dial daily. It keeps time accurately
-                and looks incredible under low light."</p>
-              <div class="testimonial-meta">
-                <span class="meta-name">S. Malik</span>
-                <span class="meta-role">Karachi</span>
-              </div>
-            </div>
-            <div class="testimonial-card">
-              <p class="testimonial-text">"Fast shipping and stellar packaging. The leather strap quality
-                is beyond what I expected."</p>
-              <div class="testimonial-meta">
-                <span class="meta-name">R. Ahmed</span>
-                <span class="meta-role">Islamabad</span>
-              </div>
-            </div>
-            <div class="testimonial-card">
-              <p class="testimonial-text">"The automatic movement is mesmerizing. I can watch it for hours
-                through the exhibition case back."</p>
-              <div class="testimonial-meta">
-                <span class="meta-name">M. Hassan</span>
-                <span class="meta-role">Rawalpindi</span>
-              </div>
-            </div>
-            <div class="testimonial-card">
-              <p class="testimonial-text">"Excellent build quality and attention to detail. The weight feels
-                perfect on the wrist."</p>
-              <div class="testimonial-meta">
-                <span class="meta-name">F. Ali</span>
-                <span class="meta-role">Multan</span>
-              </div>
-            </div>
-            <div class="testimonial-card">
-              <p class="testimonial-text">"Customer service is outstanding. They helped me choose the perfect
-                watch for my collection."</p>
-              <div class="testimonial-meta">
-                <span class="meta-name">Z. Iqbal</span>
-                <span class="meta-role">Faisalabad</span>
-              </div>
-            </div>
-            <div class="testimonial-card">
-              <p class="testimonial-text">"The luminous hands are perfect for night visibility. Absolutely love
-                the craftsmanship."</p>
-              <div class="testimonial-meta">
-                <span class="meta-name">N. Raza</span>
-                <span class="meta-role">Peshawar</span>
-              </div>
-            </div>
-            <div class="testimonial-card">
-              <p class="testimonial-text">"Premium materials and flawless finishing. This watch rivals luxury
-                brands at triple the price."</p>
-              <div class="testimonial-meta">
-                <span class="meta-name">H. Shah</span>
-                <span class="meta-role">Quetta</span>
-              </div>
-            </div>
-            <div class="testimonial-card">
-              <p class="testimonial-text">"The Skeleton Gold Steel feels premium in every detail. The
-                movement is smooth and the dial steals attention."</p>
-              <div class="testimonial-meta">
-                <span class="meta-name">A. Khan</span>
-                <span class="meta-role">Lahore</span>
-              </div>
-            </div>
-            <div class="testimonial-card">
-              <p class="testimonial-text">"I've worn the Black Gold Dial daily. It keeps time accurately
-                and looks incredible under low light."</p>
-              <div class="testimonial-meta">
-                <span class="meta-name">S. Malik</span>
-                <span class="meta-role">Karachi</span>
-              </div>
-            </div>
-            <div class="testimonial-card">
-              <p class="testimonial-text">"Fast shipping and stellar packaging. The leather strap quality
-                is beyond what I expected."</p>
-              <div class="testimonial-meta">
-                <span class="meta-name">R. Ahmed</span>
-                <span class="meta-role">Islamabad</span>
-              </div>
-            </div>
-            <div class="testimonial-card">
-              <p class="testimonial-text">"The automatic movement is mesmerizing. I can watch it for hours
-                through the exhibition case back."</p>
-              <div class="testimonial-meta">
-                <span class="meta-name">M. Hassan</span>
-                <span class="meta-role">Rawalpindi</span>
-              </div>
-            </div>
+            <?php
+            $collectorsSpeakEntries = [];
+            if (
+              isset($GLOBALS['commerza_public_site_settings_payload']['collectorsSpeak'])
+              && is_array($GLOBALS['commerza_public_site_settings_payload']['collectorsSpeak'])
+            ) {
+              foreach ($GLOBALS['commerza_public_site_settings_payload']['collectorsSpeak'] as $collectorEntry) {
+                if (!is_array($collectorEntry)) {
+                  continue;
+                }
+
+                $collectorName = trim((string)($collectorEntry['name'] ?? ''));
+                $collectorQuote = trim((string)($collectorEntry['quote'] ?? ''));
+                $collectorTagline = trim((string)($collectorEntry['tagline'] ?? ''));
+
+                if ($collectorName === '' || $collectorQuote === '') {
+                  continue;
+                }
+
+                $collectorsSpeakEntries[] = [
+                  'name' => $collectorName,
+                  'tagline' => $collectorTagline !== '' ? $collectorTagline : 'Collector',
+                  'quote' => $collectorQuote,
+                ];
+              }
+            }
+
+            if (!empty($collectorsSpeakEntries)):
+              $collectorsSpeakRenderEntries = array_merge($collectorsSpeakEntries, $collectorsSpeakEntries);
+              foreach ($collectorsSpeakRenderEntries as $collectorEntry):
+            ?>
+                <div class="testimonial-card">
+                  <p class="testimonial-text">"<?= htmlspecialchars((string)$collectorEntry['quote'], ENT_QUOTES, 'UTF-8') ?>"</p>
+                  <div class="testimonial-meta">
+                    <span class="meta-name"><?= htmlspecialchars((string)$collectorEntry['name'], ENT_QUOTES, 'UTF-8') ?></span>
+                    <span class="meta-role"><?= htmlspecialchars((string)$collectorEntry['tagline'], ENT_QUOTES, 'UTF-8') ?></span>
+                  </div>
+                </div>
+            <?php
+              endforeach;
+            endif;
+            ?>
           </div>
         </div>
       </section>
@@ -991,7 +971,7 @@ if (
                 <div class="newsletter-modal-input-wrap">
                   <i class="bi bi-envelope"></i>
                   <input type="email" class="form-control search-input newsletter-modal-input" id="newsletterEmail" placeholder="you@example.com"
-                    required maxlength="150">
+                    required maxlength="120">
                 </div>
                 <div class="newsletter-modal-points" aria-hidden="true">
                   <span><i class="bi bi-bell"></i> Drop Alerts</span>

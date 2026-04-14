@@ -99,6 +99,7 @@ RewriteRule ^signup/?$ signup.php [QSA,L,NC]
 RewriteRule ^forgot-password/?$ forgot-password.php [QSA,L,NC]
 RewriteRule ^reset-password/?$ reset-password.php [QSA,L,NC]
 RewriteRule ^order-tracking/?$ order-tracking.php [QSA,L,NC]
+RewriteRule ^invoice/(ORD-[A-Z0-9]{4,30})/?$ invoice.php?order=$1 [QSA,L,NC]
 RewriteRule ^invoice/?$ invoice.php [QSA,L,NC]
 RewriteRule ^oauth/?$ oauth.php [QSA,L,NC]
 

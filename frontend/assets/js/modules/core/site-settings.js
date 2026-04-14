@@ -416,7 +416,7 @@ function applyTickerSettings(ticker) {
     .join("");
 }
 
-function normalizeCollectorEntry(entry) {
+function normalizeCollectorEntry(entry, brandName) {
   const source = entry && typeof entry === "object" ? entry : {};
   const name = (source.name || "").toString().trim();
   const tagline = (source.tagline || "").toString().trim();
@@ -426,44 +426,34 @@ function normalizeCollectorEntry(entry) {
     return null;
   }
 
-  return value
-    .toString()
-    .replace(/\bCommerza\b/gi, function (match, offset, fullText) {
-      const beforeIndex = Math.max(0, offset - 1);
-      const afterIndex = offset + match.length;
-      const beforeChar = offset > 0 ? fullText.charAt(beforeIndex) : "";
-      const afterChar =
-        afterIndex < fullText.length ? fullText.charAt(afterIndex) : "";
-      const beforePrevChar =
-        beforeIndex > 0 ? fullText.charAt(beforeIndex - 1) : "";
-      const afterNextChar =
-        afterIndex + 1 < fullText.length ? fullText.charAt(afterIndex + 1) : "";
-
-      const continuesAsDomainToken =
-        (beforeChar === "." && /[A-Za-z0-9]/.test(beforePrevChar)) ||
-        (afterChar === "." && /[A-Za-z0-9]/.test(afterNextChar));
-      const adjacentEmailToken = /[@_%+-]/.test(beforeChar + afterChar);
-
-      if (continuesAsDomainToken || adjacentEmailToken) {
-        return match;
-      }
-
-      return brandName;
-    });
+  return {
+    name: replaceStandaloneBrandToken(name, brandName),
+    tagline: replaceStandaloneBrandToken(tagline || "Collector", brandName),
+    quote: replaceStandaloneBrandToken(quote, brandName),
+  };
 }
 
-function applyCollectorsSpeakSettings(collectorsSpeak) {
+function applyCollectorsSpeakSettings(collectorsSpeak, brandName) {
   const track = document.getElementById("collectorsSpeakTrack");
+  const marquee = document.getElementById("collectorsSpeakMarquee");
   if (!track) return;
 
   const list = Array.isArray(collectorsSpeak)
     ? collectorsSpeak
-        .map((entry) => normalizeCollectorEntry(entry))
+        .map((entry) => normalizeCollectorEntry(entry, brandName))
         .filter(Boolean)
     : [];
 
   if (list.length === 0) {
+    track.innerHTML = "";
+    if (marquee) {
+      marquee.style.display = "none";
+    }
     return;
+  }
+
+  if (marquee) {
+    marquee.style.display = "";
   }
 
   const repeated = list.concat(list);
@@ -485,10 +475,11 @@ function applyCollectorsSpeakSettings(collectorsSpeak) {
 function applySiteSettings() {
   const settings = getSiteSettings();
   if (!settings) return;
+  const brandName = ((settings.brand || {}).name || "").toString().trim();
   applyBrandSettings(settings.brand);
   applyContactSettings(settings.contact);
   applySocialSettings(settings.socialLinks);
   applySliderSettings(settings.sliderImages);
   applyTickerSettings(settings.ticker);
-  applyCollectorsSpeakSettings(settings.collectorsSpeak);
+  applyCollectorsSpeakSettings(settings.collectorsSpeak, brandName);
 }

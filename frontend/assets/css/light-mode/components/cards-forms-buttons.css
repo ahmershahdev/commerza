@@ -436,6 +436,23 @@ body.dark-theme.light-theme .newsletter-modal-input-wrap:focus-within {
   background: #ffffff;
 }
 
+body.dark-theme.light-theme .newsletter-input,
+body.dark-theme.light-theme .newsletter-modal-input,
+body.dark-theme.light-theme .newsletter-modal-input.search-input {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+body.dark-theme.light-theme .newsletter-input:focus,
+body.dark-theme.light-theme .newsletter-modal-input:focus,
+body.dark-theme.light-theme .newsletter-modal-input.search-input:focus {
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
 body.dark-theme.light-theme .newsletter-point,
 body.dark-theme.light-theme .newsletter-modal-points span,
 body.dark-theme.light-theme .signup-points li {

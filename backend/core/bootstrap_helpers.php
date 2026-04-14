@@ -447,6 +447,32 @@ function commerza_maybe_redirect_clean_route(): void
         return;
     }
 
+    if ($filename === 'invoice.php') {
+        $rawOrder = trim((string)($_GET['order'] ?? $_GET['order_number'] ?? ''));
+        if ($rawOrder !== '') {
+            $normalizedOrder = strtoupper(trim($rawOrder));
+            $normalizedOrder = ltrim($normalizedOrder, '#');
+
+            if (preg_match('/^ORD-[A-Z0-9]{4,30}$/', $normalizedOrder) === 1) {
+                $targetUrl = commerza_absolute_url('/invoice/' . rawurlencode($normalizedOrder));
+
+                $remainingQuery = $_GET;
+                unset($remainingQuery['order'], $remainingQuery['order_number']);
+                if (!empty($remainingQuery)) {
+                    $targetUrl .= '?' . http_build_query($remainingQuery);
+                }
+
+                $requestPathNormalized = '/' . trim(str_replace('\\', '/', $requestPath), '/');
+                $targetPathNormalized = '/' . trim((string)(parse_url($targetUrl, PHP_URL_PATH) ?? ''), '/');
+
+                if (strtolower(rtrim($requestPathNormalized, '/')) !== strtolower(rtrim($targetPathNormalized, '/'))) {
+                    header('Location: ' . $targetUrl, true, 301);
+                    exit;
+                }
+            }
+        }
+    }
+
     $targetUrl = commerza_absolute_url($routeMap[$filename]);
     $queryString = (string)(parse_url($requestUri, PHP_URL_QUERY) ?? '');
     if ($queryString !== '') {

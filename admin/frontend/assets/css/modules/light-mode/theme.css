@@ -328,6 +328,53 @@ body.dark-theme.light-theme .admin-status-badge {
   letter-spacing: 0.01em;
 }
 
+body.dark-theme.light-theme .admin-status-badge.bg-warning,
+body.dark-theme.light-theme .admin-status-badge.bg-warning.text-dark {
+  background: #fef3c7 !important;
+  border-color: rgba(180, 83, 9, 0.28) !important;
+  color: #92400e !important;
+}
+
+body.dark-theme.light-theme .admin-status-badge.bg-info,
+body.dark-theme.light-theme .admin-status-badge.bg-info.text-dark {
+  background: #dbeafe !important;
+  border-color: rgba(37, 82, 214, 0.34) !important;
+  color: #1e3a8a !important;
+}
+
+body.dark-theme.light-theme .admin-status-badge.bg-success {
+  background: #dcfce7 !important;
+  border-color: rgba(22, 163, 74, 0.34) !important;
+  color: #166534 !important;
+}
+
+body.dark-theme.light-theme .admin-status-badge.bg-primary {
+  background: #dbeafe !important;
+  border-color: rgba(37, 82, 214, 0.34) !important;
+  color: #1e3a8a !important;
+}
+
+body.dark-theme.light-theme .admin-status-badge.bg-danger {
+  background: #fee2e2 !important;
+  border-color: rgba(220, 38, 38, 0.34) !important;
+  color: #991b1b !important;
+}
+
+body.dark-theme.light-theme .admin-status-badge.bg-secondary {
+  background: #e2e8f0 !important;
+  border-color: rgba(71, 85, 105, 0.3) !important;
+  color: #334155 !important;
+}
+
+body.dark-theme.light-theme .admin-status-badge.bg-dark,
+body.dark-theme.light-theme .admin-status-badge.border,
+body.dark-theme.light-theme .admin-status-badge.border-info,
+body.dark-theme.light-theme .admin-status-badge.text-info {
+  background: #eef4ff !important;
+  border-color: rgba(30, 58, 138, 0.3) !important;
+  color: #1e3a8a !important;
+}
+
 body.dark-theme.light-theme .admin-order-details-card {
   background: linear-gradient(160deg, #f8fbff, #f1f6ff) !important;
   border-color: rgba(30, 58, 138, 0.24) !important;
@@ -542,6 +589,13 @@ body.dark-theme.light-theme .btn-outline-orange:active {
   border-color: #1d4ed8;
   background: rgba(37, 82, 214, 0.1);
   color: #1e3a8a;
+  box-shadow: 0 10px 22px rgba(37, 82, 214, 0.2);
+}
+
+body.dark-theme.light-theme .btn-outline-light:hover,
+body.dark-theme.light-theme .btn-outline-light:focus,
+body.dark-theme.light-theme .btn-outline-light:active {
+  box-shadow: 0 10px 20px rgba(37, 82, 214, 0.16) !important;
 }
 
 body.dark-theme.light-theme .text-orange {
@@ -577,6 +631,7 @@ body.dark-theme.light-theme .admin-dropdown-item:hover,
 body.dark-theme.light-theme .admin-dropdown-item:focus {
   background: rgba(37, 82, 214, 0.1) !important;
   color: #1e3a8a !important;
+  box-shadow: inset 2px 0 0 rgba(37, 82, 214, 0.45);
 }
 
 body.dark-theme.light-theme .admin-dropdown-item.active {

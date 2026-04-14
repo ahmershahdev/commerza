@@ -322,7 +322,10 @@ function displayRecentOrders() {
     const shortName = customerName.split(" ")[0] || customerName;
     const safeOrderId = escapeHtml(order.orderId || "");
     const safeShortName = escapeHtml(shortName);
-    const safeOrderDate = escapeHtml(order.orderDate || "");
+    const formattedRecentOrderDate = formatDateTime(order.orderDate || "");
+    const safeOrderDate = escapeHtml(
+      formattedRecentOrderDate === "-" ? "N/A" : formattedRecentOrderDate,
+    );
     const safeStatus = escapeHtml(order.status || "Pending");
     const totalAmount = Number(order.total || 0);
     const statusColor =
@@ -431,7 +434,10 @@ function displayAllOrders() {
     const safeOrderId = escapeHtml(rawOrderId);
     const encodedOrderId = encodeURIComponent(rawOrderId);
     const safeCustomerName = escapeHtml(order.customerName || "Customer");
-    const safeDate = escapeHtml(order.orderDate || "-");
+    const formattedOrderDate = formatDateTime(order.orderDate || "");
+    const safeDate = escapeHtml(
+      formattedOrderDate === "-" ? "N/A" : formattedOrderDate,
+    );
     const safeEmail = escapeHtml(order.email || "N/A");
     const safePhone = escapeHtml(order.phone || "N/A");
     const safeAddress = escapeHtml(order.address || "N/A");
@@ -442,12 +448,28 @@ function displayAllOrders() {
     );
     const safeUserNote = escapeHtml((order.userNote || "").toString());
     const safeAdminNote = escapeHtml((order.adminNote || "").toString());
+    const formattedDeliveryEstimate = formatDateTime(
+      order.deliveryEstimate || "",
+    );
     const safeDeliveryEstimate = escapeHtml(
-      (order.deliveryEstimate || "").toString(),
+      formattedDeliveryEstimate === "-" ? "" : formattedDeliveryEstimate,
+    );
+    const formattedPlacedAt = formatDateTime(order.orderDate || "");
+    const safePlacedAt = escapeHtml(
+      formattedPlacedAt === "-" ? "N/A" : formattedPlacedAt,
+    );
+    const formattedUpdatedAt = formatDateTime(order.updatedAt || "");
+    const safeUpdatedAt = escapeHtml(
+      formattedUpdatedAt === "-" ? "N/A" : formattedUpdatedAt,
+    );
+    const totalItems = items.reduce(
+      (sum, item) => sum + (parseInt(item.quantity, 10) || 0),
+      0,
     );
     const isStatusUpdating = ORDER_STATUS_LOCKS.has(rawOrderId);
     const statusButtonDisabled = isStatusUpdating ? "disabled" : "";
-    const invoiceUrl = `../../invoice.php?order=${encodedOrderId}`;
+    const normalizedInvoiceOrderId = rawOrderId.replace(/^#/, "");
+    const invoiceUrl = `../../invoice/${encodeURIComponent(normalizedInvoiceOrderId)}`;
 
     const row = document.createElement("tr");
     row.className = "border-bottom border-secondary";
@@ -486,22 +508,26 @@ function displayAllOrders() {
                         </div>
                         <div class="col-md-6">
                       <h6 class="text-orange mb-3 fw-bold">Order Summary</h6>
+                            <p class="text-secondary mb-1"><strong class="admin-order-cell-text">Placed:</strong> ${safePlacedAt}</p>
+                            <p class="text-secondary mb-1"><strong class="admin-order-cell-text">Updated:</strong> ${safeUpdatedAt}</p>
+                            <p class="text-secondary mb-1"><strong class="admin-order-cell-text">Items:</strong> ${totalItems}</p>
                             <p class="text-secondary mb-1"><strong class="admin-order-cell-text">Subtotal:</strong> ${formatPkr(order.subtotal || 0)}</p>
                             <p class="text-secondary mb-1"><strong class="admin-order-cell-text">Shipping:</strong> ${formatPkr(order.shipping || 0)}</p>
                             <p class="text-secondary mb-1"><strong class="admin-order-cell-text">Discount:</strong> ${Number(order.discount || 0) > 0 ? `- ${formatPkr(order.discount || 0)}` : formatPkr(0)}${order.couponCode ? ` <span class="badge admin-order-coupon-badge border border-secondary ms-1">${escapeHtml(order.couponCode)}</span>` : ""}</p>
-                            <p class="text-secondary mb-1"><strong class="admin-order-cell-text">Delivery Estimate:</strong> ${safeDeliveryEstimate || "Not set"}</p>
+                            <p class="text-secondary mb-1"><strong class="admin-order-cell-text">Logistics ETA:</strong> ${safeDeliveryEstimate || "Not set"}</p>
                             <p class="text-secondary mb-1"><strong class="admin-order-cell-text">Customer Note:</strong> ${safeUserNote || "-"}</p>
-                            <p class="text-secondary mb-1"><strong class="admin-order-cell-text">Admin Note:</strong> ${safeAdminNote || "-"}</p>
+                            <p class="text-secondary mb-1"><strong class="admin-order-cell-text">Logistics Note (Internal):</strong> ${safeAdminNote || "-"}</p>
                             <p class="text-orange fw-bold"><strong>Total:</strong> ${formatPkr(order.total || 0)}</p>
                             <div style="margin-top: 15px;">
                         <h6 class="text-orange mb-2 fw-bold">Change Status</h6>
+                                <p class="text-secondary small mb-2">Use Logistics / ETA to keep delivery timeline and courier notes up to date.</p>
                                 ${isStatusUpdating ? '<p class="text-warning small mb-2"><i class="bi bi-arrow-repeat"></i> Status update in progress...</p>' : ""}
                                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                                   <button class="btn btn-sm btn-warning text-dark fw-semibold" ${statusButtonDisabled} onclick="updateOrderStatus(decodeURIComponent('${encodedOrderId}'), 'Pending'); event.stopPropagation();"><i class="bi bi-hourglass"></i> Pending</button>
                                   <button class="btn btn-sm btn-info text-dark fw-semibold" ${statusButtonDisabled} onclick="updateOrderStatus(decodeURIComponent('${encodedOrderId}'), 'Shipped'); event.stopPropagation();"><i class="bi bi-truck"></i> Shipped</button>
                                   <button class="btn btn-sm btn-success fw-semibold" ${statusButtonDisabled} onclick="updateOrderStatus(decodeURIComponent('${encodedOrderId}'), 'Delivered'); event.stopPropagation();"><i class="bi bi-check-circle"></i> Delivered</button>
                                   <button class="btn btn-sm btn-danger fw-semibold" ${statusButtonDisabled} onclick="updateOrderStatus(decodeURIComponent('${encodedOrderId}'), 'Cancelled'); event.stopPropagation();"><i class="bi bi-x-circle"></i> Cancel</button>
-                                  <button class="btn btn-sm btn-outline-orange fw-semibold" ${statusButtonDisabled} onclick="updateOrderLogistics(decodeURIComponent('${encodedOrderId}')); event.stopPropagation();"><i class="bi bi-pencil-square"></i> Logistics</button>
+                                  <button class="btn btn-sm btn-outline-orange fw-semibold" ${statusButtonDisabled} onclick="updateOrderLogistics(decodeURIComponent('${encodedOrderId}')); event.stopPropagation();"><i class="bi bi-pencil-square"></i> Logistics / ETA</button>
                                   <a class="btn btn-sm btn-outline-light fw-semibold" href="${invoiceUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation();"><i class="bi bi-file-earmark-pdf"></i> Invoice</a>
                                 </div>
                             </div>

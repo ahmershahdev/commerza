@@ -409,7 +409,8 @@ html[data-commerza-theme="light"] body.dark-theme .hero-block {
 }
 
 body.dark-theme.light-theme .home-premium .hero-block,
-html[data-commerza-theme="light"] body.dark-theme .home-premium .hero-block {
+body.dark-theme.light-theme.home-premium .hero-block,
+html[data-commerza-theme="light"] body.dark-theme.home-premium .hero-block {
   background:
     radial-gradient(circle at 0% 0%, rgba(37, 82, 214, 0.12), transparent 44%),
     linear-gradient(145deg, #ffffff, #f8fafc) !important;
@@ -422,8 +423,7 @@ html[data-commerza-theme="light"] body.dark-theme .home-premium .hero-block {
 
 body.dark-theme.light-theme .home-premium .hero-block::after,
 html[data-commerza-theme="light"]
-  body.dark-theme
-  .home-premium
+  body.dark-theme.home-premium
   .hero-block::after {
   background: none !important;
   opacity: 0 !important;

@@ -19,41 +19,99 @@ if (!$adminUser || (int)($adminUser['is_active'] ?? 0) !== 1) {
     exit;
 }
 
-$orderInput = strtoupper(preg_replace('/\s+/', '', trim((string)($_GET['order'] ?? $_GET['order_number'] ?? ''))));
-if ($orderInput !== '' && strpos($orderInput, '#') !== 0) {
-    $orderInput = '#' . $orderInput;
-}
+$orderInput = '';
 
 $errors = [];
 $order = null;
 $orderItems = [];
 
+function invoice_orders_column_exists(mysqli $con, string $column): bool
+{
+    static $cache = [];
+
+    $normalized = strtolower(trim($column));
+    if ($normalized === '' || preg_match('/^[a-z0-9_]+$/', $normalized) !== 1) {
+        return false;
+    }
+
+    if (array_key_exists($normalized, $cache)) {
+        return (bool)$cache[$normalized];
+    }
+
+    $safe = $con->real_escape_string($normalized);
+    $result = $con->query("SHOW COLUMNS FROM orders LIKE '{$safe}'");
+    $exists = $result instanceof mysqli_result && $result->num_rows > 0;
+
+    $cache[$normalized] = $exists;
+    return $exists;
+}
+
+function invoice_extract_order_input(): string
+{
+    $queryValue = trim((string)($_GET['order'] ?? $_GET['order_number'] ?? ''));
+    $pathValue = '';
+
+    if ($queryValue === '') {
+        $requestPath = (string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?? '');
+        if ($requestPath !== '') {
+            $normalizedPath = rtrim($requestPath, '/');
+            if (preg_match('#/invoice/([^/?#]+)$#i', $normalizedPath, $matches) === 1) {
+                $pathValue = rawurldecode((string)($matches[1] ?? ''));
+            }
+        }
+    }
+
+    $rawValue = $queryValue !== '' ? $queryValue : $pathValue;
+    $normalized = strtoupper(preg_replace('/\s+/', '', $rawValue));
+    $normalized = ltrim($normalized, '#');
+
+    if ($normalized === '') {
+        return '';
+    }
+
+    return '#' . $normalized;
+}
+
+$orderInput = invoice_extract_order_input();
+
+$hasDeliveryEstimateColumn = invoice_orders_column_exists($con, 'delivery_estimate');
+$hasAdminNoteColumn = invoice_orders_column_exists($con, 'admin_note');
+
 if ($orderInput === '' || preg_match('/^#ORD-[A-Z0-9]{4,30}$/', $orderInput) !== 1) {
     $errors[] = 'Invalid order number format.';
 } else {
-    $orderStmt = $con->prepare(
-        'SELECT
-            id,
-            order_number,
-            customer_name,
-            customer_email,
-            customer_phone,
-            address,
-            subtotal,
-            shipping_cost,
-            discount_total,
-            coupon_code,
-            grand_total,
-            status,
-            payment_status,
-            payment_method,
-            notes,
-            created_at,
-            updated_at
-         FROM orders
-         WHERE order_number = ?
-         LIMIT 1'
-    );
+    $orderColumns = [
+        'id',
+        'order_number',
+        'customer_name',
+        'customer_email',
+        'customer_phone',
+        'address',
+        'subtotal',
+        'shipping_cost',
+        'discount_total',
+        'coupon_code',
+        'grand_total',
+        'status',
+        'payment_status',
+        'payment_method',
+        'notes',
+    ];
+
+    if ($hasDeliveryEstimateColumn) {
+        $orderColumns[] = 'delivery_estimate';
+    }
+
+    if ($hasAdminNoteColumn) {
+        $orderColumns[] = 'admin_note';
+    }
+
+    $orderColumns[] = 'created_at';
+    $orderColumns[] = 'updated_at';
+
+    $orderQuery = 'SELECT ' . implode(', ', $orderColumns) . ' FROM orders WHERE order_number = ? LIMIT 1';
+
+    $orderStmt = $con->prepare($orderQuery);
 
     if (!$orderStmt) {
         $errors[] = 'Unable to load invoice details right now.';
@@ -120,19 +178,212 @@ function invoice_status_badge_class(string $status): string
     return 'warning';
 }
 
-function invoice_format_datetime(string $value): string
+function invoice_payment_badge_class(string $paymentStatus, string $paymentMethod): string
 {
-    $timestamp = strtotime($value);
-    if ($timestamp === false) {
-        return $value;
+    $normalized = strtolower(trim($paymentStatus));
+
+    if (in_array($normalized, ['paid', 'captured', 'completed', 'success', 'succeeded'], true)) {
+        return 'success';
     }
 
-    return date('M d, Y h:i A', $timestamp);
+    if (in_array($normalized, ['pending', 'awaiting', 'unpaid', 'processing'], true)) {
+        return 'warning';
+    }
+
+    if (in_array($normalized, ['failed', 'declined', 'chargeback', 'cancelled', 'refunded'], true)) {
+        return 'danger';
+    }
+
+    if ($normalized === 'partial') {
+        return 'info';
+    }
+
+    $method = strtolower(trim($paymentMethod));
+    if ($normalized === '' && in_array($method, ['cod', 'cash on delivery'], true)) {
+        return 'info';
+    }
+
+    return 'muted';
 }
 
+function invoice_humanize_label(string $value, string $fallback): string
+{
+    $raw = trim($value);
+    if ($raw === '') {
+        return $fallback;
+    }
+
+    $spaced = preg_replace('/[_\-]+/', ' ', $raw);
+    if ($spaced === null || $spaced === '') {
+        $spaced = $raw;
+    }
+
+    return ucwords(strtolower($spaced));
+}
+
+function invoice_resolve_timezone(mysqli $con): DateTimeZone
+{
+    $configured = trim(commerza_site_setting_value($con, 'timezone', 'UTC'));
+    if ($configured === '') {
+        $configured = 'UTC';
+    }
+
+    try {
+        return new DateTimeZone($configured);
+    } catch (Throwable $error) {
+        return new DateTimeZone('UTC');
+    }
+}
+
+function invoice_format_datetime(string $value, DateTimeZone $timezone): string
+{
+    $raw = trim($value);
+    if ($raw === '') {
+        return '';
+    }
+
+    try {
+        $normalized = str_replace('T', ' ', $raw);
+        $normalized = preg_replace('/\.\d+$/', '', $normalized) ?? $normalized;
+
+        $date = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $normalized, $timezone);
+        if (!($date instanceof DateTimeImmutable)) {
+            $date = DateTimeImmutable::createFromFormat('Y-m-d H:i', $normalized, $timezone);
+        }
+
+        if (!($date instanceof DateTimeImmutable)) {
+            $date = new DateTimeImmutable($raw, $timezone);
+        }
+
+        return $date->setTimezone($timezone)->format('M d, Y h:i A');
+    } catch (Throwable $error) {
+        return $raw;
+    }
+}
+
+function invoice_logistics_step_index(string $status): int
+{
+    $normalized = strtolower(trim($status));
+
+    if ($normalized === 'delivered') {
+        return 3;
+    }
+
+    if ($normalized === 'shipped') {
+        return 2;
+    }
+
+    if ($normalized === 'confirmed' || $normalized === 'processing' || $normalized === 'cancelled' || $normalized === 'refunded') {
+        return 1;
+    }
+
+    return 0;
+}
+
+function invoice_logistics_steps(string $status, string $createdAt, string $updatedAt, string $deliveryEstimate): array
+{
+    $normalized = strtolower(trim($status));
+    $isCancelled = in_array($normalized, ['cancelled', 'refunded'], true);
+    $isDelivered = $normalized === 'delivered';
+    $isShipped = $normalized === 'shipped';
+
+    $steps = [
+        [
+            'title' => 'Order Received',
+            'detail' => 'Payment and order details recorded.',
+            'time' => $createdAt !== '' ? $createdAt : 'Timestamp pending',
+        ],
+        [
+            'title' => 'Packing & Confirmation',
+            'detail' => 'Items verified, packed, and dispatch prepared.',
+            'time' => $updatedAt !== '' ? $updatedAt : 'Pending',
+        ],
+        [
+            'title' => 'In Transit',
+            'detail' => 'Shipment handed to courier and en route.',
+            'time' => 'Awaiting courier handoff',
+        ],
+        [
+            'title' => 'Delivered',
+            'detail' => 'Order delivered to customer address.',
+            'time' => 'Pending',
+        ],
+    ];
+
+    if ($isShipped || $isDelivered) {
+        $steps[2]['time'] = $updatedAt !== '' ? $updatedAt : ($deliveryEstimate !== '' ? 'ETA ' . $deliveryEstimate : 'In transit');
+    } elseif ($deliveryEstimate !== '') {
+        $steps[2]['time'] = 'ETA ' . $deliveryEstimate;
+    }
+
+    if ($isDelivered) {
+        $steps[3]['time'] = $updatedAt !== '' ? $updatedAt : 'Delivered';
+    } elseif ($deliveryEstimate !== '') {
+        $steps[3]['time'] = 'Expected ' . $deliveryEstimate;
+    }
+
+    if ($isCancelled) {
+        $statusLabel = invoice_humanize_label($status, 'Cancelled');
+        $steps[3]['detail'] = 'Delivery flow closed because this order is ' . strtolower($statusLabel) . '.';
+        $steps[3]['time'] = $statusLabel;
+    }
+
+    $activeIndex = invoice_logistics_step_index($status);
+    foreach ($steps as $index => $step) {
+        $state = 'pending';
+
+        if ($index < $activeIndex) {
+            $state = 'done';
+        } elseif ($index === $activeIndex) {
+            $state = 'active';
+        }
+
+        if ($isDelivered && $index === 3) {
+            $state = 'done';
+        }
+
+        if ($isCancelled && $index >= 2) {
+            $state = 'pending';
+        }
+
+        $steps[$index]['state'] = $state;
+    }
+
+    return $steps;
+}
+
+$invoiceTimezone = invoice_resolve_timezone($con);
+$invoiceTimezoneLabel = $invoiceTimezone->getName();
 $invoiceNumber = $order ? (string)$order['order_number'] : $orderInput;
-$invoiceDate = $order ? invoice_format_datetime((string)($order['created_at'] ?? '')) : '';
-$invoiceUpdatedDate = $order ? invoice_format_datetime((string)($order['updated_at'] ?? '')) : '';
+$invoiceDate = $order ? invoice_format_datetime((string)($order['created_at'] ?? ''), $invoiceTimezone) : '';
+$invoiceUpdatedDate = $order ? invoice_format_datetime((string)($order['updated_at'] ?? ''), $invoiceTimezone) : '';
+$invoiceDeliveryEstimate = ($order && $hasDeliveryEstimateColumn)
+    ? invoice_format_datetime((string)($order['delivery_estimate'] ?? ''), $invoiceTimezone)
+    : '';
+$invoiceLogisticsNote = ($order && $hasAdminNoteColumn)
+    ? trim((string)($order['admin_note'] ?? ''))
+    : '';
+$invoiceStatusRaw = $order ? (string)($order['status'] ?? '') : '';
+$invoicePaymentStatusRaw = $order ? (string)($order['payment_status'] ?? '') : '';
+$invoicePaymentMethodRaw = $order ? (string)($order['payment_method'] ?? '') : '';
+$invoiceStatusLabel = invoice_humanize_label($invoiceStatusRaw, 'Pending');
+$invoicePaymentStatusLabel = invoice_humanize_label($invoicePaymentStatusRaw, 'Pending');
+$invoicePaymentMethodLabel = invoice_humanize_label($invoicePaymentMethodRaw, 'Not Specified');
+$invoiceStatusBadgeClass = invoice_status_badge_class($invoiceStatusRaw);
+$invoicePaymentBadgeClass = invoice_payment_badge_class($invoicePaymentStatusRaw, $invoicePaymentMethodRaw);
+$invoiceDiscountTotal = $order ? (float)($order['discount_total'] ?? 0) : 0.0;
+$invoiceCouponCode = $order ? trim((string)($order['coupon_code'] ?? '')) : '';
+$invoiceCouponLabel = $invoiceCouponCode !== '' ? $invoiceCouponCode : 'Not Applied';
+$invoiceTotalUnits = 0;
+foreach ($orderItems as $orderItemRow) {
+    $invoiceTotalUnits += (int)($orderItemRow['quantity'] ?? 0);
+}
+$invoiceLineItems = count($orderItems);
+$invoiceLogisticsStep = $order ? invoice_logistics_step_index($invoiceStatusRaw) : 0;
+$invoiceLogisticsSteps = $order ? invoice_logistics_steps($invoiceStatusRaw, $invoiceDate, $invoiceUpdatedDate, $invoiceDeliveryEstimate) : [];
+$invoiceOrderReference = $order ? (string)($order['order_number'] ?? $invoiceNumber) : $invoiceNumber;
+$invoiceIsCancelled = in_array(strtolower(trim($invoiceStatusRaw)), ['cancelled', 'refunded'], true);
+$invoiceGeneratedAt = $invoiceUpdatedDate !== '' ? $invoiceUpdatedDate : ($invoiceDate !== '' ? $invoiceDate : 'N/A');
 $adminPanelUrl = 'admin/frontend/admin-panel.php';
 $logoUrl = commerza_absolute_url('frontend/assets/images/logo/commerza_logo.svg');
 ?>
@@ -150,7 +401,7 @@ $logoUrl = commerza_absolute_url('frontend/assets/images/logo/commerza_logo.svg'
     <link rel="stylesheet" href="frontend/assets/css/pages/invoice-inline.css">
 </head>
 
-<body>
+<body class="dark-theme">
     <main class="invoice-page container">
         <div class="invoice-shell">
             <header class="invoice-header">
@@ -174,6 +425,7 @@ $logoUrl = commerza_absolute_url('frontend/assets/images/logo/commerza_logo.svg'
                             <?php if ($invoiceUpdatedDate !== ''): ?>
                                 <div class="meta-row">Updated: <?= htmlspecialchars($invoiceUpdatedDate, ENT_QUOTES, 'UTF-8') ?></div>
                             <?php endif; ?>
+                            <div class="meta-row">Timezone: <?= htmlspecialchars($invoiceTimezoneLabel, ENT_QUOTES, 'UTF-8') ?></div>
                         </div>
                         <div class="invoice-toolbar">
                             <a class="btn btn-sm btn-outline-light" href="<?= htmlspecialchars($adminPanelUrl, ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-arrow-left"></i> Admin Panel</a>
@@ -200,18 +452,65 @@ $logoUrl = commerza_absolute_url('frontend/assets/images/logo/commerza_logo.svg'
                         <div class="col-md-7">
                             <div class="invoice-section">
                                 <h2>Order & Payment</h2>
-                                <p>
-                                    <span class="invoice-status-pill">
-                                        <i class="bi bi-circle-fill"></i>
-                                        <?= htmlspecialchars((string)$order['status'], ENT_QUOTES, 'UTF-8') ?>
+                                <div class="invoice-pill-group">
+                                    <span class="invoice-pill invoice-pill-<?= htmlspecialchars($invoiceStatusBadgeClass, ENT_QUOTES, 'UTF-8') ?>">
+                                        <i class="bi bi-box-seam"></i>
+                                        Status: <?= htmlspecialchars($invoiceStatusLabel, ENT_QUOTES, 'UTF-8') ?>
                                     </span>
-                                    <span class="badge text-bg-<?= htmlspecialchars(invoice_status_badge_class((string)$order['status']), ENT_QUOTES, 'UTF-8') ?> ms-2">
-                                        <?= htmlspecialchars((string)$order['payment_status'], ENT_QUOTES, 'UTF-8') ?>
+                                    <span class="invoice-pill invoice-pill-<?= htmlspecialchars($invoicePaymentBadgeClass, ENT_QUOTES, 'UTF-8') ?>">
+                                        <i class="bi bi-credit-card-2-front"></i>
+                                        Payment: <?= htmlspecialchars($invoicePaymentStatusLabel, ENT_QUOTES, 'UTF-8') ?>
                                     </span>
-                                </p>
-                                <p><span class="strong">Payment Method:</span> <?= htmlspecialchars((string)$order['payment_method'], ENT_QUOTES, 'UTF-8') ?></p>
-                                <p><span class="strong">Coupon:</span> <?= htmlspecialchars((string)($order['coupon_code'] ?: 'Not Applied'), ENT_QUOTES, 'UTF-8') ?></p>
-                                <p><span class="strong">Order Ref:</span> <?= htmlspecialchars((string)$order['order_number'], ENT_QUOTES, 'UTF-8') ?></p>
+                                </div>
+                                <p><span class="strong">Payment Method:</span> <?= htmlspecialchars($invoicePaymentMethodLabel, ENT_QUOTES, 'UTF-8') ?></p>
+                                <p><span class="strong">Coupon:</span> <?= htmlspecialchars($invoiceCouponLabel, ENT_QUOTES, 'UTF-8') ?></p>
+                                <p><span class="strong">Order Ref:</span> <?= htmlspecialchars($invoiceOrderReference, ENT_QUOTES, 'UTF-8') ?></p>
+                                <p><span class="strong">Delivery Estimate:</span> <?= htmlspecialchars($invoiceDeliveryEstimate !== '' ? $invoiceDeliveryEstimate : 'Not set', ENT_QUOTES, 'UTF-8') ?></p>
+                                <p><span class="strong">Internal Logistics Note:</span> <?= htmlspecialchars($invoiceLogisticsNote !== '' ? $invoiceLogisticsNote : 'None', ENT_QUOTES, 'UTF-8') ?></p>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="invoice-section invoice-kpi-section">
+                                <h2>Fulfillment Snapshot</h2>
+                                <div class="invoice-kpi-grid">
+                                    <div class="invoice-kpi-card">
+                                        <span class="kpi-label">Line Items</span>
+                                        <strong class="kpi-value"><?= (int)$invoiceLineItems ?></strong>
+                                    </div>
+                                    <div class="invoice-kpi-card">
+                                        <span class="kpi-label">Units</span>
+                                        <strong class="kpi-value"><?= (int)$invoiceTotalUnits ?></strong>
+                                    </div>
+                                    <div class="invoice-kpi-card">
+                                        <span class="kpi-label">Last Update</span>
+                                        <strong class="kpi-value"><?= htmlspecialchars($invoiceUpdatedDate !== '' ? $invoiceUpdatedDate : 'N/A', ENT_QUOTES, 'UTF-8') ?></strong>
+                                    </div>
+                                    <div class="invoice-kpi-card">
+                                        <span class="kpi-label">Timezone</span>
+                                        <strong class="kpi-value"><?= htmlspecialchars($invoiceTimezoneLabel, ENT_QUOTES, 'UTF-8') ?></strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="invoice-section invoice-logistics">
+                                <h2>Logistics Timeline</h2>
+                                <p class="invoice-logistics-intro">Clear fulfillment stages for dispatch and print records.</p>
+                                <?php if ($invoiceIsCancelled): ?>
+                                    <p class="invoice-logistics-alert">This order is currently <?= htmlspecialchars(strtolower($invoiceStatusLabel), ENT_QUOTES, 'UTF-8') ?>. Courier progression has been stopped.</p>
+                                <?php endif; ?>
+                                <ol class="invoice-logistics-list">
+                                    <?php foreach ($invoiceLogisticsSteps as $step): ?>
+                                        <li class="invoice-logistics-item <?= htmlspecialchars((string)($step['state'] ?? 'pending'), ENT_QUOTES, 'UTF-8') ?>">
+                                            <span class="step-dot" aria-hidden="true"></span>
+                                            <div>
+                                                <span class="step-title"><?= htmlspecialchars((string)$step['title'], ENT_QUOTES, 'UTF-8') ?></span>
+                                                <small class="step-detail"><?= htmlspecialchars((string)$step['detail'], ENT_QUOTES, 'UTF-8') ?></small>
+                                                <small class="step-time"><?= htmlspecialchars((string)($step['time'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?></small>
+                                            </div>
+                                        </li>
+                                    <?php endforeach; ?>
+                                </ol>
                             </div>
                         </div>
                     </div>
@@ -259,7 +558,7 @@ $logoUrl = commerza_absolute_url('frontend/assets/images/logo/commerza_logo.svg'
                     <div class="invoice-summary">
                         <div class="summary-row"><span>Subtotal</span><strong><?= htmlspecialchars(invoice_currency((float)$order['subtotal']), ENT_QUOTES, 'UTF-8') ?></strong></div>
                         <div class="summary-row"><span>Shipping</span><strong><?= htmlspecialchars(invoice_currency((float)$order['shipping_cost']), ENT_QUOTES, 'UTF-8') ?></strong></div>
-                        <div class="summary-row"><span>Discount</span><strong>- <?= htmlspecialchars(invoice_currency((float)$order['discount_total']), ENT_QUOTES, 'UTF-8') ?></strong></div>
+                        <div class="summary-row"><span>Discount</span><strong><?= $invoiceDiscountTotal > 0 ? '- ' : '' ?><?= htmlspecialchars(invoice_currency((float)$order['discount_total']), ENT_QUOTES, 'UTF-8') ?></strong></div>
                         <div class="summary-row total"><span>Grand Total</span><strong><?= htmlspecialchars(invoice_currency((float)$order['grand_total']), ENT_QUOTES, 'UTF-8') ?></strong></div>
                     </div>
 
@@ -272,7 +571,7 @@ $logoUrl = commerza_absolute_url('frontend/assets/images/logo/commerza_logo.svg'
 
                     <div class="invoice-footer">
                         <span>Generated by Commerza Admin</span>
-                        <span><?= htmlspecialchars(invoice_format_datetime((string)($order['updated_at'] ?? '')), ENT_QUOTES, 'UTF-8') ?></span>
+                        <span><?= htmlspecialchars($invoiceGeneratedAt, ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars($invoiceTimezoneLabel, ENT_QUOTES, 'UTF-8') ?>)</span>
                     </div>
                 <?php endif; ?>
             </div>

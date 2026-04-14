@@ -755,6 +755,120 @@ async function updateOrderStatus(orderId, newStatus) {
   }
 }
 
+function logisticsEtaInputValue(rawValue) {
+  const raw = (rawValue || "").toString().trim();
+  if (!raw) {
+    return "";
+  }
+
+  const normalized = raw.replace(" ", "T");
+  const directMatch = normalized.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})/);
+  if (directMatch && directMatch[1]) {
+    return directMatch[1];
+  }
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  const local = new Date(parsed.getTime() - parsed.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function openOrderLogisticsModal(targetOrder) {
+  const modalEl = document.getElementById("orderLogisticsModal");
+  const orderInput = document.getElementById("orderLogisticsOrderId");
+  const etaInput = document.getElementById("orderLogisticsEtaInput");
+  const noteInput = document.getElementById("orderLogisticsNoteInput");
+  const saveBtn = document.getElementById("orderLogisticsSaveBtn");
+  const clearBtn = document.getElementById("orderLogisticsEtaClearBtn");
+
+  if (
+    !modalEl ||
+    !orderInput ||
+    !etaInput ||
+    !noteInput ||
+    !saveBtn ||
+    !clearBtn ||
+    typeof bootstrap === "undefined"
+  ) {
+    showNotification("Logistics editor is unavailable right now.", "danger");
+    return Promise.resolve(null);
+  }
+
+  const currentOrderId = (targetOrder?.orderId || "").toString();
+  orderInput.value = currentOrderId;
+  etaInput.value = logisticsEtaInputValue(targetOrder?.deliveryEstimate || "");
+  noteInput.value = (targetOrder?.adminNote || "").toString();
+
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl, {
+    backdrop: "static",
+    keyboard: false,
+  });
+
+  return new Promise((resolve) => {
+    let settled = false;
+
+    const cleanup = () => {
+      saveBtn.removeEventListener("click", onSave);
+      clearBtn.removeEventListener("click", onClear);
+      modalEl.removeEventListener("hidden.bs.modal", onHidden);
+    };
+
+    const finish = (value) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      cleanup();
+      resolve(value);
+    };
+
+    const onSave = () => {
+      const deliveryEstimate = (etaInput.value || "").toString().trim();
+      if (
+        deliveryEstimate !== "" &&
+        !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(deliveryEstimate)
+      ) {
+        showNotification(
+          "Invalid ETA format. Use the date and time field.",
+          "warning",
+        );
+        etaInput.focus();
+        return;
+      }
+
+      finish({
+        deliveryEstimate,
+        adminNote: (noteInput.value || "").toString().trim(),
+      });
+      modal.hide();
+    };
+
+    const onClear = () => {
+      etaInput.value = "";
+      etaInput.focus();
+    };
+
+    const onHidden = () => {
+      if (!settled) {
+        finish(null);
+      }
+    };
+
+    saveBtn.addEventListener("click", onSave);
+    clearBtn.addEventListener("click", onClear);
+    modalEl.addEventListener("hidden.bs.modal", onHidden);
+
+    modal.show();
+    setTimeout(() => {
+      etaInput.focus();
+    }, 80);
+  });
+}
+
 async function updateOrderLogistics(orderId) {
   const orders = getAdminOrdersData();
   const targetOrder = orders.find((order) => order.orderId === orderId);
@@ -764,37 +878,20 @@ async function updateOrderLogistics(orderId) {
     return;
   }
 
-  const estimateDefault = (targetOrder.deliveryEstimate || "")
-    .toString()
-    .replace(" ", "T")
-    .slice(0, 16);
-
-  const deliveryEstimate = await showCustomPromptDialog(
-    "Set delivery estimate (YYYY-MM-DD or YYYY-MM-DDTHH:MM). Leave empty to clear.",
-    estimateDefault,
-    "Update Delivery Estimate",
-  );
-
-  if (deliveryEstimate === null) {
+  const modalResult = await openOrderLogisticsModal(targetOrder);
+  if (!modalResult) {
     return;
   }
 
-  const adminNote = await showCustomPromptDialog(
-    "Add or update an internal admin note for this order.",
-    (targetOrder.adminNote || "").toString(),
-    "Update Admin Note",
-  );
-
-  if (adminNote === null) {
-    return;
-  }
+  const deliveryEstimate = (modalResult.deliveryEstimate || "").toString();
+  const adminNote = (modalResult.adminNote || "").toString().trim();
 
   try {
     const result = await adminPostJson(ADMIN_ORDERS_API, {
       action: "update-logistics",
       order_number: orderId,
-      delivery_estimate: (deliveryEstimate || "").toString().trim(),
-      admin_note: (adminNote || "").toString().trim(),
+      delivery_estimate: deliveryEstimate,
+      admin_note: adminNote,
     });
 
     setAdminOrdersPayload(result?.payload || {});

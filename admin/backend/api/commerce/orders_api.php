@@ -157,6 +157,28 @@ function orders_api_ensure_order_coupon_columns(mysqli $con): void
     $initialized = true;
 }
 
+function orders_api_ensure_order_logistics_columns(mysqli $con): void
+{
+    static $initialized = false;
+
+    if ($initialized) {
+        return;
+    }
+
+    $missingColumns = [
+        'delivery_estimate' => 'DATETIME DEFAULT NULL',
+        'admin_note' => 'VARCHAR(500) DEFAULT NULL',
+    ];
+
+    foreach ($missingColumns as $column => $definition) {
+        if (!orders_api_order_has_column($con, $column)) {
+            $con->query("ALTER TABLE orders ADD COLUMN {$column} {$definition}");
+        }
+    }
+
+    $initialized = true;
+}
+
 function orders_api_ensure_refund_table(mysqli $con): void
 {
     static $initialized = false;
@@ -564,6 +586,7 @@ function orders_api_fetch_orders(mysqli $con): array
     $orders = [];
 
     orders_api_ensure_order_coupon_columns($con);
+    orders_api_ensure_order_logistics_columns($con);
 
     $result = $con->query(
         'SELECT
@@ -582,6 +605,8 @@ function orders_api_fetch_orders(mysqli $con): array
             status,
             payment_status,
             payment_method,
+                delivery_estimate,
+                admin_note,
             created_at
          FROM orders
          ORDER BY created_at DESC'
@@ -609,6 +634,8 @@ function orders_api_fetch_orders(mysqli $con): array
             'status' => (string)($row['status'] ?? 'Pending'),
             'paymentMethod' => (string)($row['payment_method'] ?? 'N/A'),
             'paymentStatus' => (string)($row['payment_status'] ?? 'unpaid'),
+            'deliveryEstimate' => (string)($row['delivery_estimate'] ?? ''),
+            'adminNote' => (string)($row['admin_note'] ?? ''),
             'userId' => (int)($row['user_id'] ?? 0),
             'items' => orders_api_fetch_order_items($con, $orderId),
         ];
@@ -1579,6 +1606,139 @@ if ($action === 'update-status') {
         'ok' => true,
         'message' => $message,
         'payload' => $payload,
+    ]);
+}
+
+if ($action === 'update-logistics') {
+    orders_api_require_any_permission($admin, ['orders.manage']);
+
+    if ($method !== 'POST') {
+        orders_api_json(['ok' => false, 'message' => 'Method not allowed.'], 405);
+    }
+
+    $csrfToken = (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($_POST['csrf_token'] ?? ''));
+    if ($csrfToken === '') {
+        $csrfToken = (string)($requestBody['csrf_token'] ?? '');
+    }
+
+    if (!admin_validate_csrf_token($csrfToken)) {
+        orders_api_json(['ok' => false, 'message' => 'Forbidden.'], 403);
+    }
+
+    $orderNumber = trim((string)($requestBody['order_number'] ?? ($_POST['order_number'] ?? '')));
+    $deliveryEstimateRaw = trim((string)($requestBody['delivery_estimate'] ?? ($_POST['delivery_estimate'] ?? '')));
+    $adminNote = trim((string)($requestBody['admin_note'] ?? ($_POST['admin_note'] ?? '')));
+
+    if ($orderNumber === '') {
+        orders_api_json(['ok' => false, 'message' => 'Order number is required.'], 422);
+    }
+
+    if (strlen($adminNote) > 500) {
+        $adminNote = substr($adminNote, 0, 500);
+    }
+
+    $deliveryEstimateForDb = null;
+    if ($deliveryEstimateRaw !== '') {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $deliveryEstimateRaw) === 1) {
+            $deliveryEstimateForDb = $deliveryEstimateRaw . ' 00:00:00';
+        } elseif (preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/', $deliveryEstimateRaw) === 1) {
+            $deliveryEstimateForDb = str_replace('T', ' ', $deliveryEstimateRaw) . ':00';
+        } else {
+            orders_api_json([
+                'ok' => false,
+                'message' => 'Invalid delivery estimate format. Use YYYY-MM-DD or YYYY-MM-DDTHH:MM.',
+            ], 422);
+        }
+    }
+
+    orders_api_ensure_order_logistics_columns($con);
+
+    if (!$con->begin_transaction()) {
+        orders_api_json(['ok' => false, 'message' => 'Unable to lock order for logistics update.'], 500);
+    }
+
+    $lockStmt = $con->prepare(
+        'SELECT id
+         FROM orders
+         WHERE order_number = ?
+         LIMIT 1
+         FOR UPDATE'
+    );
+
+    if (!$lockStmt) {
+        $con->rollback();
+        orders_api_json(['ok' => false, 'message' => 'Unable to lock order for logistics update.'], 500);
+    }
+
+    $lockStmt->bind_param('s', $orderNumber);
+    $lockStmt->execute();
+    $result = $lockStmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $lockStmt->close();
+
+    if (!$row) {
+        $con->rollback();
+        orders_api_json(['ok' => false, 'message' => 'Order not found.'], 404);
+    }
+
+    $orderId = (int)($row['id'] ?? 0);
+
+    if ($deliveryEstimateForDb === null) {
+        $updateStmt = $con->prepare(
+            'UPDATE orders
+             SET delivery_estimate = NULL,
+                 admin_note = ?
+             WHERE id = ?
+             LIMIT 1'
+        );
+
+        if (!$updateStmt) {
+            $con->rollback();
+            orders_api_json(['ok' => false, 'message' => 'Unable to update order logistics.'], 500);
+        }
+
+        $updateStmt->bind_param('si', $adminNote, $orderId);
+    } else {
+        $updateStmt = $con->prepare(
+            'UPDATE orders
+             SET delivery_estimate = ?,
+                 admin_note = ?
+             WHERE id = ?
+             LIMIT 1'
+        );
+
+        if (!$updateStmt) {
+            $con->rollback();
+            orders_api_json(['ok' => false, 'message' => 'Unable to update order logistics.'], 500);
+        }
+
+        $updateStmt->bind_param('ssi', $deliveryEstimateForDb, $adminNote, $orderId);
+    }
+
+    $ok = $updateStmt->execute();
+    $updateStmt->close();
+
+    if (!$ok) {
+        $con->rollback();
+        orders_api_json(['ok' => false, 'message' => 'Unable to update order logistics.'], 500);
+    }
+
+    if (!$con->commit()) {
+        $con->rollback();
+        orders_api_json(['ok' => false, 'message' => 'Unable to finalize order logistics update.'], 500);
+    }
+
+    admin_api_log_security_event($con, $admin, 'order.logistics_update', 'info', [
+        'order_id' => $orderId,
+        'order_number' => $orderNumber,
+        'delivery_estimate_set' => $deliveryEstimateForDb !== null,
+        'admin_note_length' => strlen($adminNote),
+    ]);
+
+    orders_api_json([
+        'ok' => true,
+        'message' => 'Order logistics updated.',
+        'payload' => orders_api_summary_payload($con),
     ]);
 }
 

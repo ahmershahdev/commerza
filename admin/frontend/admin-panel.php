@@ -2941,6 +2941,42 @@ $adminTabCatalog = admin_tabs_payload();
         </div>
     </div>
 
+    <div class="modal fade" id="orderLogisticsModal" tabindex="-1" aria-labelledby="orderLogisticsModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content bg-dark border border-secondary">
+                <div class="modal-header border-bottom border-secondary">
+                    <h3 class="h5 modal-title text-orange fw-bold" id="orderLogisticsModalTitle">Update Logistics / ETA</h3>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-4">
+                            <label for="orderLogisticsOrderId" class="form-label text-light">Order</label>
+                            <input type="text" class="form-control bg-secondary border-0 text-light" id="orderLogisticsOrderId" readonly>
+                        </div>
+                        <div class="col-12 col-md-8">
+                            <label for="orderLogisticsEtaInput" class="form-label text-light">Estimated Delivery Date &amp; Time</label>
+                            <div class="d-flex gap-2">
+                                <input type="datetime-local" class="form-control bg-secondary border-0 text-light" id="orderLogisticsEtaInput" step="60">
+                                <button type="button" class="btn btn-outline-secondary" id="orderLogisticsEtaClearBtn">Clear</button>
+                            </div>
+                            <small class="field-hint d-block mt-2">Use local date and time. Leave empty to remove ETA.</small>
+                        </div>
+                        <div class="col-12">
+                            <label for="orderLogisticsNoteInput" class="form-label text-light">Internal Logistics Note</label>
+                            <textarea id="orderLogisticsNoteInput" class="form-control bg-secondary border-0 text-light" rows="4" maxlength="500" placeholder="Courier, checkpoint, delay reason, handoff context, etc."></textarea>
+                            <small class="field-hint d-block mt-2">Visible to admins only. Keep it clear so handoffs are easy to understand.</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top border-secondary">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-orange" id="orderLogisticsSaveBtn"><i class="bi bi-save2 me-1"></i>Save Logistics</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script <?= commerza_csp_nonce_attr() ?> src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
         crossorigin="anonymous" onerror="this.onerror=null;this.src='../../frontend/assets/vendor/bootstrap/bootstrap.bundle.min.js'"></script>
