@@ -800,9 +800,14 @@ $adminTabCatalog = admin_tabs_payload();
                                 <div class="card admin-card border-0 shadow-sm">
                                     <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center">
                                         <h3 class="h5 mb-0 fw-bold text-orange">All Orders</h3>
-                                        <button class="btn btn-sm btn-outline-danger" id="bulkDeleteOrdersBtn" type="button">
-                                            <i class="bi bi-trash me-1"></i>Delete Selected
-                                        </button>
+                                        <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                                            <button class="btn btn-sm btn-outline-warning" id="deleteAllFakeReviewsBtn" type="button">
+                                                <i class="bi bi-eraser me-1"></i>Delete All Fake Reviews
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" id="bulkDeleteOrdersBtn" type="button">
+                                                <i class="bi bi-trash me-1"></i>Delete Selected
+                                            </button>
+                                        </div>
                                     </div>
                                     <div class="card-body p-0">
                                         <div class="table-responsive">
@@ -973,6 +978,7 @@ $adminTabCatalog = admin_tabs_payload();
                                             <div class="col-12 col-md-3">
                                                 <label for="blacklistReasonInput" class="form-label text-light">Reason</label>
                                                 <input type="text" class="form-control bg-secondary border-0 text-light" id="blacklistReasonInput" maxlength="255" placeholder="Fraud, abuse, chargeback, etc.">
+                                                <small class="field-hint d-block mt-1">Briefly explain the reason for blacklisting.</small>
                                             </div>
                                             <div class="col-12 col-md-2 d-grid">
                                                 <button class="btn btn-outline-danger" id="addBlacklistBtn" type="button">
@@ -2957,7 +2963,7 @@ $adminTabCatalog = admin_tabs_payload();
                         <div class="col-12 col-md-8">
                             <label for="orderLogisticsEtaInput" class="form-label text-light">Estimated Delivery Date &amp; Time</label>
                             <div class="d-flex gap-2">
-                                <input type="datetime-local" class="form-control bg-secondary border-0 text-light" id="orderLogisticsEtaInput" step="60">
+                                <input type="datetime-local" class="form-control border-0 text-light" id="orderLogisticsEtaInput" step="60">
                                 <button type="button" class="btn btn-outline-secondary" id="orderLogisticsEtaClearBtn">Clear</button>
                             </div>
                             <small class="field-hint d-block mt-2">Use local date and time. Leave empty to remove ETA.</small>

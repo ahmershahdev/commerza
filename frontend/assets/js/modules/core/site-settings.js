@@ -472,7 +472,110 @@ function applyCollectorsSpeakSettings(collectorsSpeak, brandName) {
     .join("");
 }
 
+function resolveClosestBySelector(target, selector) {
+  if (!target || !selector) {
+    return null;
+  }
+
+  if (target instanceof Element) {
+    return target.closest(selector);
+  }
+
+  if (target.parentElement) {
+    return target.parentElement.closest(selector);
+  }
+
+  return null;
+}
+
+function installProductCardTrackingFallback() {
+  if (document.documentElement.dataset.commerzaCardTrackingInstalled === "1") {
+    return;
+  }
+
+  if (
+    window.matchMedia &&
+    !window.matchMedia("(hover: hover) and (pointer: fine)").matches
+  ) {
+    return;
+  }
+
+  const setCardMotion = function (card, pointerX, pointerY) {
+    if (!card || !card.getBoundingClientRect) {
+      return;
+    }
+
+    const rect = card.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return;
+    }
+
+    const relativeX = (pointerX - rect.left) / rect.width;
+    const relativeY = (pointerY - rect.top) / rect.height;
+    const rotateY = (relativeX - 0.5) * 10;
+    const rotateX = (0.5 - relativeY) * 8;
+    const shiftX = (relativeX - 0.5) * 8;
+    const shiftY = (relativeY - 0.5) * 2;
+    const pointerPercentX = Math.min(100, Math.max(0, relativeX * 100));
+    const pointerPercentY = Math.min(100, Math.max(0, relativeY * 100));
+
+    card.style.setProperty("--pc-rotate-x", `${rotateX.toFixed(2)}deg`);
+    card.style.setProperty("--pc-rotate-y", `${rotateY.toFixed(2)}deg`);
+    card.style.setProperty("--pc-shift-x", `${shiftX.toFixed(2)}px`);
+    card.style.setProperty("--pc-shift-y", `${shiftY.toFixed(2)}px`);
+    card.style.setProperty("--pc-pointer-x", `${pointerPercentX.toFixed(2)}%`);
+    card.style.setProperty("--pc-pointer-y", `${pointerPercentY.toFixed(2)}%`);
+  };
+
+  const resetCardMotion = function (card) {
+    if (!card || !card.style) {
+      return;
+    }
+
+    card.style.setProperty("--pc-rotate-x", "0deg");
+    card.style.setProperty("--pc-rotate-y", "0deg");
+    card.style.setProperty("--pc-shift-x", "0px");
+    card.style.setProperty("--pc-shift-y", "0px");
+    card.style.setProperty("--pc-pointer-x", "50%");
+    card.style.setProperty("--pc-pointer-y", "50%");
+  };
+
+  document.documentElement.dataset.commerzaCardTrackingInstalled = "1";
+
+  document.addEventListener("mousemove", function (event) {
+    const card = resolveClosestBySelector(event.target, ".product-card");
+    if (!card) {
+      return;
+    }
+
+    setCardMotion(card, event.clientX, event.clientY);
+  });
+
+  document.addEventListener("mouseout", function (event) {
+    const card = resolveClosestBySelector(event.target, ".product-card");
+    if (!card) {
+      return;
+    }
+
+    const nextTarget = event.relatedTarget;
+    if (nextTarget && card.contains(nextTarget)) {
+      return;
+    }
+
+    resetCardMotion(card);
+  });
+
+  window.addEventListener("blur", function () {
+    const cards = document.querySelectorAll(".product-card");
+    cards.forEach(function (card) {
+      resetCardMotion(card);
+    });
+  });
+}
+
 function applySiteSettings() {
+  installProductCardTrackingFallback();
+
   const settings = getSiteSettings();
   if (!settings) return;
   const brandName = ((settings.brand || {}).name || "").toString().trim();

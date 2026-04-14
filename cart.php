@@ -6,6 +6,7 @@ require_once __DIR__ . '/backend/core/data.php';
 require_once __DIR__ . '/backend/helpers/cart_helpers.php';
 require_once __DIR__ . '/backend/helpers/notifications.php';
 require_once __DIR__ . '/backend/helpers/coupon_helpers.php';
+require_once __DIR__ . '/backend/payment/payment_helpers.php';
 
 if (empty($_SESSION['csrf_token'])) {
   $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -130,6 +131,27 @@ function cart_cod_otp_required(string $paymentMethod, float $grandTotal): bool
   return round($grandTotal, 2) >= $threshold;
 }
 
+function cart_order_already_uses_stripe_intent(mysqli $con, string $intentId): bool
+{
+  if (!preg_match('/^pi_[A-Za-z0-9]+$/', $intentId)) {
+    return true;
+  }
+
+  $stmt = $con->prepare('SELECT id FROM orders WHERE notes LIKE ? LIMIT 1');
+  if (!$stmt) {
+    return false;
+  }
+
+  $needle = '%stripe_intent:' . $intentId . '%';
+  $stmt->bind_param('s', $needle);
+  $stmt->execute();
+  $stmt->store_result();
+  $exists = $stmt->num_rows > 0;
+  $stmt->close();
+
+  return $exists;
+}
+
 function generate_order_number(mysqli $con): string
 {
   for ($i = 0; $i < 20; $i++) {
@@ -198,6 +220,237 @@ function cart_checkout_rate_limit_error(mysqli $con, bool $isLoggedIn): ?string
 
 $codHighValueThreshold = cart_cod_high_value_threshold_amount();
 $codHighValueHardLimit = cart_cod_high_value_hard_limit_amount();
+$stripePublishableKey = trim(commerza_get_stripe_publishable_key($con));
+$stripeSecretKey = trim(commerza_get_stripe_secret_key($con));
+$stripeCheckoutEnabled = $stripePublishableKey !== '' && $stripeSecretKey !== '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') === 'create_stripe_intent') {
+  if (
+    empty($_POST['csrf_token']) ||
+    empty($_SESSION['csrf_token']) ||
+    !hash_equals($_SESSION['csrf_token'], (string)$_POST['csrf_token'])
+  ) {
+    cart_json_response([
+      'ok' => false,
+      'message' => 'Forbidden.',
+    ], 403);
+  }
+
+  if (!$is_logged_in) {
+    cart_json_response([
+      'ok' => false,
+      'message' => 'Please login before starting card payment.',
+    ], 401);
+  }
+
+  $user_id = (int)($_SESSION['user_id'] ?? 0);
+  if ($user_id <= 0) {
+    cart_json_response([
+      'ok' => false,
+      'message' => 'Please login before starting card payment.',
+    ], 401);
+  }
+
+  $paymentMethod = strtolower(trim((string)($_POST['payment_method'] ?? 'stripe')));
+  if ($paymentMethod !== 'stripe') {
+    cart_json_response([
+      'ok' => false,
+      'message' => 'Card payment initialization is available only for Stripe.',
+    ], 422);
+  }
+
+  if (!$stripeCheckoutEnabled) {
+    cart_json_response([
+      'ok' => false,
+      'message' => 'Stripe checkout is currently unavailable. Please use Cash on Delivery.',
+    ], 503);
+  }
+
+  $requestId = commerza_request_id_from_server($_POST);
+  $idempotency = commerza_idempotency_consume($con, 'checkout_create_stripe_intent', $requestId, 1800);
+  if (!(bool)($idempotency['ok'] ?? false)) {
+    cart_json_response([
+      'ok' => false,
+      'message' => (bool)($idempotency['duplicate'] ?? false)
+        ? 'Duplicate card payment request detected. Please wait before trying again.'
+        : (string)($idempotency['message'] ?? 'Unable to validate payment request.'),
+    ], (bool)($idempotency['duplicate'] ?? false) ? 409 : 422);
+  }
+
+  $clientIp = commerza_client_ip();
+  $identifier = 'user_' . $user_id;
+  $rate = commerza_rate_limit_check(
+    $con,
+    'checkout_create_stripe_intent',
+    $identifier,
+    $clientIp,
+    10,
+    600,
+    600,
+    1800
+  );
+
+  if (!(bool)($rate['allowed'] ?? true)) {
+    $retrySeconds = max(1, (int)($rate['retry_after'] ?? 600));
+    if (function_exists('commerza_security_log_rate_limit_block')) {
+      commerza_security_log_rate_limit_block(
+        $con,
+        'checkout_create_stripe_intent',
+        'user',
+        $identifier,
+        $clientIp,
+        $retrySeconds
+      );
+    }
+
+    cart_json_response([
+      'ok' => false,
+      'message' => 'Too many card payment attempts. Please wait ' . $retrySeconds . ' second(s).',
+    ], 429);
+  }
+
+  $customerEmail = strtolower(trim((string)($_POST['customer_email'] ?? '')));
+  if (!filter_var($customerEmail, FILTER_VALIDATE_EMAIL) || strlen($customerEmail) > 150) {
+    cart_json_response([
+      'ok' => false,
+      'message' => 'Enter a valid checkout email before starting card payment.',
+    ], 422);
+  }
+
+  $cartId = commerza_get_cart_id($con, false);
+  if (!$cartId) {
+    cart_json_response([
+      'ok' => false,
+      'message' => 'Your cart is empty.',
+    ], 422);
+  }
+
+  $cartSnapshot = commerza_fetch_cart_snapshot($con, $cartId);
+  if ((int)($cartSnapshot['count'] ?? 0) <= 0 || empty($cartSnapshot['items'])) {
+    cart_json_response([
+      'ok' => false,
+      'message' => 'Your cart is empty.',
+    ], 422);
+  }
+
+  if ((int)($cartSnapshot['count'] ?? 0) > 10) {
+    cart_json_response([
+      'ok' => false,
+      'message' => 'Cart item limit exceeded.',
+    ], 422);
+  }
+
+  $subtotal = 0.00;
+  foreach ($cartSnapshot['items'] as $item) {
+    if (!is_array($item)) {
+      continue;
+    }
+
+    $quantity = (int)($item['quantity'] ?? 1);
+    $salePrice = isset($item['salePrice']) ? (float)$item['salePrice'] : 0.0;
+    $price = isset($item['price']) ? (float)$item['price'] : 0.0;
+    $unitPrice = $salePrice > 0 ? $salePrice : $price;
+
+    if ($quantity < 1 || $quantity > 10 || $unitPrice <= 0) {
+      cart_json_response([
+        'ok' => false,
+        'message' => 'One or more cart items are invalid. Please refresh your cart and try again.',
+      ], 422);
+    }
+
+    $subtotal += round($unitPrice * $quantity, 2);
+  }
+
+  if ($subtotal <= 0) {
+    cart_json_response([
+      'ok' => false,
+      'message' => 'Your cart total is invalid.',
+    ], 422);
+  }
+
+  $shippingConfig = commerza_cart_shipping_config($con);
+  $shippingCost = commerza_cart_shipping_cost($subtotal, $shippingConfig);
+  $discountTotal = 0.00;
+  $couponCode = '';
+  $couponCodeInput = commerza_coupon_normalize_code((string)($_POST['coupon_code'] ?? ''));
+  $couponState = commerza_coupon_resolve_checkout_coupon($con, $subtotal, $user_id, $couponCodeInput);
+
+  if ($couponCodeInput !== '' && !(bool)($couponState['ok'] ?? false)) {
+    cart_json_response([
+      'ok' => false,
+      'message' => (string)($couponState['message'] ?? 'Invalid coupon code.'),
+    ], 422);
+  }
+
+  if ((bool)($couponState['ok'] ?? false)) {
+    $discountTotal = (float)($couponState['discount'] ?? 0);
+    $couponCode = (string)($couponState['code'] ?? '');
+  }
+
+  $grandTotal = round(max(0, $subtotal + $shippingCost - $discountTotal), 2);
+  if ($grandTotal <= 0) {
+    cart_json_response([
+      'ok' => false,
+      'message' => 'Checkout total is invalid for card payment.',
+    ], 422);
+  }
+
+  $amountMinor = (int)round($grandTotal * 100);
+  if ($amountMinor <= 0) {
+    cart_json_response([
+      'ok' => false,
+      'message' => 'Checkout total is invalid for card payment.',
+    ], 422);
+  }
+
+  $stripePayload = [
+    'amount' => (string)$amountMinor,
+    'currency' => 'pkr',
+    'payment_method_types[]' => 'card',
+    'description' => 'Commerza checkout payment',
+    'receipt_email' => $customerEmail,
+    'metadata[commerza_user_id]' => (string)$user_id,
+    'metadata[commerza_customer_email]' => $customerEmail,
+    'metadata[commerza_cart_id]' => (string)$cartId,
+    'metadata[commerza_coupon_code]' => $couponCode,
+    'metadata[commerza_checkout_request_id]' => $requestId,
+  ];
+
+  $intentResult = commerza_stripe_api_post(
+    $stripeSecretKey,
+    'https://api.stripe.com/v1/payment_intents',
+    $stripePayload
+  );
+
+  if (!(bool)($intentResult['ok'] ?? false)) {
+    cart_json_response([
+      'ok' => false,
+      'message' => (string)($intentResult['error'] ?? 'Unable to start secure card payment.'),
+    ], 502);
+  }
+
+  $intent = is_array($intentResult['data'] ?? null) ? $intentResult['data'] : [];
+  $intentId = (string)($intent['id'] ?? '');
+  $clientSecret = (string)($intent['client_secret'] ?? '');
+
+  if (!preg_match('/^pi_[A-Za-z0-9]+$/', $intentId) || $clientSecret === '') {
+    cart_json_response([
+      'ok' => false,
+      'message' => 'Invalid response from payment gateway. Please retry.',
+    ], 502);
+  }
+
+  cart_json_response([
+    'ok' => true,
+    'message' => 'Secure card payment session is ready.',
+    'intent_id' => $intentId,
+    'client_secret' => $clientSecret,
+    'amount_minor' => $amountMinor,
+    'currency' => 'PKR',
+    'grand_total' => $grandTotal,
+    'publishable_key' => $stripePublishableKey,
+  ]);
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') === 'request_cod_otp') {
   if (
@@ -385,16 +638,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
   $customer_phone = (string)($customer_phone ?? '');
   $customer_address = trim((string)($_POST['customer_address'] ?? ''));
   $payment_method = strtolower(trim((string)($_POST['payment_method'] ?? 'cod')));
-  $payment_sender = trim((string)($_POST['payment_sender'] ?? ''));
-  $payment_reference = strtoupper(trim((string)($_POST['payment_reference'] ?? '')));
+  $stripe_intent_id = trim((string)($_POST['stripe_intent_id'] ?? ''));
+  $payment_sender = '';
+  $payment_reference = '';
 
   $payment_methods = [
     'cod' => 'Cash on Delivery (COD)',
-    'jazzcash' => 'JazzCash (Sandbox)',
-    'easypaisa' => 'Easypaisa (Sandbox)',
-    'paypal' => 'PayPal (Sandbox)',
-    'stripe' => 'Stripe (Sandbox)',
-    'card' => 'Credit/Debit Card (Stripe Sandbox)',
+    'stripe' => 'Stripe (Card)',
   ];
 
   $payment_method_label = $payment_methods[$payment_method] ?? '';
@@ -421,24 +671,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
     $errors[] = 'Please select a valid payment method.';
   }
 
-  if ($payment_method !== 'cod') {
-    if (strlen($payment_sender) < 3 || strlen($payment_sender) > 120) {
-      $errors[] = 'Payer account/wallet detail must be 3-120 characters for sandbox payments.';
-    }
+  if ($payment_method === 'stripe' && !$stripeCheckoutEnabled) {
+    $errors[] = 'Stripe checkout is currently unavailable. Please choose Cash on Delivery.';
+  }
 
-    if (!preg_match('/^[A-Z0-9_-]{4,80}$/', $payment_reference)) {
-      $errors[] = 'Sandbox transaction reference must be 4-80 characters and can contain letters, numbers, _ or -.';
-    }
-
-    $payment_notes[] = 'Sandbox payment mode selected: ' . $payment_method_label;
-    if ($payment_sender !== '') {
-      $payment_notes[] = 'Sandbox payer detail: ' . $payment_sender;
-    }
-    if ($payment_reference !== '') {
-      $payment_notes[] = 'Sandbox reference: ' . $payment_reference;
-    }
-  } else {
+  if ($payment_method === 'cod') {
     $payment_notes[] = 'Cash on Delivery selected.';
+  } elseif ($payment_method === 'stripe') {
+    $payment_notes[] = 'Stripe card checkout selected.';
   }
 
   if (empty($errors)) {
@@ -554,10 +794,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
     $grand_total = round(max(0, $subtotal + $shipping_cost - $discount_total), 2);
 
     if ($payment_method === 'cod' && $codHighValueHardLimit > 0 && $grand_total > $codHighValueHardLimit) {
-      $errors[] = 'COD is not available above PKR ' . number_format($codHighValueHardLimit, 2) . '. Please choose another payment method.';
+      $errors[] = 'COD is not available above PKR ' . number_format($codHighValueHardLimit, 2) . '. Please reduce your cart total and try again.';
+    }
+
+    if ($payment_method === 'stripe') {
+      if (!preg_match('/^pi_[A-Za-z0-9]+$/', $stripe_intent_id)) {
+        $errors[] = 'Complete secure Stripe payment before placing your order.';
+      } elseif (cart_order_already_uses_stripe_intent($con, $stripe_intent_id)) {
+        $errors[] = 'This Stripe payment reference has already been used. Please complete a fresh payment attempt.';
+      } else {
+        $stripeIntentResponse = commerza_fetch_stripe_payment_intent($stripeSecretKey, $stripe_intent_id);
+        if (!(bool)($stripeIntentResponse['ok'] ?? false)) {
+          $errors[] = 'Unable to verify Stripe payment. Please retry card payment before placing order.';
+        } else {
+          $stripeIntent = is_array($stripeIntentResponse['data'] ?? null) ? $stripeIntentResponse['data'] : [];
+          $intentStatus = strtolower(trim((string)($stripeIntent['status'] ?? '')));
+          $intentCurrency = strtolower(trim((string)($stripeIntent['currency'] ?? '')));
+          $intentAmountMinor = (int)($stripeIntent['amount'] ?? 0);
+          $intentAmountReceivedMinor = (int)($stripeIntent['amount_received'] ?? 0);
+          $expectedAmountMinor = (int)round($grand_total * 100);
+          $intentMetadata = is_array($stripeIntent['metadata'] ?? null) ? $stripeIntent['metadata'] : [];
+          $intentUserId = (int)($intentMetadata['commerza_user_id'] ?? 0);
+          $intentEmail = strtolower(trim((string)($intentMetadata['commerza_customer_email'] ?? '')));
+
+          if ($intentStatus !== 'succeeded') {
+            $errors[] = 'Stripe payment is not completed yet. Please finish card authentication and try again.';
+          } elseif ($intentCurrency !== 'pkr') {
+            $errors[] = 'Stripe payment currency mismatch detected. Please retry checkout.';
+          } elseif ($intentAmountMinor !== $expectedAmountMinor || $intentAmountReceivedMinor < $expectedAmountMinor) {
+            $errors[] = 'Stripe payment amount mismatch detected. Please retry payment for the latest cart total.';
+          } elseif ($intentUserId > 0 && $intentUserId !== $user_id) {
+            $errors[] = 'Stripe payment ownership mismatch detected. Please retry payment on this account.';
+          } elseif ($intentEmail !== '' && $intentEmail !== $customer_email) {
+            $errors[] = 'Stripe payment email mismatch detected. Please retry payment using the current checkout email.';
+          } else {
+            $payment_status = 'paid';
+            $payment_reference = $stripe_intent_id;
+            $payment_notes[] = 'stripe_intent:' . $stripe_intent_id;
+            $payment_notes[] = 'Stripe payment intent verified as succeeded.';
+          }
+        }
+      }
     }
 
     $codOtpNeeded = cart_cod_otp_required($payment_method, $grand_total);
+    if ($payment_method !== 'cod') {
+      cart_cod_otp_pending_clear();
+    }
+
     if ($payment_method === 'cod' && !$codOtpNeeded) {
       cart_cod_otp_pending_clear();
     }
@@ -936,7 +1220,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow">
   <meta name="author" content="Syed Ahmer Shah">
-  <meta name="description" content="Review your Commerza cart and complete checkout with secure Cash on Delivery flow.">
+  <meta name="description" content="Review your Commerza cart and complete secure checkout with Cash on Delivery or Stripe card payment.">
   <meta property="og:title" content="Cart | Commerza">
   <meta property="og:description" content="Review items in your Commerza cart and complete secure checkout.">
   <meta property="og:url" content="https://commerza.ahmershah.dev/cart.php">
@@ -1136,7 +1420,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
           <article class="checkout-guide-card">
             <span class="checkout-guide-step">Step 4</span>
             <h3>Select Payment Method</h3>
-            <p>Choose COD or sandbox payment, complete CAPTCHA, then submit your final order.</p>
+            <p>Choose Cash on Delivery or Stripe card checkout, complete verification, then submit your order.</p>
           </article>
         </div>
       </div>
@@ -1148,7 +1432,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
         <ul class="checkout-precaution-list">
           <li><i class="bi bi-check2-circle"></i><span>Keep quantity realistic to avoid stock conflicts during high demand.</span></li>
           <li><i class="bi bi-check2-circle"></i><span>Double-check phone and address because dispatch labels use this exact data.</span></li>
-          <li><i class="bi bi-check2-circle"></i><span>Keep your phone active because COD confirmation may require a call.</span></li>
+          <li><i class="bi bi-check2-circle"></i><span>For COD, keep your phone active; for Stripe, complete card payment before placing your order.</span></li>
           <li><i class="bi bi-check2-circle"></i><span>Review final total after coupon application before clicking Complete Order.</span></li>
         </ul>
       </div>
@@ -1262,34 +1546,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
                   </button>
                   <ul class="dropdown-menu payment-dropdown-menu" id="paymentMethodMenu">
                     <li><a class="checkout-payment-option active" href="#" data-value="cod" data-label="Cash on Delivery (COD)" data-icon="bi-cash-coin" data-desc="Pay when your order reaches your doorstep.">Cash on Delivery (COD)<small>Pay cash when order is delivered</small></a></li>
-                    <li><a class="checkout-payment-option" href="#" data-value="jazzcash" data-label="JazzCash (Sandbox)" data-icon="bi-phone" data-desc="Sandbox wallet mode. Add payer and transaction reference below.">JazzCash (Sandbox)<small>Use JazzCash test credentials only</small></a></li>
-                    <li><a class="checkout-payment-option" href="#" data-value="easypaisa" data-label="Easypaisa (Sandbox)" data-icon="bi-wallet2" data-desc="Sandbox wallet mode. Add payer and transaction reference below.">Easypaisa (Sandbox)<small>Use Easypaisa sandbox flow</small></a></li>
-                    <li><a class="checkout-payment-option" href="#" data-value="paypal" data-label="PayPal (Sandbox)" data-icon="bi-paypal" data-desc="Sandbox PayPal mode. Add payer and transaction reference below.">PayPal (Sandbox)<small>Use PayPal sandbox buyer account</small></a></li>
-                    <li><a class="checkout-payment-option" href="#" data-value="stripe" data-label="Stripe (Sandbox)" data-icon="bi-credit-card" data-desc="Sandbox Stripe mode. Add payer and transaction reference below.">Stripe (Sandbox)<small>Use Stripe test mode details</small></a></li>
-                    <li><a class="checkout-payment-option" href="#" data-value="card" data-label="Credit/Debit Card (Stripe Sandbox)" data-icon="bi-credit-card-2-front" data-desc="Stripe card sandbox mode. Add payer and transaction reference below.">Credit/Debit Card (Stripe Sandbox) <span class="checkout-payment-tag">Recommended</span><small>Best for card testing with Stripe sandbox cards</small></a></li>
+                    <?php if ($stripeCheckoutEnabled): ?>
+                      <li><a class="checkout-payment-option" href="#" data-value="stripe" data-label="Stripe (Card)" data-icon="bi-credit-card-2-front" data-desc="Pay securely with your card through Stripe before order confirmation.">Stripe (Card)<small>Secure online card payment</small></a></li>
+                    <?php endif; ?>
                   </ul>
                 </div>
                 <input type="hidden" id="paymentMethod" name="payment_method" value="cod">
-                <p class="payment-hint">Online methods run in sandbox mode and require a payer detail + reference.</p>
+                <input type="hidden" id="stripeIntentId" name="stripe_intent_id" value="">
+                <p class="payment-hint"><?= $stripeCheckoutEnabled ? 'Choose Cash on Delivery or Stripe card checkout for secure order placement.' : 'Cash on Delivery is active. Stripe card checkout is currently unavailable for this store.' ?></p>
                 <div id="paymentMethodCard" class="payment-method-card" aria-live="polite">
                   <div class="payment-method-icon"><i id="paymentMethodIcon" class="bi bi-cash-coin"></i></div>
                   <div>
                     <p class="mb-1 text-white fw-bold payment-method-title-row"><span id="paymentMethodTitle">Cash on Delivery</span><span id="paymentMethodBadge" class="checkout-payment-tag d-none">Recommended</span></p>
                     <p id="paymentMethodDesc" class="payment-hint mb-0">Pay when your order reaches your doorstep.</p>
                   </div>
-                </div>
-                <div id="paymentExtraFields" class="payment-extra-fields d-none">
-                  <div class="row g-3">
-                    <div class="col-12 col-md-6">
-                      <label for="paymentSender" class="form-label text-white">Payer Wallet / Account *</label>
-                      <input type="text" class="form-control checkout-field" id="paymentSender" name="payment_sender" maxlength="120" placeholder="Wallet number or sandbox account email">
-                    </div>
-                    <div class="col-12 col-md-6">
-                      <label for="paymentReference" class="form-label text-white">Sandbox Transaction Reference *</label>
-                      <input type="text" class="form-control checkout-field" id="paymentReference" name="payment_reference" maxlength="80" placeholder="Example: TEST-ORDER-1234" pattern="[A-Za-z0-9_-]{4,80}">
-                    </div>
-                  </div>
-                  <small class="field-hint d-block mt-2">Use sandbox/test values only. Live settlement is not enabled in this flow.</small>
                 </div>
                 <div id="codOtpSection" class="payment-extra-fields d-none">
                   <div class="row g-3 align-items-end">
@@ -1303,6 +1573,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
                   </div>
                   <small id="codOtpHint" class="field-hint d-block mt-2">For COD orders of PKR <?= number_format((float)$codHighValueThreshold, 2) ?> or above, verify the code sent to your account email before placing order.</small>
                   <div id="codOtpFeedback" class="small mt-2" aria-live="polite"></div>
+                </div>
+                <div id="stripeSection" class="payment-extra-fields d-none">
+                  <label for="stripeCardElement" class="form-label text-white">Card Details</label>
+                  <div id="stripeCardElement" class="checkout-field stripe-card-element" aria-label="Stripe card details"></div>
+                  <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+                    <button type="button" class="btn btn-outline-warning" id="stripePayBtn">Pay Securely</button>
+                    <span id="stripePaymentStatus" class="badge bg-secondary">Payment Pending</span>
+                  </div>
+                  <small id="stripeHint" class="field-hint d-block mt-2">Your card is processed by Stripe. Complete payment before submitting your order.</small>
+                  <div id="stripeFeedback" class="small mt-2" aria-live="polite"></div>
                 </div>
               </div>
 
@@ -1380,6 +1660,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <?php if ($stripeCheckoutEnabled): ?>
+    <script <?= commerza_csp_nonce_attr() ?> src="https://js.stripe.com/v3/"></script>
+  <?php endif; ?>
   <script src="frontend/assets/js/modules/core/global-protection.js"></script>
   <?= commerza_captcha_script_tag($con) ?>
   <script <?= commerza_csp_nonce_attr() ?> id="commerzaCartPageConfig" type="application/json">
@@ -1388,6 +1671,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       'captchaEnabled' => (bool)$checkoutCaptchaEnabled,
       'captchaFieldName' => (string)$checkoutCaptchaField,
       'codHighValueThreshold' => (float)$codHighValueThreshold,
+      'stripeEnabled' => (bool)$stripeCheckoutEnabled,
+      'stripePublishableKey' => (string)$stripePublishableKey,
       'prefillData' => [
         'name' => (string)$current_user['full_name'],
         'email' => (string)$current_user['email'],

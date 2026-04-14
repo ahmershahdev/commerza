@@ -401,14 +401,6 @@ img {
   letter-spacing: 0.4px;
 }
 
-.modal-body {
-  background: linear-gradient(
-    180deg,
-    rgba(16, 16, 22, 0.95),
-    rgba(11, 11, 16, 0.95)
-  );
-}
-
 .modal .btn-close {
   filter: invert(0.92);
   opacity: 0.85;

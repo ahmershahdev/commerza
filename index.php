@@ -106,7 +106,7 @@ if (
           "image": "https://commerza.ahmershah.dev/frontend/assets/images/logo/commerza_logo.svg",
           "priceRange": "$$",
           "currenciesAccepted": "PKR",
-          "paymentAccepted": "Cash on Delivery, JazzCash Sandbox, Easypaisa Sandbox, PayPal Sandbox, Stripe Sandbox, Card Sandbox",
+          "paymentAccepted": ["Cash on Delivery", "Stripe"],
           "areaServed": {
             "@type": "Country",
             "name": "Pakistan"

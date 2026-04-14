@@ -893,14 +893,39 @@ function bindProductReviewSubmit(product) {
   });
 }
 
+function reviewMarqueeDurationSeconds(reviewCount) {
+  const safeCount = Math.max(0, parseInt(reviewCount, 10) || 0);
+
+  // Keep card movement readable by increasing duration as travel distance grows.
+  const baseDuration = 40;
+  const extraPerCard = 6;
+  const duration = baseDuration + Math.max(0, safeCount - 3) * extraPerCard;
+
+  return Math.min(140, Math.max(40, duration));
+}
+
 function renderReviewsMarquee(product) {
   const track = $("#reviews-track");
   const summary = $("#reviewsSummaryText");
   if (!track.length) return;
 
+  const stopMarquee = function () {
+    track.removeClass("is-marquee");
+    track.css("--review-marquee-duration", "48s");
+  };
+
+  const startMarquee = function (durationSeconds) {
+    const safeDuration = Math.max(
+      40,
+      Math.min(140, Number(durationSeconds) || 48),
+    );
+    track.css("--review-marquee-duration", `${safeDuration}s`);
+    track.addClass("is-marquee");
+  };
+
   const productId = parseInt(product?.id, 10);
   if (!Number.isInteger(productId) || productId <= 0) {
-    track.css("animation", "none");
+    stopMarquee();
     track.html(
       '<div class="review-card"><p class="mb-2">Reviews are not available for this product.</p></div>',
     );
@@ -914,7 +939,7 @@ function renderReviewsMarquee(product) {
     return;
   }
 
-  track.css("animation", "none");
+  stopMarquee();
   track.html(
     '<div class="review-card"><p class="mb-0">Loading customer reviews...</p></div>',
   );
@@ -956,7 +981,7 @@ function renderReviewsMarquee(product) {
       }
 
       if (!reviews.length) {
-        track.css("animation", "none");
+        stopMarquee();
         track.html(`
             <div class="review-card">
               <div class="text-warning mb-2">☆☆☆☆☆</div>
@@ -991,10 +1016,12 @@ function renderReviewsMarquee(product) {
           .join("");
 
         const shouldMarquee = reviews.length >= 3;
-        track.css(
-          "animation",
-          shouldMarquee ? "review-marquee 24s linear infinite" : "none",
-        );
+        const marqueeDuration = reviewMarqueeDurationSeconds(reviews.length);
+        if (shouldMarquee) {
+          startMarquee(marqueeDuration);
+        } else {
+          stopMarquee();
+        }
         track.html(shouldMarquee ? cardHtml + cardHtml : cardHtml);
       }
 
@@ -1002,7 +1029,7 @@ function renderReviewsMarquee(product) {
       bindProductReviewSubmit(product);
     })
     .catch((error) => {
-      track.css("animation", "none");
+      stopMarquee();
       track.html(`
           <div class="review-card">
             <div class="text-warning mb-2">☆☆☆☆☆</div>

@@ -140,26 +140,103 @@
 .reviews-track {
   display: flex;
   gap: 16px;
-  animation: review-marquee 24s linear infinite;
+  --review-marquee-duration: 48s;
+  animation: none;
+  animation-play-state: running;
   width: max-content;
+  will-change: transform;
+}
+
+.reviews-track.is-marquee {
+  animation: review-marquee var(--review-marquee-duration, 48s) linear infinite;
 }
 
 .reviews-wrap {
   overflow: hidden;
 }
 
+.reviews-wrap:hover .reviews-track.is-marquee,
+.reviews-wrap:focus-within .reviews-track.is-marquee {
+  animation-play-state: paused;
+}
+
 .review-card {
-  min-width: 280px;
+  min-width: 292px;
+  max-width: 360px;
+  position: relative;
+  overflow: hidden;
   background: linear-gradient(
-    150deg,
-    rgba(24, 24, 24, 0.98),
-    rgba(10, 10, 10, 0.95)
+    146deg,
+    rgba(25, 25, 25, 0.98),
+    rgba(9, 9, 9, 0.96)
   );
-  border: 1px solid rgba(255, 153, 61, 0.34);
-  border-radius: 14px;
-  padding: 16px;
+  border: 1px solid rgba(255, 168, 79, 0.42);
+  border-radius: 16px;
+  padding: 18px;
   color: #fff;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  box-shadow:
+    0 16px 34px rgba(0, 0, 0, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition:
+    transform 0.24s ease,
+    border-color 0.24s ease,
+    box-shadow 0.24s ease;
+}
+
+.review-card::before {
+  content: "";
+  position: absolute;
+  inset: -38% auto auto -22%;
+  width: 190px;
+  height: 190px;
+  background: radial-gradient(
+    circle,
+    rgba(255, 179, 105, 0.2),
+    transparent 66%
+  );
+  pointer-events: none;
+}
+
+.review-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 209, 151, 0.6),
+    rgba(255, 153, 61, 0.06) 42%,
+    rgba(255, 214, 166, 0.46)
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.review-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.review-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 204, 122, 0.72);
+  box-shadow:
+    0 22px 42px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(255, 179, 105, 0.18);
+}
+
+.review-card p {
+  color: #efe8df;
+  line-height: 1.56;
 }
 
 .review-form-card {
@@ -468,6 +545,10 @@ html[data-commerza-theme="light"] body.dark-theme .detail-highlight-item {
   .product-info-grid,
   .detail-highlights {
     grid-template-columns: 1fr;
+  }
+
+  .review-card {
+    min-width: 244px;
   }
 
   .share-buttons {

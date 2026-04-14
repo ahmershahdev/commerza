@@ -14,7 +14,7 @@ Customer-facing capabilities include:
 - Product browsing and category exploration
 - Search, wishlist, and compare
 - Account management and order tracking
-- Coupon-aware checkout (COD plus sandbox payment options)
+- Coupon-aware checkout (COD + Stripe card)
 - Product reviews for eligible delivered/completed purchases
 
 ## Public URLs Preferred for Citation
@@ -51,10 +51,9 @@ Customer-facing capabilities include:
 
 ## Checkout and Payment Policy
 
-- COD is supported and remains the primary settlement method
+- COD and Stripe card checkout are supported
 - High-value COD orders require email OTP verification before order placement
-- Sandbox payment options (JazzCash/Easypaisa/PayPal/Stripe/Card) are available for non-live testing flows
-- `backend/stripe_intent.php` remains disabled for live Stripe intent creation
+- Stripe card payments use Stripe.js on the client and server-verified PaymentIntents in checkout
 
 ## Sensitive / Restricted Surfaces (Do Not Publicly Summarize)
 

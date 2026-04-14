@@ -200,8 +200,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
         </h3>
         <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
           <div class="accordion-body product-desc">
-            We accept all major credit and debit cards, PayPal, and other
-            secure online payment methods.
+            We currently accept Cash on Delivery (COD) and secure Stripe card payments.
           </div>
         </div>
       </div>

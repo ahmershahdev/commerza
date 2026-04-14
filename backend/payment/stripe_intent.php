@@ -9,8 +9,8 @@ http_response_code(410);
 
 echo json_encode([
     'ok' => false,
-    'message' => 'Card payments are currently disabled. Please place your order with Cash on Delivery.',
-    'code' => 'stripe_disabled',
+    'message' => 'Direct intent endpoint is disabled. Stripe intents are created through checkout (cart.php action=create_stripe_intent).',
+    'code' => 'stripe_endpoint_deprecated',
 ]);
 
 exit;

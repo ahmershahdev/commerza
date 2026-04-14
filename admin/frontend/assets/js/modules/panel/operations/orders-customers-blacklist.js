@@ -646,6 +646,42 @@ async function bulkDeleteOrders() {
   }
 }
 
+async function deleteAllFakeReviews() {
+  const confirmed = await showCustomConfirmDialog(
+    "Delete all admin-generated fake reviews? This action cannot be undone.",
+    "Delete All Fake Reviews",
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const result = await adminPostJson(ADMIN_REVIEWS_API, {
+      action: "delete-all-fake-reviews",
+    });
+
+    if (Array.isArray(result?.payload?.reviews)) {
+      adminReviews = result.payload.reviews;
+      if (typeof renderReviewsStats === "function") {
+        renderReviewsStats(result?.payload?.stats || {});
+      }
+      if (typeof renderReviewsTable === "function") {
+        renderReviewsTable();
+      }
+    }
+
+    showNotification(
+      result?.message || "All fake reviews were deleted.",
+      "success",
+    );
+  } catch (error) {
+    showNotification(
+      error?.message || "Unable to delete fake reviews.",
+      "danger",
+    );
+  }
+}
+
 async function bulkDeleteCustomers() {
   const customerIds = selectedCustomerIds();
   if (!customerIds.length) {

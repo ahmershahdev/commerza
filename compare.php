@@ -394,9 +394,9 @@ $highestStock = !empty($stockValues) ? max($stockValues) : 0;
               </article>
             <?php endforeach; ?>
           </div>
-
+ 
           <div class="compare-table-wrap">
-            <table class="table table-dark table-bordered align-middle compare-matrix">
+            <table class="table table-bordered align-middle compare-matrix">
               <thead>
                 <tr>
                   <th class="feature-col">Feature</th>

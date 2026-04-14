@@ -58,14 +58,17 @@ body.dark-theme.light-theme .brand-text {
 
 body.dark-theme.light-theme .navbar-logo,
 body.dark-theme.light-theme .offcanvas-logo {
-  filter: drop-shadow(0 4px 10px rgba(30, 58, 138, 0.26));
+  filter: drop-shadow(0 6px 14px rgba(30, 58, 138, 0.34))
+    drop-shadow(0 0 24px rgba(30, 64, 175, 0.34));
 }
 
 body.dark-theme.light-theme .navbar-logo[src$="commerza_logo.svg"],
 body.dark-theme.light-theme .offcanvas-logo[src$="commerza_logo.svg"] {
   filter: brightness(0) saturate(100%) invert(22%) sepia(61%) saturate(1198%)
     hue-rotate(199deg) brightness(95%) contrast(96%)
-    drop-shadow(0 4px 10px rgba(30, 58, 138, 0.26));
+    drop-shadow(0 5px 12px rgba(30, 58, 138, 0.36))
+    drop-shadow(0 0 24px rgba(29, 78, 216, 0.42))
+    drop-shadow(0 0 34px rgba(37, 99, 235, 0.26));
   animation: commerzaLogoBlueGlow 2.8s ease-in-out infinite;
 }
 
@@ -74,13 +77,16 @@ body.dark-theme.light-theme .offcanvas-logo[src$="commerza_logo.svg"] {
   100% {
     filter: brightness(0) saturate(100%) invert(22%) sepia(61%) saturate(1198%)
       hue-rotate(199deg) brightness(95%) contrast(96%)
-      drop-shadow(0 4px 10px rgba(30, 58, 138, 0.26));
+      drop-shadow(0 5px 12px rgba(30, 58, 138, 0.36))
+      drop-shadow(0 0 24px rgba(29, 78, 216, 0.42))
+      drop-shadow(0 0 34px rgba(37, 99, 235, 0.24));
   }
 
   50% {
     filter: brightness(0) saturate(100%) invert(22%) sepia(61%) saturate(1198%)
       hue-rotate(199deg) brightness(100%) contrast(100%)
-      drop-shadow(0 0 20px rgba(56, 189, 248, 0.62));
+      drop-shadow(0 0 30px rgba(37, 82, 214, 0.62))
+      drop-shadow(0 0 42px rgba(56, 189, 248, 0.44));
   }
 }
 

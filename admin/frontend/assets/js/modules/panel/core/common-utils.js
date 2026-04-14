@@ -39,43 +39,27 @@ function isCodPaymentMethod(paymentMethod) {
   );
 }
 
+function isStripePaymentMethod(paymentMethod) {
+  const normalized = (paymentMethod || "").toString().toLowerCase().trim();
+  if (!normalized) return false;
+  return normalized === "stripe" || normalized.includes("stripe");
+}
+
 function normalizePaymentMethodLabel(paymentMethodRaw) {
   const raw = (paymentMethodRaw || "").toString().trim();
   if (!raw) {
     return "";
   }
 
-  const normalized = raw.toLowerCase();
   if (isCodPaymentMethod(raw)) {
     return "COD";
   }
 
-  if (normalized.includes("jazzcash")) {
-    return "JazzCash";
-  }
-
-  if (normalized.includes("easypaisa")) {
-    return "Easypaisa";
-  }
-
-  if (normalized.includes("paypal")) {
-    return "PayPal";
-  }
-
-  if (normalized.includes("stripe")) {
+  if (isStripePaymentMethod(raw)) {
     return "Stripe";
   }
 
-  if (
-    normalized.includes("credit/debit") ||
-    normalized.includes("credit") ||
-    normalized.includes("debit") ||
-    normalized === "card"
-  ) {
-    return "Credit/Debit Card";
-  }
-
-  return raw;
+  return "Legacy Payment";
 }
 
 function resolveOrderPaymentBadge(paymentStatusRaw, paymentMethodRaw) {
@@ -331,4 +315,3 @@ function uploadFileLabel(name, maxLength = 36) {
   }
   return `${safeName.slice(0, maxLength - 3)}...`;
 }
-

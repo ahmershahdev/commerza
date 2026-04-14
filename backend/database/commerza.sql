@@ -326,10 +326,10 @@ CREATE TABLE `faq` (
 --
 
 INSERT INTO `faq` (`id`, `category_id`, `question`, `answer`, `sort_order`, `is_active`, `created_at`, `updated_at`) VALUES
-(1, 1, 'How do I place an order?', 'Browse our collection, add your chosen timepiece to the cart, and proceed to checkout. You will need to provide a shipping address and payment details to complete your order.', 1, 1, '2026-04-05 20:21:14', '2026-04-05 20:21:14'),
-(2, 1, 'What payment methods do you accept?', 'Commerza accepts all major credit and debit cards (Visa, Mastercard, Amex), PayPal, and cash on delivery for eligible regions.', 2, 1, '2026-04-05 20:21:14', '2026-04-05 20:21:14'),
+(1, 1, 'How do I place an order?', 'Browse our collection, add your chosen timepiece to the cart, and proceed to checkout. Enter shipping details, choose Cash on Delivery or Stripe card payment, and place your order.', 1, 1, '2026-04-05 20:21:14', '2026-04-05 20:21:14'),
+(2, 1, 'What payment methods do you accept?', 'Commerza currently accepts Cash on Delivery (COD) and secure Stripe card payments.', 2, 1, '2026-04-05 20:21:14', '2026-04-05 20:21:14'),
 (3, 1, 'Can I modify or cancel my order after placing it?', 'Orders can be modified or cancelled within 2 hours of placement. Contact our support team immediately at support@commerza.com and we will do our best to accommodate your request.', 3, 1, '2026-04-05 20:21:14', '2026-04-05 20:21:14'),
-(4, 1, 'Is my payment information secure?', 'Yes. All transactions are encrypted using industry-standard SSL/TLS protocols. Commerza never stores your full card details on our servers.', 4, 1, '2026-04-05 20:21:14', '2026-04-05 20:21:14'),
+(4, 1, 'Is my payment information secure?', 'Yes. Checkout requests are protected using industry-standard SSL/TLS, CSRF protection, and verification controls for COD order placement.', 4, 1, '2026-04-05 20:21:14', '2026-04-05 20:21:14'),
 (5, 2, 'How long does standard shipping take?', 'Standard shipping typically takes 5-7 business days. Express (2-3 days) and Overnight (next business day) options are available at checkout.', 1, 1, '2026-04-05 20:21:14', '2026-04-05 20:21:14'),
 (6, 2, 'Do you offer free shipping?', 'Yes - orders over Rs. 500 qualify for free standard nationwide shipping automatically. No coupon code required.', 2, 1, '2026-04-05 20:21:14', '2026-04-05 20:21:14'),
 (7, 2, 'Do you ship internationally?', 'Commerza ships to most countries worldwide. Shipping rates and estimated delivery times are shown at checkout based on your destination.', 3, 1, '2026-04-05 20:21:14', '2026-04-05 20:21:14'),
@@ -455,7 +455,7 @@ CREATE TABLE `orders` (
   `grand_total` decimal(10,2) NOT NULL,
   `status` enum('Pending','Confirmed','Processing','Shipped','Delivered','Cancelled','Refunded') NOT NULL DEFAULT 'Pending',
   `payment_status` enum('unpaid','paid','partially_refunded','refunded') NOT NULL DEFAULT 'unpaid',
-  `payment_method` varchar(50) NOT NULL DEFAULT 'Cash on Delivery (COD)' COMMENT 'Currently COD only',
+  `payment_method` varchar(50) NOT NULL DEFAULT 'Cash on Delivery (COD)' COMMENT 'Supports COD and Stripe labels',
   `notes` text DEFAULT NULL COMMENT 'Customer order notes',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
@@ -652,6 +652,21 @@ CREATE TABLE `product_review_images` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `product_fake_reviews`
+--
+
+CREATE TABLE `product_fake_reviews` (
+  `id` int(11) NOT NULL,
+  `review_id` int(11) NOT NULL,
+  `product_id` int(11) NOT NULL,
+  `fake_user_id` int(11) NOT NULL,
+  `generated_by_admin_id` int(11) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `product_trash`
 --
 
@@ -839,8 +854,8 @@ INSERT INTO `site_settings` (`id`, `setting_key`, `setting_val`, `label`, `setti
 (31, 'facebook_oauth_client_id', '', 'Facebook OAuth Client ID', 'integrations', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
 (32, 'facebook_oauth_client_secret', '', 'Facebook OAuth Client Secret', 'integrations', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
 (33, 'facebook_oauth_redirect_uri', 'http://localhost/commerza/oauth.php?provider=facebook', 'Facebook OAuth Redirect URI', 'integrations', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
-(34, 'stripe_publishable_key', '', 'Stripe Publishable Key', 'integrations', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
-(35, 'stripe_secret_key', '', 'Stripe Secret Key', 'integrations', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
+(34, 'checkout_payment_mode', 'cod_stripe', 'Checkout Payment Mode', 'integrations', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
+(35, 'cod_otp_threshold', '15000', 'COD OTP Threshold (PKR)', 'security', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
 (36, 'captcha_enabled', '0', 'Enable CAPTCHA (0/1)', 'security', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
 (37, 'captcha_provider', 'turnstile', 'CAPTCHA Provider', 'security', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
 (38, 'turnstile_site_key', '', 'Cloudflare Turnstile Site Key', 'security', '2026-04-05 20:21:12', '2026-04-05 20:21:12'),
@@ -1693,6 +1708,16 @@ ALTER TABLE `product_review_images`
   ADD KEY `idx_review_images_review` (`review_id`);
 
 --
+-- Indexes for table `product_fake_reviews`
+--
+ALTER TABLE `product_fake_reviews`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uq_fake_review_review` (`review_id`),
+  ADD KEY `idx_fake_reviews_product_created` (`product_id`,`created_at`),
+  ADD KEY `idx_fake_reviews_admin_created` (`generated_by_admin_id`,`created_at`),
+  ADD KEY `idx_fake_reviews_user_created` (`fake_user_id`,`created_at`);
+
+--
 -- Indexes for table `product_trash`
 --
 ALTER TABLE `product_trash`
@@ -1987,6 +2012,12 @@ ALTER TABLE `product_review_images`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `product_fake_reviews`
+--
+ALTER TABLE `product_fake_reviews`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `rate_limits`
 --
 ALTER TABLE `rate_limits`
@@ -2169,6 +2200,15 @@ ALTER TABLE `products`
 --
 ALTER TABLE `product_review_images`
   ADD CONSTRAINT `fk_pri_review` FOREIGN KEY (`review_id`) REFERENCES `product_reviews` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `product_fake_reviews`
+--
+ALTER TABLE `product_fake_reviews`
+  ADD CONSTRAINT `fk_pfr_review` FOREIGN KEY (`review_id`) REFERENCES `product_reviews` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_pfr_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_pfr_user` FOREIGN KEY (`fake_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_pfr_admin` FOREIGN KEY (`generated_by_admin_id`) REFERENCES `admin_users` (`id`) ON DELETE SET NULL;
 
 --
 -- Constraints for table `user_sessions`

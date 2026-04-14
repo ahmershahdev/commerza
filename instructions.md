@@ -44,25 +44,24 @@ This document lists the exact integration requirements for OAuth, SMTP, CAPTCHA,
 
 ## 3) Payments (Current Mode)
 
-Checkout supports COD and sandbox payment options for test/manual workflows.
+Checkout supports Cash on Delivery (COD) and Stripe card payments.
 
 ### Supported Checkout Methods
 
 - Cash on Delivery (COD)
-- JazzCash (Sandbox)
-- Easypaisa (Sandbox)
-- PayPal (Sandbox)
-- Stripe (Sandbox metadata flow)
-- Credit/Debit Card (Sandbox metadata flow)
+- Stripe (Card)
 
 ### Runtime Path
 
 - Checkout page: `cart.php`
+- Stripe SDK: `https://js.stripe.com/v3/`
 
 ### Notes
 
-- `backend/stripe_intent.php` remains disabled for live Stripe intent creation.
 - Keep CAPTCHA, CSRF, idempotency, and stock checks enabled.
+- Configure Stripe keys:
+  - `STRIPE_PUBLISHABLE_KEY`
+  - `STRIPE_SECRET_KEY`
 - High-value COD protection is controlled by:
   - `COMMERZA_COD_OTP_THRESHOLD` (default: 15000)
   - `COMMERZA_COD_HIGH_VALUE_HARD_LIMIT` (optional; 0 disables hard limit)
@@ -126,5 +125,5 @@ Trigger real flow emails and confirm delivery:
 - OAuth login tested for Google and Facebook
 - SMTP delivery tested from real app flows
 - CAPTCHA passes for signup, password reset, and admin verification
-- COD checkout placement and order creation validated
+- COD and Stripe checkout placement and order creation validated
 - Rate limit and CSRF protections active

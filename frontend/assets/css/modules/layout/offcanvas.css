@@ -84,15 +84,17 @@
 .offcanvas-logo {
   height: 46px;
   width: auto;
-  filter: brightness(1.24) contrast(1.12) saturate(1.08)
-    drop-shadow(0 0 9px rgba(255, 204, 0, 0.42))
-    drop-shadow(0 0 14px rgba(255, 96, 41, 0.28));
+  filter: brightness(1.28) contrast(1.14) saturate(1.12)
+    drop-shadow(0 0 12px rgba(255, 184, 92, 0.56))
+    drop-shadow(0 0 22px rgba(255, 69, 0, 0.52))
+    drop-shadow(0 0 32px rgba(255, 69, 0, 0.28));
 }
 
 .offcanvas-logo[src$="commerza_logo.svg"] {
-  filter: brightness(1.32) contrast(1.16) saturate(1.1)
-    drop-shadow(0 0 10px rgba(255, 204, 0, 0.44))
-    drop-shadow(0 0 16px rgba(255, 96, 41, 0.3));
+  filter: brightness(1.36) contrast(1.18) saturate(1.12)
+    drop-shadow(0 0 14px rgba(255, 199, 120, 0.58))
+    drop-shadow(0 0 26px rgba(255, 69, 0, 0.56))
+    drop-shadow(0 0 36px rgba(255, 69, 0, 0.32));
 }
 
 .offcanvas-body {

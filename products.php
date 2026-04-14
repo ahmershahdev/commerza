@@ -330,7 +330,7 @@ $productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza
     <section class="mt-4 mb-5">
       <div class="review-form-card p-3 p-md-4">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-          <h3 class="h5 mb-0 text-white">Share Your Review</h3>
+          <h3 class="h5 mb-0 text-white product-section-title">Share Your Review</h3>
           <span id="reviewsSummaryText" class="small text-secondary">Loading reviews...</span>
         </div>
         <p id="reviewEligibilityMessage" class="small text-secondary mb-3">Login and place an eligible order to review this product.</p>

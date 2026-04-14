@@ -235,6 +235,31 @@ img {
   background: rgba(255, 140, 0, 0.06);
 }
 
+#checkoutModal .stripe-card-element {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+#checkoutModal .stripe-card-element.StripeElement--focus {
+  border-color: #ffcc00;
+  box-shadow: 0 0 0 0.18rem rgba(255, 204, 0, 0.2);
+}
+
+#checkoutModal .stripe-card-element.StripeElement--invalid {
+  border-color: rgba(248, 113, 113, 0.75);
+}
+
+#checkoutModal #stripePaymentStatus {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+#checkoutModal #stripeHint {
+  color: #cfd6ff;
+}
+
 #checkoutModal #codOtpHint {
   color: #ffe89b;
   font-weight: 700;

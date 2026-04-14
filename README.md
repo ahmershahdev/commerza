@@ -45,7 +45,7 @@ Restricted or sensitive surfaces include:
 - Browse catalog and category pages
 - Search and suggestions
 - Cart, wishlist, compare
-- Coupon-aware checkout (COD + sandbox payment methods)
+- Coupon-aware checkout (COD + Stripe)
 - Account profile management
 - Password reset and account safety controls
 - Order tracking and invoice views
@@ -71,18 +71,15 @@ Restricted or sensitive surfaces include:
 
 ## 6. Checkout and Payments
 
-Checkout now supports multiple payment choices in sandbox-ready mode.
+Checkout currently supports Cash on Delivery (COD) and Stripe card payments.
 
-- Supported methods in checkout UI:
+- Supported method in checkout UI:
   - Cash on Delivery (COD)
-  - JazzCash (Sandbox)
-  - Easypaisa (Sandbox)
-  - PayPal (Sandbox)
-  - Stripe (Sandbox)
-  - Credit/Debit Card (Stripe Sandbox, Recommended)
-- For non-COD methods, checkout requires payer/wallet detail plus sandbox transaction reference for manual verification workflows.
-- Stripe/card methods are captured as sandbox/manual-payment metadata in orders (no live gateway settlement in this flow).
-- Payment sandbox provider keys are configurable in `.env` / `.env.example`, including `COMMERZA_CARD_SANDBOX_PROVIDER` (default `stripe`).
+  - Stripe (Card)
+- Stripe card flow:
+  - Client-side Stripe SDK (`https://js.stripe.com/v3/`) for card capture and confirmation
+  - Server-side PaymentIntent creation and verification in `cart.php`
+  - Required environment keys: `STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`
 - Order placement still enforces CSRF, idempotency, CAPTCHA, stock locking, and coupon checks.
 - High-value COD policy:
   - COD OTP threshold is configurable via `COMMERZA_COD_OTP_THRESHOLD` (default `15000`)

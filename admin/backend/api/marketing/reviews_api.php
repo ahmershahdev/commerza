@@ -171,6 +171,44 @@ function admin_reviews_ensure_images_table(mysqli $con): void
     $initialized = true;
 }
 
+function admin_reviews_ensure_fake_table(mysqli $con): void
+{
+    static $initialized = false;
+
+    if ($initialized) {
+        return;
+    }
+
+    $con->query(
+        'CREATE TABLE IF NOT EXISTS product_fake_reviews (
+            id INT NOT NULL AUTO_INCREMENT,
+            review_id INT NOT NULL,
+            product_id INT NOT NULL,
+            fake_user_id INT NOT NULL,
+            generated_by_admin_id INT DEFAULT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_fake_review_review (review_id),
+            KEY idx_fake_reviews_product_created (product_id, created_at),
+            KEY idx_fake_reviews_admin_created (generated_by_admin_id, created_at),
+            CONSTRAINT fk_fake_reviews_review FOREIGN KEY (review_id)
+                REFERENCES product_reviews (id)
+                ON DELETE CASCADE,
+            CONSTRAINT fk_fake_reviews_product FOREIGN KEY (product_id)
+                REFERENCES products (id)
+                ON DELETE CASCADE,
+            CONSTRAINT fk_fake_reviews_user FOREIGN KEY (fake_user_id)
+                REFERENCES users (id)
+                ON DELETE CASCADE,
+            CONSTRAINT fk_fake_reviews_admin FOREIGN KEY (generated_by_admin_id)
+                REFERENCES admin_users (id)
+                ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci'
+    );
+
+    $initialized = true;
+}
+
 function admin_reviews_review_images(mysqli $con, int $reviewId): array
 {
     if ($reviewId <= 0) {
@@ -442,24 +480,42 @@ function admin_reviews_random_review_text(string $productName, int $rating): str
     $safeProductName = trim($productName) !== '' ? trim($productName) : 'this product';
 
     $positive = [
-        'Build quality feels premium and it looks exactly like the listing photos.',
-        'Delivery was smooth and the packaging looked professional.',
-        'Using it daily now and the performance has stayed consistent.',
-        'Design and comfort are both excellent for long use.',
-        'Great value for the price point and support response was quick.',
+        'This watch is awesome, movement is smooth, and the finishing feels premium.',
+        'Looks even better in person and sits very comfortably on the wrist for daily use.',
+        'Dial clarity is excellent and the strap quality feels solid for long wear.',
+        'Packaging was clean, delivery was on time, and the watch quality matched expectations.',
+        'Great everyday piece with accurate timekeeping and a classy overall look.',
+        'Very balanced design, not too flashy, and the build quality feels reliable.',
     ];
 
     $neutral = [
-        'Overall good product with a few minor details that can improve.',
-        'Quality is acceptable and it performs as expected in normal use.',
-        'Looks nice, works fine, and setup was easy.',
-        'Decent option for daily use and the finish is clean.',
+        'Overall good watch with a smooth movement, but the price is a bit high for this segment.',
+        'Design is clean and performance is stable, though the strap could be a little softer.',
+        'Good value for regular use, but finishing around the case could be improved slightly.',
+        'Nice watch for daily wear, works well, just expected a bit more premium weight.',
+        'Timekeeping is accurate and comfort is fine, but the dial color appears slightly different in low light.',
     ];
 
     $critical = [
-        'Product is usable but delivery and finishing could be improved.',
-        'Expected a bit more consistency in quality at this price.',
-        'Some features are good but overall experience was average.',
+        'The watch is usable and movement is acceptable, but overall finishing needs improvement.',
+        'Looks decent from a distance, but I expected better quality control at this price.',
+        'Comfort is average and the strap quality feels basic compared to the listing.',
+        'Performance is okay for now, though value for money feels only moderate.',
+    ];
+
+    $openers = [
+        "Bought {$safeProductName} recently",
+        "Using {$safeProductName} for a few days",
+        "After trying {$safeProductName}",
+        "My experience with {$safeProductName}",
+    ];
+
+    $closers = [
+        'Happy with the purchase overall.',
+        'Would still recommend it for regular wear.',
+        'Decent pick if you like this style.',
+        'Works fine for daily routine.',
+        'Good option with a few trade-offs.',
     ];
 
     if ($rating >= 5) {
@@ -470,14 +526,18 @@ function admin_reviews_random_review_text(string $productName, int $rating): str
         $pool = $critical;
     }
 
+    $opener = $openers[array_rand($openers)];
     $line = $pool[array_rand($pool)];
-    return 'Review for ' . $safeProductName . ': ' . $line;
+    $closer = $closers[array_rand($closers)];
+
+    return $opener . '. ' . $line . ' ' . $closer;
 }
 
 $admin = admin_require_login_api($con);
 admin_require_permission_api($admin, 'reviews.manage');
 admin_reviews_ensure_table($con);
 admin_reviews_ensure_images_table($con);
+admin_reviews_ensure_fake_table($con);
 
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $action = admin_reviews_action();
@@ -919,9 +979,23 @@ if ($action === 'add-fake-bulk-reviews') {
         ], 500);
     }
 
+    $fakeTrackingStmt = $con->prepare(
+        'INSERT INTO product_fake_reviews (review_id, product_id, fake_user_id, generated_by_admin_id)
+         VALUES (?, ?, ?, ?)'
+    );
+
+    if (!$fakeTrackingStmt) {
+        $insertStmt->close();
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'Unable to prepare fake review tracking insertion.',
+        ], 500);
+    }
+
     $inserted = 0;
     $failed = 0;
     $adminNote = 'Admin generated fake review';
+    $generatedByAdminId = (int)($admin['id'] ?? 0);
 
     for ($index = 0; $index < $count; $index++) {
         $fakeUser = admin_reviews_create_fake_user($con);
@@ -940,10 +1014,30 @@ if ($action === 'add-fake-bulk-reviews') {
             continue;
         }
 
+        $reviewId = (int)$con->insert_id;
+        if ($reviewId <= 0) {
+            $failed++;
+            continue;
+        }
+
+        $fakeTrackingStmt->bind_param('iiii', $reviewId, $productId, $userId, $generatedByAdminId);
+        if (!$fakeTrackingStmt->execute()) {
+            $cleanupStmt = $con->prepare('DELETE FROM product_reviews WHERE id = ? LIMIT 1');
+            if ($cleanupStmt) {
+                $cleanupStmt->bind_param('i', $reviewId);
+                $cleanupStmt->execute();
+                $cleanupStmt->close();
+            }
+
+            $failed++;
+            continue;
+        }
+
         $inserted++;
     }
 
     $insertStmt->close();
+    $fakeTrackingStmt->close();
 
     if ($inserted <= 0) {
         admin_reviews_json([
@@ -968,6 +1062,82 @@ if ($action === 'add-fake-bulk-reviews') {
             ? "Generated {$inserted} fake review(s). {$failed} could not be created."
             : "Generated {$inserted} fake review(s) successfully.",
         'payload' => [
+            'reviews' => admin_reviews_fetch_all($con),
+            'stats' => admin_reviews_stats($con),
+        ],
+    ]);
+}
+
+if ($action === 'delete-all-fake-reviews') {
+    $reviewIds = [];
+    $idResult = $con->query(
+        'SELECT id
+         FROM product_reviews
+         WHERE id IN (SELECT review_id FROM product_fake_reviews)
+            OR (
+                is_verified_purchase = 0
+                AND order_id IS NULL
+                AND admin_note = "Admin generated fake review"
+            )'
+    );
+
+    while ($idResult && ($row = $idResult->fetch_assoc())) {
+        $id = (int)($row['id'] ?? 0);
+        if ($id > 0) {
+            $reviewIds[] = $id;
+        }
+    }
+
+    $reviewIds = array_values(array_unique($reviewIds));
+
+    if (count($reviewIds) === 0) {
+        admin_reviews_json([
+            'ok' => true,
+            'message' => 'No fake reviews found to delete.',
+            'payload' => [
+                'deletedCount' => 0,
+                'reviews' => admin_reviews_fetch_all($con),
+                'stats' => admin_reviews_stats($con),
+            ],
+        ]);
+    }
+
+    $idList = implode(',', array_map(static fn(int $id): string => (string)$id, $reviewIds));
+
+    $imagePaths = [];
+    $imageResult = $con->query(
+        'SELECT image_path
+         FROM product_review_images
+         WHERE review_id IN (' . $idList . ')'
+    );
+
+    while ($imageResult && ($imageRow = $imageResult->fetch_assoc())) {
+        $imagePaths[] = (string)($imageRow['image_path'] ?? '');
+    }
+
+    $deleteOk = $con->query('DELETE FROM product_reviews WHERE id IN (' . $idList . ')');
+    if (!$deleteOk) {
+        admin_reviews_json([
+            'ok' => false,
+            'message' => 'Unable to delete fake reviews. Please retry.',
+        ], 500);
+    }
+
+    $deletedCount = (int)$con->affected_rows;
+    admin_reviews_delete_files($imagePaths);
+
+    admin_api_log_security_event($con, $admin, 'review.fake_bulk_deleted', 'warning', [
+        'deleted_count' => $deletedCount,
+        'deleted_images' => count($imagePaths),
+    ]);
+
+    admin_reviews_json([
+        'ok' => true,
+        'message' => $deletedCount > 0
+            ? "Deleted {$deletedCount} fake review(s) successfully."
+            : 'No fake reviews were deleted.',
+        'payload' => [
+            'deletedCount' => $deletedCount,
             'reviews' => admin_reviews_fetch_all($con),
             'stats' => admin_reviews_stats($con),
         ],

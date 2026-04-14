@@ -282,6 +282,7 @@ $(document).ready(function () {
   applyButtonCooldown("#saveAdminResetKeyBtn");
   applyButtonCooldown("#saveLiveViewersBtn");
   applyButtonCooldown("#bulkDeleteOrdersBtn");
+  applyButtonCooldown("#deleteAllFakeReviewsBtn");
   applyButtonCooldown("#bulkDeleteCustomersBtn");
   applyButtonCooldown("#saveCouponBtn");
   applyButtonCooldown("#resetCouponBtn");
@@ -427,6 +428,7 @@ $(document).ready(function () {
     });
 
   $("#bulkDeleteOrdersBtn").off("click").on("click", bulkDeleteOrders);
+  $("#deleteAllFakeReviewsBtn").off("click").on("click", deleteAllFakeReviews);
   $("#bulkDeleteCustomersBtn").off("click").on("click", bulkDeleteCustomers);
   $("#saveShippingConfigBtn").off("click").on("click", saveShippingConfig);
   $("#addBlacklistBtn").off("click").on("click", addBlacklistFromForm);
