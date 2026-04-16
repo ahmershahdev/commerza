@@ -24,6 +24,7 @@ function cloudinary_sync_parse_options(array $argv): array
         'skip_presets' => false,
         'skip_upload' => false,
         'skip_db' => false,
+        'skip_sql' => false,
     ];
 
     foreach ($argv as $index => $arg) {
@@ -40,12 +41,15 @@ function cloudinary_sync_parse_options(array $argv): array
             $options['skip_upload'] = true;
         } elseif ($normalized === '--skip-db') {
             $options['skip_db'] = true;
+        } elseif ($normalized === '--skip-sql') {
+            $options['skip_sql'] = true;
         } elseif ($normalized === '--help' || $normalized === '-h') {
-            echo "Usage: php scripts/maintenance/cloudinary_sync.php [--dry-run] [--skip-presets] [--skip-upload] [--skip-db]\n";
+            echo "Usage: php scripts/maintenance/cloudinary_sync.php [--dry-run] [--skip-presets] [--skip-upload] [--skip-db] [--skip-sql]\n";
             echo "  --dry-run      Show what would happen without making changes\n";
             echo "  --skip-presets Skip Cloudinary preset provisioning\n";
             echo "  --skip-upload  Skip frontend asset uploads\n";
             echo "  --skip-db      Skip DB reference rewrites\n";
+            echo "  --skip-sql     Skip SQL dump URL rewrites\n";
             exit(0);
         }
     }
@@ -56,6 +60,69 @@ function cloudinary_sync_parse_options(array $argv): array
 function cloudinary_sync_print(string $message): void
 {
     echo $message . PHP_EOL;
+}
+
+function cloudinary_sync_folder_suffix_for_relative_path(string $relativePath, string $resourceType): string
+{
+    $normalized = trim(str_replace('\\', '/', $relativePath), '/');
+    if ($normalized === '') {
+        return $resourceType === 'video' ? 'library/videos' : 'library/images';
+    }
+
+    $assetsPrefix = 'frontend/assets/';
+    if (!str_starts_with($normalized, $assetsPrefix)) {
+        return $resourceType === 'video' ? 'library/videos' : 'library/images';
+    }
+
+    $fromAssets = substr($normalized, strlen($assetsPrefix));
+    $fromAssets = trim(str_replace('\\', '/', (string)$fromAssets), '/');
+    if ($fromAssets === '') {
+        return $resourceType === 'video' ? 'library/videos' : 'library/images';
+    }
+
+    if (str_starts_with($fromAssets, 'images/users/')) {
+        return 'users/profile-pictures';
+    }
+
+    if (str_starts_with($fromAssets, 'images/reviews/')) {
+        return 'reviews/images';
+    }
+
+    if (str_starts_with($fromAssets, 'images/products/')) {
+        $tail = trim((string)pathinfo(substr($fromAssets, strlen('images/products/')), PATHINFO_DIRNAME), '/.');
+        return $tail !== '' ? 'products/images/' . $tail : 'products/images';
+    }
+
+    if (str_starts_with($fromAssets, 'videos/products/')) {
+        $tail = trim((string)pathinfo(substr($fromAssets, strlen('videos/products/')), PATHINFO_DIRNAME), '/.');
+        return $tail !== '' ? 'products/videos/' . $tail : 'products/videos';
+    }
+
+    if (str_starts_with($fromAssets, 'images/slider/')) {
+        return 'slider/images';
+    }
+
+    if (str_starts_with($fromAssets, 'videos/slider/')) {
+        return 'slider/videos';
+    }
+
+    if (str_starts_with($fromAssets, 'images/logo/')) {
+        return 'brand/logo';
+    }
+
+    if (str_starts_with($fromAssets, 'images/favicon/')) {
+        return 'brand/favicon';
+    }
+
+    if (str_starts_with($fromAssets, 'images/social/')) {
+        return 'brand/social-icons';
+    }
+
+    if ($resourceType === 'video') {
+        return 'library/videos';
+    }
+
+    return 'library/images';
 }
 
 function cloudinary_sync_collect_media_files(string $projectRoot): array
@@ -122,8 +189,7 @@ function cloudinary_sync_collect_media_files(string $projectRoot): array
         }
 
         $relativeFromAssets = str_replace('\\', '/', (string)substr($relativePath, strlen('frontend/assets/')));
-        $dirFromAssets = trim(str_replace('\\', '/', (string)pathinfo($relativeFromAssets, PATHINFO_DIRNAME)), '/.');
-        $folderSuffix = $dirFromAssets === '' ? 'library' : 'library/' . $dirFromAssets;
+        $folderSuffix = cloudinary_sync_folder_suffix_for_relative_path($relativePath, $resourceType);
 
         $stem = (string)pathinfo($relativeFromAssets, PATHINFO_FILENAME);
         $stem = preg_replace('/[^a-z0-9_-]+/i', '-', $stem) ?? 'asset';
@@ -324,6 +390,120 @@ function cloudinary_sync_write_map_files(string $projectRoot, array $map): array
     ];
 }
 
+function cloudinary_sync_load_existing_map(string $projectRoot): array
+{
+    $mapPath = $projectRoot . DIRECTORY_SEPARATOR . 'backend' . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATOR . 'cloudinary_asset_map.php';
+    if (!is_file($mapPath)) {
+        return [];
+    }
+
+    $loaded = include $mapPath;
+    if (!is_array($loaded)) {
+        return [];
+    }
+
+    $normalized = [];
+    foreach ($loaded as $oldPath => $url) {
+        $oldPath = trim((string)$oldPath);
+        $url = trim((string)$url);
+        if ($oldPath === '' || $url === '') {
+            continue;
+        }
+
+        $normalized[$oldPath] = $url;
+    }
+
+    return $normalized;
+}
+
+function cloudinary_sync_rewrite_sql_dump(string $projectRoot, array $replacementMap): array
+{
+    $sqlPath = $projectRoot . DIRECTORY_SEPARATOR . 'backend' . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'commerza.sql';
+    if (!is_file($sqlPath)) {
+        return [
+            'ok' => false,
+            'message' => 'SQL dump file was not found.',
+            'path' => $sqlPath,
+            'replacements' => 0,
+        ];
+    }
+
+    $content = file_get_contents($sqlPath);
+    if (!is_string($content)) {
+        return [
+            'ok' => false,
+            'message' => 'Unable to read SQL dump file.',
+            'path' => $sqlPath,
+            'replacements' => 0,
+        ];
+    }
+
+    $pairs = [];
+    foreach ($replacementMap as $old => $new) {
+        $old = trim((string)$old);
+        $new = trim((string)$new);
+        if ($old === '' || $new === '') {
+            continue;
+        }
+
+        $pairs[$old] = $new;
+    }
+
+    if (empty($pairs)) {
+        return [
+            'ok' => true,
+            'message' => 'No SQL URL replacements were required.',
+            'path' => $sqlPath,
+            'replacements' => 0,
+        ];
+    }
+
+    $keys = array_keys($pairs);
+    usort($keys, static function (string $a, string $b): int {
+        return strlen($b) <=> strlen($a);
+    });
+
+    $updated = $content;
+    $replacementCount = 0;
+
+    foreach ($keys as $oldValue) {
+        $newValue = (string)$pairs[$oldValue];
+        if ($oldValue === $newValue) {
+            continue;
+        }
+
+        $count = 0;
+        $updated = str_replace($oldValue, $newValue, $updated, $count);
+        $replacementCount += max(0, $count);
+    }
+
+    if ($replacementCount === 0 || $updated === $content) {
+        return [
+            'ok' => true,
+            'message' => 'SQL dump already matched current Cloudinary URLs.',
+            'path' => $sqlPath,
+            'replacements' => 0,
+        ];
+    }
+
+    $writeOk = file_put_contents($sqlPath, $updated, LOCK_EX) !== false;
+    if (!$writeOk) {
+        return [
+            'ok' => false,
+            'message' => 'Unable to write SQL dump file with updated URLs.',
+            'path' => $sqlPath,
+            'replacements' => 0,
+        ];
+    }
+
+    return [
+        'ok' => true,
+        'message' => 'SQL dump URL references updated successfully.',
+        'path' => $sqlPath,
+        'replacements' => $replacementCount,
+    ];
+}
+
 $options = cloudinary_sync_parse_options($argv);
 $config = commerza_cloudinary_config();
 
@@ -337,7 +517,7 @@ if (!(bool)($config['enabled'] ?? false)) {
 }
 
 if (!(bool)$options['skip_presets']) {
-    cloudinary_sync_print('Step 1/3: Ensuring Cloudinary upload presets...');
+    cloudinary_sync_print('Step 1/4: Ensuring Cloudinary upload presets...');
     if ((bool)$options['dry_run']) {
         cloudinary_sync_print('Dry-run: preset provisioning skipped.');
     } else {
@@ -349,10 +529,12 @@ if (!(bool)$options['skip_presets']) {
         cloudinary_sync_print((string)($presetResult['message'] ?? 'Cloudinary presets ready.'));
     }
 } else {
-    cloudinary_sync_print('Step 1/3: Preset provisioning skipped by flag.');
+    cloudinary_sync_print('Step 1/4: Preset provisioning skipped by flag.');
 }
 
+$existingMap = cloudinary_sync_load_existing_map($projectRoot);
 $assetMap = [];
+$dbRewriteMap = [];
 $uploadStats = [
     'total' => 0,
     'uploaded' => 0,
@@ -361,7 +543,7 @@ $uploadStats = [
 ];
 
 if (!(bool)$options['skip_upload']) {
-    cloudinary_sync_print('Step 2/3: Uploading frontend image/video assets...');
+    cloudinary_sync_print('Step 2/4: Uploading frontend image/video assets...');
     $mediaFiles = cloudinary_sync_collect_media_files($projectRoot);
     $uploadStats['total'] = count($mediaFiles);
 
@@ -420,6 +602,14 @@ if (!(bool)$options['skip_upload']) {
             }
 
             $assetMap[$relativePath] = $url;
+            $dbRewriteMap[$relativePath] = $url;
+            $dbRewriteMap['/' . ltrim($relativePath, '/')] = $url;
+
+            $previousUrl = trim((string)($existingMap[$relativePath] ?? ''));
+            if ($previousUrl !== '' && $previousUrl !== $url) {
+                $dbRewriteMap[$previousUrl] = $url;
+            }
+
             $uploadStats['uploaded']++;
             cloudinary_sync_print(sprintf('[%d/%d] ok   %s', $index + 1, $uploadStats['total'], $relativePath));
         }
@@ -432,7 +622,7 @@ if (!(bool)$options['skip_upload']) {
         $uploadStats['failed']
     ));
 } else {
-    cloudinary_sync_print('Step 2/3: Upload step skipped by flag.');
+    cloudinary_sync_print('Step 2/4: Upload step skipped by flag.');
 }
 
 $dbSummary = [
@@ -441,24 +631,24 @@ $dbSummary = [
 ];
 
 if (!(bool)$options['skip_db']) {
-    cloudinary_sync_print('Step 3/3: Rewriting DB media references...');
+    cloudinary_sync_print('Step 3/4: Rewriting DB media references...');
 
     if ((bool)$options['dry_run']) {
         cloudinary_sync_print('Dry-run: DB rewrite skipped.');
-    } elseif (!empty($assetMap)) {
+    } elseif (!empty($dbRewriteMap)) {
         $con = cloudinary_sync_db_connection();
         if (!($con instanceof mysqli)) {
             cloudinary_sync_print('DB rewrite skipped: database connection unavailable.');
         } else {
-            $dbSummary = cloudinary_sync_rewrite_db_paths($con, $assetMap);
+            $dbSummary = cloudinary_sync_rewrite_db_paths($con, $dbRewriteMap);
             $con->close();
             cloudinary_sync_print('DB rows updated: ' . (int)$dbSummary['total_updates']);
         }
     } else {
-        cloudinary_sync_print('DB rewrite skipped: no uploaded asset map available.');
+        cloudinary_sync_print('DB rewrite skipped: no URL replacement map available.');
     }
 } else {
-    cloudinary_sync_print('Step 3/3: DB rewrite skipped by flag.');
+    cloudinary_sync_print('Step 3/4: DB rewrite skipped by flag.');
 }
 
 if (!(bool)$options['dry_run'] && !empty($assetMap)) {
@@ -469,6 +659,26 @@ if (!(bool)$options['dry_run'] && !empty($assetMap)) {
     } else {
         cloudinary_sync_print('Asset map write warning: ' . (string)($mapWrite['message'] ?? 'Unknown write failure'));
     }
+}
+
+if (!(bool)$options['skip_sql']) {
+    cloudinary_sync_print('Step 4/4: Rewriting SQL dump media references...');
+
+    if ((bool)$options['dry_run']) {
+        cloudinary_sync_print('Dry-run: SQL dump rewrite skipped.');
+    } elseif (!empty($dbRewriteMap)) {
+        $sqlRewrite = cloudinary_sync_rewrite_sql_dump($projectRoot, $dbRewriteMap);
+        if ((bool)($sqlRewrite['ok'] ?? false)) {
+            cloudinary_sync_print('SQL dump rewrites: ' . (int)($sqlRewrite['replacements'] ?? 0));
+            cloudinary_sync_print('SQL dump path: ' . (string)($sqlRewrite['path'] ?? 'backend/database/commerza.sql'));
+        } else {
+            cloudinary_sync_print('SQL rewrite warning: ' . (string)($sqlRewrite['message'] ?? 'Unknown SQL rewrite failure'));
+        }
+    } else {
+        cloudinary_sync_print('SQL rewrite skipped: no URL replacement map available.');
+    }
+} else {
+    cloudinary_sync_print('Step 4/4: SQL dump rewrite skipped by flag.');
 }
 
 if (!empty($uploadStats['errors'])) {

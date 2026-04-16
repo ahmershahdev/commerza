@@ -3,6 +3,7 @@ include "backend/core/data.php";
 require_once __DIR__ . '/backend/helpers/notifications.php';
 require_once __DIR__ . '/backend/mailer/mailer.php';
 require_once __DIR__ . '/backend/helpers/media_image_helpers.php';
+require_once __DIR__ . '/backend/services/cloudinary_service.php';
 
 if (!isset($_SESSION['user_id']) || !is_numeric($_SESSION['user_id'])) {
   header("Location: login.php");
@@ -172,8 +173,22 @@ function account_delete_pending_set(array $pending): void
 
 function account_delete_profile_picture_file(string $profilePicture): void
 {
-  $relative = trim($profilePicture);
-  if ($relative === '' || strpos($relative, 'frontend/assets/images/users/') !== 0) {
+  $value = trim($profilePicture);
+  if ($value === '') {
+    return;
+  }
+
+  if (
+    function_exists('commerza_cloudinary_is_managed_url')
+    && function_exists('commerza_cloudinary_delete_asset_by_url')
+    && commerza_cloudinary_is_managed_url($value)
+  ) {
+    commerza_cloudinary_delete_asset_by_url($value);
+    return;
+  }
+
+  $relative = trim(str_replace('\\', '/', $value));
+  if ($relative === '' || strpos($relative, 'frontend/assets/images/users/') !== 0 || strpos($relative, '..') !== false) {
     return;
   }
 
@@ -181,6 +196,97 @@ function account_delete_profile_picture_file(string $profilePicture): void
   if (is_file($absolutePath)) {
     @unlink($absolutePath);
   }
+}
+
+function account_collect_user_review_image_paths(mysqli $con, int $userId): array
+{
+  if ($userId <= 0) {
+    return [];
+  }
+
+  $paths = [];
+  $stmt = $con->prepare(
+    'SELECT pri.image_path
+       FROM product_review_images pri
+       INNER JOIN product_reviews pr ON pr.id = pri.review_id
+      WHERE pr.user_id = ?'
+  );
+
+  if (!$stmt) {
+    return [];
+  }
+
+  $stmt->bind_param('i', $userId);
+  $stmt->execute();
+  $result = $stmt->get_result();
+
+  while ($result && ($row = $result->fetch_assoc())) {
+    $path = trim((string)($row['image_path'] ?? ''));
+    if ($path !== '') {
+      $paths[] = $path;
+    }
+  }
+
+  $stmt->close();
+
+  return array_values(array_unique($paths));
+}
+
+function account_delete_review_image_files(array $paths): void
+{
+  foreach ($paths as $path) {
+    $value = trim((string)$path);
+    if ($value === '') {
+      continue;
+    }
+
+    if (
+      function_exists('commerza_cloudinary_is_managed_url')
+      && function_exists('commerza_cloudinary_delete_asset_by_url')
+      && commerza_cloudinary_is_managed_url($value)
+    ) {
+      commerza_cloudinary_delete_asset_by_url($value);
+      continue;
+    }
+
+    $relative = trim(str_replace('\\', '/', $value));
+    if ($relative === '' || strpos($relative, 'frontend/assets/images/reviews/') !== 0 || strpos($relative, '..') !== false) {
+      continue;
+    }
+
+    $absolutePath = __DIR__ . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+    if (is_file($absolutePath)) {
+      @unlink($absolutePath);
+    }
+  }
+}
+
+function account_collect_refund_evidence_paths(mysqli $con, int $userId): array
+{
+  if ($userId <= 0) {
+    return [];
+  }
+
+  $result = [];
+  $stmt = $con->prepare('SELECT evidence_path FROM refund_requests WHERE user_id = ?');
+  if (!$stmt) {
+    return [];
+  }
+
+  $stmt->bind_param('i', $userId);
+  $stmt->execute();
+  $queryResult = $stmt->get_result();
+
+  while ($queryResult && ($row = $queryResult->fetch_assoc())) {
+    $path = trim((string)($row['evidence_path'] ?? ''));
+    if ($path !== '') {
+      $result[] = $path;
+    }
+  }
+
+  $stmt->close();
+
+  return array_values(array_unique($result));
 }
 
 function account_delete_user_permanently(mysqli $con, int $userId): bool
@@ -330,11 +436,25 @@ function account_refund_upload_relative_path(string $path): bool
 
 function account_delete_refund_evidence_file(string $relativePath): void
 {
-  if (!account_refund_upload_relative_path($relativePath)) {
+  $value = trim($relativePath);
+  if ($value === '') {
     return;
   }
 
-  $absolutePath = __DIR__ . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+  if (
+    function_exists('commerza_cloudinary_is_managed_url')
+    && function_exists('commerza_cloudinary_delete_asset_by_url')
+    && commerza_cloudinary_is_managed_url($value)
+  ) {
+    commerza_cloudinary_delete_asset_by_url($value);
+    return;
+  }
+
+  if (!account_refund_upload_relative_path($value)) {
+    return;
+  }
+
+  $absolutePath = __DIR__ . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $value);
   if (is_file($absolutePath)) {
     @unlink($absolutePath);
   }
@@ -419,12 +539,6 @@ function account_store_refund_evidence($file, int $userId, int $orderId, array &
     $outputExtension = $candidateExtension;
   }
 
-  $uploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'refunds';
-  if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
-    $errors[] = 'Unable to prepare refund upload directory.';
-    return null;
-  }
-
   $originalName = trim((string)($file['name'] ?? 'refund-evidence'));
   $originalName = preg_replace('/[^a-zA-Z0-9._ -]/', '-', $originalName) ?? 'refund-evidence';
   $originalName = trim($originalName);
@@ -432,25 +546,103 @@ function account_store_refund_evidence($file, int $userId, int $orderId, array &
     $originalName = 'refund-evidence.' . $extension;
   }
 
-  $filename = 'refund_' . $userId . '_' . $orderId . '_' . bin2hex(random_bytes(10)) . '.' . $outputExtension;
-  $absolutePath = $uploadDir . DIRECTORY_SEPARATOR . $filename;
-  $relativePath = 'frontend/assets/uploads/refunds/' . $filename;
+  $token = '';
+  try {
+    $token = bin2hex(random_bytes(10));
+  } catch (Throwable $exception) {
+    $token = preg_replace('/[^a-z0-9]+/i', '', uniqid('rfd', true)) ?: 'rfd';
+  }
+
+  $cloudinaryEnabled = function_exists('commerza_cloudinary_is_enabled') && commerza_cloudinary_is_enabled();
+  $relativePath = '';
   $storedSize = $size;
 
-  if ($isImageEvidence) {
-    if (@file_put_contents($absolutePath, $imageBlob) === false) {
-      $errors[] = 'Unable to save parsed refund evidence file.';
+  if ($cloudinaryEnabled) {
+    $tempPath = '';
+    if ($isImageEvidence) {
+      $tempPath = tempnam(sys_get_temp_dir(), 'cmzrfd_');
+      if (!is_string($tempPath) || $tempPath === '') {
+        $errors[] = 'Unable to prepare cloud upload buffer for refund evidence.';
+        return null;
+      }
+
+      if (@file_put_contents($tempPath, $imageBlob) === false) {
+        if (is_file($tempPath)) {
+          @unlink($tempPath);
+        }
+        $errors[] = 'Unable to save parsed refund evidence file.';
+        return null;
+      }
+
+      $storedSize = max(0, strlen($imageBlob));
+    } else {
+      $tempPath = $tmpPath;
+    }
+
+    $resourceType = $isImageEvidence ? 'image' : 'raw';
+    $uploadPreset = $resourceType === 'image'
+      ? (string)(commerza_cloudinary_config()['upload_preset_image'] ?? '')
+      : '';
+
+    $uploadResult = commerza_cloudinary_upload_file($tempPath, [
+      'resource_type' => $resourceType,
+      'folder' => commerza_cloudinary_target_folder('refunds/evidence'),
+      'public_id' => 'refund_' . $userId . '_' . $orderId . '_' . $token,
+      'upload_preset' => $uploadPreset,
+      'overwrite' => false,
+      'invalidate' => true,
+      'tags' => ['commerza', 'refunds', 'evidence'],
+    ]);
+
+    if ($isImageEvidence && $tempPath !== '' && is_file($tempPath)) {
+      @unlink($tempPath);
+    }
+
+    if (!(bool)($uploadResult['ok'] ?? false)) {
+      $errors[] = (string)($uploadResult['message'] ?? 'Unable to upload refund evidence to Cloudinary.');
       return null;
     }
 
-    $storedSize = max(0, strlen($imageBlob));
+    $relativePath = trim((string)($uploadResult['secure_url'] ?? ''));
+    if ($relativePath === '') {
+      $relativePath = trim((string)($uploadResult['url'] ?? ''));
+    }
+
+    if ($relativePath === '') {
+      $errors[] = 'Cloudinary evidence upload completed without a URL.';
+      return null;
+    }
+
+    $uploadedBytes = (int)($uploadResult['bytes'] ?? 0);
+    if ($uploadedBytes > 0) {
+      $storedSize = $uploadedBytes;
+    }
   } else {
-    if (!move_uploaded_file($tmpPath, $absolutePath)) {
-      $errors[] = 'Unable to save refund evidence file.';
+    $uploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'refunds';
+    if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
+      $errors[] = 'Unable to prepare refund upload directory.';
       return null;
     }
 
-    $storedSize = (int)(filesize($absolutePath) ?: $size);
+    $filename = 'refund_' . $userId . '_' . $orderId . '_' . $token . '.' . $outputExtension;
+    $absolutePath = $uploadDir . DIRECTORY_SEPARATOR . $filename;
+    $relativePath = 'frontend/assets/uploads/refunds/' . $filename;
+
+    if ($isImageEvidence) {
+      if (@file_put_contents($absolutePath, $imageBlob) === false) {
+        $errors[] = 'Unable to save parsed refund evidence file.';
+        return null;
+      }
+
+      $storedSize = max(0, strlen($imageBlob));
+    } else {
+      if (!move_uploaded_file($tmpPath, $absolutePath)) {
+        $errors[] = 'Unable to save refund evidence file.';
+        return null;
+      }
+
+      $storedSize = (int)(filesize($absolutePath) ?: $size);
+    }
   }
 
   return [
@@ -965,51 +1157,108 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!isset($allowed[$mime])) {
               $errors[] = "Only JPG, PNG, WEBP, and GIF are allowed.";
             } else {
-              $uploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'images' . DIRECTORY_SEPARATOR . 'users';
-
-              if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
-                $errors[] = "Failed to create upload directory.";
+              $conversion = commerza_media_convert_upload_to_webp($tmp_path, $mime, 220, 1400, true);
+              if (!(bool)($conversion['ok'] ?? false)) {
+                $errors[] = (string)($conversion['message'] ?? 'Failed to parse and compress profile picture.');
               } else {
-                $conversion = commerza_media_convert_upload_to_webp($tmp_path, $mime, 220, 1400, true);
-                if (!(bool)($conversion['ok'] ?? false)) {
-                  $errors[] = (string)($conversion['message'] ?? 'Failed to parse and compress profile picture.');
+                $binary = (string)($conversion['binary'] ?? '');
+                if ($binary === '') {
+                  $errors[] = "Failed to save uploaded image.";
                 } else {
-                  $outputExtension = strtolower(trim((string)($conversion['extension'] ?? '')));
-                  if ($outputExtension === '') {
-                    $outputExtension = 'webp';
+                  $cloudinaryEnabled = function_exists('commerza_cloudinary_is_enabled') && commerza_cloudinary_is_enabled();
+                  $publicPath = '';
+                  $destination = '';
+                  $tempCloudinaryPath = '';
+
+                  if ($cloudinaryEnabled) {
+                    $tempCloudinaryPath = tempnam(sys_get_temp_dir(), 'cmzusr_');
+                    if (!is_string($tempCloudinaryPath) || $tempCloudinaryPath === '') {
+                      $errors[] = 'Failed to prepare cloud upload buffer.';
+                    } elseif (file_put_contents($tempCloudinaryPath, $binary) === false) {
+                      $errors[] = "Failed to save uploaded image.";
+                    } else {
+                      $token = '';
+                      try {
+                        $token = bin2hex(random_bytes(12));
+                      } catch (Throwable $exception) {
+                        $token = preg_replace('/[^a-z0-9]+/i', '', uniqid('usr', true)) ?: 'usr';
+                      }
+
+                      $cloudinaryResult = commerza_cloudinary_upload_file($tempCloudinaryPath, [
+                        'resource_type' => 'image',
+                        'folder' => commerza_cloudinary_target_folder('users/profile-pictures'),
+                        'public_id' => 'user_' . $user_id . '_' . $token,
+                        'upload_preset' => (string)(commerza_cloudinary_config()['upload_preset_image'] ?? ''),
+                        'overwrite' => false,
+                        'invalidate' => true,
+                        'tags' => ['commerza', 'users', 'profile-picture'],
+                      ]);
+
+                      if (!(bool)($cloudinaryResult['ok'] ?? false)) {
+                        $errors[] = (string)($cloudinaryResult['message'] ?? 'Cloudinary profile upload failed.');
+                      } else {
+                        $publicPath = trim((string)($cloudinaryResult['secure_url'] ?? ''));
+                        if ($publicPath === '') {
+                          $publicPath = trim((string)($cloudinaryResult['url'] ?? ''));
+                        }
+
+                        if ($publicPath === '') {
+                          $errors[] = 'Cloudinary profile upload did not return a valid URL.';
+                        }
+                      }
+                    }
+
+                    if ($tempCloudinaryPath !== '' && is_file($tempCloudinaryPath)) {
+                      @unlink($tempCloudinaryPath);
+                    }
+                  } else {
+                    $uploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'images' . DIRECTORY_SEPARATOR . 'users';
+                    if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
+                      $errors[] = "Failed to create upload directory.";
+                    } else {
+                      $outputExtension = strtolower(trim((string)($conversion['extension'] ?? '')));
+                      if ($outputExtension === '') {
+                        $outputExtension = 'webp';
+                      }
+
+                      $token = '';
+                      try {
+                        $token = bin2hex(random_bytes(12));
+                      } catch (Throwable $exception) {
+                        $token = preg_replace('/[^a-z0-9]+/i', '', uniqid('usr', true)) ?: 'usr';
+                      }
+
+                      $filename = 'user_' . $user_id . '_' . $token . '.' . $outputExtension;
+                      $destination = $uploadDir . DIRECTORY_SEPARATOR . $filename;
+                      if (file_put_contents($destination, $binary) === false) {
+                        $errors[] = "Failed to save uploaded image.";
+                      } else {
+                        $publicPath = 'frontend/assets/images/users/' . $filename;
+                      }
+                    }
                   }
 
-                  $filename = 'user_' . $user_id . '_' . bin2hex(random_bytes(12)) . '.' . $outputExtension;
-                  $destination = $uploadDir . DIRECTORY_SEPARATOR . $filename;
-                  $publicPath = 'frontend/assets/images/users/' . $filename;
-                  $binary = (string)($conversion['binary'] ?? '');
-
-                  if ($binary === '' || file_put_contents($destination, $binary) === false) {
-                    $errors[] = "Failed to save uploaded image.";
-                  } else {
+                  if (empty($errors) && $publicPath !== '') {
                     $updateStmt = $con->prepare("UPDATE users SET profile_picture = ? WHERE id = ? LIMIT 1");
 
                     if (!$updateStmt) {
-                      if (is_file($destination)) {
+                      if ($destination !== '' && is_file($destination)) {
                         @unlink($destination);
+                      } elseif ($cloudinaryEnabled) {
+                        account_delete_profile_picture_file($publicPath);
                       }
                       $errors[] = "Something went wrong. Please try again.";
                     } else {
                       $updateStmt->bind_param("si", $publicPath, $user_id);
 
                       if ($updateStmt->execute()) {
-                        if (!empty($user['profile_picture']) && strpos((string)$user['profile_picture'], 'frontend/assets/images/users/') === 0) {
-                          $oldPath = __DIR__ . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string)$user['profile_picture']);
-
-                          if (is_file($oldPath)) {
-                            @unlink($oldPath);
-                          }
-                        }
-
+                        account_delete_profile_picture_file((string)($user['profile_picture'] ?? ''));
                         $success[] = "Profile picture updated successfully.";
                       } else {
-                        if (is_file($destination)) {
+                        if ($destination !== '' && is_file($destination)) {
                           @unlink($destination);
+                        } elseif ($cloudinaryEnabled) {
+                          account_delete_profile_picture_file($publicPath);
                         }
                         $errors[] = "Something went wrong. Please try again.";
                       }
@@ -1326,6 +1575,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               }
             } else {
               $profilePicture = (string)($freshUser['profile_picture'] ?? '');
+              $reviewImagePaths = account_collect_user_review_image_paths($con, $user_id);
+              $refundEvidencePaths = account_collect_refund_evidence_paths($con, $user_id);
               $deleted = account_delete_user_permanently($con, $user_id);
 
               if (!$deleted) {
@@ -1333,6 +1584,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               } else {
                 account_delete_pending_clear();
                 account_delete_profile_picture_file($profilePicture);
+                account_delete_review_image_files($reviewImagePaths);
+                foreach ($refundEvidencePaths as $evidencePath) {
+                  account_delete_refund_evidence_file((string)$evidencePath);
+                }
                 commerza_forget_current_remember_token($con);
                 session_unset();
                 session_destroy();

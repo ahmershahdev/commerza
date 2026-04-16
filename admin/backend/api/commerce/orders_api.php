@@ -3,6 +3,7 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/../../auth/auth.php';
 require_once __DIR__ . '/../../../../backend/helpers/notifications.php';
+require_once __DIR__ . '/../../../../backend/services/cloudinary_service.php';
 
 /** @var mysqli|null $con */
 $con = (isset($con) && $con instanceof mysqli)
@@ -108,12 +109,142 @@ function orders_api_close_statements(array $statements): void
 
 function orders_api_delete_user_profile_picture(string $relativePath): void
 {
-    $relativePath = trim(str_replace('\\', '/', $relativePath));
+    $value = trim($relativePath);
+    if ($value === '') {
+        return;
+    }
+
+    if (
+        function_exists('commerza_cloudinary_is_managed_url')
+        && function_exists('commerza_cloudinary_delete_asset_by_url')
+        && commerza_cloudinary_is_managed_url($value)
+    ) {
+        commerza_cloudinary_delete_asset_by_url($value);
+        return;
+    }
+
+    $relativePath = trim(str_replace('\\', '/', $value));
     if ($relativePath === '' || strpos($relativePath, 'frontend/assets/images/users/') !== 0) {
         return;
     }
 
     if (strpos($relativePath, '..') !== false) {
+        return;
+    }
+
+    $absolutePath = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+    if (is_file($absolutePath)) {
+        @unlink($absolutePath);
+    }
+}
+
+function orders_api_collect_review_image_paths(mysqli $con, int $userId): array
+{
+    if ($userId <= 0) {
+        return [];
+    }
+
+    $paths = [];
+    $stmt = $con->prepare(
+        'SELECT pri.image_path
+           FROM product_review_images pri
+           INNER JOIN product_reviews pr ON pr.id = pri.review_id
+          WHERE pr.user_id = ?'
+    );
+
+    if (!$stmt) {
+        return [];
+    }
+
+    $stmt->bind_param('i', $userId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    while ($result && ($row = $result->fetch_assoc())) {
+        $path = trim((string)($row['image_path'] ?? ''));
+        if ($path !== '') {
+            $paths[] = $path;
+        }
+    }
+
+    $stmt->close();
+
+    return array_values(array_unique($paths));
+}
+
+function orders_api_collect_refund_evidence_paths(mysqli $con, int $userId): array
+{
+    if ($userId <= 0) {
+        return [];
+    }
+
+    $paths = [];
+    $stmt = $con->prepare('SELECT evidence_path FROM refund_requests WHERE user_id = ?');
+    if (!$stmt) {
+        return [];
+    }
+
+    $stmt->bind_param('i', $userId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    while ($result && ($row = $result->fetch_assoc())) {
+        $path = trim((string)($row['evidence_path'] ?? ''));
+        if ($path !== '') {
+            $paths[] = $path;
+        }
+    }
+
+    $stmt->close();
+
+    return array_values(array_unique($paths));
+}
+
+function orders_api_delete_review_image_file(string $path): void
+{
+    $value = trim($path);
+    if ($value === '') {
+        return;
+    }
+
+    if (
+        function_exists('commerza_cloudinary_is_managed_url')
+        && function_exists('commerza_cloudinary_delete_asset_by_url')
+        && commerza_cloudinary_is_managed_url($value)
+    ) {
+        commerza_cloudinary_delete_asset_by_url($value);
+        return;
+    }
+
+    $relativePath = trim(str_replace('\\', '/', $value));
+    if ($relativePath === '' || strpos($relativePath, 'frontend/assets/images/reviews/') !== 0 || strpos($relativePath, '..') !== false) {
+        return;
+    }
+
+    $absolutePath = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+    if (is_file($absolutePath)) {
+        @unlink($absolutePath);
+    }
+}
+
+function orders_api_delete_refund_evidence_file(string $path): void
+{
+    $value = trim($path);
+    if ($value === '') {
+        return;
+    }
+
+    if (
+        function_exists('commerza_cloudinary_is_managed_url')
+        && function_exists('commerza_cloudinary_delete_asset_by_url')
+        && commerza_cloudinary_is_managed_url($value)
+    ) {
+        commerza_cloudinary_delete_asset_by_url($value);
+        return;
+    }
+
+    $relativePath = trim(str_replace('\\', '/', $value));
+    if ($relativePath === '' || strpos($relativePath, 'frontend/assets/uploads/refunds/') !== 0 || strpos($relativePath, '..') !== false) {
         return;
     }
 
@@ -1978,6 +2109,8 @@ if ($action === 'delete-customers') {
         $operationOk = true;
         $customerEmail = '';
         $profilePicturePath = '';
+        $reviewImagePaths = [];
+        $refundEvidencePaths = [];
 
         $fetchUserStmt->bind_param('i', $customerId);
         $fetchUserStmt->execute();
@@ -1986,6 +2119,8 @@ if ($action === 'delete-customers') {
         if ($customerRow) {
             $customerEmail = strtolower(trim((string)($customerRow['email'] ?? '')));
             $profilePicturePath = trim((string)($customerRow['profile_picture'] ?? ''));
+            $reviewImagePaths = orders_api_collect_review_image_paths($con, $customerId);
+            $refundEvidencePaths = orders_api_collect_refund_evidence_paths($con, $customerId);
         } else {
             $con->rollback();
             continue;
@@ -2073,6 +2208,12 @@ if ($action === 'delete-customers') {
                 $deleted += $userDeletedRows;
                 if ($userDeletedRows > 0) {
                     orders_api_delete_user_profile_picture($profilePicturePath);
+                    foreach ($reviewImagePaths as $reviewImagePath) {
+                        orders_api_delete_review_image_file((string)$reviewImagePath);
+                    }
+                    foreach ($refundEvidencePaths as $refundEvidencePath) {
+                        orders_api_delete_refund_evidence_file((string)$refundEvidencePath);
+                    }
                 }
             } else {
                 $con->rollback();

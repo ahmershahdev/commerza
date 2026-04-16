@@ -314,6 +314,20 @@ Useful flags:
 - `--skip-presets`
 - `--skip-upload`
 - `--skip-db`
+- `--skip-sql`
+
+Cleanup command to remove stale Cloudinary assets that are no longer referenced by DB rows or the local asset map:
+
+- Preview only: `php scripts/maintenance/cloudinary_cleanup.php`
+- Apply delete: `php scripts/maintenance/cloudinary_cleanup.php --apply`
+- Restrict scope: `php scripts/maintenance/cloudinary_cleanup.php --prefix=commerza/products`
+- Process in chunks: `php scripts/maintenance/cloudinary_cleanup.php --apply --limit=25`
+
+Notes:
+
+- The cleanup script now batch-deletes resources by type to reduce API operations.
+- Placeholder resources with Cloudinary backups are purged using backup `version_ids` when detected.
+- If Cloudinary API rate limits are hit, the script exits early and can be resumed later with the same command.
 
 ## 14. Locking and Concurrency Safety
 

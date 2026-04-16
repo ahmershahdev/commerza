@@ -223,6 +223,102 @@ function commerza_cloudinary_http_form_request(
     ];
 }
 
+function commerza_cloudinary_http_simple_request(
+    string $method,
+    string $url,
+    int $timeout,
+    string $basicAuth = '',
+    array $headers = []
+): array {
+    if (!function_exists('curl_init')) {
+        return [
+            'ok' => false,
+            'status' => 0,
+            'body' => '',
+            'json' => null,
+            'error' => 'cURL extension is not available on this server.',
+        ];
+    }
+
+    $ch = curl_init($url);
+    if ($ch === false) {
+        return [
+            'ok' => false,
+            'status' => 0,
+            'body' => '',
+            'json' => null,
+            'error' => 'Unable to initialize cURL request.',
+        ];
+    }
+
+    $method = strtoupper(trim($method));
+    if ($method === '') {
+        $method = 'GET';
+    }
+
+    $options = [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HEADER => false,
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_CONNECTTIMEOUT => 15,
+        CURLOPT_TIMEOUT => max(10, $timeout),
+        CURLOPT_CUSTOMREQUEST => $method,
+    ];
+
+    if ($basicAuth !== '') {
+        $options[CURLOPT_HTTPAUTH] = CURLAUTH_BASIC;
+        $options[CURLOPT_USERPWD] = $basicAuth;
+    }
+
+    if (!empty($headers)) {
+        $normalizedHeaders = [];
+        foreach ($headers as $header) {
+            $header = trim((string)$header);
+            if ($header !== '') {
+                $normalizedHeaders[] = $header;
+            }
+        }
+
+        if (!empty($normalizedHeaders)) {
+            $options[CURLOPT_HTTPHEADER] = $normalizedHeaders;
+        }
+    }
+
+    curl_setopt_array($ch, $options);
+
+    $body = curl_exec($ch);
+    $curlError = curl_error($ch);
+    $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    $bodyText = is_string($body) ? $body : '';
+    $json = null;
+    if ($bodyText !== '') {
+        $decoded = json_decode($bodyText, true);
+        if (is_array($decoded)) {
+            $json = $decoded;
+        }
+    }
+
+    if ($curlError !== '') {
+        return [
+            'ok' => false,
+            'status' => $status,
+            'body' => $bodyText,
+            'json' => $json,
+            'error' => $curlError,
+        ];
+    }
+
+    return [
+        'ok' => $status >= 200 && $status < 300,
+        'status' => $status,
+        'body' => $bodyText,
+        'json' => $json,
+        'error' => '',
+    ];
+}
+
 function commerza_cloudinary_upload_file(string $filePath, array $options = []): array
 {
     $config = commerza_cloudinary_config();
@@ -559,5 +655,732 @@ function commerza_cloudinary_ensure_default_presets(): array
                 'result' => $videoResult,
             ],
         ],
+    ];
+}
+
+function commerza_cloudinary_is_managed_url(string $value): bool
+{
+    $url = trim($value);
+    if ($url === '' || filter_var($url, FILTER_VALIDATE_URL) === false) {
+        return false;
+    }
+
+    $host = strtolower(trim((string)parse_url($url, PHP_URL_HOST)));
+    if ($host === '' || !str_ends_with($host, 'res.cloudinary.com')) {
+        return false;
+    }
+
+    $path = trim((string)parse_url($url, PHP_URL_PATH), '/');
+    if ($path === '') {
+        return false;
+    }
+
+    $segments = explode('/', $path);
+    if (count($segments) < 4) {
+        return false;
+    }
+
+    $config = commerza_cloudinary_config();
+    $expectedCloud = strtolower(trim((string)($config['cloud_name'] ?? '')));
+    if ($expectedCloud !== '' && strtolower((string)$segments[0]) !== $expectedCloud) {
+        return false;
+    }
+
+    return true;
+}
+
+function commerza_cloudinary_extract_asset_from_url(string $value): ?array
+{
+    $url = trim($value);
+    if (!commerza_cloudinary_is_managed_url($url)) {
+        return null;
+    }
+
+    $path = trim((string)parse_url($url, PHP_URL_PATH), '/');
+    if ($path === '') {
+        return null;
+    }
+
+    $segments = explode('/', $path);
+    if (count($segments) < 4) {
+        return null;
+    }
+
+    $cloudName = (string)array_shift($segments);
+    $resourceType = strtolower(trim((string)array_shift($segments)));
+    $deliveryType = strtolower(trim((string)array_shift($segments)));
+
+    if (!in_array($resourceType, ['image', 'video', 'raw'], true)) {
+        return null;
+    }
+
+    if ($deliveryType !== 'upload') {
+        return null;
+    }
+
+    if (!empty($segments) && preg_match('/^v\d+$/', (string)$segments[0]) === 1) {
+        array_shift($segments);
+    }
+
+    if (empty($segments)) {
+        return null;
+    }
+
+    $lastIndex = count($segments) - 1;
+    $lastSegment = (string)$segments[$lastIndex];
+    $dotPos = strrpos($lastSegment, '.');
+    if ($dotPos !== false) {
+        $segments[$lastIndex] = substr($lastSegment, 0, $dotPos);
+    }
+
+    $publicId = trim(implode('/', $segments), '/');
+    if ($publicId === '') {
+        return null;
+    }
+
+    return [
+        'cloud_name' => $cloudName,
+        'resource_type' => $resourceType,
+        'public_id' => $publicId,
+    ];
+}
+
+function commerza_cloudinary_delete_asset_by_public_id(
+    string $publicId,
+    string $resourceType = 'image',
+    bool $invalidate = true
+): array {
+    $config = commerza_cloudinary_config();
+
+    if (!(bool)($config['enabled'] ?? false)) {
+        return [
+            'ok' => false,
+            'message' => 'Cloudinary is not fully configured.',
+        ];
+    }
+
+    $normalizedPublicId = trim(str_replace('\\', '/', $publicId), '/');
+    if ($normalizedPublicId === '') {
+        return [
+            'ok' => false,
+            'message' => 'Cloudinary public ID is required for deletion.',
+        ];
+    }
+
+    $normalizedResourceType = strtolower(trim($resourceType));
+    if (!in_array($normalizedResourceType, ['image', 'video', 'raw'], true)) {
+        $normalizedResourceType = 'image';
+    }
+
+    $query = http_build_query([
+        'public_ids' => [$normalizedPublicId],
+        'invalidate' => $invalidate ? 'true' : 'false',
+    ]);
+
+    $endpoint = sprintf(
+        'https://api.cloudinary.com/v1_1/%s/resources/%s/upload?%s',
+        rawurlencode((string)$config['cloud_name']),
+        rawurlencode($normalizedResourceType),
+        $query
+    );
+
+    $response = commerza_cloudinary_http_simple_request(
+        'DELETE',
+        $endpoint,
+        (int)$config['timeout'],
+        (string)$config['api_key'] . ':' . (string)$config['api_secret']
+    );
+
+    $json = is_array($response['json'] ?? null) ? $response['json'] : [];
+    if (!(bool)($response['ok'] ?? false)) {
+        $message = trim((string)($json['error']['message'] ?? ''));
+        if ($message === '') {
+            $message = trim((string)($response['error'] ?? ''));
+        }
+        if ($message === '') {
+            $message = 'Cloudinary delete request failed.';
+        }
+
+        return [
+            'ok' => false,
+            'message' => $message,
+            'status' => (int)($response['status'] ?? 0),
+            'response' => $json,
+            'public_id' => $normalizedPublicId,
+            'resource_type' => $normalizedResourceType,
+        ];
+    }
+
+    $deleteState = '';
+    if (isset($json['deleted']) && is_array($json['deleted'])) {
+        $deleteState = trim((string)($json['deleted'][$normalizedPublicId] ?? ''));
+    }
+
+    $ok = $deleteState === '' || in_array($deleteState, ['deleted', 'not_found'], true);
+    if (!$ok) {
+        return [
+            'ok' => false,
+            'message' => 'Cloudinary reported an unexpected delete status: ' . $deleteState,
+            'status' => (int)($response['status'] ?? 0),
+            'response' => $json,
+            'public_id' => $normalizedPublicId,
+            'resource_type' => $normalizedResourceType,
+        ];
+    }
+
+    return [
+        'ok' => true,
+        'message' => 'Cloudinary asset delete request completed.',
+        'status' => (int)($response['status'] ?? 0),
+        'response' => $json,
+        'public_id' => $normalizedPublicId,
+        'resource_type' => $normalizedResourceType,
+        'delete_state' => $deleteState !== '' ? $deleteState : 'deleted',
+    ];
+}
+
+function commerza_cloudinary_delete_asset_by_url(string $url, bool $invalidate = true): array
+{
+    $asset = commerza_cloudinary_extract_asset_from_url($url);
+    if (!is_array($asset)) {
+        return [
+            'ok' => false,
+            'message' => 'Provided URL is not a managed Cloudinary upload URL.',
+        ];
+    }
+
+    return commerza_cloudinary_delete_asset_by_public_id(
+        (string)($asset['public_id'] ?? ''),
+        (string)($asset['resource_type'] ?? 'image'),
+        $invalidate
+    );
+}
+
+function commerza_cloudinary_delete_assets_by_public_ids(
+    array $publicIds,
+    string $resourceType = 'image',
+    bool $invalidate = true
+): array {
+    $config = commerza_cloudinary_config();
+
+    if (!(bool)($config['enabled'] ?? false)) {
+        return [
+            'ok' => false,
+            'message' => 'Cloudinary is not fully configured.',
+            'deleted' => [],
+        ];
+    }
+
+    $normalizedIds = [];
+    foreach ($publicIds as $publicId) {
+        $candidate = trim(str_replace('\\', '/', (string)$publicId), '/');
+        if ($candidate !== '') {
+            $normalizedIds[$candidate] = true;
+        }
+    }
+
+    if (empty($normalizedIds)) {
+        return [
+            'ok' => true,
+            'message' => 'No Cloudinary public IDs were provided for bulk deletion.',
+            'status' => 0,
+            'response' => [],
+            'deleted' => [],
+        ];
+    }
+
+    $normalizedResourceType = strtolower(trim($resourceType));
+    if (!in_array($normalizedResourceType, ['image', 'video', 'raw'], true)) {
+        $normalizedResourceType = 'image';
+    }
+
+    $query = http_build_query([
+        'public_ids' => array_keys($normalizedIds),
+        'invalidate' => $invalidate ? 'true' : 'false',
+    ]);
+
+    $endpoint = sprintf(
+        'https://api.cloudinary.com/v1_1/%s/resources/%s/upload?%s',
+        rawurlencode((string)$config['cloud_name']),
+        rawurlencode($normalizedResourceType),
+        $query
+    );
+
+    $response = commerza_cloudinary_http_simple_request(
+        'DELETE',
+        $endpoint,
+        (int)$config['timeout'],
+        (string)$config['api_key'] . ':' . (string)$config['api_secret']
+    );
+
+    $json = is_array($response['json'] ?? null) ? $response['json'] : [];
+    if (!(bool)($response['ok'] ?? false)) {
+        $message = trim((string)($json['error']['message'] ?? ''));
+        if ($message === '') {
+            $message = trim((string)($response['error'] ?? ''));
+        }
+        if ($message === '') {
+            $message = 'Cloudinary bulk delete request failed.';
+        }
+
+        return [
+            'ok' => false,
+            'message' => $message,
+            'status' => (int)($response['status'] ?? 0),
+            'response' => $json,
+            'resource_type' => $normalizedResourceType,
+            'deleted' => [],
+        ];
+    }
+
+    $deletedMap = [];
+    if (isset($json['deleted']) && is_array($json['deleted'])) {
+        foreach ($json['deleted'] as $id => $state) {
+            $normalizedId = trim((string)$id);
+            if ($normalizedId === '') {
+                continue;
+            }
+            $deletedMap[$normalizedId] = trim((string)$state);
+        }
+    }
+
+    return [
+        'ok' => true,
+        'message' => 'Cloudinary bulk delete request completed.',
+        'status' => (int)($response['status'] ?? 0),
+        'response' => $json,
+        'resource_type' => $normalizedResourceType,
+        'deleted' => $deletedMap,
+    ];
+}
+
+function commerza_cloudinary_list_resources(
+    string $resourceType,
+    string $prefix = '',
+    int $maxResults = 200,
+    string $nextCursor = ''
+): array {
+    $config = commerza_cloudinary_config();
+
+    if (!(bool)($config['enabled'] ?? false)) {
+        return [
+            'ok' => false,
+            'message' => 'Cloudinary is not fully configured.',
+            'resources' => [],
+            'next_cursor' => '',
+        ];
+    }
+
+    $normalizedResourceType = strtolower(trim($resourceType));
+    if (!in_array($normalizedResourceType, ['image', 'video', 'raw'], true)) {
+        return [
+            'ok' => false,
+            'message' => 'Invalid Cloudinary resource type for listing.',
+            'resources' => [],
+            'next_cursor' => '',
+        ];
+    }
+
+    $query = [
+        'max_results' => max(1, min(500, $maxResults)),
+    ];
+
+    $normalizedPrefix = trim(str_replace('\\', '/', $prefix), '/');
+    if ($normalizedPrefix !== '') {
+        $query['prefix'] = $normalizedPrefix;
+    }
+
+    $normalizedCursor = trim($nextCursor);
+    if ($normalizedCursor !== '') {
+        $query['next_cursor'] = $normalizedCursor;
+    }
+
+    $endpoint = sprintf(
+        'https://api.cloudinary.com/v1_1/%s/resources/%s/upload?%s',
+        rawurlencode((string)$config['cloud_name']),
+        rawurlencode($normalizedResourceType),
+        http_build_query($query)
+    );
+
+    $response = commerza_cloudinary_http_simple_request(
+        'GET',
+        $endpoint,
+        (int)$config['timeout'],
+        (string)$config['api_key'] . ':' . (string)$config['api_secret']
+    );
+
+    $json = is_array($response['json'] ?? null) ? $response['json'] : [];
+    if (!(bool)($response['ok'] ?? false)) {
+        $message = trim((string)($json['error']['message'] ?? ''));
+        if ($message === '') {
+            $message = trim((string)($response['error'] ?? ''));
+        }
+        if ($message === '') {
+            $message = 'Cloudinary list resources request failed.';
+        }
+
+        return [
+            'ok' => false,
+            'message' => $message,
+            'status' => (int)($response['status'] ?? 0),
+            'resources' => [],
+            'next_cursor' => '',
+            'response' => $json,
+        ];
+    }
+
+    $resources = [];
+    $rawResources = $json['resources'] ?? null;
+    if (is_array($rawResources)) {
+        foreach ($rawResources as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+
+            $resources[] = $entry;
+        }
+    }
+
+    return [
+        'ok' => true,
+        'message' => 'Cloudinary resources fetched successfully.',
+        'status' => (int)($response['status'] ?? 0),
+        'resources' => $resources,
+        'next_cursor' => trim((string)($json['next_cursor'] ?? '')),
+        'response' => $json,
+    ];
+}
+
+function commerza_cloudinary_list_all_resources_by_prefix(string $prefix, array $resourceTypes = ['image', 'video']): array
+{
+    $all = [];
+    $errors = [];
+
+    foreach ($resourceTypes as $type) {
+        $resourceType = strtolower(trim((string)$type));
+        if (!in_array($resourceType, ['image', 'video', 'raw'], true)) {
+            continue;
+        }
+
+        $cursor = '';
+        $loopGuard = 0;
+        do {
+            $loopGuard++;
+            if ($loopGuard > 1000) {
+                $errors[] = [
+                    'resource_type' => $resourceType,
+                    'message' => 'Cloudinary pagination loop exceeded safety guard.',
+                ];
+                break;
+            }
+
+            $chunk = commerza_cloudinary_list_resources($resourceType, $prefix, 500, $cursor);
+            if (!(bool)($chunk['ok'] ?? false)) {
+                $errors[] = [
+                    'resource_type' => $resourceType,
+                    'message' => (string)($chunk['message'] ?? 'Unable to list resources.'),
+                ];
+                break;
+            }
+
+            $resources = is_array($chunk['resources'] ?? null) ? $chunk['resources'] : [];
+            foreach ($resources as $entry) {
+                if (!is_array($entry)) {
+                    continue;
+                }
+
+                if (trim((string)($entry['resource_type'] ?? '')) === '') {
+                    $entry['resource_type'] = $resourceType;
+                }
+
+                $all[] = $entry;
+            }
+
+            $cursor = trim((string)($chunk['next_cursor'] ?? ''));
+        } while ($cursor !== '');
+    }
+
+    return [
+        'ok' => empty($errors),
+        'resources' => $all,
+        'errors' => $errors,
+    ];
+}
+
+function commerza_cloudinary_get_resource_details(
+    string $resourceType,
+    string $publicId,
+    bool $includeVersions = false,
+    string $nextCursor = ''
+): array {
+    $config = commerza_cloudinary_config();
+
+    if (!(bool)($config['enabled'] ?? false)) {
+        return [
+            'ok' => false,
+            'message' => 'Cloudinary is not fully configured.',
+            'resource' => null,
+        ];
+    }
+
+    $normalizedType = strtolower(trim($resourceType));
+    if (!in_array($normalizedType, ['image', 'video', 'raw'], true)) {
+        return [
+            'ok' => false,
+            'message' => 'Invalid Cloudinary resource type for details.',
+            'resource' => null,
+        ];
+    }
+
+    $normalizedPublicId = trim(str_replace('\\', '/', $publicId), '/');
+    if ($normalizedPublicId === '') {
+        return [
+            'ok' => false,
+            'message' => 'Cloudinary public ID is required for resource details.',
+            'resource' => null,
+        ];
+    }
+
+    $query = [];
+    if ($includeVersions) {
+        $query['versions'] = 'true';
+    }
+
+    $cursor = trim($nextCursor);
+    if ($cursor !== '') {
+        $query['next_cursor'] = $cursor;
+    }
+
+    $endpoint = sprintf(
+        'https://api.cloudinary.com/v1_1/%s/resources/%s/upload/%s',
+        rawurlencode((string)$config['cloud_name']),
+        rawurlencode($normalizedType),
+        rawurlencode($normalizedPublicId)
+    );
+
+    if (!empty($query)) {
+        $endpoint .= '?' . http_build_query($query);
+    }
+
+    $response = commerza_cloudinary_http_simple_request(
+        'GET',
+        $endpoint,
+        (int)$config['timeout'],
+        (string)$config['api_key'] . ':' . (string)$config['api_secret']
+    );
+
+    $json = is_array($response['json'] ?? null) ? $response['json'] : [];
+    if (!(bool)($response['ok'] ?? false)) {
+        $message = trim((string)($json['error']['message'] ?? ''));
+        if ($message === '') {
+            $message = trim((string)($response['error'] ?? ''));
+        }
+        if ($message === '') {
+            $message = 'Cloudinary resource details request failed.';
+        }
+
+        return [
+            'ok' => false,
+            'message' => $message,
+            'status' => (int)($response['status'] ?? 0),
+            'resource' => null,
+            'response' => $json,
+        ];
+    }
+
+    return [
+        'ok' => true,
+        'message' => 'Cloudinary resource details fetched successfully.',
+        'status' => (int)($response['status'] ?? 0),
+        'resource' => $json,
+        'response' => $json,
+    ];
+}
+
+function commerza_cloudinary_delete_backup_versions(string $assetId, array $versionIds): array
+{
+    $config = commerza_cloudinary_config();
+
+    if (!(bool)($config['enabled'] ?? false)) {
+        return [
+            'ok' => false,
+            'message' => 'Cloudinary is not fully configured.',
+        ];
+    }
+
+    $normalizedAssetId = trim($assetId);
+    if ($normalizedAssetId === '') {
+        return [
+            'ok' => false,
+            'message' => 'Cloudinary asset_id is required for backup deletion.',
+        ];
+    }
+
+    $normalizedVersionIds = [];
+    foreach ($versionIds as $versionId) {
+        $candidate = trim((string)$versionId);
+        if ($candidate !== '') {
+            $normalizedVersionIds[$candidate] = true;
+        }
+    }
+
+    if (empty($normalizedVersionIds)) {
+        return [
+            'ok' => true,
+            'message' => 'No backup version IDs were provided.',
+            'status' => 0,
+            'response' => [],
+            'deleted_version_ids' => [],
+        ];
+    }
+
+    $versionList = array_keys($normalizedVersionIds);
+    $query = http_build_query([
+        'version_ids' => $versionList,
+    ]);
+
+    $endpoint = sprintf(
+        'https://api.cloudinary.com/v1_1/%s/resources/backup/%s?%s',
+        rawurlencode((string)$config['cloud_name']),
+        rawurlencode($normalizedAssetId),
+        $query
+    );
+
+    $response = commerza_cloudinary_http_simple_request(
+        'DELETE',
+        $endpoint,
+        (int)$config['timeout'],
+        (string)$config['api_key'] . ':' . (string)$config['api_secret']
+    );
+
+    $json = is_array($response['json'] ?? null) ? $response['json'] : [];
+    if (!(bool)($response['ok'] ?? false)) {
+        $message = trim((string)($json['error']['message'] ?? ''));
+        if ($message === '') {
+            $message = trim((string)($response['error'] ?? ''));
+        }
+        if ($message === '') {
+            $message = 'Cloudinary backup version delete request failed.';
+        }
+
+        return [
+            'ok' => false,
+            'message' => $message,
+            'status' => (int)($response['status'] ?? 0),
+            'response' => $json,
+            'deleted_version_ids' => [],
+        ];
+    }
+
+    $deletedVersionIds = [];
+    if (isset($json['deleted_version_ids']) && is_array($json['deleted_version_ids'])) {
+        foreach ($json['deleted_version_ids'] as $versionId) {
+            $candidate = trim((string)$versionId);
+            if ($candidate !== '') {
+                $deletedVersionIds[] = $candidate;
+            }
+        }
+    }
+
+    return [
+        'ok' => true,
+        'message' => 'Cloudinary backup versions deleted successfully.',
+        'status' => (int)($response['status'] ?? 0),
+        'response' => $json,
+        'deleted_version_ids' => $deletedVersionIds,
+    ];
+}
+
+function commerza_cloudinary_purge_placeholder_asset(string $resourceType, string $publicId): array
+{
+    $normalizedType = strtolower(trim($resourceType));
+    $normalizedPublicId = trim(str_replace('\\', '/', $publicId), '/');
+
+    if ($normalizedPublicId === '' || !in_array($normalizedType, ['image', 'video', 'raw'], true)) {
+        return [
+            'ok' => false,
+            'message' => 'Invalid Cloudinary placeholder purge parameters.',
+        ];
+    }
+
+    $versionIds = [];
+    $assetId = '';
+    $cursor = '';
+    $isPlaceholder = false;
+    $loopGuard = 0;
+
+    do {
+        $loopGuard++;
+        if ($loopGuard > 1000) {
+            return [
+                'ok' => false,
+                'message' => 'Cloudinary placeholder purge pagination exceeded safety guard.',
+            ];
+        }
+
+        $details = commerza_cloudinary_get_resource_details($normalizedType, $normalizedPublicId, true, $cursor);
+        if (!(bool)($details['ok'] ?? false)) {
+            $message = strtolower(trim((string)($details['message'] ?? '')));
+            if (str_contains($message, 'not found')) {
+                return [
+                    'ok' => true,
+                    'message' => 'Cloudinary resource no longer exists.',
+                    'deleted_version_ids' => [],
+                ];
+            }
+
+            return [
+                'ok' => false,
+                'message' => (string)($details['message'] ?? 'Unable to fetch placeholder resource details.'),
+            ];
+        }
+
+        $resource = is_array($details['resource'] ?? null) ? $details['resource'] : [];
+        if ($assetId === '') {
+            $assetId = trim((string)($resource['asset_id'] ?? ''));
+        }
+
+        if ((bool)($resource['placeholder'] ?? false)) {
+            $isPlaceholder = true;
+        }
+
+        $versions = $resource['versions'] ?? [];
+        if (is_array($versions)) {
+            foreach ($versions as $version) {
+                if (!is_array($version)) {
+                    continue;
+                }
+
+                $versionId = trim((string)($version['version_id'] ?? ''));
+                if ($versionId !== '') {
+                    $versionIds[$versionId] = true;
+                }
+            }
+        }
+
+        $cursor = trim((string)($resource['next_cursor'] ?? ''));
+    } while ($cursor !== '');
+
+    if (!$isPlaceholder || $assetId === '' || empty($versionIds)) {
+        return [
+            'ok' => true,
+            'message' => 'No placeholder backup versions required purge.',
+            'deleted_version_ids' => [],
+        ];
+    }
+
+    $deleteResult = commerza_cloudinary_delete_backup_versions($assetId, array_keys($versionIds));
+    if (!(bool)($deleteResult['ok'] ?? false)) {
+        return [
+            'ok' => false,
+            'message' => (string)($deleteResult['message'] ?? 'Unable to purge placeholder backup versions.'),
+            'deleted_version_ids' => [],
+        ];
+    }
+
+    return [
+        'ok' => true,
+        'message' => 'Cloudinary placeholder backup versions purged.',
+        'deleted_version_ids' => (array)($deleteResult['deleted_version_ids'] ?? []),
     ];
 }

@@ -2,6 +2,7 @@
 header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../../auth/auth.php';
+require_once __DIR__ . '/../../../../backend/services/cloudinary_service.php';
 
 /** @var mysqli|null $con */
 $con = (isset($con) && $con instanceof mysqli)
@@ -404,7 +405,21 @@ function admin_reviews_review_images(mysqli $con, int $reviewId): array
 function admin_reviews_delete_files(array $paths): void
 {
     foreach ($paths as $relativePath) {
-        $relativePath = trim(str_replace('\\', '/', (string)$relativePath));
+        $value = trim((string)$relativePath);
+        if ($value === '') {
+            continue;
+        }
+
+        if (
+            function_exists('commerza_cloudinary_is_managed_url')
+            && function_exists('commerza_cloudinary_delete_asset_by_url')
+            && commerza_cloudinary_is_managed_url($value)
+        ) {
+            commerza_cloudinary_delete_asset_by_url($value);
+            continue;
+        }
+
+        $relativePath = trim(str_replace('\\', '/', $value));
         if ($relativePath === '' || strpos($relativePath, 'frontend/assets/images/reviews/') !== 0) {
             continue;
         }

@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../mailer/mailer.php';
+require_once __DIR__ . '/../services/cloudinary_service.php';
 
 function commerza_get_expiry_hours(): int
 {
@@ -263,6 +264,29 @@ function commerza_cleanup_generated_media_path(string $path): bool
         return false;
     }
 
+    if (preg_match('#^https?://#i', $normalized) === 1) {
+        if (!function_exists('commerza_cloudinary_extract_asset_from_url')) {
+            return false;
+        }
+
+        $asset = commerza_cloudinary_extract_asset_from_url($normalized);
+        if (!is_array($asset)) {
+            return false;
+        }
+
+        $publicId = trim((string)($asset['public_id'] ?? ''), '/');
+        if ($publicId === '') {
+            return false;
+        }
+
+        $rootFolder = trim((string)(commerza_cloudinary_config()['folder'] ?? ''), '/');
+        if ($rootFolder === '') {
+            return true;
+        }
+
+        return $publicId === $rootFolder || str_starts_with($publicId, $rootFolder . '/');
+    }
+
     $allowedPrefixes = [
         'frontend/assets/images/products/uploads/',
         'frontend/assets/videos/products/uploads/',
@@ -401,6 +425,15 @@ function commerza_cleanup_product_media_file(mysqli $con, string $relativePath):
     }
 
     if (commerza_product_media_path_referenced($con, $normalized)) {
+        return;
+    }
+
+    if (
+        function_exists('commerza_cloudinary_is_managed_url')
+        && function_exists('commerza_cloudinary_delete_asset_by_url')
+        && commerza_cloudinary_is_managed_url($normalized)
+    ) {
+        commerza_cloudinary_delete_asset_by_url($normalized);
         return;
     }
 

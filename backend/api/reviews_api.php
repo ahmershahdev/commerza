@@ -6,6 +6,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../data.php';
 require_once __DIR__ . '/../helpers/media_image_helpers.php';
+require_once __DIR__ . '/../services/cloudinary_service.php';
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -549,10 +550,11 @@ function reviews_api_validate_uploaded_images(array $files): array
 function reviews_api_store_images(array $files, int $reviewId, int $userId): array
 {
     $stored = [];
+    $cloudinaryEnabled = function_exists('commerza_cloudinary_is_enabled') && commerza_cloudinary_is_enabled();
     $storageDirRelative = 'frontend/assets/images/reviews';
     $storageDirAbsolute = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'images' . DIRECTORY_SEPARATOR . 'reviews';
 
-    if (!is_dir($storageDirAbsolute) && !mkdir($storageDirAbsolute, 0755, true) && !is_dir($storageDirAbsolute)) {
+    if (!$cloudinaryEnabled && !is_dir($storageDirAbsolute) && !mkdir($storageDirAbsolute, 0755, true) && !is_dir($storageDirAbsolute)) {
         return [false, [], 'Unable to prepare review image storage directory.'];
     }
 
@@ -594,14 +596,66 @@ function reviews_api_store_images(array $files, int $reviewId, int $userId): arr
             return [false, $stored, 'Unable to save uploaded review image.'];
         }
 
-        if (file_put_contents($absolutePath, $binary) === false) {
-            return [false, $stored, 'Unable to save uploaded review image.'];
+        if ($cloudinaryEnabled) {
+            $tempPath = tempnam(sys_get_temp_dir(), 'cmzrvw_');
+            if (!is_string($tempPath) || $tempPath === '') {
+                return [false, $stored, 'Unable to prepare Cloudinary review image buffer.'];
+            }
+
+            if (file_put_contents($tempPath, $binary) === false) {
+                if (is_file($tempPath)) {
+                    @unlink($tempPath);
+                }
+                return [false, $stored, 'Unable to save uploaded review image.'];
+            }
+
+            $cloudinaryResult = commerza_cloudinary_upload_file($tempPath, [
+                'resource_type' => 'image',
+                'folder' => commerza_cloudinary_target_folder('reviews/images'),
+                'public_id' => pathinfo($fileName, PATHINFO_FILENAME),
+                'upload_preset' => (string)(commerza_cloudinary_config()['upload_preset_image'] ?? ''),
+                'overwrite' => false,
+                'invalidate' => true,
+                'tags' => ['commerza', 'reviews', 'user-review'],
+            ]);
+
+            if (is_file($tempPath)) {
+                @unlink($tempPath);
+            }
+
+            if (!(bool)($cloudinaryResult['ok'] ?? false)) {
+                return [
+                    false,
+                    $stored,
+                    (string)($cloudinaryResult['message'] ?? 'Unable to upload review image to Cloudinary.'),
+                ];
+            }
+
+            $relativePath = trim((string)($cloudinaryResult['secure_url'] ?? ''));
+            if ($relativePath === '') {
+                $relativePath = trim((string)($cloudinaryResult['url'] ?? ''));
+            }
+
+            if ($relativePath === '') {
+                return [false, $stored, 'Cloudinary review upload completed without a URL.'];
+            }
+
+            $storedSize = (int)($cloudinaryResult['bytes'] ?? 0);
+            if ($storedSize <= 0) {
+                $storedSize = (int)($conversion['bytes'] ?? 0);
+            }
+        } else {
+            if (file_put_contents($absolutePath, $binary) === false) {
+                return [false, $stored, 'Unable to save uploaded review image.'];
+            }
+
+            $storedSize = (int)($conversion['bytes'] ?? 0);
         }
 
         $stored[] = [
             'path' => $relativePath,
             'name' => $storedDisplayName,
-            'size' => (int)($conversion['bytes'] ?? 0),
+            'size' => $storedSize,
             'sort_order' => $index,
         ];
     }
@@ -674,7 +728,21 @@ function reviews_api_delete_image_rows(mysqli $con, int $reviewId): array
 function reviews_api_delete_files(array $paths): void
 {
     foreach ($paths as $relativePath) {
-        $relativePath = trim(str_replace('\\', '/', (string)$relativePath));
+        $value = trim((string)$relativePath);
+        if ($value === '') {
+            continue;
+        }
+
+        if (
+            function_exists('commerza_cloudinary_is_managed_url')
+            && function_exists('commerza_cloudinary_delete_asset_by_url')
+            && commerza_cloudinary_is_managed_url($value)
+        ) {
+            commerza_cloudinary_delete_asset_by_url($value);
+            continue;
+        }
+
+        $relativePath = trim(str_replace('\\', '/', $value));
         if ($relativePath === '' || strpos($relativePath, 'frontend/assets/images/reviews/') !== 0) {
             continue;
         }
