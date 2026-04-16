@@ -593,3 +593,43 @@
   right: 0;
   top: 0;
 }
+
+.catalog-feedback-state {
+  max-width: 740px;
+  margin: 0 auto;
+  padding: 28px 22px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: linear-gradient(
+    155deg,
+    rgba(15, 23, 42, 0.92),
+    rgba(15, 23, 42, 0.8)
+  );
+  box-shadow:
+    0 16px 32px rgba(2, 6, 23, 0.45),
+    inset 0 0 0 1px rgba(148, 163, 184, 0.1);
+}
+
+.catalog-feedback-icon {
+  font-size: 2.7rem;
+  color: #facc15;
+  filter: drop-shadow(0 8px 16px rgba(234, 179, 8, 0.28));
+}
+
+.catalog-feedback-title {
+  margin: 0;
+  color: #f8fafc;
+  font-family: "Montserrat", sans-serif;
+  font-size: 1.38rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.catalog-feedback-description {
+  margin: 10px auto 0;
+  max-width: 560px;
+  color: #cbd5e1;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.89rem;
+  line-height: 1.65;
+}

@@ -135,6 +135,16 @@ function orders_api_is_cod_payment_method(string $paymentMethod): bool
         || preg_match('/\bcod\b/i', $normalized) === 1;
 }
 
+function orders_api_is_fake_profile_email(string $email): bool
+{
+    $normalized = strtolower(trim($email));
+    if ($normalized === '') {
+        return false;
+    }
+
+    return str_ends_with($normalized, '@fake-review.local');
+}
+
 function orders_api_ensure_order_coupon_columns(mysqli $con): void
 {
     static $initialized = false;
@@ -660,6 +670,7 @@ function orders_api_fetch_customers(mysqli $con): array
             COALESCE(SUM(o.grand_total), 0) AS total_spent
          FROM users u
          LEFT JOIN orders o ON o.user_id = u.id
+            WHERE LOWER(TRIM(COALESCE(u.email, ""))) NOT LIKE "%@fake-review.local"
          GROUP BY u.id, u.full_name, u.username, u.email, u.phone, u.created_at
          ORDER BY u.created_at DESC'
     );
@@ -668,6 +679,10 @@ function orders_api_fetch_customers(mysqli $con): array
         while ($row = $usersResult->fetch_assoc()) {
             $email = strtolower(trim((string)($row['email'] ?? '')));
             if ($email === '') {
+                continue;
+            }
+
+            if (orders_api_is_fake_profile_email($email)) {
                 continue;
             }
 
@@ -868,7 +883,8 @@ function orders_api_fetch_metrics(mysqli $con): array
     $customersResult = $con->query(
         'SELECT COUNT(*) AS total
          FROM users
-         WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)'
+            WHERE LOWER(TRIM(COALESCE(email, ""))) NOT LIKE "%@fake-review.local"
+              AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)'
     );
     if ($customersResult) {
         $row = $customersResult->fetch_assoc();

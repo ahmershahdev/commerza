@@ -4,11 +4,30 @@ Commerza is a PHP + MySQL ecommerce platform with a customer storefront and an o
 
 This README is the canonical engineering guide for setup, security posture, feature boundaries, and production operations.
 
-Last updated: 2026-04-12
+Last updated: 2026-04-15
+
+## 0. Executive Summary
+
+Commerza is production-oriented and launch-ready for Apache/PHP hosting with:
+
+- Clean-route storefront and restricted admin/backend surfaces
+- Prepared-statement-first data access across user-facing mutation/query paths
+- Layered controls for CSRF, CAPTCHA, rate limiting, idempotency, and audit logging
+- Hardened checkout path with stock locking, payment verification, and coupon validation
+- Documented operations model for backups, security gates, and cron-based automation
+
+## Quick Highlights
+
+- Storefront + admin panel in one repository with shared security bootstrap
+- Payment flows: COD + Stripe card with server-side verification and risk controls
+- Anti-abuse controls: request throttling, captcha hardening, blacklist checks
+- Security monitoring: admin security events plus CI security gate checks
+- Launch docs included: README, SECURITY.md, robots.txt, sitemap.xml, llms.txt
 
 ## 1. Stack and Runtime
 
-- Backend: PHP (mysqli), Apache, MySQL
+- Backend: PHP (mysqli prepared statements), Apache, MySQL
+- DB migration bridge: PDO helper available for incremental endpoint migration
 - Frontend: Server-rendered PHP templates, Bootstrap, jQuery, modular CSS/JS assets
 - Deployment shape: XAMPP-compatible (local) and Apache hosting (production)
 - Shared bootstrap: backend/core/data.php
@@ -86,6 +105,21 @@ Checkout currently supports Cash on Delivery (COD) and Stripe card payments.
   - Optional COD hard limit via `COMMERZA_COD_HIGH_VALUE_HARD_LIMIT` (default `0`, disabled)
   - When threshold applies, checkout requires a 6-digit email OTP before order creation
 
+## 6.1 Database Safety Model (SQL Injection Defense)
+
+Commerza's production DB safety posture uses the following baseline:
+
+- Request-facing queries use prepared statements (`prepare` + `bind_param`) for user input
+- String-concatenated SQL is limited to internal schema/setup flows and controlled constants
+- IDs from request context are cast to strict integer types before query usage
+- Dynamic enum-like inputs (action/status/mode/field) are validated against allowlists
+- Critical write paths use transactions, row-locking, and idempotency controls
+
+Operational note:
+
+- The project is not fully PDO-only yet; active runtime data access is mysqli prepared-statement based
+- PDO connection support exists in `backend/core/data.php` for controlled migration of new/updated modules
+
 ## 7. Password Hashing and Policy Workflow
 
 Password security is centralized in backend/security/security_helpers.php.
@@ -152,8 +186,8 @@ Fallback challenge hardening details:
 
 CSP nonce generation details:
 
-- Nonce source: cryptographically secure `random_bytes(24)`
-- Encoding: base64url (typically 32+ characters)
+- Nonce source: cryptographically secure `random_bytes(16)`
+- Encoding: base64url (typically ~22 characters)
 - Lifecycle: generated per HTTP request (changes on each refresh)
 - Helper: `commerza_csp_nonce_attr()` for nonce-tagged inline blocks where needed
 
@@ -277,7 +311,7 @@ Storefront product feeds now exclude archived/deleted entries.
 Review eligibility is verified server-side.
 
 - Accepted order statuses for eligibility: delivered, completed, received
-- Product linkage supports product_id matching and legacy product_name fallback
+- Primary product linkage is by `product_id`; temporary compatibility fallback to product-name matching exists for historic rows
 - Refund-linked restrictions remain enforced where refund tables exist
 
 Customer blacklist enforcement scope (server-side):
@@ -369,3 +403,20 @@ Workflow file: `.github/workflows/security-gate.yml`
 - Authenticated admin abuse checks require one of:
   - `COMMERZA_ADMIN_TEST_SESSION_ID`, or
   - `COMMERZA_ADMIN_TEST_EMAIL` + `COMMERZA_ADMIN_TEST_PASSWORD` + `COMMERZA_ADMIN_TEST_2FA_CODE`
+
+## 24. Production Launch Requirements
+
+Set and verify the following before go-live:
+
+1. Configure `COMMERZA_ADMIN_RESET_KEY` to a strong non-default secret (minimum 16 chars).
+2. Ensure production `.env` values are managed outside source control.
+3. Confirm HTTPS is enforced and secure cookies are active.
+4. Run syntax lint on all deployment-touched PHP files.
+5. Run security smoke tests (`scripts/security/security_smoke_tests.ps1`).
+6. Validate admin auth recovery flows with real reset key configuration.
+7. Verify robots/sitemap/llms files are aligned with production domain.
+
+Security hardening note:
+
+- Legacy predictable admin reset-key fallback is intentionally disabled.
+- If no valid reset key is configured, admin reset-key-dependent flows will reject requests by design.

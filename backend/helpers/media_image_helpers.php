@@ -247,6 +247,125 @@ function commerza_media_encode_webp_binary($image, int $targetBytes): ?string
     return $bestBinary !== '' ? $bestBinary : null;
 }
 
+function commerza_media_imagick_available(): bool
+{
+    return extension_loaded('imagick') && class_exists('Imagick');
+}
+
+function commerza_media_convert_upload_to_webp_imagick(
+    string $tmpPath,
+    int $targetKb,
+    int $maxDimension
+): array {
+    if (!commerza_media_imagick_available()) {
+        return [
+            'ok' => false,
+            'message' => 'Imagick extension is unavailable.',
+        ];
+    }
+
+    try {
+        $imagickClass = 'Imagick';
+        $image = new $imagickClass();
+        $image->readImage($tmpPath);
+
+        if ($image->getNumberImages() > 1) {
+            $image = $image->coalesceImages();
+            $image->setFirstIterator();
+            $firstFrame = $image->getImage();
+            $image->clear();
+            $image->destroy();
+            $image = $firstFrame;
+        }
+
+        $width = (int)$image->getImageWidth();
+        $height = (int)$image->getImageHeight();
+
+        if ($width > 0 && $height > 0) {
+            $largestSide = max($width, $height);
+            if ($largestSide > max(256, $maxDimension)) {
+                $scale = max(256, $maxDimension) / $largestSide;
+                $newWidth = max(1, (int)round($width * $scale));
+                $newHeight = max(1, (int)round($height * $scale));
+                $image->thumbnailImage($newWidth, $newHeight, true, true);
+                $width = (int)$image->getImageWidth();
+                $height = (int)$image->getImageHeight();
+            }
+        }
+
+        $targetBytes = max(60, $targetKb) * 1024;
+        $qualities = [84, 80, 76, 72, 68, 64, 60, 56, 52, 48];
+        $bestBinary = '';
+        $bestSize = 0;
+
+        foreach ($qualities as $quality) {
+            $candidate = clone $image;
+            $candidate->setImageFormat('webp');
+            $candidate->setImageCompressionQuality($quality);
+            $candidate->setOption('webp:method', '6');
+            $candidate->setOption('webp:thread-level', '1');
+
+            $binary = $candidate->getImagesBlob();
+            $candidate->clear();
+            $candidate->destroy();
+
+            if (!is_string($binary) || $binary === '') {
+                continue;
+            }
+
+            $binarySize = strlen($binary);
+            if ($binarySize <= $targetBytes) {
+                $image->clear();
+                $image->destroy();
+
+                return [
+                    'ok' => true,
+                    'binary' => $binary,
+                    'bytes' => $binarySize,
+                    'width' => $width,
+                    'height' => $height,
+                    'mime' => 'image/webp',
+                    'extension' => 'webp',
+                    'parser' => 'image-webp-imagick-compressor',
+                    'compressed' => true,
+                ];
+            }
+
+            if ($bestBinary === '' || $binarySize < $bestSize) {
+                $bestBinary = $binary;
+                $bestSize = $binarySize;
+            }
+        }
+
+        $image->clear();
+        $image->destroy();
+
+        if ($bestBinary !== '') {
+            return [
+                'ok' => true,
+                'binary' => $bestBinary,
+                'bytes' => strlen($bestBinary),
+                'width' => $width,
+                'height' => $height,
+                'mime' => 'image/webp',
+                'extension' => 'webp',
+                'parser' => 'image-webp-imagick-compressor',
+                'compressed' => true,
+            ];
+        }
+    } catch (Throwable $error) {
+        return [
+            'ok' => false,
+            'message' => 'Imagick was unable to process this upload.',
+        ];
+    }
+
+    return [
+        'ok' => false,
+        'message' => 'Imagick was unable to encode this upload as WebP.',
+    ];
+}
+
 function commerza_media_convert_upload_to_webp(
     string $tmpPath,
     string $mime,
@@ -255,6 +374,16 @@ function commerza_media_convert_upload_to_webp(
     bool $allowUnparsedPassThrough = true
 ): array {
     $allowedMimes = commerza_media_allowed_image_mimes();
+
+    $imagickResult = commerza_media_convert_upload_to_webp_imagick(
+        $tmpPath,
+        $targetKb,
+        $maxDimension
+    );
+
+    if (($imagickResult['ok'] ?? false) === true) {
+        return $imagickResult;
+    }
 
     if (!extension_loaded('gd') || !function_exists('imagewebp')) {
         if (!$allowUnparsedPassThrough) {

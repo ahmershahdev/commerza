@@ -1,5 +1,5 @@
 # Commerza crawler policy
-# Updated: 2026-04-12
+# Updated: 2026-04-15
 
 Sitemap: https://commerza.ahmershah.dev/sitemap.xml
 Host: commerza.ahmershah.dev
@@ -9,10 +9,13 @@ User-agent: *
 Allow: /
 Allow: /frontend/assets/
 Allow: /llms.txt
+Allow: /sitemap.xml
 
 Disallow: /admin/
 Disallow: /backend/
 Disallow: /private/
+Disallow: /payment-intent
+Disallow: /payment-intent.php
 Disallow: /oauth
 Disallow: /oauth.php
 

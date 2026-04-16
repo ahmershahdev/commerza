@@ -216,6 +216,40 @@
   letter-spacing: 1px;
 }
 
+.tracking-result .tracking-detail-card {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 102, 0, 0.2);
+}
+
+.tracking-result .tracking-line-item {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tracking-result .tracking-line-thumb {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.tracking-result .tracking-detail-meta,
+.tracking-result .tracking-line-meta,
+.tracking-result .tracking-payment-meta,
+.tracking-result .product-desc {
+  color: #9da7b2;
+}
+
+.tracking-result .tracking-detail-value,
+.tracking-result .tracking-total-value {
+  color: #ffffff;
+}
+
+.tracking-result .tracking-summary-row {
+  border-top-color: rgba(255, 255, 255, 0.14) !important;
+}
+
 @media (max-width: 767px) {
   .order-precaution-list {
     grid-template-columns: 1fr;

@@ -981,6 +981,117 @@ body.dark-theme.light-theme #productModal .dropdown-item:focus {
   color: #1e3a8a !important;
 }
 
+body.dark-theme.light-theme .collectors-editor-shell {
+  background: linear-gradient(150deg, #ffffff, #f4f8ff) !important;
+  border-color: rgba(30, 58, 138, 0.22) !important;
+}
+
+body.dark-theme.light-theme #collectorsSpeakInput {
+  background: #ffffff !important;
+  border: 1px solid rgba(30, 58, 138, 0.24) !important;
+  color: #1e293b !important;
+}
+
+body.dark-theme.light-theme .collectors-preview-item {
+  border-color: rgba(30, 58, 138, 0.22) !important;
+  background: linear-gradient(160deg, #ffffff, #f8fbff) !important;
+}
+
+body.dark-theme.light-theme .collectors-preview-item strong {
+  color: #1e3a8a !important;
+}
+
+body.dark-theme.light-theme .collectors-preview-item span {
+  color: #64748b !important;
+}
+
+body.dark-theme.light-theme .collectors-preview-item p {
+  color: #475569 !important;
+}
+
+body.dark-theme.light-theme .security-events-shell .helper-banner {
+  border-color: rgba(30, 58, 138, 0.26) !important;
+  background: linear-gradient(130deg, #f8fbff, #eff5ff) !important;
+}
+
+body.dark-theme.light-theme .security-events-filters .form-control,
+body.dark-theme.light-theme .security-events-filters .form-select {
+  background: #ffffff !important;
+  border-color: rgba(30, 58, 138, 0.24) !important;
+  color: #1e293b !important;
+}
+
+body.dark-theme.light-theme .security-event-label {
+  color: #1e293b !important;
+}
+
+body.dark-theme.light-theme .security-event-code,
+body.dark-theme.light-theme .security-event-identifier-label,
+body.dark-theme.light-theme .security-event-ip-label {
+  color: #64748b !important;
+}
+
+body.dark-theme.light-theme .security-event-identifier {
+  color: #1e293b !important;
+}
+
+body.dark-theme.light-theme .security-event-ip {
+  color: #1d4ed8 !important;
+}
+
+body.dark-theme.light-theme .security-event-details {
+  color: #475569 !important;
+}
+
+body.dark-theme.light-theme .security-events-footer {
+  background: linear-gradient(180deg, #f8fbff, #f1f6ff) !important;
+  border-top-color: rgba(30, 58, 138, 0.2) !important;
+}
+
+body.dark-theme.light-theme #emailSection #emailTemplateBtn,
+body.dark-theme.light-theme #emailSection #emailSourceBtn {
+  background: #ffffff !important;
+  border-color: rgba(30, 58, 138, 0.3) !important;
+  color: #1e3a8a !important;
+}
+
+body.dark-theme.light-theme #emailSection #emailTemplateBtn:hover,
+body.dark-theme.light-theme #emailSection #emailTemplateBtn:focus,
+body.dark-theme.light-theme #emailSection #emailSourceBtn:hover,
+body.dark-theme.light-theme #emailSection #emailSourceBtn:focus {
+  background: #f4f8ff !important;
+  border-color: rgba(37, 82, 214, 0.44) !important;
+  color: #1d4ed8 !important;
+}
+
+body.dark-theme.light-theme #emailSection #emailTemplateMenu,
+body.dark-theme.light-theme #emailSection #emailSourceMenu {
+  background: #ffffff !important;
+  border-color: rgba(30, 58, 138, 0.24) !important;
+}
+
+body.dark-theme.light-theme #emailSection #emailTemplateMenu .dropdown-item,
+body.dark-theme.light-theme #emailSection #emailSourceMenu .dropdown-item {
+  color: #334155 !important;
+}
+
+body.dark-theme.light-theme
+  #emailSection
+  #emailTemplateMenu
+  .dropdown-item:hover,
+body.dark-theme.light-theme
+  #emailSection
+  #emailTemplateMenu
+  .dropdown-item:focus,
+body.dark-theme.light-theme #emailSection #emailSourceMenu .dropdown-item:hover,
+body.dark-theme.light-theme
+  #emailSection
+  #emailSourceMenu
+  .dropdown-item:focus {
+  background: rgba(37, 82, 214, 0.1) !important;
+  color: #1e3a8a !important;
+}
+
 @media (max-width: 576px) {
   body.dark-theme.light-theme [data-theme-toggle="admin-topbar"] {
     min-width: 46px;

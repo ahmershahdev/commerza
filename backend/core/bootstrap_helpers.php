@@ -152,7 +152,7 @@ function commerza_csp_nonce_value(): string
         return $nonce;
     }
 
-    $nonce = rtrim(strtr(base64_encode(random_bytes(24)), '+/', '-_'), '=');
+    $nonce = rtrim(strtr(base64_encode(random_bytes(16)), '+/', '-_'), '=');
 
     return $nonce;
 }

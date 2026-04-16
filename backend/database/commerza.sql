@@ -657,11 +657,22 @@ CREATE TABLE `product_review_images` (
 
 CREATE TABLE `product_fake_reviews` (
   `id` int(11) NOT NULL,
-  `review_id` int(11) NOT NULL,
+  `review_id` int(11) DEFAULT NULL,
   `product_id` int(11) NOT NULL,
-  `fake_user_id` int(11) NOT NULL,
+  `fake_user_id` int(11) DEFAULT NULL,
+  `rating` tinyint(4) NOT NULL DEFAULT 5,
+  `review_text` varchar(500) NOT NULL,
+  `reviewer_name` varchar(120) NOT NULL DEFAULT 'Customer',
+  `reviewer_handle` varchar(80) DEFAULT NULL,
+  `reviewer_visibility` enum('public','private') NOT NULL DEFAULT 'public',
+  `is_visible` tinyint(1) NOT NULL DEFAULT 1,
+  `is_locked` tinyint(1) NOT NULL DEFAULT 0,
+  `locked_at` datetime DEFAULT NULL,
+  `locked_by_admin_id` int(11) DEFAULT NULL,
+  `admin_note` varchar(500) DEFAULT NULL,
   `generated_by_admin_id` int(11) DEFAULT NULL,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -1712,10 +1723,11 @@ ALTER TABLE `product_review_images`
 --
 ALTER TABLE `product_fake_reviews`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `uq_fake_review_review` (`review_id`),
+  ADD KEY `idx_fake_reviews_product_visibility` (`product_id`,`is_visible`),
+  ADD KEY `idx_fake_reviews_visibility_updated` (`is_visible`,`updated_at`),
+  ADD KEY `idx_fake_reviews_locked_updated` (`is_locked`,`updated_at`),
   ADD KEY `idx_fake_reviews_product_created` (`product_id`,`created_at`),
-  ADD KEY `idx_fake_reviews_admin_created` (`generated_by_admin_id`,`created_at`),
-  ADD KEY `idx_fake_reviews_user_created` (`fake_user_id`,`created_at`);
+  ADD KEY `idx_fake_reviews_admin_created` (`generated_by_admin_id`,`created_at`);
 
 --
 -- Indexes for table `product_trash`
@@ -2205,9 +2217,7 @@ ALTER TABLE `product_review_images`
 -- Constraints for table `product_fake_reviews`
 --
 ALTER TABLE `product_fake_reviews`
-  ADD CONSTRAINT `fk_pfr_review` FOREIGN KEY (`review_id`) REFERENCES `product_reviews` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_pfr_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `fk_pfr_user` FOREIGN KEY (`fake_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_pfr_admin` FOREIGN KEY (`generated_by_admin_id`) REFERENCES `admin_users` (`id`) ON DELETE SET NULL;
 
 --

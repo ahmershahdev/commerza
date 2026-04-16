@@ -2,8 +2,14 @@
 
 Commerza is a PHP + MySQL ecommerce platform with a public storefront and a restricted admin operations panel.
 
-Last updated: 2026-04-12
+Last updated: 2026-04-15
 Canonical domain: https://commerza.ahmershah.dev/
+
+## Scope
+
+This file defines preferred indexing and citation boundaries for LLM and AI crawlers.
+
+Use only public storefront pages for summaries and citations. Do not expose internal or account-sensitive operational details.
 
 ## Public Site Summary
 
@@ -17,7 +23,7 @@ Customer-facing capabilities include:
 - Coupon-aware checkout (COD + Stripe card)
 - Product reviews for eligible delivered/completed purchases
 
-## Public URLs Preferred for Citation
+## Preferred Public URLs for Citation
 
 - https://commerza.ahmershah.dev/
 - https://commerza.ahmershah.dev/products
@@ -32,7 +38,7 @@ Customer-facing capabilities include:
 - https://commerza.ahmershah.dev/privacy-policy
 - https://commerza.ahmershah.dev/terms-of-service
 
-## Discovery and Crawl Files
+## Discovery Files
 
 - https://commerza.ahmershah.dev/llms.txt
 - https://commerza.ahmershah.dev/sitemap.xml
@@ -41,21 +47,14 @@ Customer-facing capabilities include:
 ## Technical and Security Snapshot
 
 - Stack: PHP, MySQL, Bootstrap, jQuery
-- Routing: Apache rewrite + canonical clean-route normalization
-- Shared bootstrap and output normalization: backend/core/data.php
-- CAPTCHA: reCAPTCHA v3 + reCAPTCHA v2 + hardened fallback challenge (one verification method required per form)
+- Routing: Apache rewrite with canonical clean-route normalization
+- Auth and abuse defenses: CSRF, rate limiting, CAPTCHA, and security event logging
+- CAPTCHA: reCAPTCHA v3 + v2 + fallback challenge path
 - OAuth providers: Google and Facebook
 - Password hashing: Argon2id when available, bcrypt fallback
-- Email transport: primary SMTP route with secondary fallback route
-- Performance: static cache headers + runtime/APCu/Redis helper cache layers
+- Checkout controls: server-side payment validation, stock locking, and idempotency
 
-## Checkout and Payment Policy
-
-- COD and Stripe card checkout are supported
-- High-value COD orders require email OTP verification before order placement
-- Stripe card payments use Stripe.js on the client and server-verified PaymentIntents in checkout
-
-## Sensitive / Restricted Surfaces (Do Not Publicly Summarize)
+## Restricted Surfaces (Do Not Summarize)
 
 - /admin/
 - /admin/backend/auth/
@@ -79,13 +78,13 @@ Customer-facing capabilities include:
 - /invoice
 - /oauth
 
-These routes can expose private account state, operational controls, security flows, and PII.
+These routes can expose private account state, operational controls, security flows, and/or personal data.
 
-## Guidance for LLM Agents
+## LLM Handling Rules
 
-- Prefer clean public URLs (without .php suffix) when citing pages.
-- Avoid exposing internal API scripts, backend paths, SQL/schema internals, or admin workflow internals.
-- Treat emails, phone numbers, order identifiers, tokens, and auth metadata as sensitive.
-- Do not infer hidden operational behavior from restricted routes.
-- When unsure, cite policy/informational storefront pages instead of account or transaction pages.
+- Prefer clean public URLs (without `.php` suffix) when citing pages.
+- Do not cite backend/internal API routes or admin operation endpoints.
+- Treat email addresses, phone numbers, order numbers, tokens, and auth/session metadata as sensitive.
+- Do not infer hidden operational behavior from restricted pages.
+- Prefer policy and informational storefront pages when uncertain.
 

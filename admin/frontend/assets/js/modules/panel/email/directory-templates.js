@@ -5,6 +5,11 @@ function formatShortDate(value) {
   return date.toISOString().split("T")[0];
 }
 
+function isFakeReviewEmail(value) {
+  const normalized = normalizeEmailValue(value);
+  return normalized.endsWith("@fake-review.local");
+}
+
 function updateEmailPreview() {
   const subject = ($("#emailSubjectInput").val() || "").trim();
   const body = ($("#emailBodyInput").val() || "").trim();
@@ -94,6 +99,7 @@ function buildEmailDirectory() {
   const addEntry = (email, source, meta = {}) => {
     const normalized = normalizeEmailValue(email);
     if (!normalized) return;
+    if (isFakeReviewEmail(normalized)) return;
     if (suppressed.has(normalized)) return;
     const existing = directory.get(normalized) || {
       email: normalized,
@@ -184,12 +190,12 @@ function renderTemplateSelect() {
   if (!menu.length) return;
   menu.empty();
   menu.append(
-    '<li><a class="dropdown-item text-light" href="#" data-template-id="">Custom</a></li>',
+    '<li><a class="dropdown-item admin-dropdown-item" href="#" data-template-id="">Custom</a></li>',
   );
   menu.append('<li><hr class="dropdown-divider border-secondary"></li>');
   emailTemplates.forEach((template) => {
     menu.append(
-      `<li><a class="dropdown-item text-light" href="#" data-template-id="${template.id}">${template.name}</a></li>`,
+      `<li><a class="dropdown-item admin-dropdown-item" href="#" data-template-id="${template.id}">${template.name}</a></li>`,
     );
   });
 }
@@ -417,4 +423,3 @@ function sendEmailFromComposer() {
 
   window.location.href = mailto;
 }
-

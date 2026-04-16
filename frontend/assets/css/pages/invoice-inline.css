@@ -789,15 +789,33 @@ body.dark-theme.light-theme .invoice-logistics-alert {
 }
 
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
   body {
     background: #fff;
     color: #000;
+    font-size: 11px;
   }
 
   .invoice-page {
     max-width: 100%;
     margin: 0;
     padding: 0;
+  }
+
+  .invoice-shell,
+  .invoice-header,
+  .invoice-body,
+  .invoice-section,
+  .invoice-items-wrap,
+  .invoice-summary,
+  .invoice-note,
+  .invoice-footer {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .invoice-shell {
@@ -813,8 +831,68 @@ body.dark-theme.light-theme .invoice-logistics-alert {
 
   .invoice-header,
   .invoice-body {
+    padding: 10px 12px !important;
     color: #111 !important;
     background: #fff !important;
+  }
+
+  .invoice-section {
+    padding: 8px 10px !important;
+    border-radius: 8px;
+  }
+
+  .invoice-kpi-section,
+  .invoice-logistics {
+    display: none !important;
+  }
+
+  .brand-wrap img {
+    width: 130px;
+  }
+
+  .invoice-meta .invoice-number {
+    font-size: 1.05rem;
+  }
+
+  .invoice-items-wrap,
+  .invoice-summary,
+  .invoice-note,
+  .invoice-footer {
+    margin-top: 8px;
+  }
+
+  .invoice-items-table thead th,
+  .invoice-items-table td {
+    padding: 6px 8px !important;
+    font-size: 0.76rem;
+  }
+
+  .item-thumb {
+    width: 30px;
+    height: 30px;
+  }
+
+  .summary-row {
+    padding: 6px 8px;
+    font-size: 0.8rem;
+  }
+
+  .summary-row.total {
+    font-size: 0.86rem;
+  }
+
+  .summary-row.total strong {
+    font-size: 0.88rem;
+  }
+
+  .invoice-note {
+    padding: 8px 10px;
+    font-size: 0.78rem;
+  }
+
+  .invoice-footer {
+    padding-top: 8px;
+    font-size: 0.72rem;
   }
 
   .brand-sub,

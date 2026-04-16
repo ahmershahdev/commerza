@@ -36,7 +36,19 @@ function commerza_get_stripe_secret_key(mysqli $con): string
         return $stored;
     }
 
-    return trim((string)getenv('STRIPE_SECRET_KEY'));
+    $envCandidates = [
+        'STRIPE_SECRET_KEY',
+        'COMMERZA_STRIPE_SECRET_KEY',
+    ];
+
+    foreach ($envCandidates as $envKey) {
+        $value = trim((string)getenv($envKey));
+        if ($value !== '') {
+            return $value;
+        }
+    }
+
+    return '';
 }
 
 function commerza_get_stripe_publishable_key(mysqli $con): string
@@ -46,7 +58,19 @@ function commerza_get_stripe_publishable_key(mysqli $con): string
         return $stored;
     }
 
-    return trim((string)getenv('STRIPE_PUBLISHABLE_KEY'));
+    $envCandidates = [
+        'STRIPE_PUBLISHABLE_KEY',
+        'COMMERZA_STRIPE_PUBLISHABLE_KEY',
+    ];
+
+    foreach ($envCandidates as $envKey) {
+        $value = trim((string)getenv($envKey));
+        if ($value !== '') {
+            return $value;
+        }
+    }
+
+    return '';
 }
 
 function commerza_stripe_api_post(string $secretKey, string $url, array $payload): array

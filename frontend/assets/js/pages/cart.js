@@ -30,10 +30,10 @@
     const stripePublishableKey = (cartPageConfig.stripePublishableKey || "")
       .toString()
       .trim();
-    const stripeAvailable =
-      stripeEnabled &&
-      stripePublishableKey !== "" &&
-      typeof window.Stripe === "function";
+    const stripeConfigured = stripeEnabled && stripePublishableKey !== "";
+    let stripeAvailable =
+      stripeConfigured && typeof window.Stripe === "function";
+    let stripeLibraryLoadPromise = null;
 
     const prefillData = {
       name: (prefill.name || "").toString(),
@@ -52,6 +52,66 @@
       clientSecret: "",
       lastAmountMinor: 0,
     };
+
+    function loadStripeLibraryIfNeeded() {
+      if (!stripeConfigured) {
+        return Promise.resolve(false);
+      }
+
+      if (typeof window.Stripe === "function") {
+        stripeAvailable = true;
+        return Promise.resolve(true);
+      }
+
+      if (stripeLibraryLoadPromise) {
+        return stripeLibraryLoadPromise;
+      }
+
+      stripeLibraryLoadPromise = new Promise(function (resolve) {
+        let settled = false;
+        const finish = function (loaded) {
+          if (settled) {
+            return;
+          }
+
+          settled = true;
+          stripeAvailable = loaded === true && typeof window.Stripe === "function";
+          resolve(stripeAvailable);
+        };
+
+        let script = document.querySelector('script[src^="https://js.stripe.com/v3"]');
+        if (!script) {
+          script = document.createElement("script");
+          script.src = "https://js.stripe.com/v3/";
+          script.async = true;
+          document.head.appendChild(script);
+        }
+
+        script.addEventListener(
+          "load",
+          function () {
+            finish(true);
+          },
+          { once: true },
+        );
+
+        script.addEventListener(
+          "error",
+          function () {
+            finish(false);
+          },
+          { once: true },
+        );
+
+        window.setTimeout(function () {
+          finish(typeof window.Stripe === "function");
+        }, 350);
+      }).finally(function () {
+        stripeLibraryLoadPromise = null;
+      });
+
+      return stripeLibraryLoadPromise;
+    }
 
     function buildRequestId(scope) {
       const prefix = (scope || "checkout")
@@ -177,7 +237,9 @@
       }
 
       if (!stripeAvailable) {
-        button.prop("disabled", true).text("Stripe Unavailable");
+        button
+          .prop("disabled", true)
+          .text(stripeConfigured ? "Loading Stripe..." : "Stripe Unavailable");
         return;
       }
 
@@ -296,11 +358,29 @@
 
       if (!stripeAvailable) {
         setStripeFeedback(
-          "Stripe checkout is currently unavailable. Please use Cash on Delivery.",
-          "danger",
+          stripeConfigured
+            ? "Stripe is loading securely. Please wait a moment."
+            : "Stripe checkout is currently unavailable. Please use Cash on Delivery.",
+          stripeConfigured ? "warning" : "danger",
         );
-        setStripePaymentStatus("Stripe Unavailable", "danger");
+        setStripePaymentStatus(
+          stripeConfigured ? "Loading Stripe" : "Stripe Unavailable",
+          stripeConfigured ? "warning" : "danger",
+        );
         refreshStripeActionButton();
+
+        if (stripeConfigured) {
+          loadStripeLibraryIfNeeded().then(function (loaded) {
+            if (!loaded || currentPaymentMethod() !== "stripe") {
+              return;
+            }
+
+            setStripeFeedback("", "");
+            setStripePaymentStatus("Payment Pending", "secondary");
+            updateStripeVisibility();
+          });
+        }
+
         return;
       }
 
@@ -356,7 +436,7 @@
     function setPaymentMethod(methodKey, labelText) {
       const requested = (methodKey || "cod").toString().toLowerCase();
       const normalized =
-        requested === "stripe" && stripeAvailable ? "stripe" : "cod";
+        requested === "stripe" && stripeConfigured ? "stripe" : "cod";
 
       if (normalized !== "stripe") {
         resetStripePaymentState("");
@@ -374,6 +454,14 @@
         `#paymentMethodMenu .checkout-payment-option[data-value="${normalized}"]`,
       ).addClass("active");
       updatePaymentMethodPreview();
+
+      if (normalized === "stripe" && !stripeAvailable) {
+        loadStripeLibraryIfNeeded().then(function () {
+          if (currentPaymentMethod() === "stripe") {
+            updateStripeVisibility();
+          }
+        });
+      }
     }
 
     function collectStripeBillingDetails() {
@@ -478,10 +566,17 @@
       }
 
       if (!stripeAvailable) {
-        setStripeFeedback(
-          "Stripe checkout is unavailable. Please use Cash on Delivery.",
-          "danger",
-        );
+        const loaded = await loadStripeLibraryIfNeeded();
+        if (!loaded) {
+          setStripeFeedback(
+            "Stripe checkout is unavailable. Please refresh or use Cash on Delivery.",
+            "danger",
+          );
+          return;
+        }
+      }
+
+      if (!stripeAvailable) {
         return;
       }
 
@@ -757,7 +852,10 @@
       updateStripeVisibility();
       setStripeFeedback("", "");
       if (!stripeAvailable && stripeEnabled) {
-        setStripePaymentStatus("Stripe Unavailable", "danger");
+        setStripePaymentStatus(
+          stripeConfigured ? "Loading Stripe" : "Stripe Unavailable",
+          stripeConfigured ? "warning" : "danger",
+        );
       }
     });
 
@@ -859,10 +957,23 @@
     });
 
     if (!stripeAvailable && stripeEnabled) {
-      setStripeFeedback(
-        "Stripe script could not be loaded. Please refresh or use Cash on Delivery.",
-        "danger",
-      );
+      if (stripeConfigured) {
+        loadStripeLibraryIfNeeded().then(function (loaded) {
+          if (!loaded) {
+            setStripeFeedback(
+              "Stripe script could not be loaded. Please refresh or use Cash on Delivery.",
+              "danger",
+            );
+          } else if (currentPaymentMethod() === "stripe") {
+            updateStripeVisibility();
+          }
+        });
+      } else {
+        setStripeFeedback(
+          "Stripe keys are not configured. Please use Cash on Delivery.",
+          "danger",
+        );
+      }
     }
 
     updatePaymentMethodPreview();

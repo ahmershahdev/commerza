@@ -368,16 +368,21 @@ const ADMIN_PAGES = [
   { id: "about.php", label: "About" },
   { id: "contact.php", label: "Contact" },
   { id: "faq.php", label: "FAQ" },
+  { id: "terms-of-service.php", label: "Terms of Service" },
+  { id: "privacy-policy.php", label: "Privacy Policy" },
   { id: "returns.php", label: "Returns" },
   { id: "shipping.php", label: "Shipping" },
   { id: "warranty.php", label: "Warranty" },
   { id: "login.php", label: "Login" },
   { id: "signup.php", label: "Signup" },
+  { id: "forgot-password.php", label: "Forgot Password" },
+  { id: "reset-password.php", label: "Reset Password" },
   { id: "cart.php", label: "Cart" },
   { id: "wishlist.php", label: "Wishlist" },
   { id: "order-tracking.php", label: "Order Tracking" },
   { id: "compare.php", label: "Compare" },
   { id: "account.php", label: "Account" },
+  { id: "invoice.php", label: "Invoice" },
 ];
 // Notification timing rules keep the bell focused on recent actions.
 const NOTIFICATION_RULES = {
@@ -456,10 +461,10 @@ const ADMIN_TAB_PLAYBOOKS = {
       "Use quick-add and moderation controls without guessing IDs or flow.",
     steps: [
       "Use Quick Add Review to submit manual reviews in one form.",
-      "Use Quick Fake x1 for one seed review, or Bulk for larger test sets.",
+      "Use Quick Fake x1 for one seed review, or Bulk for controlled test sets.",
       "Moderate with Hide/Show or Lock/Unlock, then refresh to verify updates.",
     ],
-    tip: "Prefer Hide + Lock for suspicious content so audit history stays visible.",
+    tip: "Safe fake-review range is 5-30 per run; avoid high-volume bursts on live data.",
   },
   analyticsSection: {
     title: "Analytics Reading Guide",

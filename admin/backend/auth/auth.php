@@ -324,7 +324,29 @@ function admin_client_ip_matches(string $expectedIp, string $currentIp): bool
 
 function admin_get_reset_key(mysqli $con): string
 {
-    $legacyDefaultKey = 'COMMERZA-RESET-2026';
+    $isValidConfiguredKey = static function (string $value): bool {
+        $normalized = trim($value);
+        if ($normalized === '') {
+            return false;
+        }
+
+        $legacyDefaults = [
+            'COMMERZA-RESET-2026',
+            'CHANGE-ME',
+            'CHANGEME',
+            'DEFAULT',
+            'RESET-KEY',
+        ];
+
+        foreach ($legacyDefaults as $legacy) {
+            if (hash_equals($legacy, $normalized)) {
+                return false;
+            }
+        }
+
+        return strlen($normalized) >= 16;
+    };
+
     $envKey = trim((string)getenv('COMMERZA_ADMIN_RESET_KEY'));
 
     $stmt = $con->prepare(
@@ -335,7 +357,7 @@ function admin_get_reset_key(mysqli $con): string
     );
 
     if (!$stmt) {
-        return $envKey !== '' ? $envKey : $legacyDefaultKey;
+        return $isValidConfiguredKey($envKey) ? $envKey : '';
     }
 
     $keyName = 'admin_reset_key';
@@ -347,15 +369,15 @@ function admin_get_reset_key(mysqli $con): string
 
     $value = trim((string)($row['setting_val'] ?? ''));
 
-    if ($envKey !== '' && ($value === '' || hash_equals($legacyDefaultKey, $value))) {
+    if ($isValidConfiguredKey($envKey)) {
         return $envKey;
     }
 
-    if ($value !== '') {
+    if ($isValidConfiguredKey($value)) {
         return $value;
     }
 
-    return $envKey !== '' ? $envKey : $legacyDefaultKey;
+    return '';
 }
 
 function admin_get_by_email(mysqli $con, string $email): ?array

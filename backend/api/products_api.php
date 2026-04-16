@@ -133,6 +133,17 @@ function commerza_products_table_has_column(mysqli $con, string $table, string $
     return $result instanceof mysqli_result && $result->num_rows > 0;
 }
 
+function commerza_products_select_query(mysqli $con, string $sql): ?mysqli_result
+{
+    try {
+        $result = $con->query($sql);
+    } catch (Throwable $error) {
+        return null;
+    }
+
+    return $result instanceof mysqli_result ? $result : null;
+}
+
 $action = strtolower(trim((string)($_GET['action'] ?? 'sections')));
 if ($action === '') {
     $action = 'sections';
@@ -220,7 +231,8 @@ commerza_products_rate_limit_guard($con, 'products_sections', 'sections_payload'
 
 $sections = [];
 
-$sectionResult = $con->query(
+$sectionResult = commerza_products_select_query(
+    $con,
     'SELECT sectionId, sectionName, category, subcategory, page
      FROM sections
      ORDER BY id ASC'
@@ -246,6 +258,16 @@ if ($hasReviewsTable && commerza_products_table_has_column($con, 'product_review
     $reviewVisibilityClause = 'is_visible = 1';
 }
 
+$hasFakeReviewsTable = commerza_products_has_table($con, 'product_fake_reviews');
+$hasFakeReviewRatingsTable = $hasFakeReviewsTable
+    && commerza_products_table_has_column($con, 'product_fake_reviews', 'product_id')
+    && commerza_products_table_has_column($con, 'product_fake_reviews', 'rating');
+
+$fakeReviewVisibilityClause = '1 = 1';
+if ($hasFakeReviewRatingsTable && commerza_products_table_has_column($con, 'product_fake_reviews', 'is_visible')) {
+    $fakeReviewVisibilityClause = 'is_visible = 1';
+}
+
 $productSql =
     'SELECT
         p.id,
@@ -261,7 +283,24 @@ $productSql =
         p.warranty_info,
         p.dispatch_info';
 
-if ($hasReviewsTable) {
+if ($hasReviewsTable || $hasFakeReviewRatingsTable) {
+    $reviewUnionParts = [];
+    if ($hasReviewsTable) {
+        $reviewUnionParts[] =
+            'SELECT product_id, rating
+             FROM product_reviews
+             WHERE ' . $reviewVisibilityClause;
+    }
+
+    if ($hasFakeReviewRatingsTable) {
+        $reviewUnionParts[] =
+            'SELECT product_id, rating
+             FROM product_fake_reviews
+             WHERE ' . $fakeReviewVisibilityClause;
+    }
+
+    $reviewUnionSql = implode(' UNION ALL ', $reviewUnionParts);
+
     $productSql .=
         ',
         COALESCE(rv.review_count, 0) AS rating_count,
@@ -269,8 +308,9 @@ if ($hasReviewsTable) {
      FROM products p
      LEFT JOIN (
         SELECT product_id, COUNT(*) AS review_count, AVG(rating) AS average_rating
-        FROM product_reviews
-        WHERE ' . $reviewVisibilityClause . '
+        FROM (
+            ' . $reviewUnionSql . '
+        ) review_union
         GROUP BY product_id
      ) rv ON rv.product_id = p.id';
 } else {
@@ -284,7 +324,7 @@ if ($hasReviewsTable) {
 $productSql .= ' WHERE 1 = 1' . $productsActiveClause('p');
 $productSql .= ' ORDER BY p.id ASC';
 
-$productResult = $con->query($productSql);
+$productResult = commerza_products_select_query($con, $productSql);
 
 if ($productResult) {
     while ($row = $productResult->fetch_assoc()) {

@@ -89,6 +89,48 @@ function admin_reviews_column_exists(mysqli $con, string $table, string $column)
     return $result instanceof mysqli_result && $result->num_rows > 0;
 }
 
+function admin_reviews_table_exists(mysqli $con, string $table): bool
+{
+    $tableEscaped = $con->real_escape_string($table);
+    $result = $con->query("SHOW TABLES LIKE '{$tableEscaped}'");
+
+    return $result instanceof mysqli_result && $result->num_rows > 0;
+}
+
+function admin_reviews_index_exists(mysqli $con, string $table, string $indexName): bool
+{
+    $tableEscaped = $con->real_escape_string($table);
+    $indexEscaped = $con->real_escape_string($indexName);
+    $result = $con->query("SHOW INDEX FROM {$tableEscaped} WHERE Key_name = '{$indexEscaped}'");
+
+    return $result instanceof mysqli_result && $result->num_rows > 0;
+}
+
+function admin_reviews_foreign_key_exists(mysqli $con, string $table, string $constraintName): bool
+{
+    $stmt = $con->prepare(
+        'SELECT 1
+         FROM information_schema.TABLE_CONSTRAINTS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = ?
+           AND CONSTRAINT_NAME = ?
+           AND CONSTRAINT_TYPE = "FOREIGN KEY"
+         LIMIT 1'
+    );
+
+    if (!$stmt) {
+        return false;
+    }
+
+    $stmt->bind_param('ss', $table, $constraintName);
+    $stmt->execute();
+    $stmt->store_result();
+    $exists = $stmt->num_rows > 0;
+    $stmt->close();
+
+    return $exists;
+}
+
 function admin_reviews_ensure_table(mysqli $con): void
 {
     static $initialized = false;
@@ -182,28 +224,143 @@ function admin_reviews_ensure_fake_table(mysqli $con): void
     $con->query(
         'CREATE TABLE IF NOT EXISTS product_fake_reviews (
             id INT NOT NULL AUTO_INCREMENT,
-            review_id INT NOT NULL,
+            review_id INT DEFAULT NULL,
             product_id INT NOT NULL,
-            fake_user_id INT NOT NULL,
+            fake_user_id INT DEFAULT NULL,
+            rating TINYINT NOT NULL DEFAULT 5,
+            review_text VARCHAR(500) NOT NULL,
+            reviewer_name VARCHAR(120) NOT NULL DEFAULT "Customer",
+            reviewer_handle VARCHAR(80) DEFAULT NULL,
+            reviewer_visibility ENUM("public", "private") NOT NULL DEFAULT "public",
+            is_visible TINYINT(1) NOT NULL DEFAULT 1,
+            is_locked TINYINT(1) NOT NULL DEFAULT 0,
+            locked_at DATETIME DEFAULT NULL,
+            locked_by_admin_id INT DEFAULT NULL,
+            admin_note VARCHAR(500) DEFAULT NULL,
             generated_by_admin_id INT DEFAULT NULL,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
-            UNIQUE KEY uq_fake_review_review (review_id),
+            KEY idx_fake_reviews_product_visibility (product_id, is_visible),
+            KEY idx_fake_reviews_visibility_updated (is_visible, updated_at),
+            KEY idx_fake_reviews_locked_updated (is_locked, updated_at),
             KEY idx_fake_reviews_product_created (product_id, created_at),
             KEY idx_fake_reviews_admin_created (generated_by_admin_id, created_at),
-            CONSTRAINT fk_fake_reviews_review FOREIGN KEY (review_id)
-                REFERENCES product_reviews (id)
-                ON DELETE CASCADE,
             CONSTRAINT fk_fake_reviews_product FOREIGN KEY (product_id)
                 REFERENCES products (id)
-                ON DELETE CASCADE,
-            CONSTRAINT fk_fake_reviews_user FOREIGN KEY (fake_user_id)
-                REFERENCES users (id)
                 ON DELETE CASCADE,
             CONSTRAINT fk_fake_reviews_admin FOREIGN KEY (generated_by_admin_id)
                 REFERENCES admin_users (id)
                 ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci'
+    );
+
+    if (!admin_reviews_table_exists($con, 'product_fake_reviews')) {
+        return;
+    }
+
+    $legacyForeignKeys = [
+        'fk_fake_reviews_review',
+        'fk_fake_reviews_user',
+        'fk_pfr_review',
+        'fk_pfr_user',
+    ];
+
+    foreach ($legacyForeignKeys as $constraintName) {
+        if (!admin_reviews_foreign_key_exists($con, 'product_fake_reviews', $constraintName)) {
+            continue;
+        }
+
+        $con->query('ALTER TABLE product_fake_reviews DROP FOREIGN KEY ' . $constraintName);
+    }
+
+    $missingColumns = [
+        'rating' => 'ALTER TABLE product_fake_reviews ADD COLUMN rating TINYINT NOT NULL DEFAULT 5 AFTER fake_user_id',
+        'review_text' => 'ALTER TABLE product_fake_reviews ADD COLUMN review_text VARCHAR(500) NOT NULL DEFAULT "" AFTER rating',
+        'reviewer_name' => 'ALTER TABLE product_fake_reviews ADD COLUMN reviewer_name VARCHAR(120) NOT NULL DEFAULT "Customer" AFTER review_text',
+        'reviewer_handle' => 'ALTER TABLE product_fake_reviews ADD COLUMN reviewer_handle VARCHAR(80) DEFAULT NULL AFTER reviewer_name',
+        'reviewer_visibility' => 'ALTER TABLE product_fake_reviews ADD COLUMN reviewer_visibility ENUM("public", "private") NOT NULL DEFAULT "public" AFTER reviewer_handle',
+        'is_visible' => 'ALTER TABLE product_fake_reviews ADD COLUMN is_visible TINYINT(1) NOT NULL DEFAULT 1 AFTER reviewer_visibility',
+        'is_locked' => 'ALTER TABLE product_fake_reviews ADD COLUMN is_locked TINYINT(1) NOT NULL DEFAULT 0 AFTER is_visible',
+        'locked_at' => 'ALTER TABLE product_fake_reviews ADD COLUMN locked_at DATETIME DEFAULT NULL AFTER is_locked',
+        'locked_by_admin_id' => 'ALTER TABLE product_fake_reviews ADD COLUMN locked_by_admin_id INT DEFAULT NULL AFTER locked_at',
+        'admin_note' => 'ALTER TABLE product_fake_reviews ADD COLUMN admin_note VARCHAR(500) DEFAULT NULL AFTER locked_by_admin_id',
+        'updated_at' => 'ALTER TABLE product_fake_reviews ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at',
+    ];
+
+    foreach ($missingColumns as $column => $sql) {
+        if (admin_reviews_column_exists($con, 'product_fake_reviews', $column)) {
+            continue;
+        }
+
+        $con->query($sql);
+    }
+
+    if (admin_reviews_column_exists($con, 'product_fake_reviews', 'review_id')) {
+        $con->query('ALTER TABLE product_fake_reviews MODIFY COLUMN review_id INT DEFAULT NULL');
+    }
+
+    if (admin_reviews_column_exists($con, 'product_fake_reviews', 'fake_user_id')) {
+        $con->query('ALTER TABLE product_fake_reviews MODIFY COLUMN fake_user_id INT DEFAULT NULL');
+    }
+
+    if (!admin_reviews_index_exists($con, 'product_fake_reviews', 'idx_fake_reviews_product_visibility')) {
+        $con->query('ALTER TABLE product_fake_reviews ADD KEY idx_fake_reviews_product_visibility (product_id, is_visible)');
+    }
+
+    if (!admin_reviews_index_exists($con, 'product_fake_reviews', 'idx_fake_reviews_visibility_updated')) {
+        $con->query('ALTER TABLE product_fake_reviews ADD KEY idx_fake_reviews_visibility_updated (is_visible, updated_at)');
+    }
+
+    if (!admin_reviews_index_exists($con, 'product_fake_reviews', 'idx_fake_reviews_locked_updated')) {
+        $con->query('ALTER TABLE product_fake_reviews ADD KEY idx_fake_reviews_locked_updated (is_locked, updated_at)');
+    }
+
+    if (!admin_reviews_index_exists($con, 'product_fake_reviews', 'idx_fake_reviews_product_created')) {
+        $con->query('ALTER TABLE product_fake_reviews ADD KEY idx_fake_reviews_product_created (product_id, created_at)');
+    }
+
+    if (!admin_reviews_index_exists($con, 'product_fake_reviews', 'idx_fake_reviews_admin_created')) {
+        $con->query('ALTER TABLE product_fake_reviews ADD KEY idx_fake_reviews_admin_created (generated_by_admin_id, created_at)');
+    }
+
+    $hasUserVisibility = admin_reviews_column_exists($con, 'users', 'profile_visibility');
+    $visibilityFallbackSql = $hasUserVisibility
+        ? 'CASE WHEN LOWER(TRIM(COALESCE(u.profile_visibility, "public"))) = "private" THEN "private" ELSE "public" END'
+        : '"public"';
+
+    $con->query(
+        'UPDATE product_fake_reviews f
+         LEFT JOIN product_reviews r ON r.id = f.review_id
+         LEFT JOIN users u ON u.id = f.fake_user_id
+         SET
+            f.rating = CASE WHEN f.rating BETWEEN 1 AND 5 THEN f.rating ELSE COALESCE(r.rating, 5) END,
+            f.review_text = CASE
+                WHEN CHAR_LENGTH(TRIM(COALESCE(f.review_text, ""))) > 0 THEN f.review_text
+                ELSE COALESCE(r.review_text, "Great quality and value for daily use.")
+            END,
+            f.reviewer_name = CASE
+                WHEN CHAR_LENGTH(TRIM(COALESCE(f.reviewer_name, ""))) > 0 THEN f.reviewer_name
+                ELSE COALESCE(NULLIF(TRIM(COALESCE(u.full_name, "")), ""), "Customer")
+            END,
+            f.reviewer_handle = CASE
+                WHEN CHAR_LENGTH(TRIM(COALESCE(f.reviewer_handle, ""))) > 0 THEN f.reviewer_handle
+                ELSE NULLIF(TRIM(COALESCE(u.username, "")), "")
+            END,
+            f.reviewer_visibility = CASE
+                WHEN LOWER(TRIM(COALESCE(f.reviewer_visibility, ""))) IN ("public", "private")
+                    THEN LOWER(TRIM(f.reviewer_visibility))
+                ELSE ' . $visibilityFallbackSql . '
+            END,
+            f.is_visible = CASE WHEN f.is_visible IN (0, 1) THEN f.is_visible ELSE COALESCE(r.is_visible, 1) END,
+            f.is_locked = CASE WHEN f.is_locked IN (0, 1) THEN f.is_locked ELSE COALESCE(r.is_locked, 0) END,
+            f.locked_at = COALESCE(f.locked_at, r.locked_at),
+            f.locked_by_admin_id = COALESCE(f.locked_by_admin_id, r.locked_by_admin_id),
+            f.admin_note = CASE
+                WHEN CHAR_LENGTH(TRIM(COALESCE(f.admin_note, ""))) > 0 THEN f.admin_note
+                ELSE COALESCE(r.admin_note, "Admin generated fake review")
+            END,
+            f.generated_by_admin_id = COALESCE(f.generated_by_admin_id, r.locked_by_admin_id)'
     );
 
     $initialized = true;
@@ -266,8 +423,18 @@ function admin_reviews_delete_files(array $paths): void
 function admin_reviews_fetch_all(mysqli $con, string $visibility = 'all'): array
 {
     $rows = [];
+    $whereReal = '';
+    $whereFake = '';
 
-    $baseSelect =
+    if ($visibility === 'visible') {
+        $whereReal = ' WHERE r.is_visible = 1';
+        $whereFake = ' WHERE f.is_visible = 1';
+    } elseif ($visibility === 'hidden') {
+        $whereReal = ' WHERE r.is_visible = 0';
+        $whereFake = ' WHERE f.is_visible = 0';
+    }
+
+    $realSql =
         'SELECT
             r.id,
             r.user_id,
@@ -288,24 +455,14 @@ function admin_reviews_fetch_all(mysqli $con, string $visibility = 'all'): array
             p.name AS product_name,
             o.order_number
          FROM product_reviews r
-         INNER JOIN users u ON u.id = r.user_id
+         LEFT JOIN users u ON u.id = r.user_id
          INNER JOIN products p ON p.id = r.product_id
-         LEFT JOIN orders o ON o.id = r.order_id';
+         LEFT JOIN orders o ON o.id = r.order_id'
+        . $whereReal
+        . ' ORDER BY r.updated_at DESC, r.id DESC LIMIT 500';
 
-    if ($visibility === 'visible') {
-        $sql = $baseSelect . ' WHERE r.is_visible = 1 ORDER BY r.updated_at DESC, r.id DESC LIMIT 500';
-    } elseif ($visibility === 'hidden') {
-        $sql = $baseSelect . ' WHERE r.is_visible = 0 ORDER BY r.updated_at DESC, r.id DESC LIMIT 500';
-    } else {
-        $sql = $baseSelect . ' ORDER BY r.updated_at DESC, r.id DESC LIMIT 500';
-    }
-
-    $result = $con->query($sql);
-    if (!$result) {
-        return $rows;
-    }
-
-    while ($row = $result->fetch_assoc()) {
+    $realResult = $con->query($realSql);
+    while ($realResult && ($row = $realResult->fetch_assoc())) {
         $rows[] = [
             'id' => (int)($row['id'] ?? 0),
             'userId' => (int)($row['user_id'] ?? 0),
@@ -325,8 +482,82 @@ function admin_reviews_fetch_all(mysqli $con, string $visibility = 'all'): array
             'adminNote' => (string)($row['admin_note'] ?? ''),
             'createdAt' => (string)($row['created_at'] ?? ''),
             'updatedAt' => (string)($row['updated_at'] ?? ''),
+            'isFake' => false,
             'images' => admin_reviews_review_images($con, (int)($row['id'] ?? 0)),
         ];
+    }
+
+    if (admin_reviews_table_exists($con, 'product_fake_reviews')) {
+        $fakeSql =
+            'SELECT
+                f.id,
+                f.product_id,
+                f.rating,
+                f.review_text,
+                f.reviewer_name,
+                f.reviewer_handle,
+                f.reviewer_visibility,
+                f.is_visible,
+                f.is_locked,
+                f.locked_at,
+                f.locked_by_admin_id,
+                f.admin_note,
+                f.created_at,
+                f.updated_at,
+                p.name AS product_name
+             FROM product_fake_reviews f
+             INNER JOIN products p ON p.id = f.product_id'
+            . $whereFake
+            . ' ORDER BY f.updated_at DESC, f.id DESC LIMIT 500';
+
+        $fakeResult = $con->query($fakeSql);
+        while ($fakeResult && ($row = $fakeResult->fetch_assoc())) {
+            $reviewerName = trim((string)($row['reviewer_name'] ?? ''));
+            $reviewerHandle = trim((string)($row['reviewer_handle'] ?? ''));
+            $displayName = $reviewerName !== '' ? $reviewerName : 'Customer';
+
+            if ($reviewerHandle !== '' && strtolower(trim((string)($row['reviewer_visibility'] ?? 'public'))) === 'public') {
+                $displayName = $reviewerHandle;
+            }
+
+            $rows[] = [
+                'id' => -1 * max(1, (int)($row['id'] ?? 0)),
+                'userId' => 0,
+                'productId' => (int)($row['product_id'] ?? 0),
+                'orderId' => 0,
+                'orderNumber' => '',
+                'userName' => $displayName,
+                'userEmail' => '',
+                'productName' => (string)($row['product_name'] ?? 'Product'),
+                'rating' => max(1, min(5, (int)($row['rating'] ?? 0))),
+                'reviewText' => (string)($row['review_text'] ?? ''),
+                'isVerifiedPurchase' => false,
+                'isVisible' => (int)($row['is_visible'] ?? 0) === 1,
+                'isLocked' => (int)($row['is_locked'] ?? 0) === 1,
+                'lockedAt' => (string)($row['locked_at'] ?? ''),
+                'lockedByAdminId' => (int)($row['locked_by_admin_id'] ?? 0),
+                'adminNote' => (string)($row['admin_note'] ?? ''),
+                'createdAt' => (string)($row['created_at'] ?? ''),
+                'updatedAt' => (string)($row['updated_at'] ?? ''),
+                'isFake' => true,
+                'images' => [],
+            ];
+        }
+    }
+
+    usort($rows, static function (array $a, array $b): int {
+        $aTs = strtotime((string)($a['updatedAt'] ?? '')) ?: 0;
+        $bTs = strtotime((string)($b['updatedAt'] ?? '')) ?: 0;
+
+        if ($aTs === $bTs) {
+            return abs((int)($b['id'] ?? 0)) <=> abs((int)($a['id'] ?? 0));
+        }
+
+        return $bTs <=> $aTs;
+    });
+
+    if (count($rows) > 500) {
+        $rows = array_slice($rows, 0, 500);
     }
 
     return $rows;
@@ -334,15 +565,27 @@ function admin_reviews_fetch_all(mysqli $con, string $visibility = 'all'): array
 
 function admin_reviews_stats(mysqli $con): array
 {
-    $result = $con->query(
-        'SELECT
-            COUNT(*) AS total_reviews,
-            COALESCE(SUM(CASE WHEN is_visible = 1 THEN 1 ELSE 0 END), 0) AS visible_reviews,
-            COALESCE(SUM(CASE WHEN is_visible = 0 THEN 1 ELSE 0 END), 0) AS hidden_reviews,
-            COALESCE(SUM(CASE WHEN is_locked = 1 THEN 1 ELSE 0 END), 0) AS locked_reviews,
-            COALESCE(AVG(rating), 0) AS average_rating
-         FROM product_reviews'
-    );
+    $statsSql = admin_reviews_table_exists($con, 'product_fake_reviews')
+        ? 'SELECT
+                     COUNT(*) AS total_reviews,
+                     COALESCE(SUM(CASE WHEN is_visible = 1 THEN 1 ELSE 0 END), 0) AS visible_reviews,
+                     COALESCE(SUM(CASE WHEN is_visible = 0 THEN 1 ELSE 0 END), 0) AS hidden_reviews,
+                     COALESCE(SUM(CASE WHEN is_locked = 1 THEN 1 ELSE 0 END), 0) AS locked_reviews,
+                     COALESCE(AVG(rating), 0) AS average_rating
+                 FROM (
+                     SELECT rating, is_visible, is_locked FROM product_reviews
+                     UNION ALL
+                     SELECT rating, is_visible, is_locked FROM product_fake_reviews
+                 ) review_union'
+        : 'SELECT
+                     COUNT(*) AS total_reviews,
+                     COALESCE(SUM(CASE WHEN is_visible = 1 THEN 1 ELSE 0 END), 0) AS visible_reviews,
+                     COALESCE(SUM(CASE WHEN is_visible = 0 THEN 1 ELSE 0 END), 0) AS hidden_reviews,
+                     COALESCE(SUM(CASE WHEN is_locked = 1 THEN 1 ELSE 0 END), 0) AS locked_reviews,
+                     COALESCE(AVG(rating), 0) AS average_rating
+                 FROM product_reviews';
+
+    $result = $con->query($statsSql);
 
     $row = $result ? $result->fetch_assoc() : null;
 
@@ -357,8 +600,24 @@ function admin_reviews_stats(mysqli $con): array
 
 function admin_reviews_exists(mysqli $con, int $reviewId): bool
 {
-    if ($reviewId <= 0) {
+    if ($reviewId === 0) {
         return false;
+    }
+
+    if ($reviewId < 0) {
+        $fakeId = abs($reviewId);
+        $stmt = $con->prepare('SELECT id FROM product_fake_reviews WHERE id = ? LIMIT 1');
+        if (!$stmt) {
+            return false;
+        }
+
+        $stmt->bind_param('i', $fakeId);
+        $stmt->execute();
+        $stmt->store_result();
+        $exists = $stmt->num_rows > 0;
+        $stmt->close();
+
+        return $exists;
     }
 
     $stmt = $con->prepare('SELECT id FROM product_reviews WHERE id = ? LIMIT 1');
@@ -421,58 +680,23 @@ function admin_reviews_fake_profile(): array
     ];
 }
 
-function admin_reviews_create_fake_user(mysqli $con): ?array
+function admin_reviews_fake_identity(): array
 {
-    $stmt = $con->prepare(
-        'INSERT INTO users (full_name, username, username_slug, email, phone, password_hash, address, profile_visibility)
-         VALUES (?, ?, ?, ?, ?, ?, NULL, "public")'
-    );
-
-    if (!$stmt) {
-        return null;
+    $profile = admin_reviews_fake_profile();
+    $base = trim((string)($profile['username_base'] ?? 'reviewer'));
+    if ($base === '') {
+        $base = 'reviewer';
     }
 
-    for ($attempt = 0; $attempt < 12; $attempt++) {
-        $profile = admin_reviews_fake_profile();
-        $base = trim((string)($profile['username_base'] ?? 'reviewer'));
-        if ($base === '') {
-            $base = 'reviewer';
-        }
+    $suffix = (string)random_int(10, 9999);
+    $handle = substr($base . $suffix, 0, 28);
+    $visibility = random_int(1, 100) <= 82 ? 'public' : 'private';
 
-        $suffix = (string)random_int(1000, 999999);
-        $username = substr($base . $suffix, 0, 24);
-        $email = $username . '+' . random_int(100, 999) . '@fake-review.local';
-        $phone = '03' . str_pad((string)random_int(0, 999999999), 9, '0', STR_PAD_LEFT);
-        try {
-            $secretPart = bin2hex(random_bytes(4));
-        } catch (Throwable $exception) {
-            $secretPart = substr(hash('sha256', microtime(true) . '|' . mt_rand()), 0, 8);
-        }
-
-        $passwordHash = commerza_password_hash('Fake@' . $secretPart);
-        $fullName = (string)($profile['full_name'] ?? 'Customer');
-
-        $stmt->bind_param('ssssss', $fullName, $username, $username, $email, $phone, $passwordHash);
-        if ($stmt->execute()) {
-            $createdId = (int)$stmt->insert_id;
-            $stmt->close();
-
-            return [
-                'id' => $createdId,
-                'full_name' => $fullName,
-                'username' => $username,
-                'email' => $email,
-            ];
-        }
-
-        if ((int)$stmt->errno !== 1062) {
-            $stmt->close();
-            return null;
-        }
-    }
-
-    $stmt->close();
-    return null;
+    return [
+        'reviewer_name' => (string)($profile['full_name'] ?? 'Customer'),
+        'reviewer_handle' => $handle,
+        'reviewer_visibility' => $visibility,
+    ];
 }
 
 function admin_reviews_random_review_text(string $productName, int $rating): string
@@ -588,20 +812,18 @@ $body = admin_reviews_request_body();
 if ($action === 'set-visibility') {
     $reviewId = (int)($body['id'] ?? 0);
     $isVisible = (int)($body['is_visible'] ?? 0) === 1 ? 1 : 0;
+    $isFake = $reviewId < 0;
+    $targetId = abs($reviewId);
 
-    if ($reviewId <= 0) {
+    if ($targetId <= 0) {
         admin_reviews_json([
             'ok' => false,
             'message' => 'Invalid review id.',
         ], 422);
     }
 
-    $stmt = $con->prepare(
-        'UPDATE product_reviews
-         SET is_visible = ?, updated_at = NOW()
-         WHERE id = ?
-         LIMIT 1'
-    );
+    $table = $isFake ? 'product_fake_reviews' : 'product_reviews';
+    $stmt = $con->prepare('UPDATE ' . $table . ' SET is_visible = ?, updated_at = NOW() WHERE id = ? LIMIT 1');
 
     if (!$stmt) {
         admin_reviews_json([
@@ -610,7 +832,7 @@ if ($action === 'set-visibility') {
         ], 500);
     }
 
-    $stmt->bind_param('ii', $isVisible, $reviewId);
+    $stmt->bind_param('ii', $isVisible, $targetId);
     $ok = $stmt->execute();
     $affected = $stmt->affected_rows;
     $stmt->close();
@@ -643,6 +865,7 @@ if ($action === 'set-visibility') {
     admin_api_log_security_event($con, $admin, 'review.visibility_changed', 'info', [
         'review_id' => $reviewId,
         'is_visible' => $isVisible,
+        'source' => $isFake ? 'fake' : 'real',
     ]);
 
     admin_reviews_json([
@@ -659,16 +882,19 @@ if ($action === 'set-lock') {
     $reviewId = (int)($body['id'] ?? 0);
     $isLocked = (int)($body['is_locked'] ?? 0) === 1 ? 1 : 0;
     $adminId = (int)($admin['id'] ?? 0);
+    $isFake = $reviewId < 0;
+    $targetId = abs($reviewId);
 
-    if ($reviewId <= 0) {
+    if ($targetId <= 0) {
         admin_reviews_json([
             'ok' => false,
             'message' => 'Invalid review id.',
         ], 422);
     }
 
+    $table = $isFake ? 'product_fake_reviews' : 'product_reviews';
     $stmt = $con->prepare(
-        'UPDATE product_reviews
+        'UPDATE ' . $table . '
          SET is_locked = ?,
              locked_at = CASE WHEN ? = 1 THEN NOW() ELSE NULL END,
              locked_by_admin_id = CASE WHEN ? = 1 THEN ? ELSE NULL END,
@@ -684,7 +910,7 @@ if ($action === 'set-lock') {
         ], 500);
     }
 
-    $stmt->bind_param('iiiii', $isLocked, $isLocked, $isLocked, $adminId, $reviewId);
+    $stmt->bind_param('iiiii', $isLocked, $isLocked, $isLocked, $adminId, $targetId);
     $ok = $stmt->execute();
     $affected = $stmt->affected_rows;
     $stmt->close();
@@ -718,6 +944,7 @@ if ($action === 'set-lock') {
         'review_id' => $reviewId,
         'is_locked' => $isLocked,
         'admin_id' => $adminId,
+        'source' => $isFake ? 'fake' : 'real',
     ]);
 
     admin_reviews_json([
@@ -735,8 +962,10 @@ if ($action === 'update-review') {
     $rating = (int)($body['rating'] ?? 0);
     $reviewText = trim((string)($body['review_text'] ?? ''));
     $adminNote = trim((string)($body['admin_note'] ?? ''));
+    $isFake = $reviewId < 0;
+    $targetId = abs($reviewId);
 
-    if ($reviewId <= 0) {
+    if ($targetId <= 0) {
         admin_reviews_json([
             'ok' => false,
             'message' => 'Invalid review id.',
@@ -764,7 +993,8 @@ if ($action === 'update-review') {
         ], 422);
     }
 
-    $lockStmt = $con->prepare('SELECT is_locked FROM product_reviews WHERE id = ? LIMIT 1');
+    $table = $isFake ? 'product_fake_reviews' : 'product_reviews';
+    $lockStmt = $con->prepare('SELECT is_locked FROM ' . $table . ' WHERE id = ? LIMIT 1');
     if (!$lockStmt) {
         admin_reviews_json([
             'ok' => false,
@@ -772,7 +1002,7 @@ if ($action === 'update-review') {
         ], 500);
     }
 
-    $lockStmt->bind_param('i', $reviewId);
+    $lockStmt->bind_param('i', $targetId);
     $lockStmt->execute();
     $lockRow = $lockStmt->get_result()?->fetch_assoc();
     $lockStmt->close();
@@ -792,7 +1022,7 @@ if ($action === 'update-review') {
     }
 
     $stmt = $con->prepare(
-        'UPDATE product_reviews
+        'UPDATE ' . $table . '
          SET rating = ?, review_text = ?, admin_note = ?, updated_at = NOW()
          WHERE id = ?
          LIMIT 1'
@@ -805,7 +1035,7 @@ if ($action === 'update-review') {
         ], 500);
     }
 
-    $stmt->bind_param('issi', $rating, $reviewText, $adminNote, $reviewId);
+    $stmt->bind_param('issi', $rating, $reviewText, $adminNote, $targetId);
     $ok = $stmt->execute();
     $affected = $stmt->affected_rows;
     $stmt->close();
@@ -839,6 +1069,7 @@ if ($action === 'update-review') {
         'review_id' => $reviewId,
         'rating' => $rating,
         'admin_note_length' => strlen($adminNote),
+        'source' => $isFake ? 'fake' : 'real',
     ]);
 
     admin_reviews_json([
@@ -853,7 +1084,10 @@ if ($action === 'update-review') {
 
 if ($action === 'delete-review') {
     $reviewId = (int)($body['id'] ?? 0);
-    if ($reviewId <= 0) {
+    $isFake = $reviewId < 0;
+    $targetId = abs($reviewId);
+
+    if ($targetId <= 0) {
         admin_reviews_json([
             'ok' => false,
             'message' => 'Invalid review id.',
@@ -861,18 +1095,21 @@ if ($action === 'delete-review') {
     }
 
     $imagePaths = [];
-    $imageStmt = $con->prepare('SELECT image_path FROM product_review_images WHERE review_id = ?');
-    if ($imageStmt) {
-        $imageStmt->bind_param('i', $reviewId);
-        $imageStmt->execute();
-        $imageResult = $imageStmt->get_result();
-        while ($imageResult && ($imageRow = $imageResult->fetch_assoc())) {
-            $imagePaths[] = (string)($imageRow['image_path'] ?? '');
+    if (!$isFake) {
+        $imageStmt = $con->prepare('SELECT image_path FROM product_review_images WHERE review_id = ?');
+        if ($imageStmt) {
+            $imageStmt->bind_param('i', $targetId);
+            $imageStmt->execute();
+            $imageResult = $imageStmt->get_result();
+            while ($imageResult && ($imageRow = $imageResult->fetch_assoc())) {
+                $imagePaths[] = (string)($imageRow['image_path'] ?? '');
+            }
+            $imageStmt->close();
         }
-        $imageStmt->close();
     }
 
-    $stmt = $con->prepare('DELETE FROM product_reviews WHERE id = ? LIMIT 1');
+    $table = $isFake ? 'product_fake_reviews' : 'product_reviews';
+    $stmt = $con->prepare('DELETE FROM ' . $table . ' WHERE id = ? LIMIT 1');
     if (!$stmt) {
         admin_reviews_json([
             'ok' => false,
@@ -880,7 +1117,7 @@ if ($action === 'delete-review') {
         ], 500);
     }
 
-    $stmt->bind_param('i', $reviewId);
+    $stmt->bind_param('i', $targetId);
     $ok = $stmt->execute();
     $affected = $stmt->affected_rows;
     $stmt->close();
@@ -897,6 +1134,7 @@ if ($action === 'delete-review') {
     admin_api_log_security_event($con, $admin, 'review.deleted', 'warning', [
         'review_id' => $reviewId,
         'deleted_images' => count($imagePaths),
+        'source' => $isFake ? 'fake' : 'real',
     ]);
 
     admin_reviews_json([
@@ -912,7 +1150,7 @@ if ($action === 'delete-review') {
 if ($action === 'add-fake-bulk-reviews') {
     $productId = (int)($body['product_id'] ?? 0);
     $count = (int)($body['count'] ?? 1);
-    $count = max(1, min(100, $count));
+    $count = max(1, min(80, $count));
     $ratingMin = (int)($body['rating_min'] ?? 3);
     $ratingMax = (int)($body['rating_max'] ?? 5);
     $isVisible = (int)($body['is_visible'] ?? 1) === 1 ? 1 : 0;
@@ -957,19 +1195,17 @@ if ($action === 'add-fake-bulk-reviews') {
     }
 
     $insertStmt = $con->prepare(
-        'INSERT INTO product_reviews (
-            user_id,
+        'INSERT INTO product_fake_reviews (
             product_id,
-            order_id,
             rating,
             review_text,
-            is_verified_purchase,
+            reviewer_name,
+            reviewer_handle,
+            reviewer_visibility,
             is_visible,
-            is_locked,
-            locked_at,
-            locked_by_admin_id,
-            admin_note
-        ) VALUES (?, ?, NULL, ?, ?, 0, ?, 0, NULL, NULL, ?)'
+            admin_note,
+            generated_by_admin_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
     );
 
     if (!$insertStmt) {
@@ -979,56 +1215,40 @@ if ($action === 'add-fake-bulk-reviews') {
         ], 500);
     }
 
-    $fakeTrackingStmt = $con->prepare(
-        'INSERT INTO product_fake_reviews (review_id, product_id, fake_user_id, generated_by_admin_id)
-         VALUES (?, ?, ?, ?)'
-    );
-
-    if (!$fakeTrackingStmt) {
-        $insertStmt->close();
-        admin_reviews_json([
-            'ok' => false,
-            'message' => 'Unable to prepare fake review tracking insertion.',
-        ], 500);
-    }
-
     $inserted = 0;
     $failed = 0;
     $adminNote = 'Admin generated fake review';
     $generatedByAdminId = (int)($admin['id'] ?? 0);
 
     for ($index = 0; $index < $count; $index++) {
-        $fakeUser = admin_reviews_create_fake_user($con);
-        if (!is_array($fakeUser) || (int)($fakeUser['id'] ?? 0) <= 0) {
-            $failed++;
-            continue;
-        }
-
-        $userId = (int)$fakeUser['id'];
+        $identity = admin_reviews_fake_identity();
         $rating = random_int($ratingMin, $ratingMax);
         $reviewText = admin_reviews_random_review_text($productName, $rating);
+        $reviewerName = trim((string)($identity['reviewer_name'] ?? 'Customer'));
+        if ($reviewerName === '') {
+            $reviewerName = 'Customer';
+        }
 
-        $insertStmt->bind_param('iiisis', $userId, $productId, $rating, $reviewText, $isVisible, $adminNote);
+        $reviewerHandle = trim((string)($identity['reviewer_handle'] ?? ''));
+        $reviewerVisibility = strtolower(trim((string)($identity['reviewer_visibility'] ?? 'public')));
+        if (!in_array($reviewerVisibility, ['public', 'private'], true)) {
+            $reviewerVisibility = 'public';
+        }
+
+        $insertStmt->bind_param(
+            'iissssisi',
+            $productId,
+            $rating,
+            $reviewText,
+            $reviewerName,
+            $reviewerHandle,
+            $reviewerVisibility,
+            $isVisible,
+            $adminNote,
+            $generatedByAdminId
+        );
+
         if (!$insertStmt->execute()) {
-            $failed++;
-            continue;
-        }
-
-        $reviewId = (int)$con->insert_id;
-        if ($reviewId <= 0) {
-            $failed++;
-            continue;
-        }
-
-        $fakeTrackingStmt->bind_param('iiii', $reviewId, $productId, $userId, $generatedByAdminId);
-        if (!$fakeTrackingStmt->execute()) {
-            $cleanupStmt = $con->prepare('DELETE FROM product_reviews WHERE id = ? LIMIT 1');
-            if ($cleanupStmt) {
-                $cleanupStmt->bind_param('i', $reviewId);
-                $cleanupStmt->execute();
-                $cleanupStmt->close();
-            }
-
             $failed++;
             continue;
         }
@@ -1037,7 +1257,6 @@ if ($action === 'add-fake-bulk-reviews') {
     }
 
     $insertStmt->close();
-    $fakeTrackingStmt->close();
 
     if ($inserted <= 0) {
         admin_reviews_json([
@@ -1069,28 +1288,40 @@ if ($action === 'add-fake-bulk-reviews') {
 }
 
 if ($action === 'delete-all-fake-reviews') {
-    $reviewIds = [];
-    $idResult = $con->query(
-        'SELECT id
-         FROM product_reviews
-         WHERE id IN (SELECT review_id FROM product_fake_reviews)
-            OR (
-                is_verified_purchase = 0
-                AND order_id IS NULL
-                AND admin_note = "Admin generated fake review"
-            )'
-    );
+    $legacyReviewIds = [];
+    $fakeIds = [];
 
-    while ($idResult && ($row = $idResult->fetch_assoc())) {
-        $id = (int)($row['id'] ?? 0);
-        if ($id > 0) {
-            $reviewIds[] = $id;
+    $fakeRows = $con->query('SELECT id, review_id FROM product_fake_reviews');
+    while ($fakeRows && ($row = $fakeRows->fetch_assoc())) {
+        $fakeId = (int)($row['id'] ?? 0);
+        if ($fakeId > 0) {
+            $fakeIds[] = $fakeId;
+        }
+
+        $legacyReviewId = (int)($row['review_id'] ?? 0);
+        if ($legacyReviewId > 0) {
+            $legacyReviewIds[] = $legacyReviewId;
         }
     }
 
-    $reviewIds = array_values(array_unique($reviewIds));
+    $legacyMarkerResult = $con->query(
+        'SELECT id
+         FROM product_reviews
+         WHERE is_verified_purchase = 0
+           AND order_id IS NULL
+           AND admin_note = "Admin generated fake review"'
+    );
 
-    if (count($reviewIds) === 0) {
+    while ($legacyMarkerResult && ($row = $legacyMarkerResult->fetch_assoc())) {
+        $legacyReviewId = (int)($row['id'] ?? 0);
+        if ($legacyReviewId > 0) {
+            $legacyReviewIds[] = $legacyReviewId;
+        }
+    }
+
+    $legacyReviewIds = array_values(array_unique($legacyReviewIds));
+
+    if (count($fakeIds) === 0 && count($legacyReviewIds) === 0) {
         admin_reviews_json([
             'ok' => true,
             'message' => 'No fake reviews found to delete.',
@@ -1102,32 +1333,51 @@ if ($action === 'delete-all-fake-reviews') {
         ]);
     }
 
-    $idList = implode(',', array_map(static fn(int $id): string => (string)$id, $reviewIds));
-
     $imagePaths = [];
-    $imageResult = $con->query(
-        'SELECT image_path
-         FROM product_review_images
-         WHERE review_id IN (' . $idList . ')'
-    );
+    if (count($legacyReviewIds) > 0) {
+        $idList = implode(',', array_map(static fn(int $id): string => (string)$id, $legacyReviewIds));
+        $imageResult = $con->query(
+            'SELECT image_path
+             FROM product_review_images
+             WHERE review_id IN (' . $idList . ')'
+        );
 
-    while ($imageResult && ($imageRow = $imageResult->fetch_assoc())) {
-        $imagePaths[] = (string)($imageRow['image_path'] ?? '');
+        while ($imageResult && ($imageRow = $imageResult->fetch_assoc())) {
+            $imagePaths[] = (string)($imageRow['image_path'] ?? '');
+        }
     }
 
-    $deleteOk = $con->query('DELETE FROM product_reviews WHERE id IN (' . $idList . ')');
-    if (!$deleteOk) {
+    $deleteFakeOk = $con->query('DELETE FROM product_fake_reviews');
+    if (!$deleteFakeOk) {
         admin_reviews_json([
             'ok' => false,
             'message' => 'Unable to delete fake reviews. Please retry.',
         ], 500);
     }
 
-    $deletedCount = (int)$con->affected_rows;
+    $deletedFakeCount = (int)$con->affected_rows;
+
+    $deletedLegacyCount = 0;
+    if (count($legacyReviewIds) > 0) {
+        $idList = implode(',', array_map(static fn(int $id): string => (string)$id, $legacyReviewIds));
+        $deleteLegacyOk = $con->query('DELETE FROM product_reviews WHERE id IN (' . $idList . ')');
+        if (!$deleteLegacyOk) {
+            admin_reviews_json([
+                'ok' => false,
+                'message' => 'Unable to delete legacy fake reviews. Please retry.',
+            ], 500);
+        }
+
+        $deletedLegacyCount = (int)$con->affected_rows;
+    }
+
+    $deletedCount = $deletedFakeCount + $deletedLegacyCount;
     admin_reviews_delete_files($imagePaths);
 
     admin_api_log_security_event($con, $admin, 'review.fake_bulk_deleted', 'warning', [
         'deleted_count' => $deletedCount,
+        'deleted_fake_table_count' => $deletedFakeCount,
+        'deleted_legacy_review_count' => $deletedLegacyCount,
         'deleted_images' => count($imagePaths),
     ]);
 

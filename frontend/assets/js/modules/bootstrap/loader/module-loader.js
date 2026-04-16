@@ -72,10 +72,6 @@
       return `${window.location.origin}/${projectSegment}/`;
     }
 
-    if (segments.length > 0 && isSafeSegment(segments[0])) {
-      return `${window.location.origin}/${segments[0]}/`;
-    }
-
     return `${window.location.origin}/`;
   }
 
