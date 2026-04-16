@@ -150,7 +150,10 @@ function renderProductTrashTable() {
     const name = escapeHtml((item?.name || "Product").toString());
     const code = escapeHtml((item?.productCode || "").toString());
     const section = escapeHtml((item?.sectionName || "Section").toString());
-    const image = escapeHtml((item?.image || "").toString());
+    const imageRaw = (item?.image || "").toString().trim().replace(/^\.\//, "");
+    const imageUrl = sanitizeAdminMediaUrl(
+      /^https?:\/\//i.test(imageRaw) ? imageRaw : `../../${imageRaw}`,
+    );
     const deletedAt = escapeHtml(formatDateTime(item?.deletedAt || ""));
     const purgeAfter = escapeHtml(formatDateTime(item?.purgeAfter || ""));
     const expiresInSeconds = Math.max(
@@ -172,8 +175,8 @@ function renderProductTrashTable() {
         ? "is-warning"
         : "is-safe";
 
-    const imageCell = image
-      ? `<img src="../../${image}" alt="${name}" class="rounded" width="44" height="44" style="object-fit:cover;">`
+    const imageCell = imageUrl
+      ? `<img src="${escapeHtml(imageUrl)}" alt="${name}" class="rounded" width="44" height="44" style="object-fit:cover;">`
       : '<span class="badge bg-secondary">No media</span>';
 
     tbody.append(`

@@ -178,6 +178,7 @@ function commerza_content_security_policy_header(): string
         "manifest-src 'self'",
         "worker-src 'self' blob:",
         "img-src 'self' data: blob: https:",
+        "media-src 'self' blob: https:",
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com https://cdnjs.cloudflare.com",
         "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.jquery.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com https://maps.googleapis.com https://www.googletagmanager.com https://js.stripe.com",
         "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net",
@@ -301,6 +302,11 @@ function commerza_absolute_url(string $path = ''): string
     $base = commerza_public_base_url();
     if ($path === '') {
         return $base;
+    }
+
+    $trimmedPath = trim($path);
+    if ($trimmedPath !== '' && preg_match('#^https?://#i', $trimmedPath) === 1 && filter_var($trimmedPath, FILTER_VALIDATE_URL)) {
+        return $trimmedPath;
     }
 
     return $base . '/' . ltrim($path, '/');

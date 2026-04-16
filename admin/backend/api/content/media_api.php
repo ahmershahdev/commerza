@@ -6,6 +6,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../../auth/auth.php';
 require_once __DIR__ . '/../../../../backend/helpers/media_image_helpers.php';
+require_once __DIR__ . '/../../../../backend/services/cloudinary_service.php';
 
 function admin_media_fail(int $status, string $message, array $payload = []): void
 {
@@ -261,12 +262,46 @@ function admin_media_convert_to_webp(
     }
 }
 
+function admin_media_cloudinary_upload(
+    string $sourcePath,
+    string $target,
+    array $meta,
+    string $basename
+): array {
+    if (!commerza_cloudinary_is_enabled()) {
+        return [
+            'ok' => false,
+            'message' => 'Cloudinary is not enabled.',
+        ];
+    }
+
+    $resourceType = ($meta['kind'] ?? '') === 'video' ? 'video' : 'image';
+    $preset = $resourceType === 'video'
+        ? commerza_cloudinary_config()['upload_preset_video'] ?? ''
+        : commerza_cloudinary_config()['upload_preset_image'] ?? '';
+
+    $folderSuffix = trim((string)($meta['cloudinary_folder'] ?? ''), '/');
+    $folder = commerza_cloudinary_target_folder($folderSuffix);
+    $publicId = $basename . '-' . admin_media_random_suffix(8);
+
+    return commerza_cloudinary_upload_file($sourcePath, [
+        'resource_type' => $resourceType,
+        'folder' => $folder,
+        'public_id' => $publicId,
+        'upload_preset' => $preset,
+        'overwrite' => false,
+        'invalidate' => true,
+        'tags' => ['commerza', 'admin-media', $target],
+    ]);
+}
+
 function admin_media_process_one_upload(
     array $upload,
     string $target,
     array $meta,
     string $relativeDir,
-    string $absoluteDir
+    string $absoluteDir,
+    bool $useCloudinary
 ): array {
     $errorCode = (int)($upload['error'] ?? UPLOAD_ERR_NO_FILE);
     if ($errorCode !== UPLOAD_ERR_OK) {
@@ -340,41 +375,143 @@ function admin_media_process_one_upload(
     $width = 0;
     $height = 0;
     $resized = false;
+    $outputPath = $relativePath;
+    $cloudinaryPublicId = '';
+    $cloudinarySecureUrl = '';
+    $cloudinarySourcePath = '';
+    $tempCloudinaryPath = '';
 
-    if ($isCompressibleImage) {
-        $parser = 'image-webp-parser-compressor';
-        $outputMime = 'image/webp';
+    try {
+        if ($isCompressibleImage) {
+            $parser = 'image-webp-parser-compressor';
+            $outputMime = 'image/webp';
 
-        $conversion = admin_media_convert_to_webp(
-            $tmpPath,
-            $mime,
-            $absolutePath,
-            (int)($meta['image_target_kb'] ?? 350),
-            (int)($meta['image_max_dimension'] ?? 2200)
-        );
+            if ($useCloudinary) {
+                $tempCloudinaryPath = tempnam(sys_get_temp_dir(), 'cmzcld_');
+                if (!is_string($tempCloudinaryPath) || $tempCloudinaryPath === '') {
+                    throw new RuntimeException('Unable to prepare Cloudinary image buffer file.');
+                }
 
-        $finalSize = (int)$conversion['size'];
-        $qualityUsed = (int)$conversion['quality'];
-        $width = (int)$conversion['width'];
-        $height = (int)$conversion['height'];
-        $resized = (bool)$conversion['resized'];
-    } else {
-        if (!move_uploaded_file($tmpPath, $absolutePath)) {
-            throw new RuntimeException('Unable to save uploaded file.');
+                $conversion = admin_media_convert_to_webp(
+                    $tmpPath,
+                    $mime,
+                    $tempCloudinaryPath,
+                    (int)($meta['image_target_kb'] ?? 350),
+                    (int)($meta['image_max_dimension'] ?? 2200)
+                );
+
+                $finalSize = (int)$conversion['size'];
+                $qualityUsed = (int)$conversion['quality'];
+                $width = (int)$conversion['width'];
+                $height = (int)$conversion['height'];
+                $resized = (bool)$conversion['resized'];
+                $cloudinarySourcePath = $tempCloudinaryPath;
+            } else {
+                $conversion = admin_media_convert_to_webp(
+                    $tmpPath,
+                    $mime,
+                    $absolutePath,
+                    (int)($meta['image_target_kb'] ?? 350),
+                    (int)($meta['image_max_dimension'] ?? 2200)
+                );
+
+                $finalSize = (int)$conversion['size'];
+                $qualityUsed = (int)$conversion['quality'];
+                $width = (int)$conversion['width'];
+                $height = (int)$conversion['height'];
+                $resized = (bool)$conversion['resized'];
+            }
+        } else {
+            if ($useCloudinary) {
+                $cloudinarySourcePath = $tmpPath;
+                $finalSize = $size;
+                if ($meta['kind'] === 'video') {
+                    $parser = 'cloudinary-video-validated';
+                } elseif ($extension === 'ico') {
+                    $parser = 'cloudinary-icon-pass-through';
+                } else {
+                    $parser = 'cloudinary-file-validated';
+                }
+            } else {
+                if (!move_uploaded_file($tmpPath, $absolutePath)) {
+                    throw new RuntimeException('Unable to save uploaded file.');
+                }
+
+                $finalSize = (int)(filesize($absolutePath) ?: 0);
+                if ($finalSize <= 0) {
+                    throw new RuntimeException('Uploaded file could not be verified after save.');
+                }
+
+                if ($extension === 'ico') {
+                    $parser = 'icon-pass-through';
+                }
+            }
         }
 
-        $finalSize = (int)(filesize($absolutePath) ?: 0);
-        if ($finalSize <= 0) {
-            throw new RuntimeException('Uploaded file could not be verified after save.');
-        }
+        if ($useCloudinary) {
+            if ($cloudinarySourcePath === '') {
+                throw new RuntimeException('Cloudinary source file was not prepared.');
+            }
 
-        if ($extension === 'ico') {
-            $parser = 'icon-pass-through';
+            $cloudinaryResult = admin_media_cloudinary_upload(
+                $cloudinarySourcePath,
+                $target,
+                $meta,
+                $basename
+            );
+
+            if (!(bool)($cloudinaryResult['ok'] ?? false)) {
+                throw new RuntimeException((string)($cloudinaryResult['message'] ?? 'Cloudinary upload failed.'));
+            }
+
+            $cloudinarySecureUrl = trim((string)($cloudinaryResult['secure_url'] ?? ''));
+            if ($cloudinarySecureUrl === '') {
+                $cloudinarySecureUrl = trim((string)($cloudinaryResult['url'] ?? ''));
+            }
+
+            if ($cloudinarySecureUrl === '') {
+                throw new RuntimeException('Cloudinary upload completed without a usable delivery URL.');
+            }
+
+            $cloudinaryPublicId = trim((string)($cloudinaryResult['public_id'] ?? ''));
+            $outputPath = $cloudinarySecureUrl;
+
+            $uploadedBytes = (int)($cloudinaryResult['bytes'] ?? 0);
+            if ($uploadedBytes > 0) {
+                $finalSize = $uploadedBytes;
+            }
+
+            if ($width <= 0) {
+                $width = (int)($cloudinaryResult['width'] ?? 0);
+            }
+
+            if ($height <= 0) {
+                $height = (int)($cloudinaryResult['height'] ?? 0);
+            }
+
+            $cloudinaryFormat = trim((string)($cloudinaryResult['format'] ?? ''));
+            if ($meta['kind'] === 'video') {
+                $outputMime = $cloudinaryFormat !== '' ? 'video/' . $cloudinaryFormat : 'video/mp4';
+                $parser = 'cloudinary-video-upload';
+            } elseif ($isCompressibleImage) {
+                $outputMime = $cloudinaryFormat !== '' ? 'image/' . $cloudinaryFormat : 'image/webp';
+                $parser = 'cloudinary-image-webp-upload';
+            } elseif ($extension === 'ico') {
+                $outputMime = 'image/x-icon';
+                $parser = 'cloudinary-icon-upload';
+            } else {
+                $outputMime = $cloudinaryFormat !== '' ? 'image/' . $cloudinaryFormat : $outputMime;
+                $parser = 'cloudinary-file-upload';
+            }
+        }
+    } finally {
+        if ($tempCloudinaryPath !== '' && is_file($tempCloudinaryPath)) {
+            @unlink($tempCloudinaryPath);
         }
     }
 
     return [
-        'path' => $relativePath,
+        'path' => $outputPath,
         'target' => $target,
         'size' => $finalSize,
         'size_kb' => round($finalSize / 1024, 2),
@@ -388,6 +525,9 @@ function admin_media_process_one_upload(
         'width' => $width,
         'height' => $height,
         'resized' => $resized,
+        'storage' => $useCloudinary ? 'cloudinary' : 'local',
+        'cloudinary_public_id' => $cloudinaryPublicId,
+        'cloudinary_url' => $cloudinarySecureUrl,
     ];
 }
 
@@ -422,36 +562,43 @@ $targets = [
         'dir' => 'frontend/assets/images/products/uploads',
         'kind' => 'image',
         'max_size' => 3 * 1024 * 1024,
+        'cloudinary_folder' => 'products/images/uploads',
     ],
     'slider-image' => [
         'dir' => 'frontend/assets/images/slider',
         'kind' => 'image',
         'max_size' => 4 * 1024 * 1024,
+        'cloudinary_folder' => 'slider/images',
     ],
     'logo' => [
         'dir' => 'frontend/assets/images/logo',
         'kind' => 'image',
         'max_size' => 2 * 1024 * 1024,
+        'cloudinary_folder' => 'brand/logo',
     ],
     'favicon' => [
         'dir' => 'frontend/assets/images/favicon',
         'kind' => 'image_or_icon',
         'max_size' => 1024 * 1024,
+        'cloudinary_folder' => 'brand/favicon',
     ],
     'social-icon' => [
         'dir' => 'frontend/assets/images/social',
         'kind' => 'image_or_icon',
         'max_size' => 2 * 1024 * 1024,
+        'cloudinary_folder' => 'brand/social-icons',
     ],
     'product-video' => [
         'dir' => 'frontend/assets/videos/products/uploads',
         'kind' => 'video',
         'max_size' => 40 * 1024 * 1024,
+        'cloudinary_folder' => 'products/videos/uploads',
     ],
     'slider-video' => [
         'dir' => 'frontend/assets/videos/slider',
         'kind' => 'video',
         'max_size' => 50 * 1024 * 1024,
+        'cloudinary_folder' => 'slider/videos',
     ],
 ];
 
@@ -480,11 +627,14 @@ if ($uploads === []) {
     admin_media_fail(422, 'No file uploaded.');
 }
 
+$cloudinaryEnabled = function_exists('commerza_cloudinary_is_enabled') && commerza_cloudinary_is_enabled();
 $relativeDir = str_replace('\\', '/', (string)$meta['dir']);
-$absoluteDir = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativeDir);
+$absoluteDir = dirname(__DIR__, 4) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativeDir);
 
-if (!is_dir($absoluteDir) && !mkdir($absoluteDir, 0755, true) && !is_dir($absoluteDir)) {
-    admin_media_fail(500, 'Unable to create upload directory.');
+if (!$cloudinaryEnabled) {
+    if (!is_dir($absoluteDir) && !mkdir($absoluteDir, 0755, true) && !is_dir($absoluteDir)) {
+        admin_media_fail(500, 'Unable to create upload directory.');
+    }
 }
 
 $items = [];
@@ -495,7 +645,7 @@ foreach ($uploads as $upload) {
     $safeName = admin_media_normalize_name((string)($upload['name'] ?? 'upload'));
 
     try {
-        $item = admin_media_process_one_upload($upload, $target, $meta, $relativeDir, $absoluteDir);
+        $item = admin_media_process_one_upload($upload, $target, $meta, $relativeDir, $absoluteDir, $cloudinaryEnabled);
         $item['status'] = 'ok';
         $items[] = $item;
         $successCount++;
@@ -507,6 +657,8 @@ foreach ($uploads as $upload) {
             'mime' => (string)$item['mime'],
             'parser' => (string)$item['parser'],
             'compressed' => (bool)$item['compressed'],
+            'storage' => (string)($item['storage'] ?? ($cloudinaryEnabled ? 'cloudinary' : 'local')),
+            'cloudinary_public_id' => (string)($item['cloudinary_public_id'] ?? ''),
         ]);
     } catch (Throwable $exception) {
         $items[] = [

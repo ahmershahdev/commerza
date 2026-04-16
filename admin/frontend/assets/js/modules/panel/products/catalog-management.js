@@ -77,7 +77,15 @@ function renderProductsTable() {
     const safeCategory = escapeHtml(
       (product.category || "Uncategorized").toString(),
     );
-    const safeImage = escapeHtml((product.image || "").toString());
+    const imageSourceCandidate = ((product.image || "").toString() || "")
+      .replace(/^\.\//, "")
+      .trim();
+    const resolvedImageSrc =
+      sanitizeAdminMediaUrl(
+        /^https?:\/\//i.test(imageSourceCandidate)
+          ? imageSourceCandidate
+          : `../../${imageSourceCandidate}`,
+      ) || "../../frontend/assets/images/products/placeholder.webp";
 
     const stock =
       product.stock > 10
@@ -85,7 +93,7 @@ function renderProductsTable() {
         : `<span class="badge bg-warning text-dark rounded-pill">Low (${product.stock})</span>`;
     tbody.append(`
             <tr class="border-bottom border-secondary">
-                <td class="ps-4 py-3"><img src="../../${safeImage}" alt="${safeName}" class="rounded" width="50" height="50" style="object-fit: cover; cursor: pointer;" onerror="this.src='../../frontend/assets/images/products/placeholder.webp'"></td>
+                <td class="ps-4 py-3"><img src="${resolvedImageSrc}" alt="${safeName}" class="rounded" width="50" height="50" style="object-fit: cover; cursor: pointer;" onerror="this.src='../../frontend/assets/images/products/placeholder.webp'"></td>
                 <td class="py-3 text-light fw-semibold" style="max-width: 260px;">
                   <div>${safeName}</div>
                   <div class="text-secondary small mt-1">Code: <span class="text-orange">${productCode}</span></div>

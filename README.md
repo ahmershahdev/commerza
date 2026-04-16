@@ -284,6 +284,37 @@ Related environment keys:
 - COMMERZA_UPLOAD_SCAN_FAIL_CLOSED
 - COMMERZA_CLAMSCAN_PATH
 
+## 13.1 Cloudinary Media Pipeline (Optional)
+
+Commerza supports server-side Cloudinary uploads for admin media targets (images and videos).
+
+Enable via environment:
+
+- COMMERZA_CLOUDINARY_ENABLED=1
+- COMMERZA_CLOUDINARY_CLOUD_NAME
+- COMMERZA_CLOUDINARY_API_KEY
+- COMMERZA_CLOUDINARY_API_SECRET
+- COMMERZA_CLOUDINARY_UPLOAD_PRESET_IMAGE
+- COMMERZA_CLOUDINARY_UPLOAD_PRESET_VIDEO
+
+Optional tuning keys:
+
+- COMMERZA_CLOUDINARY_FOLDER
+- COMMERZA_CLOUDINARY_IMAGE_TRANSFORMATION
+- COMMERZA_CLOUDINARY_VIDEO_TRANSFORMATION
+- COMMERZA_CLOUDINARY_TIMEOUT
+
+Maintenance command to provision presets then bulk-upload existing frontend assets:
+
+- `php scripts/maintenance/cloudinary_sync.php`
+
+Useful flags:
+
+- `--dry-run`
+- `--skip-presets`
+- `--skip-upload`
+- `--skip-db`
+
 ## 14. Locking and Concurrency Safety
 
 Critical flows include transactional locking and anti-race protections.
