@@ -417,6 +417,27 @@ body.dark-theme.light-theme .product-page .product-actions .compare-btn:hover {
   color: #1d4ed8 !important;
 }
 
+body.dark-theme.light-theme .catalog-feedback-state {
+  background: linear-gradient(150deg, #ffffff, #f4f8ff) !important;
+  border: 1px solid rgba(30, 58, 138, 0.22) !important;
+  box-shadow:
+    0 16px 30px rgba(15, 23, 42, 0.12),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.6) !important;
+}
+
+body.dark-theme.light-theme .catalog-feedback-icon {
+  color: #1d4ed8;
+  filter: none;
+}
+
+body.dark-theme.light-theme .catalog-feedback-title {
+  color: #0f172a;
+}
+
+body.dark-theme.light-theme .catalog-feedback-description {
+  color: #475569;
+}
+
 body.dark-theme.light-theme .newsletter-input-wrap,
 body.dark-theme.light-theme .newsletter-modal-input-wrap {
   background: rgba(255, 255, 255, 0.9);

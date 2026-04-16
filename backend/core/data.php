@@ -77,6 +77,48 @@ if (!$con) {
 
 mysqli_set_charset($con, 'utf8mb4');
 
+if (!function_exists('commerza_pdo_connection')) {
+    function commerza_pdo_connection(): ?PDO
+    {
+        static $initialized = false;
+        static $pdo = null;
+
+        if ($initialized) {
+            return $pdo;
+        }
+
+        $initialized = true;
+
+        if (!class_exists('PDO')) {
+            return null;
+        }
+
+        $pdoHost = trim((string)(getenv('COMMERZA_DB_HOST') ?: getenv('DB_HOST') ?: 'localhost'));
+        $pdoUser = trim((string)(getenv('COMMERZA_DB_USER') ?: getenv('DB_USER') ?: 'root'));
+        $pdoDb = trim((string)(getenv('COMMERZA_DB_NAME') ?: getenv('DB_NAME') ?: 'commerza'));
+
+        $pdoPassEnv = getenv('COMMERZA_DB_PASS');
+        if ($pdoPassEnv === false) {
+            $pdoPassEnv = getenv('DB_PASS');
+        }
+        $pdoPass = $pdoPassEnv === false ? '' : (string)$pdoPassEnv;
+
+        $dsn = 'mysql:host=' . $pdoHost . ';dbname=' . $pdoDb . ';charset=utf8mb4';
+
+        try {
+            $pdo = new PDO($dsn, $pdoUser, $pdoPass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false,
+            ]);
+        } catch (Throwable $error) {
+            $pdo = null;
+        }
+
+        return $pdo;
+    }
+}
+
 $GLOBALS['commerza_public_site_settings_payload'] = commerza_build_public_site_settings_payload($con);
 
 commerza_ensure_users_identity_schema($con);

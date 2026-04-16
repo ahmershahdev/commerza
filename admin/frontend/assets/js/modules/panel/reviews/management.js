@@ -297,6 +297,9 @@ function addReviewByAdmin() {
   focusReviewQuickForm();
 }
 
+const FAKE_REVIEW_SAFE_LIMIT = 30;
+const FAKE_REVIEW_HARD_LIMIT = 80;
+
 async function addFakeBulkReviewsByAdmin(forcedCount = null) {
   const inputProductId = parseAdminProductIdInput(
     $("#fakeReviewProductId").val(),
@@ -326,10 +329,11 @@ async function addFakeBulkReviewsByAdmin(forcedCount = null) {
   const count = Math.max(
     1,
     Math.min(
-      100,
+      FAKE_REVIEW_HARD_LIMIT,
       Number.isInteger(forcedCount) ? forcedCount : configuredCount,
     ),
   );
+  $("#fakeReviewCount").val(count);
   const ratingMin = Math.max(
     1,
     Math.min(5, parseInt($("#fakeReviewRatingMin").val(), 10) || 3),
@@ -340,6 +344,13 @@ async function addFakeBulkReviewsByAdmin(forcedCount = null) {
   );
   const isVisible =
     parseInt($("#fakeReviewVisibility").val(), 10) === 0 ? 0 : 1;
+
+  if (count > FAKE_REVIEW_SAFE_LIMIT) {
+    showNotification(
+      `Safe range is up to ${FAKE_REVIEW_SAFE_LIMIT} per run. Generating ${count} may take longer.`,
+      "warning",
+    );
+  }
 
   try {
     const result = await adminPostJson(ADMIN_REVIEWS_API, {
@@ -818,4 +829,3 @@ function clearSecurityEventsFilters() {
   securityEventsState.page = 1;
   loadSecurityEvents(false);
 }
-

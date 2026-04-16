@@ -60,13 +60,6 @@ function productsResolveBasePath() {
       return `/${projectSegment}/`;
     }
 
-    for (let index = 0; index < segments.length; index += 1) {
-      const segment = (segments[index] || "").toString().trim();
-      if (isSafeSegment(segment)) {
-        return `/${segment}/`;
-      }
-    }
-
     return raw.includes(":") ? "/" : "";
   };
 
@@ -234,12 +227,12 @@ function fetchProductsPayload() {
     {
       method: "GET",
       credentials: "same-origin",
-      cache: "no-store",
+      cache: "default",
     },
   )
     .then((response) => {
       if (!response.ok) {
-        throw new Error("Unable to load products.");
+        throw new Error(`Unable to load products (${response.status}).`);
       }
       return response.json();
     })
@@ -257,6 +250,22 @@ function fetchProductsPayload() {
   return commerzaProductsPayloadPromise;
 }
 
+function renderProductsLoadError(containerId, title, detail) {
+  const container = $(`#${containerId}`);
+  if (container.length === 0) return;
+
+  const safeTitle = productsEscapeHtml(title || "Unable to load products");
+  const safeDetail = productsEscapeHtml(detail || "Please refresh the page.");
+
+  container.html(`
+        <div class="catalog-feedback-state catalog-feedback-error text-center py-5" role="status" aria-live="polite">
+            <i class="bi bi-exclamation-triangle-fill catalog-feedback-icon" aria-hidden="true"></i>
+            <h3 class="catalog-feedback-title mt-3">${safeTitle}</h3>
+            <p class="catalog-feedback-description">${safeDetail}</p>
+        </div>
+    `);
+}
+
 function loadProductsBySection(sectionId, containerId) {
   fetchProductsPayload()
     .then((data) => {
@@ -268,15 +277,11 @@ function loadProductsBySection(sectionId, containerId) {
       renderProducts(section.products || [], containerId);
     })
     .catch(() => {
-      const container = $(`#${containerId}`);
-      if (container.length === 0) return;
-      container.html(`
-            <div class="text-center py-5">
-                <i class="bi bi-exclamation-triangle" style="font-size: 3rem; color: #ff6600;"></i>
-                <h3 class="text-white mt-3">Unable to load products</h3>
-                <p class="text-secondary">Please refresh the page.</p>
-            </div>
-        `);
+      renderProductsLoadError(
+        containerId,
+        "Unable to load products",
+        "Please refresh the page.",
+      );
     });
 }
 

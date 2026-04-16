@@ -811,6 +811,7 @@ function commerza_html_meta_normalize(string $buffer): string
         if ($canonicalOverride !== '') {
             $buffer = commerza_head_upsert_canonical($buffer, $canonicalOverride);
             $buffer = commerza_head_upsert_meta_property($buffer, 'og:url', $canonicalOverride);
+            $buffer = commerza_head_upsert_meta_name($buffer, 'twitter:url', $canonicalOverride);
         }
 
         if ($ogTitleOverride === '' && $titleOverride !== '') {
@@ -876,6 +877,7 @@ function commerza_html_meta_normalize(string $buffer): string
     ) {
         $canonical = "\n  <link rel=\"canonical\" href=\"{$ogUrl[1]}\" />\n";
         $buffer = preg_replace('/<\/head>/i', $canonical . '</head>', $buffer, 1) ?? $buffer;
+        $buffer = commerza_head_upsert_meta_name($buffer, 'twitter:url', (string)$ogUrl[1]);
     }
 
     if (stripos($buffer, 'id="commerzaSiteSettingsData"') === false) {

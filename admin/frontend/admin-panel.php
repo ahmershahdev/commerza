@@ -801,9 +801,6 @@ $adminTabCatalog = admin_tabs_payload();
                                     <div class="card-header bg-dark border-bottom border-secondary py-3 d-flex justify-content-between align-items-center">
                                         <h3 class="h5 mb-0 fw-bold text-orange">All Orders</h3>
                                         <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
-                                            <button class="btn btn-sm btn-outline-warning" id="deleteAllFakeReviewsBtn" type="button">
-                                                <i class="bi bi-eraser me-1"></i>Delete All Fake Reviews
-                                            </button>
                                             <button class="btn btn-sm btn-outline-danger" id="bulkDeleteOrdersBtn" type="button">
                                                 <i class="bi bi-trash me-1"></i>Delete Selected
                                             </button>
@@ -1625,7 +1622,7 @@ $adminTabCatalog = admin_tabs_payload();
                                     </div>
                                     <div class="col-12 col-md-2">
                                         <label for="fakeReviewCount" class="form-label text-light">Count</label>
-                                        <input type="number" class="form-control bg-secondary border-0 text-light" id="fakeReviewCount" min="1" max="100" value="10">
+                                        <input type="number" class="form-control bg-secondary border-0 text-light" id="fakeReviewCount" min="1" max="80" value="10">
                                     </div>
                                     <div class="col-6 col-md-2">
                                         <label for="fakeReviewRatingMin" class="form-label text-light">Rating Min</label>
@@ -1656,8 +1653,13 @@ $adminTabCatalog = admin_tabs_payload();
                                     <button class="btn btn-orange" id="addFakeBulkReviewsBtn" type="button">
                                         <i class="bi bi-lightning-charge me-1"></i>Generate Bulk Fake Reviews
                                     </button>
+                                    <button class="btn btn-outline-warning" id="deleteAllFakeReviewsBtn" type="button">
+                                        <i class="bi bi-eraser me-1"></i>Delete All Fake Reviews
+                                    </button>
                                 </div>
                                 <small class="field-hint d-block mt-2">Use this only for controlled seeding/testing scenarios.</small>
+                                <small class="field-hint d-block mt-1">Safe guideline: 5-30 reviews per run is recommended. Hard cap: 80 per run.</small>
+                                <small class="field-hint d-block mt-1">Bulk fake reviews are for QA/staging style checks and should be avoided on live customer data.</small>
                             </div>
                         </div>
                     </div>

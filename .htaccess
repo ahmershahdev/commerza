@@ -60,6 +60,7 @@ RewriteRule (^|/)(?:\.env(?:\..*)?|\.ht(?:access|passwd)|web\.config|Thumbs\.db|
 RewriteRule (^|/)\.(?:git|svn|hg)(?:/|$) - [F,L,NC]
 RewriteRule ^(?:scripts|\.github|\.vscode)(?:/|$) - [F,L,NC]
 RewriteRule ^backend/database(?:/|$) - [F,L,NC]
+RewriteRule ^backend/core(?:/|$) - [F,L,NC]
 RewriteRule ^backend/(?:auth|cache|domain|helpers|jobs|mailer|payment|repositories|security|services)(?:/|$) - [F,L,NC]
 RewriteRule ^backend/(?:data|opcache\.preload)\.php$ - [F,L,NC]
 RewriteRule ^admin/backend/auth/auth\.php$ - [F,L,NC]

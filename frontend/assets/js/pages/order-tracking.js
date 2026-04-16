@@ -41,6 +41,44 @@
     return Number.isFinite(amount) ? amount.toLocaleString() + " PKR" : "0 PKR";
   };
 
+  const sanitizeImageSrc = (value) => {
+    const raw = String(value || "").trim();
+    if (!raw) {
+      return "";
+    }
+
+    const normalized = raw.replace(/[\u0000-\u001F\u007F]/g, "");
+    if (!normalized) {
+      return "";
+    }
+
+    if (/^(?:javascript|vbscript):/i.test(normalized)) {
+      return "";
+    }
+
+    if (/^data:/i.test(normalized)) {
+      return /^data:image\/(?:png|jpe?g|webp|gif);base64,[a-z0-9+/=\s]+$/i.test(
+        normalized,
+      )
+        ? normalized
+        : "";
+    }
+
+    if (/^(?:https?:)?\/\//i.test(normalized)) {
+      return normalized;
+    }
+
+    if (
+      normalized.startsWith("/") ||
+      normalized.startsWith("./") ||
+      normalized.startsWith("../")
+    ) {
+      return normalized;
+    }
+
+    return /^[a-z0-9][a-z0-9._/-]*$/i.test(normalized) ? normalized : "";
+  };
+
   const renderAlert = (message, tone) => {
     const klass = tone === "danger" ? "danger" : "warning";
     resultContainer.innerHTML = `<div class="alert alert-${klass}" role="alert">${escapeHtml(message)}</div>`;
@@ -53,20 +91,21 @@
     const itemsMarkup = items.length
       ? items
           .map((item) => {
-            const hasImage = String(item.product_img || "").trim() !== "";
+            const imageSrc = sanitizeImageSrc(item.product_img);
+            const hasImage = imageSrc !== "";
             return `
-                  <div class="d-flex align-items-center gap-3 mb-2 p-2 rounded" style="background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.06);">
-                    ${hasImage ? `<img src="${escapeHtml(item.product_img)}" alt="${escapeHtml(item.product_name)}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;">` : ""}
+                  <div class="d-flex align-items-center gap-3 mb-2 p-2 rounded tracking-line-item">
+                    ${hasImage ? `<img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(item.product_name)}" class="tracking-line-thumb">` : ""}
                     <div class="flex-grow-1">
-                      <p class="mb-0 text-white fw-semibold">${escapeHtml(item.product_name)}</p>
-                      <small class="text-secondary">Qty: ${Number(item.quantity || 0)} | Unit: ${toPkr(item.unit_price)}</small>
+                      <p class="mb-0 fw-semibold tracking-detail-value">${escapeHtml(item.product_name)}</p>
+                      <small class="tracking-line-meta">Qty: ${Number(item.quantity || 0)} | Unit: ${toPkr(item.unit_price)}</small>
                     </div>
-                    <p class="mb-0 text-white fw-semibold">${toPkr(item.line_total)}</p>
+                    <p class="mb-0 fw-semibold tracking-detail-value">${toPkr(item.line_total)}</p>
                   </div>
                 `;
           })
           .join("")
-      : '<p class="text-secondary mb-0">No line items found for this order.</p>';
+      : '<p class="mb-0 tracking-detail-meta">No line items found for this order.</p>';
 
     resultContainer.innerHTML = `
           <div class="card product-card mb-4">
@@ -81,29 +120,29 @@
 
               <div class="row g-3 mb-3">
                 <div class="col-md-6">
-                  <div class="p-3 rounded" style="background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 102, 0, 0.2);">
-                    <p class="mb-1 text-secondary">Customer</p>
-                    <p class="mb-1 text-white fw-semibold">${escapeHtml(order.customer_name)}</p>
-                    <p class="mb-1 text-secondary">${escapeHtml(order.customer_email)}</p>
-                    <p class="mb-0 text-secondary">${escapeHtml(order.customer_phone)}</p>
+                  <div class="p-3 rounded tracking-detail-card">
+                    <p class="mb-1 tracking-detail-meta">Customer</p>
+                    <p class="mb-1 fw-semibold tracking-detail-value">${escapeHtml(order.customer_name)}</p>
+                    <p class="mb-1 tracking-detail-meta">${escapeHtml(order.customer_email)}</p>
+                    <p class="mb-0 tracking-detail-meta">${escapeHtml(order.customer_phone)}</p>
                   </div>
                 </div>
                 <div class="col-md-6">
-                  <div class="p-3 rounded" style="background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 102, 0, 0.2);">
-                    <p class="mb-1 text-secondary">Shipping Address</p>
-                    <p class="mb-0 text-white">${escapeHtml(order.address).replace(/\n/g, "<br>")}</p>
+                  <div class="p-3 rounded tracking-detail-card">
+                    <p class="mb-1 tracking-detail-meta">Shipping Address</p>
+                    <p class="mb-0 tracking-detail-value">${escapeHtml(order.address).replace(/\n/g, "<br>")}</p>
                   </div>
                 </div>
               </div>
 
               <div class="mb-3">
-                <p class="text-secondary mb-2">Items</p>
+                <p class="mb-2 tracking-detail-meta">Items</p>
                 ${itemsMarkup}
               </div>
 
-              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 pt-2 border-top border-secondary-subtle">
-                <p class="mb-0 text-secondary">Payment: ${escapeHtml(order.payment_method)} (${escapeHtml(order.payment_status)})</p>
-                <p class="mb-0 text-white fw-bold">Total: ${toPkr(order.grand_total)}</p>
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 pt-2 border-top border-secondary-subtle tracking-summary-row">
+                <p class="mb-0 tracking-payment-meta">Payment: ${escapeHtml(order.payment_method)} (${escapeHtml(order.payment_status)})</p>
+                <p class="mb-0 fw-bold tracking-total-value">Total: ${toPkr(order.grand_total)}</p>
               </div>
             </div>
           </div>

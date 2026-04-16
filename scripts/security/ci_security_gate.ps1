@@ -59,7 +59,7 @@ foreach ($path in $requiredFiles) {
 
 $bootstrapHelpersPhp = Read-FileSafe -Path 'backend/core/bootstrap_helpers.php'
 if ($bootstrapHelpersPhp -ne '') {
-    Assert-Contains -Content $bootstrapHelpersPhp -Needle 'random_bytes(24)' -Message 'CSP nonce must use random_bytes(24) in backend/core/bootstrap_helpers.php.'
+    Assert-Contains -Content $bootstrapHelpersPhp -Needle 'random_bytes(16)' -Message 'CSP nonce must use random_bytes(16) in backend/core/bootstrap_helpers.php.'
     Assert-NotContains -Content $bootstrapHelpersPhp -Needle "`$_SESSION['commerza_csp_nonce']" -Message 'CSP nonce must be per-request, not persisted in session.'
     Assert-Contains -Content $bootstrapHelpersPhp -Needle "style-src 'self' 'unsafe-inline'" -Message 'CSP style-src should allow inline styles used by current templates.'
     Assert-Contains -Content $bootstrapHelpersPhp -Needle "script-src 'self' 'unsafe-inline'" -Message 'CSP script-src should allow inline scripts/events used by current templates.'

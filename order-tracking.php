@@ -30,6 +30,43 @@ function order_status_badge_class(string $status): string
   }
 }
 
+function order_tracking_safe_image_src(string $value): string
+{
+  $raw = trim($value);
+  if ($raw === '') {
+    return '';
+  }
+
+  if (preg_match('/[\x00-\x1F\x7F]/', $raw) === 1) {
+    return '';
+  }
+
+  if (preg_match('/^(?:javascript|vbscript):/i', $raw) === 1) {
+    return '';
+  }
+
+  if (preg_match('/^data:/i', $raw) === 1) {
+    return preg_match('/^data:image\/(?:png|jpe?g|webp|gif);base64,[a-z0-9+\/=\s]+$/i', $raw) === 1
+      ? $raw
+      : '';
+  }
+
+  if (
+    preg_match('/^(?:https?:)?\/\//i', $raw) === 1
+    || str_starts_with($raw, '/')
+    || str_starts_with($raw, './')
+    || str_starts_with($raw, '../')
+  ) {
+    return $raw;
+  }
+
+  if (preg_match('/^[a-z0-9][a-z0-9._\/-]*$/i', $raw) === 1) {
+    return $raw;
+  }
+
+  return '';
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if (
     empty($_POST['csrf_token']) ||
@@ -55,6 +92,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errors[] = 'Please enter the email used during checkout.';
   } elseif (!filter_var($email_value, FILTER_VALIDATE_EMAIL) || strlen($email_value) > 150) {
     $errors[] = 'Please enter a valid email address.';
+  }
+
+  if (empty($errors)) {
+    $clientIp = commerza_client_ip();
+    $rateIdentifier = $order_id_value . '|' . $email_value;
+    $rate = commerza_rate_limit_check(
+      $con,
+      'order_tracking_lookup',
+      $rateIdentifier,
+      $clientIp,
+      16,
+      600,
+      600,
+      1800,
+      86400
+    );
+
+    if (!$rate['allowed']) {
+      $retrySeconds = max(1, (int)($rate['retry_after'] ?? 0));
+      commerza_security_log_rate_limit_block(
+        $con,
+        'order_tracking_lookup',
+        'user',
+        $rateIdentifier,
+        $clientIp,
+        $retrySeconds
+      );
+      $errors[] = 'Too many tracking attempts. Please retry shortly.';
+    }
   }
 
   if (empty($errors)) {
@@ -282,7 +348,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </form>
           </div>
         </div>
-        <div class="col-lg-6"> 
+        <div class="col-lg-6">
           <div class="tracking-panel">
             <div class="tracking-header">
               <span class="tracking-kicker">Tracking Steps</span>
@@ -397,17 +463,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
               <div class="row g-3 mb-3">
                 <div class="col-md-6">
-                  <div class="p-3 rounded tracking-detail-card" style="background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 102, 0, 0.2);">
+                  <div class="p-3 rounded tracking-detail-card">
                     <p class="mb-1 text-secondary tracking-detail-meta">Customer</p>
-                    <p class="mb-1 text-white fw-semibold tracking-detail-value"><?= htmlspecialchars((string)$order_lookup['customer_name']) ?></p>
+                    <p class="mb-1 fw-semibold tracking-detail-value"><?= htmlspecialchars((string)$order_lookup['customer_name']) ?></p>
                     <p class="mb-1 text-secondary tracking-detail-meta"><?= htmlspecialchars((string)$order_lookup['customer_email']) ?></p>
                     <p class="mb-0 text-secondary tracking-detail-meta"><?= htmlspecialchars((string)$order_lookup['customer_phone']) ?></p>
                   </div>
                 </div>
                 <div class="col-md-6">
-                  <div class="p-3 rounded tracking-detail-card" style="background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 102, 0, 0.2);">
+                  <div class="p-3 rounded tracking-detail-card">
                     <p class="mb-1 text-secondary tracking-detail-meta">Shipping Address</p>
-                    <p class="mb-0 text-white tracking-detail-value"><?= nl2br(htmlspecialchars((string)$order_lookup['address'])) ?></p>
+                    <p class="mb-0 tracking-detail-value"><?= nl2br(htmlspecialchars((string)$order_lookup['address'])) ?></p>
                   </div>
                 </div>
               </div>
@@ -418,15 +484,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   <p class="text-secondary mb-0 tracking-detail-meta">No line items found for this order.</p>
                 <?php else: ?>
                   <?php foreach ($order_items as $item): ?>
-                    <div class="d-flex align-items-center gap-3 mb-2 p-2 rounded tracking-line-item" style="background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.06);">
-                      <?php if (!empty($item['product_img'])): ?>
-                        <img src="<?= htmlspecialchars((string)$item['product_img']) ?>" alt="<?= htmlspecialchars((string)$item['product_name']) ?>" style="width: 56px; height: 56px; object-fit: cover; border-radius: 8px;">
+                    <div class="d-flex align-items-center gap-3 mb-2 p-2 rounded tracking-line-item">
+                      <?php $safeImageSrc = order_tracking_safe_image_src((string)($item['product_img'] ?? '')); ?>
+                      <?php if ($safeImageSrc !== ''): ?>
+                        <img src="<?= htmlspecialchars($safeImageSrc) ?>" alt="<?= htmlspecialchars((string)$item['product_name']) ?>" class="tracking-line-thumb">
                       <?php endif; ?>
                       <div class="flex-grow-1">
-                        <p class="mb-0 text-white fw-semibold tracking-detail-value"><?= htmlspecialchars((string)$item['product_name']) ?></p>
+                        <p class="mb-0 fw-semibold tracking-detail-value"><?= htmlspecialchars((string)$item['product_name']) ?></p>
                         <small class="text-secondary tracking-line-meta">Qty: <?= (int)$item['quantity'] ?> | Unit: <?= number_format((float)$item['unit_price'], 0) ?> PKR</small>
                       </div>
-                      <p class="mb-0 text-white fw-semibold tracking-detail-value"><?= number_format((float)$item['line_total'], 0) ?> PKR</p>
+                      <p class="mb-0 fw-semibold tracking-detail-value"><?= number_format((float)$item['line_total'], 0) ?> PKR</p>
                     </div>
                   <?php endforeach; ?>
                 <?php endif; ?>
@@ -434,7 +501,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
               <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 pt-2 border-top border-secondary-subtle tracking-summary-row">
                 <p class="mb-0 text-secondary tracking-payment-meta">Payment: <?= htmlspecialchars((string)$order_lookup['payment_method']) ?> (<?= htmlspecialchars((string)$order_lookup['payment_status']) ?>)</p>
-                <p class="mb-0 text-white fw-bold tracking-total-value">Total: <?= number_format((float)$order_lookup['grand_total'], 0) ?> PKR</p>
+                <p class="mb-0 fw-bold tracking-total-value">Total: <?= number_format((float)$order_lookup['grand_total'], 0) ?> PKR</p>
               </div>
             </div>
           </div>

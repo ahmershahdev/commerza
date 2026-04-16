@@ -6,6 +6,18 @@ header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../data.php';
 
+/** @var mysqli|null $con */
+$con = (isset($con) && $con instanceof mysqli)
+    ? $con
+    : (($GLOBALS['con'] ?? null) instanceof mysqli ? $GLOBALS['con'] : null);
+
+if (!($con instanceof mysqli)) {
+    order_tracking_api_json([
+        'ok' => false,
+        'message' => 'Database connection unavailable.',
+    ], 500);
+}
+
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
@@ -15,6 +27,43 @@ function order_tracking_api_json(array $payload, int $status = 200): void
     http_response_code($status);
     echo json_encode($payload, JSON_UNESCAPED_SLASHES);
     exit;
+}
+
+function order_tracking_safe_image_src(string $value): string
+{
+    $raw = trim($value);
+    if ($raw === '') {
+        return '';
+    }
+
+    if (preg_match('/[\x00-\x1F\x7F]/', $raw) === 1) {
+        return '';
+    }
+
+    if (preg_match('/^(?:javascript|vbscript):/i', $raw) === 1) {
+        return '';
+    }
+
+    if (preg_match('/^data:/i', $raw) === 1) {
+        return preg_match('/^data:image\/(?:png|jpe?g|webp|gif);base64,[a-z0-9+\/=\s]+$/i', $raw) === 1
+            ? $raw
+            : '';
+    }
+
+    if (
+        preg_match('/^(?:https?:)?\/\//i', $raw) === 1
+        || str_starts_with($raw, '/')
+        || str_starts_with($raw, './')
+        || str_starts_with($raw, '../')
+    ) {
+        return $raw;
+    }
+
+    if (preg_match('/^[a-z0-9][a-z0-9._\/-]*$/i', $raw) === 1) {
+        return $raw;
+    }
+
+    return '';
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -151,7 +200,7 @@ if ($itemsStmt) {
     while ($itemsResult && ($row = $itemsResult->fetch_assoc())) {
         $orderItems[] = [
             'product_name' => (string)($row['product_name'] ?? ''),
-            'product_img' => (string)($row['product_img'] ?? ''),
+            'product_img' => order_tracking_safe_image_src((string)($row['product_img'] ?? '')),
             'unit_price' => (float)($row['unit_price'] ?? 0),
             'quantity' => (int)($row['quantity'] ?? 0),
             'line_total' => (float)($row['line_total'] ?? 0),

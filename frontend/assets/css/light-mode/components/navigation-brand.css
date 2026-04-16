@@ -58,12 +58,23 @@ body.dark-theme.light-theme .brand-text {
 
 body.dark-theme.light-theme .navbar-logo,
 body.dark-theme.light-theme .offcanvas-logo {
+  border-radius: 10px;
+  box-shadow:
+    -10px -10px 18px -12px rgba(96, 165, 250, 0.54),
+    10px -10px 18px -12px rgba(37, 99, 235, 0.42),
+    -10px 10px 18px -12px rgba(37, 99, 235, 0.42),
+    10px 10px 18px -12px rgba(96, 165, 250, 0.5);
   filter: drop-shadow(0 6px 14px rgba(30, 58, 138, 0.34))
     drop-shadow(0 0 24px rgba(30, 64, 175, 0.34));
 }
 
 body.dark-theme.light-theme .navbar-logo[src$="commerza_logo.svg"],
 body.dark-theme.light-theme .offcanvas-logo[src$="commerza_logo.svg"] {
+  box-shadow:
+    -12px -12px 22px -14px rgba(56, 189, 248, 0.62),
+    12px -12px 22px -14px rgba(37, 82, 214, 0.58),
+    -12px 12px 22px -14px rgba(37, 82, 214, 0.58),
+    12px 12px 22px -14px rgba(56, 189, 248, 0.6);
   filter: brightness(0) saturate(100%) invert(22%) sepia(61%) saturate(1198%)
     hue-rotate(199deg) brightness(95%) contrast(96%)
     drop-shadow(0 5px 12px rgba(30, 58, 138, 0.36))

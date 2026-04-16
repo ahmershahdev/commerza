@@ -1,404 +1,405 @@
 // Product detail rendering and URL identity helpers.
 
-  function normalizeProductIdentityName(value) {
-    return (value || "").toString().trim().replace(/\s+/g, " ").toLowerCase();
+function normalizeProductIdentityName(value) {
+  return (value || "").toString().trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function normalizeProductIdentityCode(value) {
+  return (value || "").toString().trim().replace(/\s+/g, "").toUpperCase();
+}
+
+function normalizeProductIdentitySlug(value) {
+  return (value || "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function resolveProductIdentitySlug(product) {
+  const explicitSlug = normalizeProductIdentitySlug(product?.slug || "");
+  if (explicitSlug) {
+    return explicitSlug;
   }
 
-  function normalizeProductIdentityCode(value) {
-    return (value || "").toString().trim().replace(/\s+/g, "").toUpperCase();
+  const fromName = normalizeProductIdentitySlug(product?.name || "");
+  return fromName || "product";
+}
+
+function sanitizeProductBasePath(rawPath) {
+  const raw = (rawPath || "").toString().trim().replace(/\\/g, "/");
+  if (!raw) {
+    return "";
   }
 
-  function normalizeProductIdentitySlug(value) {
-    return (value || "")
-      .toString()
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-+|-+$/g, "");
+  const segments = raw.split("/").filter(Boolean);
+  const isSafeSegment = (segment) => /^[a-z0-9_-]+$/i.test(segment || "");
+  const projectSegment = segments.find((segment) =>
+    /^commerza$/i.test(segment),
+  );
+
+  if (projectSegment && isSafeSegment(projectSegment)) {
+    return `/${projectSegment}/`;
   }
 
-  function resolveProductIdentitySlug(product) {
-    const explicitSlug = normalizeProductIdentitySlug(product?.slug || "");
-    if (explicitSlug) {
-      return explicitSlug;
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = (segments[index] || "").toString().trim();
+    if (isSafeSegment(segment)) {
+      return `/${segment}/`;
     }
-
-    const fromName = normalizeProductIdentitySlug(product?.name || "");
-    return fromName || "product";
   }
 
-  function sanitizeProductBasePath(rawPath) {
-    const raw = (rawPath || "").toString().trim().replace(/\\/g, "/");
-    if (!raw) {
+  return raw.includes(":") ? "/" : "";
+}
+
+function getProductAppBasePath() {
+  const globalBase = sanitizeProductBasePath(window.CommerzaAppBasePath || "");
+  if (globalBase) {
+    return globalBase;
+  }
+
+  const pathname = window.location.pathname.replace(/\\/g, "/");
+  const lowerPathname = pathname.toLowerCase();
+  const markers = ["/products.php", "/prodcuts/", "/products/", "/product/"];
+
+  for (const marker of markers) {
+    const markerIndex = lowerPathname.indexOf(marker);
+    if (markerIndex >= 0) {
+      return sanitizeProductBasePath(pathname.slice(0, markerIndex + 1)) || "/";
+    }
+  }
+
+  const lastSlashIndex = pathname.lastIndexOf("/");
+  if (lastSlashIndex >= 0) {
+    return (
+      sanitizeProductBasePath(pathname.slice(0, lastSlashIndex + 1)) || "/"
+    );
+  }
+
+  return sanitizeProductBasePath(pathname) || "/";
+}
+
+function buildProductDetailPathFromSlug(slug) {
+  const normalizedSlug = normalizeProductIdentitySlug(slug);
+  if (!normalizedSlug) {
+    return "products.php";
+  }
+
+  return `products/${encodeURIComponent(normalizedSlug)}`;
+}
+
+function buildProductDetailAbsoluteUrl(product) {
+  const basePath = getProductAppBasePath();
+  const detailPath = buildProductDetailPathFromSlug(
+    resolveProductIdentitySlug(product),
+  );
+
+  return `${window.location.origin}${basePath}${detailPath}`;
+}
+
+function extractProductSlugFromPath() {
+  const pathname = window.location.pathname.replace(/\\/g, "/");
+  const match =
+    pathname.match(/\/prodcuts\/([^/?#]+)/i) ||
+    pathname.match(/\/products\/([^/?#]+)/i) ||
+    pathname.match(/\/product\/([^/?#]+)/i);
+
+  if (!match || !match[1]) {
+    return "";
+  }
+
+  try {
+    return normalizeProductIdentitySlug(decodeURIComponent(match[1]));
+  } catch (error) {
+    return normalizeProductIdentitySlug(match[1]);
+  }
+}
+
+function getProductRequestParams() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const preload =
+    window.CommerzaProductRequest &&
+    typeof window.CommerzaProductRequest === "object"
+      ? window.CommerzaProductRequest
+      : {};
+
+  const slug = normalizeProductIdentitySlug(
+    preload.slug || urlParams.get("slug") || extractProductSlugFromPath(),
+  );
+  const id =
+    preload.id != null && preload.id !== ""
+      ? String(preload.id)
+      : urlParams.get("id");
+  const name =
+    preload.name != null && preload.name !== ""
+      ? String(preload.name)
+      : urlParams.get("name");
+  const code =
+    preload.code != null && preload.code !== ""
+      ? String(preload.code)
+      : urlParams.get("code");
+
+  return {
+    slug,
+    id,
+    name,
+    code,
+  };
+}
+
+function updateProductMeta(product) {
+  if (!product) return;
+  const title = `${product.name} | Commerza`;
+  const description =
+    product.description || "Discover premium Commerza watches and accessories.";
+  const canonicalUrl = buildProductDetailAbsoluteUrl(product);
+  const normalizedImage = sanitizeClientAssetUrl(product.image);
+  const imageUrl = (() => {
+    if (!normalizedImage) {
       return "";
     }
 
-    const segments = raw.split("/").filter(Boolean);
-    const isSafeSegment = (segment) => /^[a-z0-9_-]+$/i.test(segment || "");
-    const projectSegment = segments.find((segment) =>
-      /^commerza$/i.test(segment),
-    );
-
-    if (projectSegment && isSafeSegment(projectSegment)) {
-      return `/${projectSegment}/`;
+    if (normalizedImage.startsWith("http")) {
+      return normalizedImage;
     }
 
-    for (let index = 0; index < segments.length; index += 1) {
-      const segment = (segments[index] || "").toString().trim();
-      if (isSafeSegment(segment)) {
-        return `/${segment}/`;
-      }
+    if (normalizedImage.startsWith("/")) {
+      return `${window.location.origin}${normalizedImage}`;
     }
 
-    return raw.includes(":") ? "/" : "";
+    return `${window.location.origin}${getProductAppBasePath()}${normalizedImage}`;
+  })();
+
+  document.title = title;
+  $('meta[name="description"]').attr("content", description);
+  $('meta[property="og:title"]').attr("content", title);
+  $('meta[property="og:description"]').attr("content", description);
+  $('meta[property="og:url"]').attr("content", canonicalUrl);
+  if (imageUrl) $('meta[property="og:image"]').attr("content", imageUrl);
+  $('link[rel="canonical"]').attr("href", canonicalUrl);
+
+  const currentUrl = `${window.location.origin}${window.location.pathname}${window.location.search}`;
+  if (
+    typeof window.history.replaceState === "function" &&
+    currentUrl !== canonicalUrl
+  ) {
+    window.history.replaceState({}, "", canonicalUrl);
   }
+}
 
-  function getProductAppBasePath() {
-    const globalBase = sanitizeProductBasePath(
-      window.CommerzaAppBasePath || "",
-    );
-    if (globalBase) {
-      return globalBase;
-    }
+function findProduct(data, params) {
+  if (!data?.sections) return null;
+  const id = (params?.id || "").toString().trim();
+  const normalizedName = normalizeProductIdentityName(params?.name || "");
+  const normalizedCode = normalizeProductIdentityCode(params?.code || "");
+  const normalizedSlug = normalizeProductIdentitySlug(params?.slug || "");
 
-    const pathname = window.location.pathname.replace(/\\/g, "/");
-    const lowerPathname = pathname.toLowerCase();
-    const markers = ["/products.php", "/prodcuts/", "/products/", "/product/"];
-
-    for (const marker of markers) {
-      const markerIndex = lowerPathname.indexOf(marker);
-      if (markerIndex >= 0) {
-        return (
-          sanitizeProductBasePath(pathname.slice(0, markerIndex + 1)) || "/"
-        );
-      }
-    }
-
-    const lastSlashIndex = pathname.lastIndexOf("/");
-    if (lastSlashIndex >= 0) {
-      return (
-        sanitizeProductBasePath(pathname.slice(0, lastSlashIndex + 1)) || "/"
-      );
-    }
-
-    return sanitizeProductBasePath(pathname) || "/";
-  }
-
-  function buildProductDetailPathFromSlug(slug) {
-    const normalizedSlug = normalizeProductIdentitySlug(slug);
-    if (!normalizedSlug) {
-      return "products.php";
-    }
-
-    return `products/${encodeURIComponent(normalizedSlug)}`;
-  }
-
-  function buildProductDetailAbsoluteUrl(product) {
-    const basePath = getProductAppBasePath();
-    const detailPath = buildProductDetailPathFromSlug(
-      resolveProductIdentitySlug(product),
-    );
-
-    return `${window.location.origin}${basePath}${detailPath}`;
-  }
-
-  function extractProductSlugFromPath() {
-    const pathname = window.location.pathname.replace(/\\/g, "/");
-    const match =
-      pathname.match(/\/prodcuts\/([^/?#]+)/i) ||
-      pathname.match(/\/products\/([^/?#]+)/i) ||
-      pathname.match(/\/product\/([^/?#]+)/i);
-
-    if (!match || !match[1]) {
-      return "";
-    }
-
-    try {
-      return normalizeProductIdentitySlug(decodeURIComponent(match[1]));
-    } catch (error) {
-      return normalizeProductIdentitySlug(match[1]);
-    }
-  }
-
-  function getProductRequestParams() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const preload =
-      window.CommerzaProductRequest &&
-      typeof window.CommerzaProductRequest === "object"
-        ? window.CommerzaProductRequest
-        : {};
-
-    const slug = normalizeProductIdentitySlug(
-      preload.slug || urlParams.get("slug") || extractProductSlugFromPath(),
-    );
-    const id =
-      preload.id != null && preload.id !== ""
-        ? String(preload.id)
-        : urlParams.get("id");
-    const name =
-      preload.name != null && preload.name !== ""
-        ? String(preload.name)
-        : urlParams.get("name");
-    const code =
-      preload.code != null && preload.code !== ""
-        ? String(preload.code)
-        : urlParams.get("code");
-
-    return {
-      slug,
-      id,
-      name,
-      code,
-    };
-  }
-
-  function updateProductMeta(product) {
-    if (!product) return;
-    const title = `${product.name} | Commerza`;
-    const description =
-      product.description ||
-      "Discover premium Commerza watches and accessories.";
-    const canonicalUrl = buildProductDetailAbsoluteUrl(product);
-    const normalizedImage = sanitizeClientAssetUrl(product.image);
-    const imageUrl = (() => {
-      if (!normalizedImage) {
-        return "";
-      }
-
-      if (normalizedImage.startsWith("http")) {
-        return normalizedImage;
-      }
-
-      if (normalizedImage.startsWith("/")) {
-        return `${window.location.origin}${normalizedImage}`;
-      }
-
-      return `${window.location.origin}${getProductAppBasePath()}${normalizedImage}`;
-    })();
-
-    document.title = title;
-    $('meta[name="description"]').attr("content", description);
-    $('meta[property="og:title"]').attr("content", title);
-    $('meta[property="og:description"]').attr("content", description);
-    $('meta[property="og:url"]').attr("content", canonicalUrl);
-    if (imageUrl) $('meta[property="og:image"]').attr("content", imageUrl);
-    $('link[rel="canonical"]').attr("href", canonicalUrl);
-
-    const currentUrl = `${window.location.origin}${window.location.pathname}${window.location.search}`;
-    if (
-      typeof window.history.replaceState === "function" &&
-      currentUrl !== canonicalUrl
-    ) {
-      window.history.replaceState({}, "", canonicalUrl);
-    }
-  }
-
-  function findProduct(data, params) {
-    if (!data?.sections) return null;
-    const id = (params?.id || "").toString().trim();
-    const normalizedName = normalizeProductIdentityName(params?.name || "");
-    const normalizedCode = normalizeProductIdentityCode(params?.code || "");
-    const normalizedSlug = normalizeProductIdentitySlug(params?.slug || "");
-
-    if (
-      id === "" &&
-      normalizedName === "" &&
-      normalizedCode === "" &&
-      normalizedSlug === ""
-    ) {
-      return null;
-    }
-
-    const pickByLowestId = (candidates) => {
-      if (!Array.isArray(candidates) || candidates.length === 0) {
-        return null;
-      }
-
-      return candidates.slice().sort((a, b) => {
-        const aId = Number.parseInt(a?.id, 10);
-        const bId = Number.parseInt(b?.id, 10);
-        const safeA = Number.isInteger(aId) ? aId : Number.MAX_SAFE_INTEGER;
-        const safeB = Number.isInteger(bId) ? bId : Number.MAX_SAFE_INTEGER;
-        return safeA - safeB;
-      })[0];
-    };
-
-    const candidates = [];
-
-    for (const section of data.sections) {
-      const products = section.products || [];
-      for (const product of products) {
-        candidates.push({
-          ...product,
-          sectionName: section.sectionName,
-          sectionId: section.sectionId,
-        });
-      }
-    }
-
-    if (id !== "") {
-      const idMatch = candidates.find(
-        (product) => (product.id ?? "").toString().trim() === id,
-      );
-      if (idMatch) {
-        return idMatch;
-      }
-    }
-
-    const hasStrictFilters =
-      normalizedSlug !== "" || normalizedCode !== "" || normalizedName !== "";
-
-    if (hasStrictFilters) {
-      const strictMatches = candidates.filter((product) => {
-        if (
-          normalizedSlug !== "" &&
-          normalizeProductIdentitySlug(product.slug || product.name || "") !==
-            normalizedSlug
-        ) {
-          return false;
-        }
-
-        if (
-          normalizedCode !== "" &&
-          normalizeProductIdentityCode(product.productCode || "") !==
-            normalizedCode
-        ) {
-          return false;
-        }
-
-        if (
-          normalizedName !== "" &&
-          normalizeProductIdentityName(product.name || "") !== normalizedName
-        ) {
-          return false;
-        }
-
-        return true;
-      });
-
-      const strictWinner = pickByLowestId(strictMatches);
-      if (strictWinner) {
-        return strictWinner;
-      }
-    }
-
-    if (normalizedSlug !== "") {
-      const slugWinner = pickByLowestId(
-        candidates.filter(
-          (product) =>
-            normalizeProductIdentitySlug(product.slug || product.name || "") ===
-            normalizedSlug,
-        ),
-      );
-      if (slugWinner) {
-        return slugWinner;
-      }
-    }
-
-    if (normalizedCode !== "") {
-      const codeWinner = pickByLowestId(
-        candidates.filter(
-          (product) =>
-            normalizeProductIdentityCode(product.productCode || "") ===
-            normalizedCode,
-        ),
-      );
-      if (codeWinner) {
-        return codeWinner;
-      }
-    }
-
-    if (normalizedName !== "") {
-      return pickByLowestId(
-        candidates.filter(
-          (product) =>
-            normalizeProductIdentityName(product.name || "") === normalizedName,
-        ),
-      );
-    }
-
+  if (
+    id === "" &&
+    normalizedName === "" &&
+    normalizedCode === "" &&
+    normalizedSlug === ""
+  ) {
     return null;
   }
 
-  function renderProductDetail(product) {
-    const container = $("#product-detail-container");
-    if (!container.length) return;
+  const pickByLowestId = (candidates) => {
+    if (!Array.isArray(candidates) || candidates.length === 0) {
+      return null;
+    }
 
-    if (!product) {
-      clearLiveViewerPolling();
-      container.html(`
-                <div class="text-center py-5">
-                    <i class="bi bi-exclamation-triangle" style="font-size: 3rem; color: #ff6600;"></i>
-                    <h3 class="text-white mt-3">Product not found</h3>
-                    <p class="text-secondary">We couldn’t locate that product. Please return to the shop.</p>
+    return candidates.slice().sort((a, b) => {
+      const aId = Number.parseInt(a?.id, 10);
+      const bId = Number.parseInt(b?.id, 10);
+      const safeA = Number.isInteger(aId) ? aId : Number.MAX_SAFE_INTEGER;
+      const safeB = Number.isInteger(bId) ? bId : Number.MAX_SAFE_INTEGER;
+      return safeA - safeB;
+    })[0];
+  };
+
+  const candidates = [];
+
+  for (const section of data.sections) {
+    const products = section.products || [];
+    for (const product of products) {
+      candidates.push({
+        ...product,
+        sectionName: section.sectionName,
+        sectionId: section.sectionId,
+      });
+    }
+  }
+
+  if (id !== "") {
+    const idMatch = candidates.find(
+      (product) => (product.id ?? "").toString().trim() === id,
+    );
+    if (idMatch) {
+      return idMatch;
+    }
+  }
+
+  const hasStrictFilters =
+    normalizedSlug !== "" || normalizedCode !== "" || normalizedName !== "";
+
+  if (hasStrictFilters) {
+    const strictMatches = candidates.filter((product) => {
+      if (
+        normalizedSlug !== "" &&
+        normalizeProductIdentitySlug(product.slug || product.name || "") !==
+          normalizedSlug
+      ) {
+        return false;
+      }
+
+      if (
+        normalizedCode !== "" &&
+        normalizeProductIdentityCode(product.productCode || "") !==
+          normalizedCode
+      ) {
+        return false;
+      }
+
+      if (
+        normalizedName !== "" &&
+        normalizeProductIdentityName(product.name || "") !== normalizedName
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+
+    const strictWinner = pickByLowestId(strictMatches);
+    if (strictWinner) {
+      return strictWinner;
+    }
+  }
+
+  if (normalizedSlug !== "") {
+    const slugWinner = pickByLowestId(
+      candidates.filter(
+        (product) =>
+          normalizeProductIdentitySlug(product.slug || product.name || "") ===
+          normalizedSlug,
+      ),
+    );
+    if (slugWinner) {
+      return slugWinner;
+    }
+  }
+
+  if (normalizedCode !== "") {
+    const codeWinner = pickByLowestId(
+      candidates.filter(
+        (product) =>
+          normalizeProductIdentityCode(product.productCode || "") ===
+          normalizedCode,
+      ),
+    );
+    if (codeWinner) {
+      return codeWinner;
+    }
+  }
+
+  if (normalizedName !== "") {
+    return pickByLowestId(
+      candidates.filter(
+        (product) =>
+          normalizeProductIdentityName(product.name || "") === normalizedName,
+      ),
+    );
+  }
+
+  return null;
+}
+
+function renderProductDetail(product, state = "not-found") {
+  const container = $("#product-detail-container");
+  if (!container.length) return;
+
+  if (!product) {
+    clearLiveViewerPolling();
+    const isLoadError = state === "load-error";
+    const title = isLoadError ? "Unable to load product" : "Product not found";
+    const detail = isLoadError
+      ? "We could not load product data right now. Please refresh and try again."
+      : "We couldn’t locate that product. Please return to the shop.";
+
+    container.html(`
+                <div class="catalog-feedback-state catalog-feedback-empty text-center py-5" role="status" aria-live="polite">
+                    <i class="bi bi-exclamation-triangle-fill catalog-feedback-icon" aria-hidden="true"></i>
+                    <h3 class="catalog-feedback-title mt-3">${escapeHtml(title)}</h3>
+                    <p class="catalog-feedback-description">${escapeHtml(detail)}</p>
                     <a href="index.php" class="btn product-btn-buy mt-3">Back to Home</a>
                 </div>
             `);
-      return;
-    }
+    return;
+  }
 
-    const originalPrice =
-      product.price != null ? parseInt(product.price).toLocaleString() : "";
-    const salePrice =
-      product.salePrice != null
-        ? parseInt(product.salePrice).toLocaleString()
-        : "";
-    const movementLabel =
-      product.movement === "auto"
-        ? "Automatic"
-        : product.movement === "smart"
-          ? "Smart"
-          : "Quartz";
-    const stockText =
-      product.stock != null ? `${product.stock} in stock` : "Stock available";
-    const movementClass =
-      product.movement === "smart"
-        ? "movement-smart"
-        : product.movement === "auto"
-          ? "movement-auto"
-          : "movement-quartz";
-    const numericProductId = Number.parseInt(product.id, 10);
-    const safeProductId = Number.isInteger(numericProductId)
-      ? String(numericProductId)
+  const originalPrice =
+    product.price != null ? parseInt(product.price).toLocaleString() : "";
+  const salePrice =
+    product.salePrice != null
+      ? parseInt(product.salePrice).toLocaleString()
       : "";
-    const safeName = escapeHtml(product.name || "Product");
-    const safeDescription = escapeHtml(product.description || "");
-    const safeSectionName = escapeHtml(product.sectionName || "Commerza");
-    const safeMovementLabel = escapeHtml(movementLabel);
-    const safeStockText = escapeHtml(stockText);
-    const safeImage = escapeHtml(sanitizeClientAssetUrl(product.image));
-    const safePriceValue = Number.isFinite(Number(product.price))
-      ? String(Number(product.price))
-      : "0";
-    const safeSalePriceValue = Number.isFinite(Number(product.salePrice))
-      ? String(Number(product.salePrice))
-      : safePriceValue;
-    const safeStockValue = Number.isFinite(Number(product.stock))
-      ? String(Number(product.stock))
-      : "";
-    const stockCount = Number.isFinite(Number(product.stock))
-      ? Number(product.stock)
-      : 0;
-    const defaultDispatchText =
-      stockCount > 0 ? "Dispatch in 24-48 hours" : "Pre-order availability";
-    const dispatchText =
-      (product.dispatchInfo || "").toString().trim() || defaultDispatchText;
-    const productCode =
-      (product.productCode || "").toString().trim() ||
-      (safeProductId ? `CMRZ-${safeProductId.padStart(5, "0")}` : "CMRZ-NA");
-    const warrantyText =
-      (product.warrantyInfo || "").toString().trim() ||
-      "12-month seller warranty";
-    const safeMovementValue = escapeHtml((product.movement || "").toString());
-    const safeDispatchText = escapeHtml(dispatchText);
-    const safeProductCode = escapeHtml(productCode);
-    const safeWarrantyText = escapeHtml(warrantyText);
-    const wishlistActive = isInWishlist(product.id, product.name);
-    const compareActive = isInCompare(product.id, product.name);
-    const compareIcon = compareActive ? "bi-check2-circle" : "bi-sliders";
+  const movementLabel =
+    product.movement === "auto"
+      ? "Automatic"
+      : product.movement === "smart"
+        ? "Smart"
+        : "Quartz";
+  const stockText =
+    product.stock != null ? `${product.stock} in stock` : "Stock available";
+  const movementClass =
+    product.movement === "smart"
+      ? "movement-smart"
+      : product.movement === "auto"
+        ? "movement-auto"
+        : "movement-quartz";
+  const numericProductId = Number.parseInt(product.id, 10);
+  const safeProductId = Number.isInteger(numericProductId)
+    ? String(numericProductId)
+    : "";
+  const safeName = escapeHtml(product.name || "Product");
+  const safeDescription = escapeHtml(product.description || "");
+  const safeSectionName = escapeHtml(product.sectionName || "Commerza");
+  const safeMovementLabel = escapeHtml(movementLabel);
+  const safeStockText = escapeHtml(stockText);
+  const safeImage = escapeHtml(sanitizeClientAssetUrl(product.image));
+  const safePriceValue = Number.isFinite(Number(product.price))
+    ? String(Number(product.price))
+    : "0";
+  const safeSalePriceValue = Number.isFinite(Number(product.salePrice))
+    ? String(Number(product.salePrice))
+    : safePriceValue;
+  const safeStockValue = Number.isFinite(Number(product.stock))
+    ? String(Number(product.stock))
+    : "";
+  const stockCount = Number.isFinite(Number(product.stock))
+    ? Number(product.stock)
+    : 0;
+  const defaultDispatchText =
+    stockCount > 0 ? "Dispatch in 24-48 hours" : "Pre-order availability";
+  const dispatchText =
+    (product.dispatchInfo || "").toString().trim() || defaultDispatchText;
+  const productCode =
+    (product.productCode || "").toString().trim() ||
+    (safeProductId ? `CMRZ-${safeProductId.padStart(5, "0")}` : "CMRZ-NA");
+  const warrantyText =
+    (product.warrantyInfo || "").toString().trim() ||
+    "12-month seller warranty";
+  const safeMovementValue = escapeHtml((product.movement || "").toString());
+  const safeDispatchText = escapeHtml(dispatchText);
+  const safeProductCode = escapeHtml(productCode);
+  const safeWarrantyText = escapeHtml(warrantyText);
+  const wishlistActive = isInWishlist(product.id, product.name);
+  const compareActive = isInCompare(product.id, product.name);
+  const compareIcon = compareActive ? "bi-check2-circle" : "bi-sliders";
 
-    container.html(`
+  container.html(`
             <div class="product-detail-card">
                 <div class="row g-4 align-items-center">
                     <div class="col-lg-5">
@@ -487,29 +488,29 @@
             </div>
         `);
 
-    updateProductMeta(product);
-    updateWishlistButtons();
-    updateCompareButtons();
-    startLiveViewerPolling(product.id);
-  }
+  updateProductMeta(product);
+  updateWishlistButtons();
+  updateCompareButtons();
+  startLiveViewerPolling(product.id);
+}
 
-  function renderShareButtons(product) {
-    const container = $("#product-share-buttons");
-    if (!container.length || !product) return;
+function renderShareButtons(product) {
+  const container = $("#product-share-buttons");
+  if (!container.length || !product) return;
 
-    const shareName = (product.name || "this product")
-      .toString()
-      .slice(0, 120)
-      .replace(/\s+/g, " ")
-      .trim();
-    const url = buildProductDetailAbsoluteUrl(product);
-    const shareText = `Check out ${shareName} on Commerza.`;
-    const text = encodeURIComponent(shareText);
-    const encodedUrl = encodeURIComponent(url);
-    const canUseNativeShare =
-      typeof navigator !== "undefined" && typeof navigator.share === "function";
+  const shareName = (product.name || "this product")
+    .toString()
+    .slice(0, 120)
+    .replace(/\s+/g, " ")
+    .trim();
+  const url = buildProductDetailAbsoluteUrl(product);
+  const shareText = `Check out ${shareName} on Commerza.`;
+  const text = encodeURIComponent(shareText);
+  const encodedUrl = encodeURIComponent(url);
+  const canUseNativeShare =
+    typeof navigator !== "undefined" && typeof navigator.share === "function";
 
-    container.html(`
+  container.html(`
             <a class="btn share-btn share-btn-facebook" href="https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}" target="_blank" rel="noopener" aria-label="Share on Facebook">
               <i class="bi bi-facebook"></i>
               <span>Facebook</span>
@@ -536,112 +537,110 @@
             }
         `);
 
-    const copyBtn = $("#copyProductLink");
-    copyBtn.off("click").on("click", function () {
-      const clipboardWrite =
-        navigator.clipboard &&
-        typeof navigator.clipboard.writeText === "function"
-          ? navigator.clipboard.writeText(url)
-          : Promise.reject(new Error("Clipboard API unavailable"));
+  const copyBtn = $("#copyProductLink");
+  copyBtn.off("click").on("click", function () {
+    const clipboardWrite =
+      navigator.clipboard && typeof navigator.clipboard.writeText === "function"
+        ? navigator.clipboard.writeText(url)
+        : Promise.reject(new Error("Clipboard API unavailable"));
 
-      clipboardWrite
-        .then(() => {
-          const button = $(this);
-          button.addClass("is-copied");
-          button.find("span").text("Copied");
-          showNotif("Product link copied.", "success");
-          window.setTimeout(() => {
-            button.removeClass("is-copied");
-            button.find("span").text("Copy Link");
-          }, 1400);
-        })
-        .catch(() => {
-          showNotif("Unable to copy link.", "warning");
-        });
-    });
-
-    if (canUseNativeShare) {
-      $("#nativeShareProduct")
-        .off("click")
-        .on("click", async function () {
-          try {
-            await navigator.share({
-              title: `${shareName} | Commerza`,
-              text: shareText,
-              url,
-            });
-          } catch (error) {
-            if (error?.name === "AbortError") {
-              return;
-            }
-
-            showNotif("Unable to open share panel.", "warning");
-          }
-        });
-    }
-  }
-
-  function renderRelatedProducts(data, currentProduct) {
-    const container = $("#related-products-container");
-    if (!container.length || !data?.sections) return;
-
-    const allProducts = uniqueProducts(getAllProducts(data));
-    const filtered = allProducts.filter(
-      (p) =>
-        String(p.id) !== String(currentProduct?.id) &&
-        p.name !== currentProduct?.name,
-    );
-
-    const shuffled = filtered.sort(() => 0.5 - Math.random());
-    const selected = shuffled.slice(0, 6);
-
-    container.empty();
-    if (selected.length === 0) {
-      container.html(
-        '<p class="text-secondary">No related products found.</p>',
-      );
-      return;
-    }
-    selected.forEach((product) => {
-      const card = $(createProductCard(product));
-      const gridColumn = card.first();
-      if (gridColumn.length) {
-        gridColumn.removeClass("col-lg-3 col-lg-4").addClass("col-lg-4");
-      }
-      container.append(card);
-    });
-  }
-
-  function initProductDetailPage() {
-    const container = $("#product-detail-container");
-    if (!container.length) return;
-
-    const productRequest = getProductRequestParams();
-
-    const hasProductIdentity =
-      (productRequest.slug || "").toString().trim() !== "" ||
-      (productRequest.id || "").toString().trim() !== "" ||
-      (productRequest.name || "").toString().trim() !== "" ||
-      (productRequest.code || "").toString().trim() !== "";
-
-    if (!hasProductIdentity) {
-      renderProductDetail(null);
-      renderShareButtons(null);
-      renderReviewsMarquee(null);
-      return;
-    }
-
-    fetchProductsData()
-      .done((data) => {
-        const product = findProduct(data, productRequest);
-
-        renderProductDetail(product);
-        renderShareButtons(product);
-        renderReviewsMarquee(product);
-        renderRelatedProducts(data, product);
+    clipboardWrite
+      .then(() => {
+        const button = $(this);
+        button.addClass("is-copied");
+        button.find("span").text("Copied");
+        showNotif("Product link copied.", "success");
+        window.setTimeout(() => {
+          button.removeClass("is-copied");
+          button.find("span").text("Copy Link");
+        }, 1400);
       })
-      .fail(() => {
-        renderProductDetail(null);
+      .catch(() => {
+        showNotif("Unable to copy link.", "warning");
+      });
+  });
+
+  if (canUseNativeShare) {
+    $("#nativeShareProduct")
+      .off("click")
+      .on("click", async function () {
+        try {
+          await navigator.share({
+            title: `${shareName} | Commerza`,
+            text: shareText,
+            url,
+          });
+        } catch (error) {
+          if (error?.name === "AbortError") {
+            return;
+          }
+
+          showNotif("Unable to open share panel.", "warning");
+        }
       });
   }
+}
 
+function renderRelatedProducts(data, currentProduct) {
+  const container = $("#related-products-container");
+  if (!container.length || !data?.sections) return;
+
+  const allProducts = uniqueProducts(getAllProducts(data));
+  const filtered = allProducts.filter(
+    (p) =>
+      String(p.id) !== String(currentProduct?.id) &&
+      p.name !== currentProduct?.name,
+  );
+
+  const shuffled = filtered.sort(() => 0.5 - Math.random());
+  const selected = shuffled.slice(0, 6);
+
+  container.empty();
+  if (selected.length === 0) {
+    container.html('<p class="text-secondary">No related products found.</p>');
+    return;
+  }
+  selected.forEach((product) => {
+    const card = $(createProductCard(product));
+    const gridColumn = card.first();
+    if (gridColumn.length) {
+      gridColumn.removeClass("col-lg-3 col-lg-4").addClass("col-lg-4");
+    }
+    container.append(card);
+  });
+}
+
+function initProductDetailPage() {
+  const container = $("#product-detail-container");
+  if (!container.length) return;
+
+  const productRequest = getProductRequestParams();
+
+  const hasProductIdentity =
+    (productRequest.slug || "").toString().trim() !== "" ||
+    (productRequest.id || "").toString().trim() !== "" ||
+    (productRequest.name || "").toString().trim() !== "" ||
+    (productRequest.code || "").toString().trim() !== "";
+
+  if (!hasProductIdentity) {
+    renderProductDetail(null, "not-found");
+    renderShareButtons(null);
+    renderReviewsMarquee(null);
+    return;
+  }
+
+  fetchProductsData()
+    .done((data) => {
+      const product = findProduct(data, productRequest);
+
+      renderProductDetail(product);
+      renderShareButtons(product);
+      renderReviewsMarquee(product);
+      renderRelatedProducts(data, product);
+    })
+    .fail(() => {
+      renderProductDetail(null, "load-error");
+      renderShareButtons(null);
+      renderReviewsMarquee(null);
+    });
+}
