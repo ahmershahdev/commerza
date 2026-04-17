@@ -460,6 +460,21 @@ function account_delete_refund_evidence_file(string $relativePath): void
   }
 }
 
+function account_refund_upload_mime_from_filename(string $filename): string
+{
+  $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+  $map = [
+    'jpg' => 'image/jpeg',
+    'jpeg' => 'image/jpeg',
+    'png' => 'image/png',
+    'webp' => 'image/webp',
+    'gif' => 'image/gif',
+    'pdf' => 'application/pdf',
+  ];
+
+  return $map[$extension] ?? '';
+}
+
 function account_store_refund_evidence($file, int $userId, int $orderId, array &$errors): ?array
 {
   if (!is_array($file)) {
@@ -494,6 +509,7 @@ function account_store_refund_evidence($file, int $userId, int $orderId, array &
     return null;
   }
 
+  $originalName = trim((string)($file['name'] ?? 'refund-evidence'));
   $finfo = finfo_open(FILEINFO_MIME_TYPE);
   $mime = $finfo ? (string)finfo_file($finfo, $tmpPath) : '';
   if ($finfo) {
@@ -510,6 +526,14 @@ function account_store_refund_evidence($file, int $userId, int $orderId, array &
 
   $extension = $allowed[$mime] ?? '';
   if ($extension === '') {
+    $inferredMime = account_refund_upload_mime_from_filename($originalName);
+    if ($inferredMime !== '') {
+      $mime = $inferredMime;
+      $extension = $allowed[$mime] ?? '';
+    }
+  }
+
+  if ($extension === '') {
     $errors[] = 'Evidence must be JPG, PNG, WEBP, GIF, or PDF.';
     return null;
   }
@@ -519,7 +543,7 @@ function account_store_refund_evidence($file, int $userId, int $orderId, array &
   $outputExtension = $extension;
 
   if ($isImageEvidence) {
-    $conversion = commerza_media_convert_upload_to_webp($tmpPath, $mime, 420, 2200);
+    $conversion = commerza_media_convert_upload_to_webp($tmpPath, $mime, 420, 2200, false);
     if (!(bool)($conversion['ok'] ?? false)) {
       $errors[] = (string)($conversion['message'] ?? 'Unable to parse and compress evidence image.');
       return null;
@@ -539,7 +563,6 @@ function account_store_refund_evidence($file, int $userId, int $orderId, array &
     $outputExtension = $candidateExtension;
   }
 
-  $originalName = trim((string)($file['name'] ?? 'refund-evidence'));
   $originalName = preg_replace('/[^a-zA-Z0-9._ -]/', '-', $originalName) ?? 'refund-evidence';
   $originalName = trim($originalName);
   if ($originalName === '') {
@@ -1278,6 +1301,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $orderId = (int)($_POST['order_id'] ?? 0);
     $refundReason = trim((string)($_POST['refund_reason'] ?? ''));
+    $freshRefundUser = fetchUser($con, $user_id);
+    $refundAccountName = trim((string)($freshRefundUser['full_name'] ?? ($user['full_name'] ?? 'Customer')));
+    $refundAccountEmail = strtolower(trim((string)($freshRefundUser['email'] ?? ($user['email'] ?? ''))));
+    $refundAccountPhone = trim((string)($freshRefundUser['phone'] ?? ($user['phone'] ?? '')));
+
+    if ($refundAccountName === '') {
+      $refundAccountName = 'Customer';
+    }
 
     if ($orderId <= 0) {
       $errors[] = 'Invalid refund request.';
@@ -1294,8 +1325,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors)) {
       $blockedContact = commerza_customer_blacklist_lookup(
         $con,
-        (string)($user['email'] ?? ''),
-        (string)($user['phone'] ?? '')
+        $refundAccountEmail,
+        $refundAccountPhone
       );
 
       if (is_array($blockedContact)) {
@@ -1475,8 +1506,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $con,
         [
           'order_number' => (string)($orderRow['order_number'] ?? ''),
-          'customer_name' => (string)($orderRow['customer_name'] ?? ''),
-          'customer_email' => (string)($orderRow['customer_email'] ?? ''),
+          'customer_name' => trim((string)($orderRow['customer_name'] ?? '')) !== '' ? (string)$orderRow['customer_name'] : $refundAccountName,
+          'customer_email' => trim((string)($orderRow['customer_email'] ?? '')) !== '' ? (string)$orderRow['customer_email'] : $refundAccountEmail,
           'refund_reason' => $refundReason,
           'refund_deadline' => $deadlineTimestamp ? date('Y-m-d H:i:s', $deadlineTimestamp) : '',
         ],
@@ -1629,10 +1660,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
   }
 
-  if ($isAjaxRequest && $action === 'update_profile_picture') {
+  if ($isAjaxRequest && in_array($action, ['update_profile_picture', 'request_refund'], true)) {
     if (!headers_sent()) {
       header('Content-Type: application/json; charset=utf-8');
       header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    }
+
+    $primaryMessage = '';
+    if (!empty($success)) {
+      $primaryMessage = (string)$success[0];
+    } elseif (!empty($errors)) {
+      $primaryMessage = (string)$errors[0];
+    }
+
+    if ($action === 'request_refund') {
+      echo json_encode([
+        'ok' => empty($errors),
+        'message' => $primaryMessage,
+        'errors' => array_values($errors),
+        'success' => array_values($success),
+        'csrf_token' => (string)($_SESSION['csrf_token'] ?? ''),
+        'reload' => empty($errors),
+        'action' => 'request_refund',
+        'order_id' => (int)($_POST['order_id'] ?? 0),
+      ], JSON_UNESCAPED_SLASHES);
+      exit;
     }
 
     $responseVisibility = strtolower(trim((string)($user['profile_visibility'] ?? 'private')));
@@ -1655,13 +1707,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $profilePicture = !empty($user['profile_picture'])
       ? (string)$user['profile_picture']
       : 'frontend/assets/images/logo/commerza_logo.svg';
-
-    $primaryMessage = '';
-    if (!empty($success)) {
-      $primaryMessage = (string)$success[0];
-    } elseif (!empty($errors)) {
-      $primaryMessage = (string)$errors[0];
-    }
 
     echo json_encode([
       'ok' => empty($errors),
@@ -2626,12 +2671,12 @@ if (is_array($accountDeletePending)) {
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="frontend/assets/js/modules/core/global-protection.js" defer></script>
-  <script src="frontend/assets/js/modules/bootstrap/loader/module-loader.js" defer></script>
+  <script src="frontend/assets/js/modules/bootstrap/loader/module-loader.js?v=20260417-2" defer></script>
   <?= commerza_captcha_script_tag($con) ?>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"></script>
-  <script src="frontend/assets/js/pages/account.js"></script>
+  <script src="frontend/assets/js/pages/account.js?v=20260417-2"></script>
 </body>
 
 </html>

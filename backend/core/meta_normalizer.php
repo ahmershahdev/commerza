@@ -703,7 +703,7 @@ function commerza_html_meta_normalize(string $buffer): string
 
     if (stripos($buffer, 'id="commerzaLightThemeStylesheet"') === false) {
         $lightThemeHref = htmlspecialchars(
-            rtrim(commerza_public_base_url(), '/') . '/frontend/assets/css/light-mode/theme.css?v=20260413-1',
+            rtrim(commerza_public_base_url(), '/') . '/frontend/assets/css/light-mode/theme.css?v=20260417-1',
             ENT_QUOTES,
             'UTF-8'
         );

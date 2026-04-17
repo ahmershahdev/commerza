@@ -298,6 +298,18 @@ $(document).on(
 
 $(document).on("click", ".product-btn-cart", async function (e) {
   const btn = $(this);
+  const hasProductContext =
+    !!btn.data("productName") ||
+    !!btn.data("productId") ||
+    btn.closest(".product-detail-card").length > 0 ||
+    btn.closest(".product-card[data-product-name]").length > 0;
+
+  // Ignore non-product action buttons that only reuse the visual cart class.
+  if (!hasProductContext) {
+    return;
+  }
+
+  const isAnchor = btn.is("a");
   const rawHref = (btn.attr("href") || "").trim();
   const href = rawHref.toLowerCase();
   const isPlaceholderAnchor =
@@ -307,18 +319,13 @@ $(document).on("click", ".product-btn-cart", async function (e) {
     rawHref.endsWith("#");
   const isDirectContactLink =
     href.startsWith("mailto:") || href.startsWith("tel:");
-  const hasProductContext =
-    !!btn.data("productName") ||
-    !!btn.data("productId") ||
-    btn.closest(".product-detail-card").length > 0 ||
-    btn.closest(".product-card[data-product-name]").length > 0;
   const isNavigationLink =
     href !== "" &&
     !isPlaceholderAnchor &&
     !href.startsWith("javascript:") &&
     href.indexOf("compare.php") === -1;
 
-  if (isPlaceholderAnchor) {
+  if (isAnchor && isPlaceholderAnchor) {
     e.preventDefault();
   }
 
@@ -332,10 +339,6 @@ $(document).on("click", ".product-btn-cart", async function (e) {
     isNavigationLink
   )
     return;
-
-  if (!hasProductContext) {
-    return;
-  }
 
   if (!cartState.initialized && !cartInitInFlight) {
     initCartState().catch(() => {

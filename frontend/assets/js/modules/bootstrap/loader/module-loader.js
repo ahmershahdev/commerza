@@ -351,7 +351,7 @@
     ],
     ["frontend/assets/js/modules/bootstrap/page-ready/shared-state.js"],
     ["frontend/assets/js/modules/bootstrap/page-ready/navigation.js"],
-    ["frontend/assets/js/modules/bootstrap/page-ready/cart.js"],
+    ["frontend/assets/js/modules/bootstrap/page-ready/cart.js?v=20260417-2"],
     ["frontend/assets/js/modules/bootstrap/page-ready/catalog.js"],
     ["frontend/assets/js/modules/bootstrap/page-ready/product-detail.js"],
     ["frontend/assets/js/modules/bootstrap/page-ready/reviews.js"],

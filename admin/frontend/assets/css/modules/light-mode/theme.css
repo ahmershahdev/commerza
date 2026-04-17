@@ -250,7 +250,7 @@ body.dark-theme.light-theme .text-secondary,
 body.dark-theme.light-theme .admin-breadcrumb,
 body.dark-theme.light-theme .admin-breadcrumb .breadcrumb-item,
 body.dark-theme.light-theme .admin-breadcrumb .breadcrumb-item span {
-  color: var(--admin-muted) !important;
+  color: navy !important;
 }
 
 body.dark-theme.light-theme .table-dark,

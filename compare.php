@@ -226,7 +226,7 @@ $highestStock = !empty($stockValues) ? max($stockValues) : 0;
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="frontend/assets/css/pages/compare-inline.css">
+  <link rel="stylesheet" href="frontend/assets/css/pages/compare-inline.css?v=20260417-1">
 </head>
 
 <body class="dark-theme">
@@ -346,9 +346,9 @@ $highestStock = !empty($stockValues) ? max($stockValues) : 0;
     <div id="compareSessionData" data-session-ids="<?= htmlspecialchars(implode(',', $compare_ids)) ?>"></div>
 
     <?php if (count($compare_products) === 0): ?>
-      <section class="text-center py-5">
-        <i class="bi bi-sliders" style="font-size: 3rem; color: #ff6600;"></i>
-        <h3 class="text-white mt-3">No products to compare</h3>
+      <section class="text-center py-5 compare-empty-state">
+        <i class="bi bi-sliders compare-empty-icon"></i>
+        <h3 class="compare-empty-title mt-3">No products to compare</h3>
         <p class="text-secondary">Add items from a product page to compare.</p>
         <a href="index.php" class="btn product-btn-buy mt-3">Browse Products</a>
       </section>
@@ -394,7 +394,7 @@ $highestStock = !empty($stockValues) ? max($stockValues) : 0;
               </article>
             <?php endforeach; ?>
           </div>
- 
+
           <div class="compare-table-wrap">
             <table class="table table-bordered align-middle compare-matrix">
               <thead>

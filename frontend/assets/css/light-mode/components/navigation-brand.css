@@ -69,7 +69,11 @@ body.dark-theme.light-theme .offcanvas-logo {
 }
 
 body.dark-theme.light-theme .navbar-logo[src$="commerza_logo.svg"],
-body.dark-theme.light-theme .offcanvas-logo[src$="commerza_logo.svg"] {
+body.dark-theme.light-theme .offcanvas-logo[src$="commerza_logo.svg"],
+body.dark-theme.light-theme .navbar-logo[src*="commerza_logo" i],
+body.dark-theme.light-theme .offcanvas-logo[src*="commerza_logo" i],
+body.dark-theme.light-theme .navbar-logo[src*="commerza-logo" i],
+body.dark-theme.light-theme .offcanvas-logo[src*="commerza-logo" i] {
   box-shadow:
     -12px -12px 22px -14px rgba(56, 189, 248, 0.62),
     12px -12px 22px -14px rgba(37, 82, 214, 0.58),

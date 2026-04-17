@@ -106,7 +106,8 @@ body.dark-theme.light-theme .filter-results,
 body.dark-theme.light-theme .info-card .product-name,
 body.dark-theme.light-theme .account-page-title,
 body.dark-theme.light-theme .account-empty-icon,
-body.dark-theme.light-theme .cart-empty-title {
+body.dark-theme.light-theme .cart-empty-title,
+body.dark-theme.light-theme .compare-empty-title {
   color: var(--cmrz-light-navy) !important;
 }
 
@@ -317,6 +318,14 @@ body.dark-theme.light-theme .account-personal-form .form-label i,
 body.dark-theme.light-theme .account-toggle-password,
 body.dark-theme.light-theme .review-score {
   color: var(--cmrz-light-navy-bright) !important;
+}
+
+body.dark-theme.light-theme .compare-empty-state .text-secondary {
+  color: #475569 !important;
+}
+
+body.dark-theme.light-theme .compare-empty-icon {
+  color: var(--cmrz-light-navy) !important;
 }
 
 body.dark-theme.light-theme .info-card .icon-badge,
