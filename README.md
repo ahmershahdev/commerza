@@ -71,8 +71,8 @@ Restricted or sensitive surfaces include:
 
 Commerza features a native dual-theme system that adapts to user preference or system settings:
 
-* **Dark Mode (Main):** A high-contrast **OrangeRed + Black** aesthetic designed for reduced eye strain and a modern "engineering" feel.
-* **Light Mode (Default):** A clean **NavyBlue + White** professional interface optimized for readability in high-light environments.
+- **Dark Mode (Main):** A high-contrast **OrangeRed + Black** aesthetic designed for reduced eye strain and a modern "engineering" feel.
+- **Light Mode (Default):** A clean **NavyBlue + White** professional interface optimized for readability in high-light environments.
 
 ## 4. User Features
 
@@ -475,6 +475,21 @@ Set and verify the following before go-live:
 5. Run security smoke tests (`scripts/security/security_smoke_tests.ps1`).
 6. Validate admin auth recovery flows with real reset key configuration.
 7. Verify robots/sitemap/llms files are aligned with production domain.
+
+DigitalOcean launch profile for `commerza.ahmershah.dev`:
+
+- `COMMERZA_APP_URL=https://commerza.ahmershah.dev`
+- `COMMERZA_GOOGLE_REDIRECT_URI=https://commerza.ahmershah.dev/oauth.php?provider=google`
+- `COMMERZA_FACEBOOK_REDIRECT_URI=https://commerza.ahmershah.dev/oauth.php?provider=facebook`
+- `COMMERZA_CAPTCHA_ENABLED=1`, `COMMERZA_CAPTCHA_REQUIRED=1`, `COMMERZA_CAPTCHA_PROVIDER=recaptcha`
+- Configure both reCAPTCHA v2 and v3 keys for `commerza.ahmershah.dev`
+- Use one DB transport mode:
+  - TCP: `COMMERZA_DB_HOST`, `COMMERZA_DB_PORT`, `COMMERZA_DB_USER`, `COMMERZA_DB_PASS`, `COMMERZA_DB_NAME`
+  - Socket: `COMMERZA_DB_SOCKET`, `COMMERZA_DB_USER`, `COMMERZA_DB_PASS`, `COMMERZA_DB_NAME`
+
+Runtime behavior note:
+
+- `backend/core/data.php` now supports optional `COMMERZA_DB_PORT` and `COMMERZA_DB_SOCKET` for both mysqli and PDO helper connections.
 
 Security hardening note:
 

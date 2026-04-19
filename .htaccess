@@ -51,6 +51,12 @@ Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains
 <IfModule mod_rewrite.c>
 RewriteEngine On
 
+# Enforce HTTPS in production while keeping localhost development flows intact.
+RewriteCond %{HTTPS} !=on
+RewriteCond %{HTTP:X-Forwarded-Proto} !https [NC]
+RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$ [NC]
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L,NE]
+
 # Deny uncommon HTTP methods that should never be used by the storefront.
 RewriteCond %{REQUEST_METHOD} ^(?:TRACE|TRACK|CONNECT|DEBUG|PROPFIND|PROPPATCH|MOVE)$ [NC]
 RewriteRule ^ - [F,L]

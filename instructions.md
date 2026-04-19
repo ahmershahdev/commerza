@@ -127,3 +127,48 @@ Trigger real flow emails and confirm delivery:
 - CAPTCHA passes for signup, password reset, and admin verification
 - COD and Stripe checkout placement and order creation validated
 - Rate limit and CSRF protections active
+
+## 8) DigitalOcean Subdomain Profile (`commerza.ahmershah.dev`)
+
+Use this production profile for the current launch target.
+
+### Required `.env` Runtime Values
+
+- `COMMERZA_APP_URL=https://commerza.ahmershah.dev`
+- `COMMERZA_GOOGLE_REDIRECT_URI=https://commerza.ahmershah.dev/oauth.php?provider=google`
+- `COMMERZA_FACEBOOK_REDIRECT_URI=https://commerza.ahmershah.dev/oauth.php?provider=facebook`
+- `COMMERZA_CAPTCHA_ENABLED=1`
+- `COMMERZA_CAPTCHA_REQUIRED=1`
+- `COMMERZA_CAPTCHA_PROVIDER=recaptcha`
+- `COMMERZA_RECAPTCHA_SITE_KEY=<v2-site-key>`
+- `COMMERZA_RECAPTCHA_SECRET_KEY=<v2-secret-key>`
+- `COMMERZA_RECAPTCHA_V3_SITE_KEY=<v3-site-key>`
+- `COMMERZA_RECAPTCHA_V3_SECRET_KEY=<v3-secret-key>`
+- `COMMERZA_RECAPTCHA_V3_MIN_SCORE=0.65`
+- `COMMERZA_OAUTH_STRICT_SSL=1`
+
+Database values (set exactly one transport shape):
+
+- TCP shape:
+  - `COMMERZA_DB_HOST=<db-host>`
+  - `COMMERZA_DB_PORT=<db-port>`
+  - `COMMERZA_DB_USER=<db-user>`
+  - `COMMERZA_DB_PASS=<db-pass>`
+  - `COMMERZA_DB_NAME=<db-name>`
+- Socket shape:
+  - `COMMERZA_DB_SOCKET=<unix-socket-path>`
+  - `COMMERZA_DB_USER=<db-user>`
+  - `COMMERZA_DB_PASS=<db-pass>`
+  - `COMMERZA_DB_NAME=<db-name>`
+
+### Provider Registration Requirements
+
+- Google reCAPTCHA key settings include `commerza.ahmershah.dev`.
+- Google OAuth Authorized redirect URI includes `https://commerza.ahmershah.dev/oauth.php?provider=google`.
+- Facebook OAuth Valid OAuth Redirect URI includes `https://commerza.ahmershah.dev/oauth.php?provider=facebook`.
+
+### Deployment Validation Notes
+
+- Keep `robots.txt`, `sitemap.xml`, and `llms.txt` host aligned to `https://commerza.ahmershah.dev`.
+- Keep `.htaccess` in place for route rewrites and security headers.
+- Run `scripts/security/security_smoke_tests.ps1` after deployment.

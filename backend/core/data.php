@@ -62,13 +62,37 @@ $host = trim((string)(getenv('COMMERZA_DB_HOST') ?: getenv('DB_HOST') ?: 'localh
 $user = trim((string)(getenv('COMMERZA_DB_USER') ?: getenv('DB_USER') ?: 'root'));
 $db = trim((string)(getenv('COMMERZA_DB_NAME') ?: getenv('DB_NAME') ?: 'commerza'));
 
+$portEnv = getenv('COMMERZA_DB_PORT');
+if ($portEnv === false) {
+    $portEnv = getenv('DB_PORT');
+}
+$dbPort = is_string($portEnv) && preg_match('/^[0-9]{1,5}$/', trim($portEnv)) === 1
+    ? (int)trim($portEnv)
+    : 0;
+if ($dbPort < 0 || $dbPort > 65535) {
+    $dbPort = 0;
+}
+
+$socketEnv = getenv('COMMERZA_DB_SOCKET');
+if ($socketEnv === false) {
+    $socketEnv = getenv('DB_SOCKET');
+}
+$dbSocket = $socketEnv === false ? '' : trim((string)$socketEnv);
+
 $passEnv = getenv('COMMERZA_DB_PASS');
 if ($passEnv === false) {
     $passEnv = getenv('DB_PASS');
 }
 $pass = $passEnv === false ? '' : (string)$passEnv;
 
-$con = mysqli_connect($host, $user, $pass, $db);
+$con = mysqli_connect(
+    $host,
+    $user,
+    $pass,
+    $db,
+    $dbPort,
+    $dbSocket !== '' ? $dbSocket : null
+);
 
 if (!$con) {
     http_response_code(500);
@@ -97,13 +121,37 @@ if (!function_exists('commerza_pdo_connection')) {
         $pdoUser = trim((string)(getenv('COMMERZA_DB_USER') ?: getenv('DB_USER') ?: 'root'));
         $pdoDb = trim((string)(getenv('COMMERZA_DB_NAME') ?: getenv('DB_NAME') ?: 'commerza'));
 
+        $pdoPortEnv = getenv('COMMERZA_DB_PORT');
+        if ($pdoPortEnv === false) {
+            $pdoPortEnv = getenv('DB_PORT');
+        }
+        $pdoPort = is_string($pdoPortEnv) && preg_match('/^[0-9]{1,5}$/', trim($pdoPortEnv)) === 1
+            ? (int)trim($pdoPortEnv)
+            : 0;
+        if ($pdoPort < 0 || $pdoPort > 65535) {
+            $pdoPort = 0;
+        }
+
+        $pdoSocketEnv = getenv('COMMERZA_DB_SOCKET');
+        if ($pdoSocketEnv === false) {
+            $pdoSocketEnv = getenv('DB_SOCKET');
+        }
+        $pdoSocket = $pdoSocketEnv === false ? '' : trim((string)$pdoSocketEnv);
+
         $pdoPassEnv = getenv('COMMERZA_DB_PASS');
         if ($pdoPassEnv === false) {
             $pdoPassEnv = getenv('DB_PASS');
         }
         $pdoPass = $pdoPassEnv === false ? '' : (string)$pdoPassEnv;
 
-        $dsn = 'mysql:host=' . $pdoHost . ';dbname=' . $pdoDb . ';charset=utf8mb4';
+        if ($pdoSocket !== '') {
+            $dsn = 'mysql:unix_socket=' . $pdoSocket . ';dbname=' . $pdoDb . ';charset=utf8mb4';
+        } else {
+            $dsn = 'mysql:host=' . $pdoHost . ';dbname=' . $pdoDb . ';charset=utf8mb4';
+            if ($pdoPort > 0) {
+                $dsn .= ';port=' . $pdoPort;
+            }
+        }
 
         try {
             $pdo = new PDO($dsn, $pdoUser, $pdoPass, [

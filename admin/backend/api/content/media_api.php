@@ -224,42 +224,39 @@ function admin_media_convert_to_webp(
     int $targetKb,
     int $maxDimension
 ): array {
-    if (!extension_loaded('gd') || !function_exists('imagewebp')) {
-        throw new RuntimeException('Image parser/compressor is not available on this server.');
+    $conversion = commerza_media_convert_upload_to_webp(
+        $tmpPath,
+        $mime,
+        max(60, $targetKb),
+        max(512, $maxDimension),
+        true
+    );
+
+    if (!(bool)($conversion['ok'] ?? false)) {
+        throw new RuntimeException((string)($conversion['message'] ?? 'Unable to process uploaded image.'));
     }
 
-    $image = admin_media_image_from_upload($tmpPath, $mime);
-    if (!$image) {
-        throw new RuntimeException('Unable to parse this image format.');
+    $binary = (string)($conversion['binary'] ?? '');
+    if ($binary === '') {
+        throw new RuntimeException('Unable to process uploaded image payload.');
     }
 
-    $width = 0;
-    $height = 0;
-    $resized = false;
-
-    try {
-        $resizedMeta = admin_media_resize_image($image, max(512, $maxDimension));
-        $image = $resizedMeta['image'];
-        $width = (int)$resizedMeta['width'];
-        $height = (int)$resizedMeta['height'];
-        $resized = (bool)$resizedMeta['resized'];
-
-        $encoded = admin_media_encode_webp($image, max(60, $targetKb));
-        $bytes = file_put_contents($destination, (string)$encoded['blob'], LOCK_EX);
-        if ($bytes === false || $bytes <= 0) {
-            throw new RuntimeException('Unable to write compressed WebP file.');
-        }
-
-        return [
-            'size' => (int)$bytes,
-            'quality' => (int)$encoded['quality'],
-            'width' => $width,
-            'height' => $height,
-            'resized' => $resized,
-        ];
-    } finally {
-        imagedestroy($image);
+    $bytes = file_put_contents($destination, $binary, LOCK_EX);
+    if ($bytes === false || $bytes <= 0) {
+        throw new RuntimeException('Unable to write processed image file.');
     }
+
+    return [
+        'size' => (int)$bytes,
+        'quality' => 0,
+        'width' => (int)($conversion['width'] ?? 0),
+        'height' => (int)($conversion['height'] ?? 0),
+        'resized' => ((int)($conversion['width'] ?? 0) > 0 && (int)($conversion['height'] ?? 0) > 0),
+        'mime' => (string)($conversion['mime'] ?? $mime),
+        'extension' => (string)($conversion['extension'] ?? 'webp'),
+        'parser' => (string)($conversion['parser'] ?? 'image-pass-through'),
+        'compressed' => (bool)($conversion['compressed'] ?? false),
+    ];
 }
 
 function admin_media_cloudinary_upload(
@@ -375,6 +372,7 @@ function admin_media_process_one_upload(
     $width = 0;
     $height = 0;
     $resized = false;
+    $wasCompressed = false;
     $outputPath = $relativePath;
     $cloudinaryPublicId = '';
     $cloudinarySecureUrl = '';
@@ -405,6 +403,9 @@ function admin_media_process_one_upload(
                 $width = (int)$conversion['width'];
                 $height = (int)$conversion['height'];
                 $resized = (bool)$conversion['resized'];
+                $outputMime = (string)($conversion['mime'] ?? $outputMime);
+                $parser = (string)($conversion['parser'] ?? $parser);
+                $wasCompressed = (bool)($conversion['compressed'] ?? false);
                 $cloudinarySourcePath = $tempCloudinaryPath;
             } else {
                 $conversion = admin_media_convert_to_webp(
@@ -420,6 +421,25 @@ function admin_media_process_one_upload(
                 $width = (int)$conversion['width'];
                 $height = (int)$conversion['height'];
                 $resized = (bool)$conversion['resized'];
+                $outputMime = (string)($conversion['mime'] ?? $outputMime);
+                $parser = (string)($conversion['parser'] ?? $parser);
+                $wasCompressed = (bool)($conversion['compressed'] ?? false);
+
+                $convertedExtension = strtolower(trim((string)($conversion['extension'] ?? $outputExtension)));
+                $convertedExtension = preg_replace('/[^a-z0-9]+/i', '', $convertedExtension) ?? '';
+                if ($convertedExtension !== '' && $convertedExtension !== $outputExtension) {
+                    $renamedFilename = pathinfo($filename, PATHINFO_FILENAME) . '.' . $convertedExtension;
+                    $renamedAbsolutePath = $absoluteDir . DIRECTORY_SEPARATOR . $renamedFilename;
+                    if (!@rename($absolutePath, $renamedAbsolutePath)) {
+                        throw new RuntimeException('Unable to finalize processed image file.');
+                    }
+
+                    $outputExtension = $convertedExtension;
+                    $filename = $renamedFilename;
+                    $absolutePath = $renamedAbsolutePath;
+                    $relativePath = $relativeDir . '/' . $filename;
+                    $outputPath = $relativePath;
+                }
             }
         } else {
             if ($useCloudinary) {
@@ -520,7 +540,7 @@ function admin_media_process_one_upload(
         'original_size' => $size,
         'original_size_kb' => round($size / 1024, 2),
         'parser' => $parser,
-        'compressed' => $isCompressibleImage,
+        'compressed' => $isCompressibleImage ? $wasCompressed : false,
         'quality' => $qualityUsed,
         'width' => $width,
         'height' => $height,
