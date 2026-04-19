@@ -1,8 +1,10 @@
 # Environment secrets
 .env
-.env.local
-.env.*.local
+.env.*
 !.env.example
+
+# Temporary local maintenance scripts
+.history-scrub.ps1
 
 # Dependency directories
 node_modules/

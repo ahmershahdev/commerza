@@ -1,22 +1,31 @@
-COMMERZA PROPRIETARY LICENSE
+COMMERZA ATTRIBUTION LICENSE
 
-Version: 1.1 (Updated 2026-04-12)
+Version: 1.0 (Updated 2026-04-19)
 
-Copyright (c) 2026 Syed Ahmer Shah. All rights reserved.
+Copyright (c) 2026 Syed Ahmer Shah
 
-NOTICE
-This software and all associated files (the "Software") are proprietary and confidential. You are granted no rights to use, copy, modify, merge, publish, distribute, sublicense, or sell any portion of the Software without prior written permission from the copyright holder.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-RESTRICTIONS
-1. No use in source or binary form is permitted without explicit written authorization.
-2. No modification, derivative works, or adaptations are permitted without explicit written authorization.
-3. No distribution, sharing, or public display is permitted without explicit written authorization.
-4. No reverse engineering, decompilation, or disassembly is permitted, except as required by law.
+1. The above copyright notice and this license text shall be included in all
+   copies or substantial portions of the Software.
+2. Clear credit to the original author is required in derivative works,
+   distributions, and public deployments. Credit must include:
+   - Name: Syed Ahmer Shah
+   - Project: Commerza
+   - Link: https://github.com/ahmershahdev/commerza
+3. If the Software is used in a website, SaaS, or product UI, the credit must
+   be visible in at least one user-accessible location (for example: footer,
+   about page, credits page, or documentation page).
 
-REQUESTS FOR PERMISSION
-To request permission for any use of the Software, contact:
-- Email: syedahmershahofficial@gmail.com
-- LinkedIn: https://www.linkedin.com/in/syedahmershah
-
-DISCLAIMER
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

@@ -543,7 +543,7 @@ function account_store_refund_evidence($file, int $userId, int $orderId, array &
   $outputExtension = $extension;
 
   if ($isImageEvidence) {
-    $conversion = commerza_media_convert_upload_to_webp($tmpPath, $mime, 420, 2200, false);
+    $conversion = commerza_media_convert_upload_to_webp($tmpPath, $mime, 420, 2200, true);
     if (!(bool)($conversion['ok'] ?? false)) {
       $errors[] = (string)($conversion['message'] ?? 'Unable to parse and compress evidence image.');
       return null;
@@ -2575,9 +2575,10 @@ if (is_array($accountDeletePending)) {
                                 id="refund-evidence-<?= (int)$orderId ?>"
                                 type="file"
                                 name="refund_evidence"
-                                class="form-control search-input refund-evidence-input"
+                                class="form-control search-input refund-evidence-input review-file-input"
                                 accept=".jpg,.jpeg,.png,.webp,.gif,.pdf">
-                              <small class="text-secondary d-block mt-1">Allowed: JPG, PNG, WebP, GIF, PDF. Max 6 MB. Images are parsed/compressed before upload.</small>
+                              <div class="review-file-selection refund-file-selection" data-refund-file-selection>No evidence selected.</div>
+                              <small class="text-secondary d-block mt-1">Allowed: JPG, PNG, WebP, GIF, PDF. Max 6 MB. Images are parsed/compressed when server image extensions are available.</small>
                               <div class="upload-progress-shell mt-2 d-none" data-upload-progress-shell>
                                 <div class="upload-progress-head">
                                   <small class="text-secondary d-block mb-0" data-upload-stage>Waiting to upload...</small>

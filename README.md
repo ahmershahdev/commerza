@@ -1,10 +1,18 @@
-# Commerza
+<p align="center">
+  <img src="frontend/assets/images/logo/commerza_logo.svg" alt="Commerza logo" width="128">
+</p>
+
+<h1 align="center">Commerza</h1>
+
+<p align="center"><strong>Security-first PHP + MySQL ecommerce platform for modern storefront and admin operations.</strong></p>
+
+<p align="center">Storefront + Admin Panel • COD + Stripe • CSRF + CAPTCHA + Rate Limiting • Audit Logging</p>
 
 Commerza is a PHP + MySQL ecommerce platform with a customer storefront and an operations-focused admin panel.
 
 This README is the canonical engineering guide for setup, security posture, feature boundaries, and production operations.
 
-Last updated: 2026-04-15
+Last updated: 2026-04-19
 
 ## 0. Executive Summary
 
@@ -58,6 +66,13 @@ Restricted or sensitive surfaces include:
 - /backend/\*
 - account and transaction flows (/account, /cart, /order-tracking, /invoice)
 - auth and recovery flows (/login, /signup, /forgot-password, /reset-password)
+
+## 3.1 Adaptive UI (Theming)
+
+Commerza features a native dual-theme system that adapts to user preference or system settings:
+
+* **Dark Mode (Main):** A high-contrast **OrangeRed + Black** aesthetic designed for reduced eye strain and a modern "engineering" feel.
+* **Light Mode (Default):** A clean **NavyBlue + White** professional interface optimized for readability in high-light environments.
 
 ## 4. User Features
 
@@ -465,3 +480,17 @@ Security hardening note:
 
 - Legacy predictable admin reset-key fallback is intentionally disabled.
 - If no valid reset key is configured, admin reset-key-dependent flows will reject requests by design.
+
+## 25. Open Source License and Required Credit
+
+Commerza is distributed under the Commerza Attribution License in [license.txt](license.txt).
+
+This is a permissive, MIT-like license with one additional requirement: clear author credit must be preserved.
+
+Minimum credit requirements for redistribution or public deployment:
+
+1. Keep the copyright and license notice.
+2. Include author credit: Syed Ahmer Shah.
+3. Include project credit: Commerza.
+4. Include project link: https://github.com/ahmershahdev/commerza
+5. For websites/SaaS/products, show credit in at least one user-visible location (for example footer, about page, credits page, or documentation page).

@@ -992,8 +992,35 @@ $(function () {
     },
   );
 
+  const bindRefundEvidenceSelection = function (form) {
+    const input = form.find(".refund-evidence-input").first();
+    const status = form.find("[data-refund-file-selection]").first();
+    if (!input.length || !status.length) {
+      return;
+    }
+
+    const updateSelectionText = function () {
+      const files = input[0] && input[0].files ? input[0].files : null;
+      if (!files || files.length === 0) {
+        status.text("No evidence selected.");
+        return;
+      }
+
+      if (files.length === 1) {
+        status.text(files[0].name || "1 file selected");
+        return;
+      }
+
+      status.text(`${files.length} files selected`);
+    };
+
+    input.on("change", updateSelectionText);
+    updateSelectionText();
+  };
+
   $(".refund-request-form").each(function () {
     const form = $(this);
+    bindRefundEvidenceSelection(form);
     bindUploadProgressForm(
       form,
       ".refund-evidence-input",
