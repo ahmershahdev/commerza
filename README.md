@@ -12,7 +12,7 @@ Commerza is a PHP + MySQL ecommerce platform with a customer storefront and an o
 
 This README is the canonical engineering guide for setup, security posture, feature boundaries, and production operations.
 
-Last updated: 2026-04-19
+Last updated: 2026-04-20
 
 ## 0. Executive Summary
 
@@ -48,13 +48,26 @@ Commerza is production-oriented and launch-ready for Apache/PHP hosting with:
 - root \*.php pages: storefront and auth/public entrypoints
 - infra/docs files: .htaccess, robots.txt, sitemap.xml, llms.txt, SECURITY.md
 
-Current repository inventory (workspace snapshot):
+Current repository inventory (verified snapshot on 2026-04-20):
 
-- Root-level PHP pages: 24
-- Admin frontend PHP pages: 6
-- Admin backend PHP APIs: 10
-- Shared backend PHP files: 28
-- Total tracked files in repository tree: 238
+- Root-level PHP pages (`*.php` at repository root): 24
+- Admin frontend PHP pages (`admin/frontend/*.php`): 6
+- Combined storefront/admin entry pages: 30
+- Admin backend PHP APIs (`admin/backend/api/**/*.php`): 9
+- Shared backend PHP files (`backend/**/*.php` excluding `backend/api/**`): 30
+- Total tracked PHP files (`git ls-files '*.php'`): 80
+- Total tracked files in repository tree (`git ls-files`): 339
+
+Quick re-check commands:
+
+```powershell
+git ls-files | Measure-Object | Select-Object -ExpandProperty Count
+git ls-files "*.php" | Measure-Object | Select-Object -ExpandProperty Count
+(Get-ChildItem -Path . -Filter *.php -File).Count
+(Get-ChildItem -Path .\admin\frontend -Filter *.php -File).Count
+(Get-ChildItem -Path .\admin\backend\api -Recurse -Filter *.php -File).Count
+(Get-ChildItem -Path .\backend -Recurse -Filter *.php -File | Where-Object { $_.FullName -notmatch '\\backend\\api\\' } | Measure-Object).Count
+```
 
 ## 3. Public vs Restricted Surfaces
 
