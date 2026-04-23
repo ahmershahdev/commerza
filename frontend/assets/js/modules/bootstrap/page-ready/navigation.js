@@ -1,38 +1,7 @@
 // Navigation and layout helpers for the page-ready stage.
 
 function ensureLegalNavLinks() {
-  const legalLinks = [
-    { href: "terms-of-service.php", label: "Terms" },
-    { href: "privacy-policy.php", label: "Privacy" },
-  ];
-  const currentPage = getCurrentPageKey();
-
-  const appendLegalLinks = (menu) => {
-    if (!menu || menu.length === 0) {
-      return;
-    }
-
-    legalLinks.forEach((link) => {
-      if (menu.find(`a[href="${link.href}"]`).length > 0) {
-        return;
-      }
-
-      const isCurrent = currentPage === link.href;
-      menu.append(`
-          <li class="nav-item">
-            <a class="nav-link"${isCurrent ? ' aria-current="page"' : ""} href="${link.href}">${link.label}</a>
-          </li>
-        `);
-    });
-  };
-
-  $("header .collapse.navbar-collapse .navbar-nav.me-auto").each(function () {
-    appendLegalLinks($(this));
-  });
-
-  $("header .offcanvas .offcanvas-body .navbar-nav").each(function () {
-    appendLegalLinks($(this));
-  });
+  return;
 }
 
 function ensureDesktopMegaDropdown() {

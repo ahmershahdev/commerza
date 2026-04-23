@@ -275,8 +275,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <li class="nav-item">
               <a class="nav-link" aria-current="page" href="contact.php">Contact</a>
             </li>
-            <li class="nav-item"><a class="nav-link" href="terms-of-service.php">Terms</a></li>
-            <li class="nav-item"><a class="nav-link" href="privacy-policy.php">Privacy</a></li>
           </ul>
         </div>
       </div>
@@ -318,8 +316,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <li class="nav-item">
             <a class="nav-link" aria-current="page" href="contact.php">Contact</a>
           </li>
-          <li class="nav-item"><a class="nav-link" href="terms-of-service.php">Terms</a></li>
-          <li class="nav-item"><a class="nav-link" href="privacy-policy.php">Privacy</a></li>
         </ul>
       </div>
     </div>

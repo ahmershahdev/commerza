@@ -173,8 +173,6 @@ if (
             <li class="nav-item">
               <a class="nav-link" href="contact.php">Contact</a>
             </li>
-            <li class="nav-item"><a class="nav-link" href="terms-of-service.php">Terms</a></li>
-            <li class="nav-item"><a class="nav-link" href="privacy-policy.php">Privacy</a></li>
             <li class="nav-item dropdown">
               <a class="nav-link dropdown-toggle text-uppercase" href="#" id="shopDropdown" role="button"
                 data-bs-toggle="dropdown" aria-expanded="false">
@@ -244,8 +242,6 @@ if (
           <li class="nav-item">
             <a class="nav-link" href="contact.php">Contact</a>
           </li>
-          <li class="nav-item"><a class="nav-link" href="terms-of-service.php">Terms</a></li>
-          <li class="nav-item"><a class="nav-link" href="privacy-policy.php">Privacy</a></li>
           <li class="nav-item">
             <a class="nav-link text-uppercase fw-bold mt-3 mb-2"
               style="color: #ffcc00; font-size: 0.85rem; letter-spacing: 2px;">Series</a>

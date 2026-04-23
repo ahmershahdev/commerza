@@ -9,6 +9,15 @@
   overflow: visible;
 }
 
+.navbar .container-fluid {
+  gap: 0.75rem;
+  padding-inline: clamp(0.75rem, 2.2vw, 1.5rem);
+}
+
+.navbar-collapse {
+  min-width: 0;
+}
+
 .navbar::after {
   content: "";
   position: absolute;
@@ -39,6 +48,8 @@
   font-size: 1.5rem;
   font-weight: 900;
   letter-spacing: 2px;
+  margin-right: 0;
+  min-width: 0;
   user-select: none;
   text-transform: uppercase;
 }
@@ -415,24 +426,99 @@
     padding: 12px 0;
   }
 
+  .navbar .container-fluid {
+    gap: 0.4rem;
+  }
+
+  .navbar-nav.ms-3.d-none.d-lg-flex {
+    margin-left: 0.2rem !important;
+    margin-right: 0 !important;
+  }
+
   .navbar-brand {
-    font-size: 1.3rem;
-    letter-spacing: 1px;
+    font-size: 1.12rem;
+    letter-spacing: 0.06em;
   }
 
   .navbar-logo {
-    height: 44px;
+    height: 39px;
   }
 
   .navbar-nav .nav-link {
-    margin: 0 7px;
-    font-size: 0.78rem;
-    letter-spacing: 0.06em;
-    padding: 8px 9px;
+    margin: 0 4px;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    padding: 7px 7px;
   }
 
   .commerza-mega-nav > .nav-link {
-    padding: 7px 11px !important;
+    padding: 6px 9px !important;
+  }
+}
+
+@media (min-width: 992px) and (max-width: 1099px) {
+  .navbar-brand {
+    font-size: 1.02rem;
+  }
+
+  .navbar-brand .brand-text {
+    max-width: 9ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .navbar-logo {
+    height: 36px;
+  }
+
+  .navbar-nav .nav-link {
+    margin: 0 2px;
+    font-size: 0.68rem;
+    letter-spacing: 0.03em;
+    padding: 6px 6px;
+  }
+}
+
+@media (max-width: 991px) {
+  .navbar .container-fluid {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    padding-inline: 0.75rem;
+  }
+
+  .navbar-brand {
+    max-width: calc(100% - 72px);
+  }
+
+  .navbar-brand .brand-text {
+    letter-spacing: 0.06em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .navbar-logo {
+    height: 42px;
+  }
+
+  .navbar-toggler {
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 576px) {
+  .navbar .container-fluid {
+    padding-inline: 0.625rem;
+  }
+
+  .navbar-brand .brand-text {
+    font-size: 0.92rem;
+  }
+
+  .navbar-logo {
+    height: 38px;
   }
 }
 

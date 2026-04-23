@@ -159,8 +159,6 @@ $termsSupportMailto = 'mailto:' . $supportEmail . '?subject=' . rawurlencode('Co
 						<li class="nav-item"><a class="nav-link" href="index.php">Home</a></li>
 						<li class="nav-item"><a class="nav-link" href="about.php">About</a></li>
 						<li class="nav-item"><a class="nav-link" href="contact.php">Contact</a></li>
-						<li class="nav-item"><a class="nav-link" href="terms-of-service.php" aria-current="page">Terms</a></li>
-						<li class="nav-item"><a class="nav-link" href="privacy-policy.php">Privacy</a></li>
 					</ul>
 				</div>
 			</div>
@@ -195,8 +193,6 @@ $termsSupportMailto = 'mailto:' . $supportEmail . '?subject=' . rawurlencode('Co
 					<li class="nav-item"><a class="nav-link" href="index.php">Home</a></li>
 					<li class="nav-item"><a class="nav-link" href="about.php">About</a></li>
 					<li class="nav-item"><a class="nav-link" href="contact.php">Contact</a></li>
-					<li class="nav-item"><a class="nav-link" href="terms-of-service.php" aria-current="page">Terms</a></li>
-					<li class="nav-item"><a class="nav-link" href="privacy-policy.php">Privacy</a></li>
 				</ul>
 			</div>
 		</div>

@@ -89,8 +89,6 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
             <li class="nav-item">
               <a class="nav-link" href="contact.php">Contact</a>
             </li>
-            <li class="nav-item"><a class="nav-link" href="terms-of-service.php">Terms</a></li>
-            <li class="nav-item"><a class="nav-link" href="privacy-policy.php">Privacy</a></li>
           </ul>
         </div>
       </div>
@@ -121,8 +119,6 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
           <li class="nav-item">
             <a class="nav-link" href="contact.php">Contact</a>
           </li>
-          <li class="nav-item"><a class="nav-link" href="terms-of-service.php">Terms</a></li>
-          <li class="nav-item"><a class="nav-link" href="privacy-policy.php">Privacy</a></li>
         </ul>
       </div>
     </div>

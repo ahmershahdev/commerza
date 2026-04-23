@@ -402,8 +402,6 @@ if ($categoryVideoStmt) {
             <li class="nav-item">
               <a class="nav-link" href="contact.php">Contact</a>
             </li>
-            <li class="nav-item"><a class="nav-link" href="terms-of-service.php">Terms</a></li>
-            <li class="nav-item"><a class="nav-link" href="privacy-policy.php">Privacy</a></li>
             <li class="nav-item dropdown">
               <a class="nav-link dropdown-toggle text-uppercase" aria-current="page" href="#" id="shopDropdown"
                 role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -474,8 +472,6 @@ if ($categoryVideoStmt) {
           <li class="nav-item">
             <a class="nav-link" href="contact.php">Contact</a>
           </li>
-          <li class="nav-item"><a class="nav-link" href="terms-of-service.php">Terms</a></li>
-          <li class="nav-item"><a class="nav-link" href="privacy-policy.php">Privacy</a></li>
           <li class="nav-item">
             <a class="nav-link text-uppercase fw-bold mt-3 mb-2 series-nav-heading">Series</a>
           </li>

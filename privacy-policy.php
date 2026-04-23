@@ -174,8 +174,6 @@ $privacySupportMailto = 'mailto:' . $supportEmail . '?subject=' . rawurlencode('
 						<li class="nav-item"><a class="nav-link" href="index.php">Home</a></li>
 						<li class="nav-item"><a class="nav-link" href="about.php">About</a></li>
 						<li class="nav-item"><a class="nav-link" href="contact.php">Contact</a></li>
-						<li class="nav-item"><a class="nav-link" href="terms-of-service.php">Terms</a></li>
-						<li class="nav-item"><a class="nav-link" href="privacy-policy.php" aria-current="page">Privacy</a></li>
 					</ul>
 				</div>
 			</div>
@@ -210,8 +208,6 @@ $privacySupportMailto = 'mailto:' . $supportEmail . '?subject=' . rawurlencode('
 					<li class="nav-item"><a class="nav-link" href="index.php">Home</a></li>
 					<li class="nav-item"><a class="nav-link" href="about.php">About</a></li>
 					<li class="nav-item"><a class="nav-link" href="contact.php">Contact</a></li>
-					<li class="nav-item"><a class="nav-link" href="terms-of-service.php">Terms</a></li>
-					<li class="nav-item"><a class="nav-link" href="privacy-policy.php" aria-current="page">Privacy</a></li>
 				</ul>
 			</div>
 		</div>
