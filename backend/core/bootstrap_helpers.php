@@ -297,7 +297,7 @@ function commerza_public_base_url(): string
     return $cached;
 }
 
-function commerza_absolute_url(string $path = ''): string
+function commerza_absolute_url(string $path = ''): string //type hinting
 {
     $base = commerza_public_base_url();
     if ($path === '') {
