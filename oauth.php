@@ -22,4 +22,3 @@ $_REQUEST['provider'] = $provider;
 $_REQUEST['mode'] = $mode;
 
 require __DIR__ . '/backend/auth/oauth.php';
-
