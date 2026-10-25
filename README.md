@@ -14,6 +14,8 @@ This README is the canonical engineering guide for setup, security posture, feat
 
 Last updated: 2026-04-20
 
+> **Status: complete and archived.** Commerza is a finished portfolio project, kept read-only. Final version: [v1.0.0](../../releases/tag/v1.0.0). Run it locally: [Local Setup (XAMPP)](#18-local-setup-xampp).
+
 ## 0. Executive Summary
 
 Commerza is production-oriented and launch-ready for Apache/PHP hosting with:
