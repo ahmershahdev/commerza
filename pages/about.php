@@ -28,7 +28,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <base href="<?= htmlspecialchars($appBaseHref, ENT_QUOTES, 'UTF-8') ?>">
-  <meta name="description" content="<?= htmlspecialchars('Learn about ' . $siteBrandName . ' - Your trusted source for premium automatic watches. Discover our commitment to quality, craftsmanship, and exceptional timepiece design.', ENT_QUOTES, 'UTF-8') ?>">
+  <meta name="description" content="<?= htmlspecialchars('Learn about ' . $siteBrandName . ', your trusted source for premium automatic watches, and our commitment to quality and craftsmanship.', ENT_QUOTES, 'UTF-8') ?>">
   <meta name="robots" content="index, follow">
   <meta name="author" content="Syed Ahmer Shah">
   <meta property="og:title" content="<?= htmlspecialchars('About Us | ' . $siteBrandName, ENT_QUOTES, 'UTF-8') ?>">

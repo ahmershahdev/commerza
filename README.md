@@ -269,10 +269,101 @@ The full ERD with columns, table groups, and reporting views is in [docs/DATABAS
 
 Legacy `*.php` URLs redirect permanently to these clean routes.
 
+## Testing, security and SEO reports
+
+Every push and pull request runs the full pipeline below. All results here are from a run on 2026-10-30 against the Docker stack (`php:8.2-apache` + MariaDB 10.11).
+
+```mermaid
+flowchart LR
+    A[Push / PR] --> B[PHP 8.1 · 8.2 · 8.3 lint]
+    A --> C[Schema import]
+    A --> D[Static security gate]
+    B & C --> E[docker compose up]
+    E --> F[Smoke: 15 journeys]
+    F --> G[Security probe]
+    G --> H[SEO audit]
+    H --> I[Load: 15 users / 60s]
+    I --> J[Stress: 60 users]
+    J --> K[Playwright desktop + mobile]
+    T[Tag v*] --> R[Build + push image to GHCR]
+```
+
+### Run it yourself
+
+```bash
+docker compose up -d --build --wait                           # http://localhost:8080
+php tests/load/load_test.php http://localhost:8080 15 60       # 15 concurrent users, 60 s
+php tests/load/load_test.php http://localhost:8080 60 45       # stress
+docker compose exec -T app php scripts/security/security_probe.php http://localhost
+php scripts/quality/seo_audit.php http://localhost:8080
+cd tests/e2e && npm install && npx playwright install chromium && npx playwright test
+```
+
+### Load and stress (15 different user journeys)
+
+Each virtual user has its own session and runs a different journey: home browsing, two category shoppers, search suggestions, catalog API, two cart builders (real CSRF-protected `add` calls), wishlist, compare, policy readers, support/order tracking, signup/login, password reset, and reviews/live viewers.
+
+| Scenario | Users | Requests | Throughput | Errors | p50 | p95 | p99 | Result |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Smoke | 15 | 34 | n/a | 0% | 119 ms | n/a | n/a | PASS |
+| Load | 15 | 3,243 | 54 req/s | **0%** | 220 ms | **637 ms** | 1,033 ms | PASS |
+| Stress | 60 | 2,452 | 54.5 req/s | **0%** | 891 ms | 2,893 ms | 5,828 ms | Degrades gracefully, no 5xx |
+
+Under stress the single container reaches its throughput ceiling and latency rises, but no request fails. Rate limiting and validation answer abusive cart traffic with `403`/`422`, never `5xx`. The slowest endpoint under stress is `reviews_api.php` (p50 3.1 s), which is the next optimization target.
+
+### Playwright end-to-end
+
+34 tests on desktop Chrome and a Pixel 7 profile: 33 passed and 1 was skipped (the desktop-only search bar on mobile). The suite covers:
+
+- All 12 public pages: HTTP 200, exactly one `<h1>`, title of 60 characters or fewer, footer contact details, and no console or CSP errors
+- `Product` JSON-LD on product pages
+- A guest adding to the cart, with the badge updating and the cart page showing the item
+- Live search suggestions
+- `/account` redirecting to login, with `.env`, the SQL dump, `backend/core`, and `storage/` blocked
+- A legacy `/about.php` URL returning `301` to `/about`
+
+### Security probe: 33 / 33 checks pass
+
+| Area | What is verified | Result |
+| --- | --- | --- |
+| Security headers | CSP, X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy, COOP | PASS |
+| CSP nonce | Fresh nonce on every request. Storefront `script-src` is nonce-only, with no `'unsafe-inline'` | PASS |
+| Session cookies | `HttpOnly`, `SameSite=Lax`, `Secure` on HTTPS | PASS |
+| SQL injection | Boolean, `UNION`, stacked, and time-based payloads against the products API, product route, and existence check: no SQL errors, no delays, tables intact | PASS |
+| XSS | Script/SVG payloads in query strings on 4 pages are never reflected raw | PASS |
+| Sensitive files | `.env`, `.git`, SQL dump, `backend/core`, `storage/`, `scripts/`, `templates/` return 403/404 | PASS |
+| HTTP methods | `TRACE` disabled (`TraceEnable Off` in the image) | PASS |
+| Brute force / DoS | Login is throttled after repeated failures. Every API has per-scope rate limits with progressive blocking | PASS |
+| CSRF | Checkout, cart, reviews, and viewer heartbeat reject requests without a token (`security_smoke_tests.ps1`, 8/8) | PASS |
+| Malicious uploads | EICAR test virus, PHP polyglot (`GIF89a<?php`), and SVG with `<script>` are rejected. A clean image is accepted | PASS |
+| Passwords | Argon2id (bcrypt-12 fallback) | PASS |
+| Race conditions | Checkout and refunds use transactions with `SELECT … FOR UPDATE`, conditional stock decrements, and idempotency keys. Wishlist creation uses `ON DUPLICATE KEY` | Code-verified |
+
+Volumetric DDoS can't be absorbed by any single PHP server. Put Cloudflare (or similar) in front of production. The app-level limits above cover abusive clients and brute force.
+
+### SEO audit: 13 / 13 public pages pass
+
+| Check | Status |
+| --- | --- |
+| `<title>` 60 characters or fewer, meta description 150 characters or fewer | All pages |
+| Canonical URL, Open Graph (5 tags), Twitter card (4 tags) | All pages |
+| Exactly one `<h1>` per page | All pages (duplicates fixed on 7 pages) |
+| JSON-LD | Organization, WebSite, Store, ItemList, CollectionPage, Product + Offer, FAQPage, ContactPage, BreadcrumbList, PrivacyPolicy, TermsOfService |
+| Product pages | Server-rendered title, description, OG image, and `Product` schema per product |
+| Breadcrumbs | Visible breadcrumb nav on every inner page, `BreadcrumbList` schema on product and policy pages |
+| Internal links | 23 to 45 internal links per page through the shared header and footer |
+| `sitemap.xml` | 52 URLs (12 pages + 40 products), regenerated with `php scripts/quality/generate_sitemap.php` |
+| `robots.txt`, `llms.txt`, `llms-full.txt` | Present, served, and aligned with the production domain |
+| Images and assets | 41 of 49 images are WebP and every image has `alt`. CSS/JS are immutable-cached for 30 days, with gzip/brotli via `.htaccess`. Non-critical CSS loads async |
+
+The three product videos (3–14 MB) are served through Cloudinary with `q_auto` in production. Re-encode the local copies if you serve them directly.
+
 ## Operations
 
 | Task | Command |
 | --- | --- |
+| SEO audit | `php scripts/quality/seo_audit.php http://localhost/commerza` |
+| Regenerate sitemap | `php scripts/quality/generate_sitemap.php https://commerza.ahmershah.dev` |
 | Lint all PHP | `find . -name '*.php' -not -path './.git/*' -exec php -l {} \;` |
 | Static security gate | `pwsh scripts/security/ci_security_gate.ps1` |
 | Smoke tests against a running site | `pwsh scripts/security/security_smoke_tests.ps1 -BaseUrl http://localhost/commerza` |

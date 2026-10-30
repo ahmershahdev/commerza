@@ -51,3 +51,51 @@ jobs:
         run: |
           mysql -h 127.0.0.1 -uroot -proot commerza -N -e "SELECT COUNT(*) FROM products" | grep -qv '^0$'
           mysql -h 127.0.0.1 -uroot -proot commerza -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='commerza'"
+
+  docker-e2e:
+    name: Docker stack · security probe · load · Playwright
+    needs: [php-lint, database-import]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          coverage: none
+      - name: Start stack
+        run: docker compose up -d --build --wait
+      - name: Smoke test (15 journeys, one pass each)
+        run: php tests/load/load_test.php http://localhost:8080 15 1
+      - name: Security probe (headers, CSP, SQLi, XSS, exposure, rate limit, uploads)
+        run: docker compose exec -T app php scripts/security/security_probe.php http://localhost
+      - name: SEO audit
+        run: php scripts/quality/seo_audit.php http://localhost:8080
+      - name: Load test (15 concurrent users, 60s)
+        env:
+          COMMERZA_LOAD_P95_MS: "2500"
+        run: php tests/load/load_test.php http://localhost:8080 15 60
+      - name: Stress test (60 concurrent users, 45s, informational)
+        continue-on-error: true
+        run: php tests/load/load_test.php http://localhost:8080 60 45
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Playwright E2E (desktop + mobile)
+        working-directory: tests/e2e
+        env:
+          COMMERZA_BASE_URL: http://localhost:8080
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          npx playwright test
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: tests/e2e/playwright-report
+          retention-days: 14
+      - name: Container logs on failure
+        if: failure()
+        run: docker compose logs --tail=200

@@ -2,6 +2,26 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Docker stack (`docker-compose.yml`, `docker/`) and a CI job that runs a 15-journey smoke test, security probe, SEO audit, 15-user load test, 60-user stress test, and Playwright E2E on desktop and mobile.
+- Release workflow that publishes the Docker image to GHCR on `v*` tags.
+- `scripts/security/security_probe.php` (33 checks), `scripts/quality/seo_audit.php`, `scripts/quality/generate_sitemap.php`, `tests/load/load_test.php`, `tests/e2e/`.
+- Server-rendered product SEO: per-product title, description, OG image, `Product` + `BreadcrumbList` JSON-LD.
+
+### Security
+
+- Storefront CSP `script-src` is now nonce-only (no `unsafe-inline`). Inline `onload`/`onerror` handlers were replaced by a nonce-tagged asset loader.
+- Upload scanner rejects files containing `<script>` (SVG/HTML payloads).
+
+### Fixed
+
+- Duplicate `<h1>` on 7 pages and a missing `<h1>` on product pages. Meta descriptions over 150 characters on home and about.
+- Product detail pages inherited the generic "All Products" meta override.
+- `sitemap.xml` now lists all 40 product URLs.
+
 ## [2.0.0] - 2026-10-30
 
 ### Changed

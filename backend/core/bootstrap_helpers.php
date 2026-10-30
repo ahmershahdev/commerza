@@ -175,6 +175,12 @@ function commerza_csp_nonce_attr(): string
 
 function commerza_content_security_policy_header(): string
 {
+    // Storefront: nonce-only inline scripts. Admin UI still relies on inline handlers, so it keeps 'unsafe-inline'.
+    $script = strtolower(str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? '')));
+    $scriptSrc = str_contains($script, '/admin/')
+        ? "script-src 'self' 'unsafe-inline'"
+        : "script-src 'self' 'nonce-" . commerza_csp_nonce_value() . "'";
+
     $directives = [
         "default-src 'self'",
         "base-uri 'self'",
@@ -185,7 +191,7 @@ function commerza_content_security_policy_header(): string
         "img-src 'self' data: blob: https:",
         "media-src 'self' blob: https:",
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com https://cdnjs.cloudflare.com",
-        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.jquery.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com https://maps.googleapis.com https://www.googletagmanager.com https://js.stripe.com",
+        $scriptSrc . " https://cdn.jsdelivr.net https://code.jquery.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com https://maps.googleapis.com https://www.googletagmanager.com https://js.stripe.com",
         "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net",
         "connect-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com https://maps.googleapis.com https://maps.gstatic.com https://www.google-analytics.com https://www.googletagmanager.com https://api.stripe.com https://r.stripe.com https://m.stripe.network",
         "frame-src 'self' https://www.google.com https://www.google.com/maps https://maps.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://js.stripe.com https://hooks.stripe.com",

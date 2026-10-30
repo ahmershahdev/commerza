@@ -145,6 +145,65 @@ if (isset($_GET['slug'])) {
 
 $productsPageUrl = commerza_absolute_url($productsCanonicalPath);
 $productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza_logo.svg');
+$seoProduct = null;
+$seoSlug = strtolower(trim((string)($_GET['slug'] ?? '')));
+if ($seoSlug !== '' && preg_match('/^[a-z0-9-]{1,120}$/', $seoSlug) === 1) {
+  $seoStmt = $con->prepare('SELECT name, slug, description, image, price, salePrice, stock, product_code FROM products WHERE slug = ? AND deleted_at IS NULL LIMIT 1');
+  if ($seoStmt) {
+    $seoStmt->bind_param('s', $seoSlug);
+    $seoStmt->execute();
+    $seoProduct = $seoStmt->get_result()->fetch_assoc() ?: null;
+    $seoStmt->close();
+  }
+}
+
+$seoShorten = static function (string $text, int $max): string {
+  $text = trim(preg_replace('/\s+/', ' ', $text) ?? $text);
+  return mb_strlen($text) <= $max ? $text : rtrim(mb_substr($text, 0, $max - 1)) . '…';
+};
+
+$seoTitle = 'Luxury Watch Collection | Commerza';
+$seoDescription = 'Shop premium automatic, minimalist, sports and smart watches at Commerza with COD and secure card checkout.';
+$seoHeading = 'Commerza Watch Collection';
+$seoJsonLd = [
+  '@context' => 'https://schema.org',
+  '@graph' => [
+    ['@type' => 'CollectionPage', 'name' => $seoTitle, 'url' => $productsPageUrl, 'description' => $seoDescription],
+    ['@type' => 'BreadcrumbList', 'itemListElement' => [
+      ['@type' => 'ListItem', 'position' => 1, 'name' => 'Home', 'item' => commerza_absolute_url('/')],
+      ['@type' => 'ListItem', 'position' => 2, 'name' => 'Products', 'item' => commerza_absolute_url('/products')],
+    ]],
+  ],
+];
+
+if ($seoProduct) {
+  $seoName = (string)$seoProduct['name'];
+  $seoHeading = $seoName;
+  $seoTitle = $seoShorten($seoName, 48) . ' | Commerza';
+  $seoDescription = $seoShorten((string)($seoProduct['description'] ?: $seoName . ' at Commerza.'), 150);
+  $seoImage = trim((string)$seoProduct['image']);
+  if ($seoImage !== '') {
+    $productsImageUrl = commerza_absolute_url($seoImage);
+  }
+  $seoPrice = (float)($seoProduct['salePrice'] !== null && (float)$seoProduct['salePrice'] > 0 ? $seoProduct['salePrice'] : $seoProduct['price']);
+  $seoJsonLd['@graph'][0] = [
+    '@type' => 'Product',
+    'name' => $seoName,
+    'description' => $seoDescription,
+    'image' => $productsImageUrl,
+    'sku' => (string)($seoProduct['product_code'] ?? ''),
+    'brand' => ['@type' => 'Brand', 'name' => 'Commerza'],
+    'url' => $productsPageUrl,
+    'offers' => [
+      '@type' => 'Offer',
+      'priceCurrency' => 'PKR',
+      'price' => number_format($seoPrice, 2, '.', ''),
+      'availability' => (int)$seoProduct['stock'] > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      'url' => $productsPageUrl,
+    ],
+  ];
+  $seoJsonLd['@graph'][1]['itemListElement'][] = ['@type' => 'ListItem', 'position' => 3, 'name' => $seoName, 'item' => $productsPageUrl];
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -153,29 +212,21 @@ $productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <base href="<?= htmlspecialchars($appBaseHref, ENT_QUOTES, 'UTF-8') ?>">
-  <meta name="description" content="Explore premium Commerza watches and accessories.">
+  <meta name="description" content="<?= commerza_e($seoDescription) ?>">
   <meta name="robots" content="index, follow">
   <meta name="author" content="Syed Ahmer Shah">
-  <meta property="og:title" content="Product | Commerza">
-  <meta property="og:description" content="Explore premium Commerza watches and accessories.">
+  <meta property="og:title" content="<?= commerza_e($seoTitle) ?>">
+  <meta property="og:description" content="<?= commerza_e($seoDescription) ?>">
   <meta property="og:url" content="<?= htmlspecialchars($productsPageUrl, ENT_QUOTES, 'UTF-8') ?>">
   <meta property="og:type" content="product">
   <meta property="og:image" content="<?= htmlspecialchars($productsImageUrl, ENT_QUOTES, 'UTF-8') ?>">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Product | Commerza">
-  <meta name="twitter:description" content="Explore premium Commerza watches and accessories.">
+  <meta name="twitter:title" content="<?= commerza_e($seoTitle) ?>">
+  <meta name="twitter:description" content="<?= commerza_e($seoDescription) ?>">
   <meta name="twitter:image" content="<?= htmlspecialchars($productsImageUrl, ENT_QUOTES, 'UTF-8') ?>">
-  <title>Product | Commerza</title>
+  <title><?= commerza_e($seoTitle) ?></title>
   <link rel="canonical" href="<?= htmlspecialchars($productsPageUrl, ENT_QUOTES, 'UTF-8') ?>" />
-  <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebPage",
-      "name": "Product | Commerza",
-      "url": "<?= htmlspecialchars($productsPageUrl, ENT_QUOTES, 'UTF-8') ?>",
-      "description": "Commerza product detail page for premium watches."
-    }
-  </script>
+  <script <?= commerza_csp_nonce_attr() ?> type="application/ld+json"><?= json_encode($seoJsonLd, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?></script>
 
   <link rel="icon" href="frontend/assets/images/favicon/commerza-watches-icon.ico" />
   <link rel="stylesheet" href="frontend/assets/css/modules/core/style.css" />
@@ -193,6 +244,7 @@ $productsImageUrl = commerza_absolute_url('/frontend/assets/images/logo/commerza
   <?php commerza_partial('site-header', ['variant' => 'commerce', 'activePage' => 'products']); ?>
 
   <main class="container product-hero">
+    <h1 class="visually-hidden"><?= commerza_e($seoHeading) ?></h1>
     <?php commerza_render_page_breadcrumb('Products'); ?>
     <div id="product-detail-container"></div>
 

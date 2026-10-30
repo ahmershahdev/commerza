@@ -58,6 +58,7 @@ function commerza_upload_signature_scan(string $filePath, ?string &$reason = nul
     $signatures = [
         '/<\?php/i' => 'php-open-tag-signature',
         '/<\?=/i' => 'php-short-echo-signature',
+        '/<script\b/i' => 'script-tag-signature',
         '/\beval\s*\(/i' => 'eval-signature',
         '/\bbase64_decode\s*\(/i' => 'base64-decode-signature',
         '/\bgzinflate\s*\(/i' => 'gzinflate-signature',

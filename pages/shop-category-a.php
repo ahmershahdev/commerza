@@ -543,9 +543,9 @@ if ($categoryVideoStmt) {
         </section>
 
         <section class="product-section-block" data-section-id="automatic-vault">
-          <h1 class="text-center mt-5 mb-4" id="automatic">COMMERZA | The
+          <h2 class="h1 text-center mt-5 mb-4" id="automatic">COMMERZA | The
             Elite Engineering Series
-          </h1>
+          </h2>
 
           <section class="container-fluid px-0 mb-5">
             <div class="ratio ratio-16x9">

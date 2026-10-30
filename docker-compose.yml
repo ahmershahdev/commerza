@@ -1,0 +1,40 @@
+# Local/CI stack: docker compose up -d --build  →  http://localhost:8080
+services:
+  db:
+    image: mariadb:10.11
+    environment:
+      MARIADB_ROOT_PASSWORD: commerza-root
+      MARIADB_DATABASE: commerza
+      MARIADB_USER: commerza
+      MARIADB_PASSWORD: commerza-app
+    volumes:
+      - ./database/commerza.sql:/docker-entrypoint-initdb.d/01-commerza.sql:ro
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      retries: 30
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      COMMERZA_APP_URL: http://localhost:8080
+      COMMERZA_DB_HOST: db
+      COMMERZA_DB_USER: commerza
+      COMMERZA_DB_PASS: commerza-app
+      COMMERZA_DB_NAME: commerza
+      COMMERZA_MAIL_DRIVER: log
+      COMMERZA_CAPTCHA_BYPASS_LOCAL: "1"
+      COMMERZA_ADMIN_BOOTSTRAP_EMAIL: admin@commerza.test
+      COMMERZA_ADMIN_BOOTSTRAP_PASSWORD: Docker-Admin-2026!
+      COMMERZA_ADMIN_RESET_KEY: docker-test-reset-key-0123456789
+
+volumes:
+  db-data:
