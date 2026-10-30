@@ -11,7 +11,7 @@ Follow the local setup in [instructions.md](instructions.md). Use `COMMERZA_MAIL
 1. Fork the repository and create a branch from `main`: `feat/<topic>`, `fix/<topic>`, `docs/<topic>`, or `refactor/<topic>`.
 2. Keep each pull request focused on one change.
 3. Use [Conventional Commits](https://www.conventionalcommits.org/): `feat: add coupon expiry badge`, `fix(cart): keep totals in sync after removal`.
-4. Open a pull request against `main`. CI (PHP lint on 8.1–8.3, schema import, security gate) must pass, and a code-owner review is required.
+4. Open a pull request against `main`. CI (PHP lint on 8.1–8.3, schema import, security gate) must pass and all review threads must be resolved.
 
 `main` is protected: no direct pushes, no force pushes, linear history, squash merges.
 
