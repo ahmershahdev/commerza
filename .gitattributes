@@ -1,0 +1,21 @@
+# Normalize line endings in the repository; check out with the platform default.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.ico binary
+*.mp4 binary
+*.webm binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+
+# Keep vendored and generated files out of language stats
+frontend/assets/vendor/** linguist-vendored
+database/*.sql linguist-detectable=false

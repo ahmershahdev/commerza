@@ -695,6 +695,37 @@ function commerza_mail_error_is_auth(string $error): bool
         || strpos($needle, 'invalid login') !== false;
 }
 
+function commerza_mail_driver(): string
+{
+    $driver = strtolower(trim((string)getenv('COMMERZA_MAIL_DRIVER')));
+    return $driver === 'log' ? 'log' : 'smtp';
+}
+
+/**
+ * Development mail sink: writes each message to storage/mail/ instead of delivering it.
+ */
+function commerza_mail_log_send(string $toEmail, string $subject, string $htmlBody, string $fromEmail, string $fromName, ?string &$errorMessage = null): bool
+{
+    $directory = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'mail';
+    if (!is_dir($directory) && !@mkdir($directory, 0775, true) && !is_dir($directory)) {
+        $errorMessage = 'Mail log directory is not writable.';
+        return false;
+    }
+
+    $slug = preg_replace('/[^a-z0-9]+/i', '-', strtolower($subject)) ?: 'message';
+    $file = $directory . DIRECTORY_SEPARATOR . date('Ymd-His') . '-' . bin2hex(random_bytes(3)) . '-' . trim(substr($slug, 0, 60), '-') . '.html';
+    $header = '<!-- To: ' . htmlspecialchars($toEmail, ENT_QUOTES, 'UTF-8')
+        . ' | From: ' . htmlspecialchars($fromName . ' <' . $fromEmail . '>', ENT_QUOTES, 'UTF-8')
+        . ' | Subject: ' . htmlspecialchars($subject, ENT_QUOTES, 'UTF-8') . " -->\n";
+
+    if (@file_put_contents($file, $header . $htmlBody) === false) {
+        $errorMessage = 'Unable to write mail log file.';
+        return false;
+    }
+
+    return true;
+}
+
 function commerza_send_html_mail(string $toEmail, string $subject, string $htmlBody, string $fromEmail, string $fromName, ?string &$errorMessage = null): bool
 {
     $toEmail = trim($toEmail);
@@ -710,10 +741,14 @@ function commerza_send_html_mail(string $toEmail, string $subject, string $htmlB
         return false;
     }
 
-    $smtpConfigs = commerza_mail_smtp_configs();
-
     $safeFromName = commerza_mail_clean_header_value($fromName);
     $safeFromEmail = trim($fromEmail);
+
+    if (commerza_mail_driver() === 'log') {
+        return commerza_mail_log_send($toEmail, $subject, $htmlBody, $safeFromEmail, $safeFromName, $errorMessage);
+    }
+
+    $smtpConfigs = commerza_mail_smtp_configs();
 
     if (empty($smtpConfigs)) {
         $nativeError = null;

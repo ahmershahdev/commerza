@@ -74,12 +74,12 @@ if ($securityHelpers -ne '') {
     Assert-Contains -Content $securityHelpers -Needle 'user-select:none;-webkit-user-select:none;">Security question:' -Message 'Captcha prompt should disable text selection.'
 }
 
-$accountPhp = Read-FileSafe -Path 'account.php'
+$accountPhp = Read-FileSafe -Path 'pages/account.php'
 if ($accountPhp -ne '') {
     Assert-NotContains -Content $accountPhp -Needle '<img src="{$logoUrl}"' -Message 'Account reset email template should not include logo image.'
 }
 
-$forgotPasswordPhp = Read-FileSafe -Path 'forgot-password.php'
+$forgotPasswordPhp = Read-FileSafe -Path 'pages/forgot-password.php'
 if ($forgotPasswordPhp -ne '') {
     Assert-NotContains -Content $forgotPasswordPhp -Needle '<img src="{$logoUrl}"' -Message 'Forgot-password email template should not include logo image.'
 }

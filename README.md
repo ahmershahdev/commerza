@@ -1,526 +1,325 @@
 <p align="center">
-  <img src="frontend/assets/images/logo/commerza_logo.svg" alt="Commerza logo" width="128">
+  <img src="frontend/assets/images/logo/commerza_logo.svg" alt="Commerza logo" width="120">
 </p>
 
 <h1 align="center">Commerza</h1>
 
-<p align="center"><strong>Security-first PHP + MySQL ecommerce platform for modern storefront and admin operations.</strong></p>
+<p align="center">
+  <strong>A security-first PHP + MySQL ecommerce platform with a luxury-watch storefront and a role-based admin panel. No framework.</strong>
+</p>
 
-<p align="center">Storefront + Admin Panel • COD + Stripe • CSRF + CAPTCHA + Rate Limiting • Audit Logging</p>
+<p align="center">
+  <a href="https://github.com/ahmershahdev/commerza/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/ahmershahdev/commerza?color=ff6a00"></a>
+  <a href="https://github.com/ahmershahdev/commerza/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/ahmershahdev/commerza/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/ahmershahdev/commerza/actions/workflows/security-gate.yml"><img alt="Security Gate" src="https://github.com/ahmershahdev/commerza/actions/workflows/security-gate.yml/badge.svg"></a>
+  <img alt="PHP" src="https://img.shields.io/badge/PHP-8.1%2B-777bb4?logo=php&logoColor=white">
+  <img alt="MySQL" src="https://img.shields.io/badge/MySQL%20%2F%20MariaDB-InnoDB-4479a1?logo=mysql&logoColor=white">
+  <img alt="Bootstrap" src="https://img.shields.io/badge/Bootstrap-5.3-7952b3?logo=bootstrap&logoColor=white">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-green.svg"></a>
+</p>
 
-Commerza is a PHP + MySQL ecommerce platform with a customer storefront and an operations-focused admin panel.
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#database">Database</a> ·
+  <a href="docs/ARCHITECTURE.md">Docs</a> ·
+  <a href="instructions.md">Integrations</a> ·
+  <a href="https://ahmershah.dev/projects/commerza">Case study</a>
+</p>
 
-This README is the canonical engineering guide for setup, security posture, feature boundaries, and production operations.
+---
 
-Last updated: 2026-04-20
+<p align="center">
+  <img src="docs/screenshots/home-dark.jpg" alt="Commerza storefront home page in dark mode" width="100%">
+</p>
 
-> **Status: complete and archived.** Commerza is a finished portfolio project, kept read-only. Final version: [v1.0.0](../../releases/tag/v1.0.0). Run it locally: [Local Setup (XAMPP)](#18-local-setup-xampp).
+## Screenshots
 
-## 0. Executive Summary
+| Catalog | Product detail |
+| --- | --- |
+| ![Product catalog grid](docs/screenshots/catalog.jpg) | ![Product detail page](docs/screenshots/product-detail.jpg) |
+| **Light theme** | **Customer account** |
+| ![Home page in light mode](docs/screenshots/home-light.jpg) | ![Customer account page](docs/screenshots/account.jpg) |
+| **Admin dashboard** | **Admin order management** |
+| ![Admin dashboard](docs/screenshots/admin-dashboard.jpg) | ![Admin orders tab](docs/screenshots/admin-orders.jpg) |
 
-Commerza is production-oriented and launch-ready for Apache/PHP hosting with:
+## Features
 
-- Clean-route storefront and restricted admin/backend surfaces
-- Prepared-statement-first data access across user-facing mutation/query paths
-- Layered controls for CSRF, CAPTCHA, rate limiting, idempotency, and audit logging
-- Hardened checkout path with stock locking, payment verification, and coupon validation
-- Documented operations model for backups, security gates, and cron-based automation
+### Storefront
 
-## Quick Highlights
+- Catalog with sections, series pages, filtering by section/movement/price, live search suggestions
+- Product pages with clean slugs (`/products/<slug>`), live viewer count, verified-purchase reviews with images
+- Cart, wishlist, and compare with server-side stock and blacklist checks
+- Checkout with **Cash on Delivery** and **Stripe** card payments, coupons, free-shipping threshold, and email OTP for high-value COD orders
+- Accounts: signup with email verification, Google/Facebook OAuth, remember-me sessions, profile and avatar, order history, refunds, account deletion
+- Order tracking and printable invoices
+- Dark (orange/black) and light (navy/white) themes
 
-- Storefront + admin panel in one repository with shared security bootstrap
-- Payment flows: COD + Stripe card with server-side verification and risk controls
-- Anti-abuse controls: request throttling, captcha hardening, blacklist checks
-- Security monitoring: admin security events plus CI security gate checks
-- Launch docs included: README, SECURITY.md, robots.txt, sitemap.xml, llms.txt
+### Admin panel
 
-## 1. Stack and Runtime
+- KPI dashboard and analytics (orders, customers, live viewers)
+- Products, sections, trash and restore, bulk import/export
+- Orders with status workflow, delivery ETA, refund moderation, shipping rules
+- Coupons, reviews moderation, customer directory and blacklist
+- Website content: slider, ticker, testimonials, social links, SEO meta
+- Email center with templates and recipients
+- Sub-admins with role presets, custom permissions, hidden tabs, suspension, and instant session revocation
+- Email 2FA on every admin login and a security event log
 
-- Backend: PHP (mysqli prepared statements), Apache, MySQL
-- DB migration bridge: PDO helper available for incremental endpoint migration
-- Frontend: Server-rendered PHP templates, Bootstrap, jQuery, modular CSS/JS assets
-- Deployment shape: XAMPP-compatible (local) and Apache hosting (production)
-- Shared bootstrap: backend/core/data.php
+### Security
 
-## 2. Project Structure
+- Prepared statements everywhere request data reaches SQL
+- CSRF tokens, layered CAPTCHA (reCAPTCHA v3, then v2, then a built-in fallback challenge), and honeypots
+- Per-scope rate limiting with progressive blocking
+- Argon2id password hashing (bcrypt fallback) with a strict policy
+- Per-request CSP nonce, HSTS, COOP/CORP, and hardened session cookies
+- Idempotency keys plus transactions and `SELECT ... FOR UPDATE` on checkout and refunds
+- Upload validation with re-encoding and optional ClamAV scanning
+- CI security gate, smoke tests, XSS crawler, and admin abuse tests
 
-- admin/: admin frontend UI plus admin backend split into auth/ and api/<domain>/
-- backend/: shared helpers, storefront APIs, cron/report scripts, schema
-- frontend/: storefront static assets (css, js, images, videos)
-- root \*.php pages: storefront and auth/public entrypoints
-- infra/docs files: .htaccess, robots.txt, sitemap.xml, llms.txt, SECURITY.md
+## Tech stack
 
-Current repository inventory (verified snapshot on 2026-04-20):
+| Layer | Technology |
+| --- | --- |
+| Language | PHP 8.1+ (strict types in critical paths), mysqli prepared statements, PDO helper |
+| Database | MySQL 8 / MariaDB 10.4+, InnoDB, utf8mb4, 43 tables + 11 views |
+| Web server | Apache 2.4 with `mod_rewrite`, `mod_headers`, `mod_expires`, `mod_deflate` |
+| Frontend | Server-rendered PHP templates, Bootstrap 5.3, Bootstrap Icons, jQuery 3.7, Chart.js |
+| Payments | Stripe PaymentIntents (Stripe.js v3), Cash on Delivery |
+| Media | Local assets or Cloudinary (optional) |
+| Email | SMTP with primary/secondary failover, `log` driver for development |
+| Auth | Sessions + remember-me tokens, Google & Facebook OAuth, admin email 2FA |
+| Caching | Runtime → APCu → Redis layers, OPcache preload |
+| CI | GitHub Actions: PHP 8.1–8.3 lint, schema import test, security gate |
 
-- Root-level PHP pages (`*.php` at repository root): 24
-- Admin frontend PHP pages (`admin/frontend/*.php`): 6
-- Combined storefront/admin entry pages: 30
-- Admin backend PHP APIs (`admin/backend/api/**/*.php`): 9
-- Shared backend PHP files (`backend/**/*.php` excluding `backend/api/**`): 30
-- Total tracked PHP files (`git ls-files '*.php'`): 80
-- Total tracked files in repository tree (`git ls-files`): 339
+## Quick start
 
-Quick re-check commands:
+### Requirements
 
-```powershell
-git ls-files | Measure-Object | Select-Object -ExpandProperty Count
-git ls-files "*.php" | Measure-Object | Select-Object -ExpandProperty Count
-(Get-ChildItem -Path . -Filter *.php -File).Count
-(Get-ChildItem -Path .\admin\frontend -Filter *.php -File).Count
-(Get-ChildItem -Path .\admin\backend\api -Recurse -Filter *.php -File).Count
-(Get-ChildItem -Path .\backend -Recurse -Filter *.php -File | Where-Object { $_.FullName -notmatch '\\backend\\api\\' } | Measure-Object).Count
+- PHP 8.1+ with `mysqli`, `openssl`, `mbstring`, `gd`, `curl`, `fileinfo`
+- MySQL 8 or MariaDB 10.4+
+- Apache with `mod_rewrite` and `AllowOverride All` ([XAMPP](https://www.apachefriends.org/) works out of the box)
+
+### 1. Get the code
+
+```bash
+cd C:/xampp/htdocs          # or your Apache document root
+git clone https://github.com/ahmershahdev/commerza.git
+cd commerza
 ```
 
-## 3. Public vs Restricted Surfaces
-
-Public storefront routes are clean-route pages such as /, /products, /about, /contact, /shipping, /returns, and policy pages.
-
-Restricted or sensitive surfaces include:
-
-- /admin/\*
-- /backend/\*
-- account and transaction flows (/account, /cart, /order-tracking, /invoice)
-- auth and recovery flows (/login, /signup, /forgot-password, /reset-password)
-
-## 3.1 Adaptive UI (Theming)
-
-Commerza features a native dual-theme system that adapts to user preference or system settings:
-
-- **Dark Mode (Main):** A high-contrast **OrangeRed + Black** aesthetic designed for reduced eye strain and a modern "engineering" feel.
-- **Light Mode (Default):** A clean **NavyBlue + White** professional interface optimized for readability in high-light environments.
-
-## 4. User Features
-
-- Browse catalog and category pages
-- Search and suggestions
-- Cart, wishlist, compare
-- Coupon-aware checkout (COD + Stripe)
-- Account profile management
-- Password reset and account safety controls
-- Order tracking and invoice views
-- Product reviews (eligibility based on delivered/completed/received orders)
-
-## 5. Admin Features
-
-- Dashboard with KPI cards and recent-order visibility
-- Sub-admin (mini admin) lifecycle: create, email-verify, edit, suspend/reactivate, resend verification, and soft delete
-- Immediate session revocation on sub-admin suspend/delete (and sensitive identity/password updates)
-- Role presets plus custom access model for sub-admins
-- Product sections and product CRUD
-- Product trash archive and restore workflows
-- Orders table, status updates, and refund moderation
-- Coupons management and campaign tooling
-- Customer directory and blacklist controls
-- Per-sub-admin hidden-tab controls with runtime tab gating in the admin UI
-- Account blacklist notice visibility toggle for account.php warning banner
-- Reviews moderation and review tooling
-- Website settings, social links, slider/ticker controls
-- Security event monitoring
-- Email center and recipient management
-
-## 6. Checkout and Payments
-
-Checkout currently supports Cash on Delivery (COD) and Stripe card payments.
-
-- Supported method in checkout UI:
-  - Cash on Delivery (COD)
-  - Stripe (Card)
-- Stripe card flow:
-  - Client-side Stripe SDK (`https://js.stripe.com/v3/`) for card capture and confirmation
-  - Server-side PaymentIntent creation and verification in `cart.php`
-  - Required environment keys: `STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`
-- Order placement still enforces CSRF, idempotency, CAPTCHA, stock locking, and coupon checks.
-- High-value COD policy:
-  - COD OTP threshold is configurable via `COMMERZA_COD_OTP_THRESHOLD` (default `15000`)
-  - Optional COD hard limit via `COMMERZA_COD_HIGH_VALUE_HARD_LIMIT` (default `0`, disabled)
-  - When threshold applies, checkout requires a 6-digit email OTP before order creation
-
-## 6.1 Database Safety Model (SQL Injection Defense)
-
-Commerza's production DB safety posture uses the following baseline:
-
-- Request-facing queries use prepared statements (`prepare` + `bind_param`) for user input
-- String-concatenated SQL is limited to internal schema/setup flows and controlled constants
-- IDs from request context are cast to strict integer types before query usage
-- Dynamic enum-like inputs (action/status/mode/field) are validated against allowlists
-- Critical write paths use transactions, row-locking, and idempotency controls
-
-Operational note:
-
-- The project is not fully PDO-only yet; active runtime data access is mysqli prepared-statement based
-- PDO connection support exists in `backend/core/data.php` for controlled migration of new/updated modules
-
-## 7. Password Hashing and Policy Workflow
-
-Password security is centralized in backend/security/security_helpers.php.
-
-- Primary hash algorithm: Argon2id (when PASSWORD_ARGON2ID is available)
-- Fallback hash algorithm: bcrypt with cost 12
-- Emergency fallback in hashing: PASSWORD_DEFAULT if primary hashing fails
-- Verify path: password_verify
-- Rehash path: password_needs_rehash against current algorithm/options
-
-Password policy baseline:
-
-- Length: 10 to 64
-- Requires uppercase, lowercase, number, special character
-- No whitespace
-
-Admin and sub-admin verification code policy:
-
-- Verification and recovery codes are 6-digit OTP values
-- Code expiry is 15 minutes
-- Codes are one-time use and cleared after successful verification or password reset
-
-## 8. Username Locking Policy
-
-Account username changes are lock-protected.
-
-- Lock duration: 90 days after each successful username change
-- Enforcement: server-side during profile update (not only UI)
-- Data source: users.username_changed_at
-
-## 9. CAPTCHA and Anti-Bot Model
-
-CAPTCHA is centralized in backend/security/security_helpers.php and uses a layered hybrid model.
-
-Layered checks:
-
-- Honeypot field and submit-time checks
-- reCAPTCHA v3 verification
-- reCAPTCHA v2 verification
-- Built-in fallback challenge when needed
-
-reCAPTCHA and honeypot runtime behavior:
-
-- Honeypot field (`commerza_contact_website`) is embedded in CAPTCHA widget HTML and must remain empty; non-empty submissions are rejected server-side before token verification.
-- reCAPTCHA v3 is used as the primary automatic verification path when v3 keys are configured.
-- reCAPTCHA v2 checkbox is rendered when v2 is configured and v3 is not active for that flow.
-- Backup challenge remains available for network/key failures and low-confidence/failed automated verification conditions.
-
-Current v3 hardening details:
-
-- Default minimum score is stricter (0.65 default, floor 0.55)
-- Action must match server-expected context
-- Hostname must match request host
-- challenge_ts freshness is validated
-- Invalid token length and invalid score payloads are rejected
-
-Fallback challenge hardening details:
-
-- Randomized knowledge plus arithmetic challenge generation
-- Answer normalization (case/spacing/symbol tolerance within strict bounds)
-- Hashed answer verification per nonce and context
-- Minimum solve-time guard
-- Attempt tracking with lockout after repeated failures
-
-CSP nonce generation details:
-
-- Nonce source: cryptographically secure `random_bytes(16)`
-- Encoding: base64url (typically ~22 characters)
-- Lifecycle: generated per HTTP request (changes on each refresh)
-- Helper: `commerza_csp_nonce_attr()` for nonce-tagged inline blocks where needed
-
-## 10. OAuth (Google and Facebook)
-
-OAuth login supports both providers through backend/auth/oauth.php (via public oauth.php entrypoint).
-
-Supported providers:
-
-- Google OAuth
-- Facebook OAuth
-
-Configuration sources:
-
-- Environment variables (COMMERZA\_\* and provider aliases)
-- site_settings fallback keys
-
-Security properties:
-
-- Provider allowlist validation
-- State/nonce validation with expiry handling
-- Provider token exchange + profile fetch validation
-- Active customer blacklist check on OAuth completion (email/phone)
-- Safe error redirection back to auth flows
-
-## 11. Email Routing, Automation, and SMTP Failover
-
-Email behavior is centralized in backend/mailer/mailer.php plus notification helpers.
-
-SMTP routing strategy:
-
-- Primary route: sender_net_primary (configurable host/port/auth/encryption)
-- Secondary route: gmail_fallback (configurable fallback transport)
-- Duplicate route suppression when primary and secondary point to same host/account
-
-Sender/logo handling:
-
-- Sender identity resolved from configured SMTP sender or support fallback
-- Email logo prefers PNG for compatibility
-- If only WebP exists and GD supports conversion, PNG is generated automatically
-
-Automation scripts include:
-
-- backend/jobs/send_engagement_reminders.php
-- backend/jobs/monthly_profit_report.php
-- backend/jobs/weekly_analytics_report.php
-
-## 12. Caching and Performance Model
-
-Commerza uses layered caching and response optimization.
-
-Application cache layers:
-
-- Runtime in-process cache
-- APCu cache (when available)
-- Redis cache (when available)
-
-Cache helper file:
-
-- backend/cache/cache_helpers.php
-
-Important cache environment keys:
-
-- COMMERZA_CACHE_ENABLED
-- COMMERZA_CACHE_NAMESPACE
-- COMMERZA_REDIS_HOST
-- COMMERZA_REDIS_PORT
-- COMMERZA_REDIS_DB
-- COMMERZA_REDIS_PASSWORD
-- COMMERZA_REDIS_TIMEOUT
-- COMMERZA_SITE_SETTINGS_CACHE_TTL
-
-Delivery optimizations:
-
-- Static asset cache headers from .htaccess
-- Shared HTML normalization and asset-loading optimizations in backend/core/data.php
-- Fragment cache support for expensive render sections
-
-## 13. Upload Security Controls
-
-Upload paths are validated and scanned.
-
-Controls include:
-
-- MIME and extension checks
-- Parser-based validation/transformation for images
-- Malware signature checks
-- Optional ClamAV scan command integration
-- Fail-open or fail-closed behavior configurable by environment
-
-Related environment keys:
-
-- COMMERZA_UPLOAD_SCAN_ENABLED
-- COMMERZA_UPLOAD_SCAN_FAIL_CLOSED
-- COMMERZA_CLAMSCAN_PATH
-
-## 13.1 Cloudinary Media Pipeline (Optional)
-
-Commerza supports server-side Cloudinary uploads for admin media targets (images and videos).
-
-Enable via environment:
-
-- COMMERZA_CLOUDINARY_ENABLED=1
-- COMMERZA_CLOUDINARY_CLOUD_NAME
-- COMMERZA_CLOUDINARY_API_KEY
-- COMMERZA_CLOUDINARY_API_SECRET
-- COMMERZA_CLOUDINARY_UPLOAD_PRESET_IMAGE
-- COMMERZA_CLOUDINARY_UPLOAD_PRESET_VIDEO
-
-Optional tuning keys:
-
-- COMMERZA_CLOUDINARY_FOLDER
-- COMMERZA_CLOUDINARY_IMAGE_TRANSFORMATION
-- COMMERZA_CLOUDINARY_VIDEO_TRANSFORMATION
-- COMMERZA_CLOUDINARY_TIMEOUT
-
-Maintenance command to provision presets then bulk-upload existing frontend assets:
-
-- `php scripts/maintenance/cloudinary_sync.php`
-
-Useful flags:
-
-- `--dry-run`
-- `--skip-presets`
-- `--skip-upload`
-- `--skip-db`
-- `--skip-sql`
-
-Cleanup command to remove stale Cloudinary assets that are no longer referenced by DB rows or the local asset map:
-
-- Preview only: `php scripts/maintenance/cloudinary_cleanup.php`
-- Apply delete: `php scripts/maintenance/cloudinary_cleanup.php --apply`
-- Restrict scope: `php scripts/maintenance/cloudinary_cleanup.php --prefix=commerza/products`
-- Process in chunks: `php scripts/maintenance/cloudinary_cleanup.php --apply --limit=25`
-
-Notes:
-
-- The cleanup script now batch-deletes resources by type to reduce API operations.
-- Placeholder resources with Cloudinary backups are purged using backup `version_ids` when detected.
-- If Cloudinary API rate limits are hit, the script exits early and can be resumed later with the same command.
-
-## 14. Locking and Concurrency Safety
-
-Critical flows include transactional locking and anti-race protections.
-
-Examples:
-
-- Checkout stock protection:
-  - Transactional order placement
-  - SELECT ... FOR UPDATE stock lock before decrement
-  - Conditional stock update guard
-- Checkout idempotency key consumption to block duplicate submissions
-- Refund status update flow includes row-level lock semantics in admin orders API
-- Username change lock window enforcement (90 days)
-
-## 15. Product Lifecycle and Trash Semantics
-
-Storefront product feeds now exclude archived/deleted entries.
-
-- products API excludes products with deleted_at (when column exists)
-- products API excludes products present in product_trash (when table exists)
-- Result: trashed products do not appear on user-facing product/search payloads
-
-## 16. Review Eligibility Semantics
-
-Review eligibility is verified server-side.
-
-- Accepted order statuses for eligibility: delivered, completed, received
-- Primary product linkage is by `product_id`; temporary compatibility fallback to product-name matching exists for historic rows
-- Refund-linked restrictions remain enforced where refund tables exist
-
-Customer blacklist enforcement scope (server-side):
-
-- Blacklisted contacts are blocked from cart add/update quantity
-- Blacklisted contacts are blocked from wishlist add operations
-- Blacklisted users are blocked from submitting reviews
-- Blacklisted users are blocked from placing checkout orders
-- Blacklisted users are blocked from creating refund requests
-- OAuth sign-in/signup completion blocks blacklisted contacts and re-registration attempts
-- Account blacklist warning banner visibility is controlled by site setting `account_blacklist_notice_visible`
-
-## 17. Security Levels (Operational Reference)
-
-Use this severity model when extending or reviewing features.
-
-- Level 1 (baseline): input validation, output escaping, prepared statements
-- Level 2 (sensitive forms/APIs): CSRF, rate limit, CAPTCHA, audit logging
-- Level 3 (critical money/data paths): transaction boundaries, row locks, idempotency, explicit permission checks
-
-## 18. Local Setup (XAMPP)
-
-1. Put project in C:/xampp/htdocs/commerza
-2. Import backend/database/commerza.sql into database commerza
-3. Configure .env values
-4. Start Apache and MySQL from XAMPP
-5. Open http://localhost/commerza/
-
-## 19. Useful Commands
-
-PHP lint examples:
-
-- C:/xampp/php/php.exe -l backend/security/security_helpers.php
-- C:/xampp/php/php.exe -l cart.php
-- C:/xampp/php/php.exe -l admin/backend/api/commerce/orders_api.php
-
-Automation examples:
-
-- C:/xampp/php/php.exe C:/xampp/htdocs/commerza/backend/jobs/send_engagement_reminders.php 180
-- C:/xampp/php/php.exe C:/xampp/htdocs/commerza/backend/jobs/monthly_profit_report.php
-- C:/xampp/php/php.exe C:/xampp/htdocs/commerza/backend/jobs/weekly_analytics_report.php
-
-Backup/restore verification:
-
-- powershell -ExecutionPolicy Bypass -File scripts/maintenance/backup_restore_test.ps1 -MySqlBinPath "C:/xampp/mysql/bin"
-
-## 20. Release Checklist
-
-1. Verify clean-route canonical behavior
-2. Validate CAPTCHA flows in signup/login/reset/checkout (admin 2FA verification is code-only)
-3. Validate OAuth login for Google and Facebook
-4. Validate SMTP primary and fallback delivery
-5. Validate checkout, coupon, stock, and order status workflows
-6. Validate admin KPI cards and core operations tabs
-7. Validate sub-admin lifecycle (invite, verify, permission/hidden-tabs, suspend/reactivate, delete)
-8. Validate blacklist restrictions across cart/wishlist/review/refund/checkout/OAuth and account notice toggle behavior
-9. Run PHP lint on touched files
-
-## 21. Documentation and Operations Files
-
-- SECURITY.md: security policy and disclosure channel
-- llms.txt: LLM-safe discovery guidance
-- instructions.md: integration requirements reference
-- scripts/maintenance/BACKUP_RESTORE_TESTS.md: backup and restore runbook
-- scripts/maintenance/backup_restore_test.ps1: automated backup/restore verification script
-
-## 22. Environment Profiles and Test-Only Admin Keys
-
-Environment guidance:
-
-- Keep local secrets in `.env` and never commit them.
-- Production should use server-managed secrets (not repo files).
-- Set `COMMERZA_CAPTCHA_BYPASS_LOCAL=0` for real validation tests.
-- Set `COMMERZA_OAUTH_STRICT_SSL=1` on production HTTPS deployments.
-
-Admin test keys used by security automation:
-
-- `COMMERZA_ADMIN_TEST_2FA_CODE`: only for scripted authenticated abuse tests.
-- `COMMERZA_ADMIN_TEST_SESSION_ID`: only for scripted authenticated abuse tests.
-
-These values do not auto-login your normal browser sessions. They are consumed by `scripts/security/admin_e2e_abuse_tests.ps1` and CI jobs when present.
-
-## 23. CI Security Gate
-
-Workflow file: `.github/workflows/security-gate.yml`
-
-- Static security gate runs on every push/PR/workflow dispatch.
-- Dynamic probes run only when `SECURITY_BASE_URL` secret is configured.
-- Authenticated admin abuse checks require one of:
-  - `COMMERZA_ADMIN_TEST_SESSION_ID`, or
-  - `COMMERZA_ADMIN_TEST_EMAIL` + `COMMERZA_ADMIN_TEST_PASSWORD` + `COMMERZA_ADMIN_TEST_2FA_CODE`
-
-## 24. Production Launch Requirements
-
-Set and verify the following before go-live:
-
-1. Configure `COMMERZA_ADMIN_RESET_KEY` to a strong non-default secret (minimum 16 chars).
-2. Ensure production `.env` values are managed outside source control.
-3. Confirm HTTPS is enforced and secure cookies are active.
-4. Run syntax lint on all deployment-touched PHP files.
-5. Run security smoke tests (`scripts/security/security_smoke_tests.ps1`).
-6. Validate admin auth recovery flows with real reset key configuration.
-7. Verify robots/sitemap/llms files are aligned with production domain.
-
-DigitalOcean launch profile for `commerza.ahmershah.dev`:
-
-- `COMMERZA_APP_URL=https://commerza.ahmershah.dev`
-- `COMMERZA_GOOGLE_REDIRECT_URI=https://commerza.ahmershah.dev/oauth.php?provider=google`
-- `COMMERZA_FACEBOOK_REDIRECT_URI=https://commerza.ahmershah.dev/oauth.php?provider=facebook`
-- `COMMERZA_CAPTCHA_ENABLED=1`, `COMMERZA_CAPTCHA_REQUIRED=1`, `COMMERZA_CAPTCHA_PROVIDER=recaptcha`
-- Configure both reCAPTCHA v2 and v3 keys for `commerza.ahmershah.dev`
-- Use one DB transport mode:
-  - TCP: `COMMERZA_DB_HOST`, `COMMERZA_DB_PORT`, `COMMERZA_DB_USER`, `COMMERZA_DB_PASS`, `COMMERZA_DB_NAME`
-  - Socket: `COMMERZA_DB_SOCKET`, `COMMERZA_DB_USER`, `COMMERZA_DB_PASS`, `COMMERZA_DB_NAME`
-
-Runtime behavior note:
-
-- `backend/core/data.php` now supports optional `COMMERZA_DB_PORT` and `COMMERZA_DB_SOCKET` for both mysqli and PDO helper connections.
-
-Security hardening note:
-
-- Legacy predictable admin reset-key fallback is intentionally disabled.
-- If no valid reset key is configured, admin reset-key-dependent flows will reject requests by design.
-
-## 25. Open Source License and Required Credit
-
-Commerza is distributed under the Commerza Attribution License in [license.txt](license.txt).
-
-This is a permissive, MIT-like license with one additional requirement: clear author credit must be preserved.
-
-Minimum credit requirements for redistribution or public deployment:
-
-1. Keep the copyright and license notice.
-2. Include author credit: Syed Ahmer Shah.
-3. Include project credit: Commerza.
-4. Include project link: https://github.com/ahmershahdev/commerza
-5. For websites/SaaS/products, show credit in at least one user-visible location (for example footer, about page, credits page, or documentation page).
+### 2. Create the database
+
+```bash
+mysql -u root -e "CREATE DATABASE commerza CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+mysql -u root commerza < database/commerza.sql
+```
+
+### 3. Configure the environment
+
+```bash
+cp .env.example .env
+```
+
+For local development, set at least:
+
+```dotenv
+COMMERZA_APP_URL=http://localhost/commerza
+COMMERZA_DB_HOST=localhost
+COMMERZA_DB_USER=root
+COMMERZA_DB_PASS=
+COMMERZA_DB_NAME=commerza
+
+COMMERZA_MAIL_DRIVER=log            # emails (OTP, 2FA, receipts) are written to storage/mail/
+COMMERZA_CAPTCHA_BYPASS_LOCAL=1     # skip CAPTCHA on localhost
+
+COMMERZA_ADMIN_BOOTSTRAP_EMAIL=admin@example.com
+COMMERZA_ADMIN_BOOTSTRAP_PASSWORD=Change-Me-2026!
+COMMERZA_ADMIN_RESET_KEY=<a long random string>
+```
+
+### 4. Run it
+
+Start Apache and MySQL, then open:
+
+- Storefront: <http://localhost/commerza/>
+- Admin: <http://localhost/commerza/admin-login>
+
+The first admin account is created automatically from `COMMERZA_ADMIN_BOOTSTRAP_*`. Admin login always asks for an email code. With `COMMERZA_MAIL_DRIVER=log`, open the newest file in `storage/mail/` to read it.
+
+To set or reset an admin password from the command line:
+
+```bash
+php scripts/dev/reset_admin_password.php admin@example.com 'New-Strong-Pass-2026!'
+```
+
+Full provider setup (OAuth, Stripe, SMTP, reCAPTCHA, Cloudinary, cron) is in [instructions.md](instructions.md).
+
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph Client
+        BR[Browser]
+    end
+
+    subgraph Apache
+        HT[.htaccess<br/>clean routes · deny rules · headers]
+    end
+
+    subgraph App[PHP application]
+        PG[pages/*.php<br/>storefront controllers]
+        AF[admin/frontend/*.php<br/>admin UI]
+        TP[templates/partials<br/>header · footer]
+        API[backend/api/*<br/>storefront JSON]
+        AAPI[admin/backend/api/&lt;domain&gt;/*<br/>admin JSON]
+        CORE[backend/core<br/>bootstrap · env · session · settings]
+        SEC[backend/security<br/>CSRF · CAPTCHA · rate limit · audit]
+        HLP[backend/helpers<br/>cart · coupons · notifications]
+        INT[services · payment · mailer · auth]
+        JOB[backend/jobs<br/>cron]
+    end
+
+    subgraph Data
+        DB[(MySQL / MariaDB)]
+        CACHE[(APCu / Redis)]
+    end
+
+    subgraph External
+        STRIPE[Stripe]
+        SMTP[SMTP]
+        OAUTH[Google / Facebook]
+        CLD[Cloudinary]
+        RC[reCAPTCHA]
+    end
+
+    BR --> HT --> PG & AF
+    BR -. XHR .-> API & AAPI
+    PG --> TP
+    PG & AF & API & AAPI --> CORE --> SEC
+    PG & API & AAPI --> HLP --> INT
+    CORE --> DB
+    CORE --> CACHE
+    JOB --> DB
+    INT --> STRIPE & SMTP & OAUTH & CLD
+    SEC --> RC
+```
+
+### Project structure
+
+```text
+commerza/
+├── pages/                  Storefront pages, one per route (/cart → pages/cart.php)
+├── templates/partials/     Shared site header and footer
+├── admin/
+│   ├── frontend/           Admin login, 2FA, recovery, panel (+ CSS/JS)
+│   └── backend/            auth/ and api/<domain>/ JSON endpoints
+├── backend/
+│   ├── core/               Bootstrap, env, routing, site settings, view helpers
+│   ├── api/                Storefront JSON APIs
+│   ├── auth/               OAuth
+│   ├── security/           CSRF, CAPTCHA, passwords, rate limits, audit log
+│   ├── helpers/            Cart, coupons, notifications, media, wishlist
+│   ├── services/ payment/ mailer/ cache/ jobs/
+├── frontend/assets/        CSS (themes, modules, pages), JS (modules, pages), images, vendor
+├── database/commerza.sql   Schema + catalog seed
+├── scripts/                dev/, maintenance/, security/
+├── docs/                   Architecture, database, screenshots
+└── .github/                CI, security gate, templates, Dependabot
+```
+
+How a request flows, the layer responsibilities, and how to add a page or API are covered in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Database
+
+```mermaid
+erDiagram
+    users ||--o{ orders : places
+    users ||--o| cart : owns
+    users ||--o| wishlist : owns
+    users ||--o{ product_reviews : writes
+    users ||--o{ refund_requests : files
+    sections ||--o{ products : groups
+    products ||--o{ order_items : "sold as"
+    products ||--o{ cart_items : "added to"
+    products ||--o{ wishlist_items : "saved in"
+    products ||--o{ product_reviews : receives
+    orders ||--|{ order_items : contains
+    orders ||--o{ refund_requests : "may have"
+    orders ||--o{ coupon_redemptions : applies
+    coupons ||--o{ coupon_redemptions : "used by"
+    cart ||--o{ cart_items : holds
+    wishlist ||--o{ wishlist_items : holds
+    admin_users ||--o{ admin_sessions : "signs in"
+    admin_users ||--o{ notifications : receives
+```
+
+The full ERD with columns, table groups, and reporting views is in [docs/DATABASE.md](docs/DATABASE.md).
+
+## Routes
+
+| Public | Account and checkout | Admin |
+| --- | --- | --- |
+| `/` `/products` `/products/<slug>` | `/login` `/signup` `/forgot-password` `/reset-password` | `/admin-login` |
+| `/shop-category-a` `/shop-category-b` | `/account` `/cart` `/wishlist` `/compare` | `/admin-verify-2fa` |
+| `/about` `/contact` `/faq` | `/order-tracking` `/invoice/<ORD-…>` | `/admin-panel` |
+| `/shipping` `/returns` `/warranty` | `/oauth?provider=google\|facebook` | `/admin-forgot-password` `/admin-forgot-email` |
+| `/privacy-policy` `/terms-of-service` | | |
+
+Legacy `*.php` URLs redirect permanently to these clean routes.
+
+## Operations
+
+| Task | Command |
+| --- | --- |
+| Lint all PHP | `find . -name '*.php' -not -path './.git/*' -exec php -l {} \;` |
+| Static security gate | `pwsh scripts/security/ci_security_gate.ps1` |
+| Smoke tests against a running site | `pwsh scripts/security/security_smoke_tests.ps1 -BaseUrl http://localhost/commerza` |
+| Backup/restore verification | `pwsh scripts/maintenance/backup_restore_test.ps1 -MySqlBinPath "C:/xampp/mysql/bin"` |
+| Engagement reminders (cron) | `php backend/jobs/send_engagement_reminders.php 180` |
+| Weekly / monthly reports (cron) | `php backend/jobs/weekly_analytics_report.php` · `php backend/jobs/monthly_profit_report.php` |
+| Sync assets to Cloudinary | `php scripts/maintenance/cloudinary_sync.php --dry-run` |
+
+## Production checklist
+
+1. Serve over HTTPS. `.htaccess` redirects non-local traffic and HSTS is sent on HTTPS.
+2. Keep `.env` outside version control and set `COMMERZA_MAIL_DRIVER=smtp`, `COMMERZA_CAPTCHA_BYPASS_LOCAL=0`, and `COMMERZA_OAUTH_STRICT_SSL=1`.
+3. Use a strong, unique `COMMERZA_ADMIN_RESET_KEY` (16+ characters) and admin password.
+4. Register production redirect URIs for Google/Facebook and the domain in reCAPTCHA.
+5. Configure cron for the jobs above.
+6. Align `robots.txt`, `sitemap.xml`, and `llms.txt` with the production domain.
+7. Run the security gate and smoke tests after each deploy.
+
+## Documentation
+
+| File | Purpose |
+| --- | --- |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Layers, request lifecycle, conventions, scaling |
+| [docs/DATABASE.md](docs/DATABASE.md) | ERD, table groups, import |
+| [instructions.md](instructions.md) | Local setup and third-party integrations |
+| [SECURITY.md](SECURITY.md) | Security policy and private disclosure |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Branching, commits, pull requests |
+| [CHANGELOG.md](CHANGELOG.md) | Release history |
+| [llms.txt](llms.txt) / [llms-full.txt](llms-full.txt) | Guidance for AI crawlers and assistants |
+
+## Case study and articles
+
+| | |
+| --- | --- |
+| **Project case study** | [ahmershah.dev/projects/commerza](https://ahmershah.dev/projects/commerza) |
+| **Building Commerza: a security-first ecommerce engine** | [Read on ahmershah.dev](https://ahmershah.dev/blogs/building-commerza-security-first-ecommerce-engine) |
+| **I built a production-grade ecommerce platform in 3 months. GitHub Copilot was my co-founder** | [Read on ahmershah.dev](https://ahmershah.dev/blogs/i-built-a-production-grade-e-commerce-platform-in-3-months-github-copilot-was-my-co-founder) |
+| **I almost lost Commerza** | [Read on DEV](https://dev.to/syedahmershah/i-almost-lost-commerza-the-brutal-reality-of-building-an-ecommerce-system-without-a-framework-5b78) |
+
+## Contributing
+
+Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first. Report security issues privately as described in [SECURITY.md](SECURITY.md).
+
+## License
+
+Released under the [MIT License](LICENSE). If Commerza helps you, a link back to this repository is appreciated.
+
+## Author
+
+**Syed Ahmer Shah** · [ahmershah.dev](https://ahmershah.dev) · [GitHub @ahmershahdev](https://github.com/ahmershahdev) · [Live demo](https://commerza.ahmershah.dev) · [Case study](https://ahmershah.dev/projects/commerza) · support@ahmershah.dev

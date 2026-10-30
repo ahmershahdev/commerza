@@ -162,6 +162,80 @@ function commerza_public_collectors_speak(mysqli $con): array
     return $rows;
 }
 
+function commerza_public_social_links(mysqli $con): array
+{
+    if (!commerza_public_table_exists($con, 'social_links')) {
+        return [];
+    }
+
+    $result = $con->query(
+        'SELECT label, url, icon
+         FROM social_links
+         WHERE is_active = 1
+         ORDER BY sort_order ASC, id ASC
+         LIMIT 20'
+    );
+
+    if (!$result) {
+        return [];
+    }
+
+    $links = [];
+    while ($row = $result->fetch_assoc()) {
+        $url = trim((string)($row['url'] ?? ''));
+        if ($url === '') {
+            continue;
+        }
+
+        $links[] = [
+            'label' => trim((string)($row['label'] ?? '')),
+            'url' => $url,
+            'icon' => trim((string)($row['icon'] ?? '')),
+        ];
+    }
+
+    return $links;
+}
+
+function commerza_public_slider_images(mysqli $con): array
+{
+    if (!commerza_public_table_exists($con, 'slider')) {
+        return [];
+    }
+
+    $result = $con->query(
+        'SELECT title, subtitle, description, image_url, alt_text, cta_text, cta_url
+         FROM slider
+         WHERE is_active = 1
+         ORDER BY sort_order ASC, id ASC
+         LIMIT 10'
+    );
+
+    if (!$result) {
+        return [];
+    }
+
+    $slides = [];
+    while ($row = $result->fetch_assoc()) {
+        $image = trim((string)($row['image_url'] ?? ''));
+        if ($image === '') {
+            continue;
+        }
+
+        $slides[] = [
+            'image' => $image,
+            'label' => trim((string)($row['subtitle'] ?? '')),
+            'heading' => trim((string)($row['title'] ?? '')),
+            'text' => trim((string)($row['description'] ?? '')),
+            'alt' => trim((string)($row['alt_text'] ?? '')),
+            'buttonText' => trim((string)($row['cta_text'] ?? '')),
+            'buttonLink' => trim((string)($row['cta_url'] ?? '')),
+        ];
+    }
+
+    return $slides;
+}
+
 function commerza_build_public_site_settings_payload(mysqli $con): array
 {
     return [
@@ -188,8 +262,8 @@ function commerza_build_public_site_settings_payload(mysqli $con): array
             'messages' => commerza_public_ticker_messages($con),
         ],
         'collectorsSpeak' => commerza_public_collectors_speak($con),
-        'socialLinks' => [],
-        'sliderImages' => [],
+        'socialLinks' => commerza_public_social_links($con),
+        'sliderImages' => commerza_public_slider_images($con),
         'featuredVideos' => [
             'home' => commerza_site_setting_value(
                 $con,

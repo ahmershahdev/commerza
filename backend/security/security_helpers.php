@@ -795,6 +795,18 @@ function commerza_captcha_is_enabled(mysqli $con): bool
     return (bool)($config['enabled'] ?? false);
 }
 
+/**
+ * True when a CAPTCHA challenge is actually rendered for this request (enabled and not locally bypassed).
+ */
+function commerza_captcha_is_active(mysqli $con): bool
+{
+    if (!commerza_captcha_is_enabled($con)) {
+        return false;
+    }
+
+    return !(commerza_captcha_is_local_request() && commerza_captcha_local_bypass_enabled());
+}
+
 function commerza_captcha_script_tag(mysqli $con): string
 {
     $config = commerza_captcha_config($con);

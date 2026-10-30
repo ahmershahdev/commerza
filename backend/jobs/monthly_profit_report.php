@@ -1,6 +1,6 @@
 <?php
 
-include __DIR__ . '/../data.php';
+require_once __DIR__ . '/../core/data.php';
 require_once __DIR__ . '/../helpers/notifications.php';
 
 if (PHP_SAPI !== 'cli') {

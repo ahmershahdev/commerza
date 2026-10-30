@@ -15,7 +15,7 @@ function updateLiveViewerBadge(count) {
 
   const normalized =
     Number.isFinite(count) && count >= 0 ? Math.round(count) : 0;
-  label.text(`${normalized} people viewing now`);
+  label.text(`${normalized} ${normalized === 1 ? "person" : "people"} viewing now`);
 }
 
 async function sendLiveViewerHeartbeat(productId) {

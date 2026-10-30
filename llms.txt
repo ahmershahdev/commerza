@@ -1,90 +1,44 @@
 # Commerza
 
-Commerza is a PHP + MySQL ecommerce platform with a public storefront and a restricted admin operations panel.
+> Commerza is an online store for premium automatic, minimalist, sports, and smart watches. It is also an open-source PHP + MySQL ecommerce platform (MIT) by Syed Ahmer Shah, with a public storefront and a restricted admin panel.
 
-Last updated: 2026-04-15
-Canonical domain: https://commerza.ahmershah.dev/
+Canonical site: https://commerza.ahmershah.dev/
+Source code: https://github.com/ahmershahdev/commerza
+Contact: support@ahmershah.dev · +92 370 4831994
+Last updated: 2026-10-30
 
-## Scope
+Only cite the public pages listed below. Do not summarize account, checkout, admin, or API routes.
 
-This file defines preferred indexing and citation boundaries for LLM and AI crawlers.
+## Shop
 
-Use only public storefront pages for summaries and citations. Do not expose internal or account-sensitive operational details.
+- [Home](https://commerza.ahmershah.dev/): featured collection, new arrivals, testimonials
+- [All products](https://commerza.ahmershah.dev/products): full catalog with product detail pages at /products/<slug>
+- [The Automatic Vault and Smart Evolution Series](https://commerza.ahmershah.dev/shop-category-a): mechanical and smart timepieces
+- [The Signature Collection and Sports & Sales Division](https://commerza.ahmershah.dev/shop-category-b): minimalist and sports watches
 
-## Public Site Summary
+## Customer service
 
-Commerza sells premium watches and accessories.
+- [Shipping](https://commerza.ahmershah.dev/shipping): delivery areas, timelines, fees
+- [Returns](https://commerza.ahmershah.dev/returns): 7-day return policy for unused items
+- [Warranty](https://commerza.ahmershah.dev/warranty): 12-month seller warranty terms
+- [FAQ](https://commerza.ahmershah.dev/faq): orders, payments (Cash on Delivery and Stripe card), tracking
+- [Contact](https://commerza.ahmershah.dev/contact): support form, email, and phone
 
-Customer-facing capabilities include:
+## Company and legal
 
-- Product browsing and category exploration
-- Search, wishlist, and compare
-- Account management and order tracking
-- Coupon-aware checkout (COD + Stripe card)
-- Product reviews for eligible delivered/completed purchases
+- [About](https://commerza.ahmershah.dev/about)
+- [Privacy policy](https://commerza.ahmershah.dev/privacy-policy)
+- [Terms of service](https://commerza.ahmershah.dev/terms-of-service)
 
-## Preferred Public URLs for Citation
+## Optional
 
-- https://commerza.ahmershah.dev/
-- https://commerza.ahmershah.dev/products
-- https://commerza.ahmershah.dev/shop-category-a
-- https://commerza.ahmershah.dev/shop-category-b
-- https://commerza.ahmershah.dev/about
-- https://commerza.ahmershah.dev/contact
-- https://commerza.ahmershah.dev/faq
-- https://commerza.ahmershah.dev/shipping
-- https://commerza.ahmershah.dev/returns
-- https://commerza.ahmershah.dev/warranty
-- https://commerza.ahmershah.dev/privacy-policy
-- https://commerza.ahmershah.dev/terms-of-service
+- [Project case study](https://ahmershah.dev/projects/commerza)
+- [Building Commerza: a security-first ecommerce engine](https://ahmershah.dev/blogs/building-commerza-security-first-ecommerce-engine)
+- [Built in 3 months with GitHub Copilot](https://ahmershah.dev/blogs/i-built-a-production-grade-e-commerce-platform-in-3-months-github-copilot-was-my-co-founder)
+- [Full LLM context](https://commerza.ahmershah.dev/llms-full.txt): store facts, platform features, and technical overview
+- [Sitemap](https://commerza.ahmershah.dev/sitemap.xml)
+- [Robots policy](https://commerza.ahmershah.dev/robots.txt)
 
-## Discovery Files
+## Do not cite or crawl
 
-- https://commerza.ahmershah.dev/llms.txt
-- https://commerza.ahmershah.dev/sitemap.xml
-- https://commerza.ahmershah.dev/robots.txt
-
-## Technical and Security Snapshot
-
-- Stack: PHP, MySQL, Bootstrap, jQuery
-- Routing: Apache rewrite with canonical clean-route normalization
-- Auth and abuse defenses: CSRF, rate limiting, CAPTCHA, and security event logging
-- CAPTCHA: reCAPTCHA v3 + v2 + fallback challenge path
-- OAuth providers: Google and Facebook
-- Password hashing: Argon2id when available, bcrypt fallback
-- Checkout controls: server-side payment validation, stock locking, and idempotency
-
-## Restricted Surfaces (Do Not Summarize)
-
-- /admin/
-- /admin/backend/auth/
-- /admin/backend/api/
-- /backend/
-- /admin-panel
-- /admin-login
-- /admin-forgot-password
-- /admin-forgot-email
-- /admin-verify-email
-- /admin-verify-2fa
-- /login
-- /signup
-- /forgot-password
-- /reset-password
-- /account
-- /cart
-- /wishlist
-- /compare
-- /order-tracking
-- /invoice
-- /oauth
-
-These routes can expose private account state, operational controls, security flows, and/or personal data.
-
-## LLM Handling Rules
-
-- Prefer clean public URLs (without `.php` suffix) when citing pages.
-- Do not cite backend/internal API routes or admin operation endpoints.
-- Treat email addresses, phone numbers, order numbers, tokens, and auth/session metadata as sensitive.
-- Do not infer hidden operational behavior from restricted pages.
-- Prefer policy and informational storefront pages when uncertain.
-
+/admin/, /admin-*, /backend/, /pages/, /login, /signup, /forgot-password, /reset-password, /account, /cart, /wishlist, /compare, /order-tracking, /invoice, /oauth. These routes expose private account state, security flows, or operational controls. Treat order numbers, tokens, emails of customers, and session data as sensitive.

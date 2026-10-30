@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 header('Content-Type: application/json; charset=utf-8');
 
-require_once __DIR__ . '/../data.php';
+require_once __DIR__ . '/../core/data.php';
+require_once __DIR__ . '/../helpers/order_tracking_helpers.php';
 
 /** @var mysqli|null $con */
 $con = (isset($con) && $con instanceof mysqli)
@@ -29,42 +30,6 @@ function order_tracking_api_json(array $payload, int $status = 200): void
     exit;
 }
 
-function order_tracking_safe_image_src(string $value): string
-{
-    $raw = trim($value);
-    if ($raw === '') {
-        return '';
-    }
-
-    if (preg_match('/[\x00-\x1F\x7F]/', $raw) === 1) {
-        return '';
-    }
-
-    if (preg_match('/^(?:javascript|vbscript):/i', $raw) === 1) {
-        return '';
-    }
-
-    if (preg_match('/^data:/i', $raw) === 1) {
-        return preg_match('/^data:image\/(?:png|jpe?g|webp|gif);base64,[a-z0-9+\/=\s]+$/i', $raw) === 1
-            ? $raw
-            : '';
-    }
-
-    if (
-        preg_match('/^(?:https?:)?\/\//i', $raw) === 1
-        || str_starts_with($raw, '/')
-        || str_starts_with($raw, './')
-        || str_starts_with($raw, '../')
-    ) {
-        return $raw;
-    }
-
-    if (preg_match('/^[a-z0-9][a-z0-9._\/-]*$/i', $raw) === 1) {
-        return $raw;
-    }
-
-    return '';
-}
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     order_tracking_api_json([

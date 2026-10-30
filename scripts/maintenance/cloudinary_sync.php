@@ -418,7 +418,7 @@ function cloudinary_sync_load_existing_map(string $projectRoot): array
 
 function cloudinary_sync_rewrite_sql_dump(string $projectRoot, array $replacementMap): array
 {
-    $sqlPath = $projectRoot . DIRECTORY_SEPARATOR . 'backend' . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'commerza.sql';
+    $sqlPath = $projectRoot . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'commerza.sql';
     if (!is_file($sqlPath)) {
         return [
             'ok' => false,
@@ -670,7 +670,7 @@ if (!(bool)$options['skip_sql']) {
         $sqlRewrite = cloudinary_sync_rewrite_sql_dump($projectRoot, $dbRewriteMap);
         if ((bool)($sqlRewrite['ok'] ?? false)) {
             cloudinary_sync_print('SQL dump rewrites: ' . (int)($sqlRewrite['replacements'] ?? 0));
-            cloudinary_sync_print('SQL dump path: ' . (string)($sqlRewrite['path'] ?? 'backend/database/commerza.sql'));
+            cloudinary_sync_print('SQL dump path: ' . (string)($sqlRewrite['path'] ?? 'database/commerza.sql'));
         } else {
             cloudinary_sync_print('SQL rewrite warning: ' . (string)($sqlRewrite['message'] ?? 'Unknown SQL rewrite failure'));
         }

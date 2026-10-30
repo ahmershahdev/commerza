@@ -288,8 +288,8 @@ function buildDefaultSiteSettings() {
     },
     contact: {
       address: "Barrage Colony, HYD, PK",
-      email: "commerza.ahmer@gmail.com",
-      phone: "+92 314 8396293",
+      email: "support@ahmershah.dev",
+      phone: "+92 370 4831994",
     },
     ticker: {
       enabled: true,

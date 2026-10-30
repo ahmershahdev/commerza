@@ -1,7 +1,7 @@
 <?php
 header('Content-Type: application/json');
 
-include __DIR__ . '/../data.php';
+require_once __DIR__ . '/../core/data.php';
 require_once __DIR__ . '/../helpers/notifications.php';
 require_once __DIR__ . '/../helpers/server_timing_helpers.php';
 require_once __DIR__ . '/../helpers/wishlist_schema_helpers.php';
@@ -44,41 +44,6 @@ function wishlist_json(array $payload, int $statusCode = 200): void
     exit;
 }
 
-function get_or_create_wishlist_id(mysqli $con, int $userId): ?int
-{
-    $selectStmt = $con->prepare('SELECT id FROM wishlist WHERE user_id = ? LIMIT 1');
-    if (!$selectStmt) {
-        return null;
-    }
-
-    $selectStmt->bind_param('i', $userId);
-    $selectStmt->execute();
-    $result = $selectStmt->get_result();
-
-    if ($result && $result->num_rows === 1) {
-        $row = $result->fetch_assoc();
-        $selectStmt->close();
-        return (int)$row['id'];
-    }
-
-    $selectStmt->close();
-
-    $insertStmt = $con->prepare(
-        'INSERT INTO wishlist (user_id)
-         VALUES (?)
-         ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)'
-    );
-    if (!$insertStmt) {
-        return null;
-    }
-
-    $insertStmt->bind_param('i', $userId);
-    $ok = $insertStmt->execute();
-    $newId = $ok ? (int)$con->insert_id : null;
-    $insertStmt->close();
-
-    return $newId;
-}
 
 function fetch_wishlist_state(mysqli $con, int $wishlistId): array
 {
