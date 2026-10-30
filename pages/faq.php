@@ -118,7 +118,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
       </div>
     </section>
     <div class="text-center mb-5">
-      <h1>Frequently Asked Questions</h1>
+      <h2 class="h1">Frequently Asked Questions</h2>
       <p class="product-desc mt-3">
         Find answers to common questions about our products and services.
       </p>

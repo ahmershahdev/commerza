@@ -100,7 +100,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
       </div>
     </section>
     <div class="text-center mb-5">
-      <h1 style="color: #ff6600">Shipping Information</h1>
+      <h2 class="h1"  style="color: #ff6600">Shipping Information</h2>
       <p class="product-desc mt-3">
         Everything you need to know about our shipping process.
       </p>

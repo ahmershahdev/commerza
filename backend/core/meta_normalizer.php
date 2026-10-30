@@ -145,17 +145,17 @@ function commerza_optimize_stylesheet_links(string $buffer): string
             $href = commerza_html_tag_attribute_value($tag, 'href');
 
             $fallbackHref = $href !== '' ? commerza_cdn_fallback_asset_for_url($href) : '';
-            if ($fallbackHref !== '' && preg_match('/\bonerror\s*=\s*(["\']).*?\1/i', $tag) !== 1) {
+            if ($fallbackHref !== '' && preg_match('/\b(?:onerror|data-commerza-fallback)\s*=\s*(["\']).*?\1/i', $tag) !== 1) {
                 $safeFallback = htmlspecialchars($fallbackHref, ENT_QUOTES, 'UTF-8');
                 $tag = commerza_insert_tag_attribute(
                     $tag,
-                    'onerror="this.onerror=null;this.removeAttribute(\'integrity\');this.removeAttribute(\'crossorigin\');this.href=\'' . $safeFallback . '\'"'
+                    'data-commerza-fallback="' . $safeFallback . '"'
                 );
             }
 
             if (
                 preg_match('/\bmedia\s*=\s*(["\'])print\1/i', $tag) === 1
-                || preg_match('/\bonload\s*=\s*(["\'])[^"\']*this\.media\s*=\s*["\']all["\'][^"\']*\1/i', $tag) === 1
+                || stripos($tag, 'data-commerza-async-css') !== false
             ) {
                 return $tag;
             }
@@ -165,7 +165,7 @@ function commerza_optimize_stylesheet_links(string $buffer): string
             }
 
             $tag = commerza_insert_tag_attribute($tag, 'media="print"');
-            $tag = commerza_insert_tag_attribute($tag, 'onload="this.media=\'all\'"');
+            $tag = commerza_insert_tag_attribute($tag, 'data-commerza-async-css');
 
             return $tag;
         },
@@ -200,11 +200,11 @@ function commerza_optimize_head_script_defer(string $buffer): string
 
             $srcRaw = (string)($matches[2] ?? '');
             $fallbackSrc = commerza_cdn_fallback_asset_for_url($srcRaw);
-            if ($fallbackSrc !== '' && preg_match('/\bonerror\s*=\s*(["\']).*?\1/i', $tag) !== 1) {
+            if ($fallbackSrc !== '' && preg_match('/\b(?:onerror|data-commerza-fallback)\s*=\s*(["\']).*?\1/i', $tag) !== 1) {
                 $safeFallback = htmlspecialchars($fallbackSrc, ENT_QUOTES, 'UTF-8');
                 $tag = commerza_insert_tag_attribute(
                     $tag,
-                    'onerror="this.onerror=null;this.removeAttribute(\'integrity\');this.removeAttribute(\'crossorigin\');this.src=\'' . $safeFallback . '\'"'
+                    'data-commerza-fallback="' . $safeFallback . '"'
                 );
             }
 
@@ -256,7 +256,7 @@ function commerza_optimize_script_tag_fallbacks(string $buffer): string
         '/<script\b[^>]*\bsrc\s*=\s*(["\'])([^"\']+)\1[^>]*>\s*<\/script>/i',
         static function (array $matches): string {
             $tag = (string)($matches[0] ?? '');
-            if ($tag === '' || preg_match('/\bonerror\s*=\s*(["\']).*?\1/i', $tag) === 1) {
+            if ($tag === '' || preg_match('/\b(?:onerror|data-commerza-fallback)\s*=\s*(["\']).*?\1/i', $tag) === 1) {
                 return $tag;
             }
 
@@ -273,7 +273,7 @@ function commerza_optimize_script_tag_fallbacks(string $buffer): string
             $safeFallback = htmlspecialchars($fallbackSrc, ENT_QUOTES, 'UTF-8');
             return commerza_insert_tag_attribute(
                 $tag,
-                'onerror="this.onerror=null;this.removeAttribute(\'integrity\');this.removeAttribute(\'crossorigin\');this.src=\'' . $safeFallback . '\'"'
+                'data-commerza-fallback="' . $safeFallback . '"'
             );
         },
         $buffer
@@ -607,6 +607,10 @@ function commerza_head_upsert_canonical(string $buffer, string $canonical): stri
 
 function commerza_current_page_meta_key(): string
 {
+    if (isset($_GET['slug']) && trim((string)$_GET['slug']) !== '') {
+        return 'product-detail'; // product pages render their own per-product meta
+    }
+
     $script = strtolower(trim((string)basename((string)($_SERVER['SCRIPT_NAME'] ?? ''))));
     return $script !== '' ? $script : 'index.php';
 }
@@ -668,6 +672,29 @@ function commerza_page_meta_overrides(): array
     ];
 
     return $cached;
+}
+
+/**
+ * Handler-free replacement for inline onload/onerror: promotes async stylesheets and swaps
+ * failed CDN assets to their local fallback, so script-src needs no 'unsafe-inline'.
+ */
+function commerza_inject_asset_loader_script(string $buffer): string
+{
+    if (stripos($buffer, 'data-commerza-') === false || stripos($buffer, 'id="commerzaAssetLoader"') !== false) {
+        return $buffer;
+    }
+
+    $js = '(function(){var d=document;function css(l){if(l.sheet){l.media="all";}else{l.addEventListener("load",function(){l.media="all";});}}'
+        . 'function swap(el){var u=el.getAttribute("data-commerza-fallback");if(!u||el.dataset.commerzaSwapped){return;}el.dataset.commerzaSwapped="1";'
+        . 'el.removeAttribute("integrity");el.removeAttribute("crossorigin");if(el.tagName==="LINK"){el.href=u;el.media="all";}else{var s=d.createElement("script");s.src=u;el.parentNode.insertBefore(s,el.nextSibling);}}'
+        . 'd.querySelectorAll("link[data-commerza-async-css]").forEach(css);'
+        . 'd.querySelectorAll("[data-commerza-fallback]").forEach(function(el){el.addEventListener("error",function(){swap(el);});});'
+        . 'd.addEventListener("error",function(e){var t=e.target;if(t&&t.hasAttribute&&t.hasAttribute("data-commerza-fallback")){swap(t);}},true);'
+        . 'window.addEventListener("load",function(){d.querySelectorAll("link[data-commerza-fallback]").forEach(function(l){if(!l.sheet){swap(l);}});});})();';
+
+    $tag = '<script ' . commerza_csp_nonce_attr() . ' id="commerzaAssetLoader">' . $js . '</script>';
+    return preg_replace('/<\/head>/i', "  {$tag}
+</head>", $buffer, 1) ?? $buffer;
 }
 
 function commerza_html_meta_normalize(string $buffer): string
@@ -994,7 +1021,7 @@ function commerza_html_meta_normalize(string $buffer): string
         }
     }
 
-    return $buffer;
+    return commerza_inject_asset_loader_script($buffer);
 }
 
 function commerza_enable_meta_normalizer(): void

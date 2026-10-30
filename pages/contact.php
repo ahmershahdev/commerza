@@ -324,7 +324,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </section>
 
     <div class="text-center mb-5">
-      <h1 class="contact-form-title">Contact Us</h1>
+      <h2 class="h1 contact-form-title">Contact Us</h2>
       <p class="product-desc mt-3">
         Have questions or need help? We’d love to hear from you.
       </p>

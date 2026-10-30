@@ -101,7 +101,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
       </div>
     </section>
     <div class="text-center mb-5">
-      <h1 style="color: #ff6600">Returns & Refunds</h1>
+      <h2 class="h1"  style="color: #ff6600">Returns & Refunds</h2>
       <p class="product-desc mt-3">
         We want you to be fully satisfied with your purchase. Please review
         our return policy below.

@@ -120,7 +120,7 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
       </div>
     </section>
     <div class="text-center mb-5">
-      <h1 style="color: #ff6600">Warranty Policy</h1>
+      <h2 class="h1"  style="color: #ff6600">Warranty Policy</h2>
       <p class="product-desc mt-3">
         Your <?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> watch is protected by our quality assurance warranty.
       </p>

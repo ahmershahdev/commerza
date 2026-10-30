@@ -32,7 +32,7 @@ if (
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <base href="<?= htmlspecialchars($appBaseHref, ENT_QUOTES, 'UTF-8') ?>">
   <meta name="description"
-    content="Commerza brings you premium automatic watches—crafted with elegant leather, gold dials, and modern design. Discover luxury timepieces for your unique lifestyle.">
+    content="Shop premium automatic watches at Commerza: leather straps, gold dials and modern design. COD and secure card checkout.">
   <meta name="robots" content="index, follow">
   <meta name="author" content="Syed Ahmer Shah">
   <meta property="og:title" content="Commerza Premium Automatic Watches">

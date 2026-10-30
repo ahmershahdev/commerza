@@ -33,3 +33,9 @@ coverage/
 .DS_Store
 Thumbs.db
 Desktop.ini
+# E2E artifacts
+tests/e2e/node_modules/
+test-results/
+playwright-report/
+tests/e2e/test-results/
+tests/e2e/playwright-report/

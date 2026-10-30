@@ -546,9 +546,9 @@ if ($categoryBVideoStmt) {
           </section>
 
           <section class="product-section-block" data-section-id="signature-collection">
-            <h1 class="text-center mt-5 mb-4" id="signature">COMMERZA | The
+            <h2 class="h1 text-center mt-5 mb-4" id="signature">COMMERZA | The
               Lifestyle & Utility Series
-            </h1>
+            </h2>
 
             <h2 class="text-center mt-5 mb-2">The Signature Collection
             </h2>
