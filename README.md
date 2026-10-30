@@ -335,7 +335,7 @@ Under stress the single container reaches its throughput ceiling and latency ris
 | HTTP methods | `TRACE` disabled (`TraceEnable Off` in the image) | PASS |
 | Brute force / DoS | Login is throttled after repeated failures. Every API has per-scope rate limits with progressive blocking | PASS |
 | CSRF | Checkout, cart, reviews, and viewer heartbeat reject requests without a token (`security_smoke_tests.ps1`, 8/8) | PASS |
-| Malicious uploads | EICAR test virus, PHP polyglot (`GIF89a<?php`), and SVG with `<script>` are rejected. A clean image is accepted | PASS |
+| Malicious uploads | EICAR test virus, PHP polyglot (`GIF89a<?php`), and SVG with `<script>` are rejected by the built-in signature scanner. A clean image is accepted. For real-world malware coverage, install ClamAV and set `COMMERZA_UPLOAD_SCAN_ENABLED=1` + `COMMERZA_CLAMSCAN_PATH` | PASS |
 | Passwords | Argon2id (bcrypt-12 fallback) | PASS |
 | Race conditions | Checkout and refunds use transactions with `SELECT … FOR UPDATE`, conditional stock decrements, and idempotency keys. Wishlist creation uses `ON DUPLICATE KEY` | Code-verified |
 
