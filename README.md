@@ -24,7 +24,8 @@
   <a href="#architecture">Architecture</a> ·
   <a href="#database">Database</a> ·
   <a href="docs/ARCHITECTURE.md">Docs</a> ·
-  <a href="instructions.md">Integrations</a>
+  <a href="instructions.md">Integrations</a> ·
+  <a href="https://ahmershah.dev/projects/commerza">Case study</a>
 </p>
 
 ---
@@ -302,6 +303,15 @@ Legacy `*.php` URLs redirect permanently to these clean routes.
 | [CHANGELOG.md](CHANGELOG.md) | Release history |
 | [llms.txt](llms.txt) / [llms-full.txt](llms-full.txt) | Guidance for AI crawlers and assistants |
 
+## Case study and articles
+
+| | |
+| --- | --- |
+| **Project case study** | [ahmershah.dev/projects/commerza](https://ahmershah.dev/projects/commerza) |
+| **Building Commerza: a security-first ecommerce engine** | [Read on ahmershah.dev](https://ahmershah.dev/blogs/building-commerza-security-first-ecommerce-engine) |
+| **I built a production-grade ecommerce platform in 3 months. GitHub Copilot was my co-founder** | [Read on ahmershah.dev](https://ahmershah.dev/blogs/i-built-a-production-grade-e-commerce-platform-in-3-months-github-copilot-was-my-co-founder) |
+| **I almost lost Commerza** | [Read on DEV](https://dev.to/syedahmershah/i-almost-lost-commerza-the-brutal-reality-of-building-an-ecommerce-system-without-a-framework-5b78) |
+
 ## Contributing
 
 Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first. Report security issues privately as described in [SECURITY.md](SECURITY.md).
@@ -312,4 +322,4 @@ Released under the [MIT License](LICENSE). If Commerza helps you, a link back to
 
 ## Author
 
-**Syed Ahmer Shah** · [GitHub @ahmershahdev](https://github.com/ahmershahdev) · [Live demo](https://commerza.ahmershah.dev) · [Build story on DEV](https://dev.to/syedahmershah/i-almost-lost-commerza-the-brutal-reality-of-building-an-ecommerce-system-without-a-framework-5b78)
+**Syed Ahmer Shah** · [ahmershah.dev](https://ahmershah.dev) · [GitHub @ahmershahdev](https://github.com/ahmershahdev) · [Live demo](https://commerza.ahmershah.dev) · [Case study](https://ahmershah.dev/projects/commerza) · support@ahmershah.dev

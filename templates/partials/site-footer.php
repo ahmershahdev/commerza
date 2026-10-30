@@ -14,6 +14,10 @@ $quickLinks = [
   ['href' => 'wishlist.php', 'label' => 'Wishlist', 'page' => 'wishlist'],
   ['href' => 'order-tracking.php', 'label' => 'Order Tracking', 'page' => 'order-tracking'],
 ];
+$projectLinks = [
+  ['href' => 'https://ahmershah.dev/projects/commerza', 'label' => 'Case Study'],
+  ['href' => 'https://ahmershah.dev/blogs/building-commerza-security-first-ecommerce-engine', 'label' => 'Engineering Blog'],
+];
 $serviceLinks = [
   ['href' => 'shipping.php', 'label' => 'Shipping Info', 'page' => 'shipping'],
   ['href' => 'returns.php', 'label' => 'Returns', 'page' => 'returns'],
@@ -58,6 +62,11 @@ $serviceLinks = [
           </div>
           <p class="footer-text mt-3">Email: <?= commerza_e($site['support_email']) ?></p>
           <p class="footer-text">Phone: <?= commerza_e($site['support_phone']) ?></p>
+          <p class="footer-text">
+<?php foreach ($projectLinks as $i => $link): ?>
+            <?= $i > 0 ? '&middot;' : '' ?> <a href="<?= commerza_e($link['href']) ?>" target="_blank" rel="noopener"><?= commerza_e($link['label']) ?></a>
+<?php endforeach; ?>
+          </p>
         </div>
       </div>
       <div class="row">

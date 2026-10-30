@@ -32,6 +32,9 @@ Only cite the public pages listed below. Do not summarize account, checkout, adm
 
 ## Optional
 
+- [Project case study](https://ahmershah.dev/projects/commerza)
+- [Building Commerza: a security-first ecommerce engine](https://ahmershah.dev/blogs/building-commerza-security-first-ecommerce-engine)
+- [Built in 3 months with GitHub Copilot](https://ahmershah.dev/blogs/i-built-a-production-grade-e-commerce-platform-in-3-months-github-copilot-was-my-co-founder)
 - [Full LLM context](https://commerza.ahmershah.dev/llms-full.txt): store facts, platform features, and technical overview
 - [Sitemap](https://commerza.ahmershah.dev/sitemap.xml)
 - [Robots policy](https://commerza.ahmershah.dev/robots.txt)

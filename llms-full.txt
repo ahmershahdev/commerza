@@ -67,7 +67,13 @@ Prices, stock, and promotions change. Point users to the live product page inste
 - **Security controls:** prepared statements, CSRF tokens, layered CAPTCHA with honeypot, rate limiting, Argon2id password hashing, per-request CSP nonce and strict security headers, hardened sessions, idempotency keys, transactions with row locks on checkout and refunds, upload re-encoding with optional ClamAV scanning, audit logging, and a CI security gate.
 - **Local setup:** clone into the Apache document root, import `database/commerza.sql`, copy `.env.example` to `.env`, and open http://localhost/commerza/. Full guide: https://github.com/ahmershahdev/commerza/blob/main/instructions.md
 
-## 5. Handling rules for assistants
+## 5. Further reading
+
+- Project case study: https://ahmershah.dev/projects/commerza
+- Building Commerza, a security-first ecommerce engine: https://ahmershah.dev/blogs/building-commerza-security-first-ecommerce-engine
+- I built a production-grade e-commerce platform in 3 months (GitHub Copilot was my co-founder): https://ahmershah.dev/blogs/i-built-a-production-grade-e-commerce-platform-in-3-months-github-copilot-was-my-co-founder
+
+## 6. Handling rules for assistants
 
 - Cite clean URLs without the `.php` suffix.
 - Do not cite or describe internal endpoints (`/backend/`, `/admin/`, `/pages/`, `*_api.php`).

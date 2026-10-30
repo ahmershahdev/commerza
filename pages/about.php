@@ -155,6 +155,33 @@ $pageOgImageUrl = commerza_absolute_url('/' . ltrim($siteLogoPath, '/'));
       </div>
     </section>
 
+    <section class="mb-5" aria-labelledby="aboutBuildTitle">
+      <h2 id="aboutBuildTitle" class="mb-3 about-standard-title">Behind the Build</h2>
+      <div class="row g-4">
+        <div class="col-12 col-lg-4">
+          <div class="about-story-card h-100">
+            <h3 class="product-name mb-2">Project Case Study</h3>
+            <p class="product-desc">Architecture, features, and outcomes of the Commerza platform.</p>
+            <a class="btn product-btn-cart" href="https://ahmershah.dev/projects/commerza" target="_blank" rel="noopener">Read case study</a>
+          </div>
+        </div>
+        <div class="col-12 col-lg-4">
+          <div class="about-story-card h-100">
+            <h3 class="product-name mb-2">Security-First Engine</h3>
+            <p class="product-desc">How CSRF, CAPTCHA, rate limiting, and transactional checkout were designed in from day one.</p>
+            <a class="btn product-btn-cart" href="https://ahmershah.dev/blogs/building-commerza-security-first-ecommerce-engine" target="_blank" rel="noopener">Read the article</a>
+          </div>
+        </div>
+        <div class="col-12 col-lg-4">
+          <div class="about-story-card h-100">
+            <h3 class="product-name mb-2">Built in 3 Months</h3>
+            <p class="product-desc">The story of shipping a production-grade store with GitHub Copilot as co-founder.</p>
+            <a class="btn product-btn-cart" href="https://ahmershah.dev/blogs/i-built-a-production-grade-e-commerce-platform-in-3-months-github-copilot-was-my-co-founder" target="_blank" rel="noopener">Read the story</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="about-app-launch mb-5" aria-labelledby="aboutAppLaunchTitle">
       <span class="hero-badge"><i class="bi bi-phone"></i> Mobile Roadmap</span>
       <h2 id="aboutAppLaunchTitle" class="mt-3 about-app-launch-title"><?= htmlspecialchars($siteBrandName, ENT_QUOTES, 'UTF-8') ?> App Is Coming Soon</h2>
