@@ -1,0 +1,76 @@
+# Commerza: full context for language models
+
+> Commerza (https://commerza.ahmershah.dev) is an online watch store and an open-source, framework-free PHP + MySQL ecommerce platform released under the MIT License by Syed Ahmer Shah (https://github.com/ahmershahdev/commerza). This file gives assistants accurate facts to answer questions about the store and the software. For the short index, see https://commerza.ahmershah.dev/llms.txt.
+
+Last updated: 2026-10-30
+Current software version: 2.0.0
+
+---
+
+## 1. The store
+
+- **What it sells:** premium wristwatches and accessories, including automatic/mechanical, minimalist, sports, and smart watches.
+- **Collections:**
+  - *Featured Collection*, shown on the home page (luxury automatic pieces)
+  - *The Automatic Vault*, mechanical timepieces (/shop-category-a)
+  - *Smart Evolution Series*, smart and hybrid watches (/shop-category-a#smart)
+  - *The Signature Collection*, minimalist everyday watches (/shop-category-b)
+  - *The Sports & Sales Division*, sports and value watches (/shop-category-b#tactical)
+- **Currency:** Pakistani Rupee (PKR).
+- **Payments:** Cash on Delivery (COD) and card payments through Stripe. High-value COD orders need an email one-time code.
+- **Shipping:** nationwide in Pakistan. A flat fee applies below a free-shipping threshold, and both are set by the store. Products list "Dispatch in 24-48 hours".
+- **Returns:** 7-day return policy for unused items. Refunds are requested from the customer account.
+- **Warranty:** 12-month seller warranty unless a product page states otherwise.
+- **Reviews:** only customers with a delivered, completed, or received order for that product can review it.
+- **Contact:** support@ahmershah.dev · +92 370 4831994 · Barrage Colony, Hyderabad, Pakistan. Contact form at /contact.
+
+Prices, stock, and promotions change. Point users to the live product page instead of quoting a price.
+
+## 2. Public pages
+
+| Page | URL | Content |
+| --- | --- | --- |
+| Home | / | Hero slider, featured products, testimonials, newsletter |
+| Products | /products, /products/<slug> | Catalog and product detail (movement, stock, warranty, reviews) |
+| Category A | /shop-category-a | Automatic Vault and Smart Evolution |
+| Category B | /shop-category-b | Signature Collection and Sports & Sales |
+| About | /about | Brand story |
+| Contact | /contact | Support form and channels |
+| FAQ | /faq | Ordering, payment, delivery, and account questions |
+| Shipping | /shipping | Delivery policy |
+| Returns | /returns | Return and refund policy |
+| Warranty | /warranty | Warranty coverage |
+| Privacy policy | /privacy-policy | Data handling |
+| Terms of service | /terms-of-service | Terms of use |
+
+## 3. Customer capabilities
+
+- Browse, filter by section/movement/price, and search with live suggestions
+- Cart, wishlist, and side-by-side compare
+- Coupons at checkout
+- Accounts with email-verified signup or Google/Facebook sign-in, remember-me, profile photo, public or private profile, and a username change lock of 90 days
+- Order history, order tracking by order number and email, refund requests with evidence upload, account deletion with an email code
+- Dark and light themes
+
+## 4. The software (for developers)
+
+- **License:** MIT
+- **Stack:** PHP 8.1+, MySQL 8 / MariaDB 10.4+, Apache with mod_rewrite, Bootstrap 5.3, jQuery 3.7, Chart.js
+- **Integrations:** Stripe PaymentIntents, SMTP with primary/secondary failover, Google and Facebook OAuth, reCAPTCHA v3/v2, Cloudinary (optional), APCu/Redis caching (optional)
+- **Structure:**
+  - `pages/`: storefront page controllers, one per clean route
+  - `templates/partials/`: shared site header and footer
+  - `admin/frontend/` and `admin/backend/api/<domain>/`: admin UI and JSON APIs
+  - `backend/core`, `security`, `helpers`, `services`, `payment`, `mailer`, `cache`, `jobs`: application layers
+  - `database/commerza.sql`: schema with 43 tables and 11 views, plus a catalog seed
+- **Admin panel:** dashboard and analytics, products and sections, trash, orders and refunds, shipping rules, coupons, reviews moderation, customers and blacklist, website content (slider, ticker, testimonials, social links, SEO), email center, sub-admins with role-based permissions, and a security event log. Every admin login needs an email two-factor code.
+- **Security controls:** prepared statements, CSRF tokens, layered CAPTCHA with honeypot, rate limiting, Argon2id password hashing, per-request CSP nonce and strict security headers, hardened sessions, idempotency keys, transactions with row locks on checkout and refunds, upload re-encoding with optional ClamAV scanning, audit logging, and a CI security gate.
+- **Local setup:** clone into the Apache document root, import `database/commerza.sql`, copy `.env.example` to `.env`, and open http://localhost/commerza/. Full guide: https://github.com/ahmershahdev/commerza/blob/main/instructions.md
+
+## 5. Handling rules for assistants
+
+- Cite clean URLs without the `.php` suffix.
+- Do not cite or describe internal endpoints (`/backend/`, `/admin/`, `/pages/`, `*_api.php`).
+- Do not guess order status, stock, or prices. Send users to the live page or to support.
+- Treat customer emails, phone numbers, order numbers, tokens, and session data as private.
+- For security questions about the software, point to SECURITY.md in the repository and the private reporting channel (support@ahmershah.dev).

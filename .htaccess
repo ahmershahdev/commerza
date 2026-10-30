@@ -1,7 +1,6 @@
 # Commerza Apache rules
 
 Options -Indexes
-ErrorDocument 404 /404.php
 
 <IfModule mod_expires.c>
 ExpiresActive On
@@ -62,13 +61,12 @@ RewriteCond %{REQUEST_METHOD} ^(?:TRACE|TRACK|CONNECT|DEBUG|PROPFIND|PROPPATCH|M
 RewriteRule ^ - [F,L]
 
 # Protect environment, dumps, docs, and VCS metadata from direct access.
-RewriteRule (^|/)(?:\.env(?:\..*)?|\.ht(?:access|passwd)|web\.config|Thumbs\.db|Desktop\.ini|\.DS_Store|composer\.(?:json|lock)|package(?:-lock)?\.json|phpunit\.xml|README\.md|SECURITY\.md|instructions\.md|backend/database/.*\.sql|.*\.(?:sql|bak|log|ini|ps1|sh))$ - [F,L,NC]
+RewriteRule (^|/)(?:\.env(?:\..*)?|\.ht(?:access|passwd)|web\.config|Thumbs\.db|Desktop\.ini|\.DS_Store|composer\.(?:json|lock)|package(?:-lock)?\.json|phpunit\.xml|README\.md|SECURITY\.md|CHANGELOG\.md|CONTRIBUTING\.md|CODE_OF_CONDUCT\.md|LICENSE|instructions\.md|.*\.(?:sql|bak|log|ini|ps1|sh))$ - [F,L,NC]
 RewriteRule (^|/)\.(?:git|svn|hg)(?:/|$) - [F,L,NC]
-RewriteRule ^(?:scripts|\.github|\.vscode)(?:/|$) - [F,L,NC]
-RewriteRule ^backend/database(?:/|$) - [F,L,NC]
+RewriteRule ^(?:scripts|database|docs|storage|templates|\.github|\.vscode)(?:/|$) - [F,L,NC]
 RewriteRule ^backend/core(?:/|$) - [F,L,NC]
 RewriteRule ^backend/(?:auth|cache|domain|helpers|jobs|mailer|payment|repositories|security|services)(?:/|$) - [F,L,NC]
-RewriteRule ^backend/(?:data|opcache\.preload)\.php$ - [F,L,NC]
+RewriteRule ^backend/cache/opcache\.preload\.php$ - [F,L,NC]
 RewriteRule ^admin/backend/auth/auth\.php$ - [F,L,NC]
 
 # Block direct browser navigation to backend/admin backend PHP scripts.
@@ -80,46 +78,46 @@ RewriteCond %{HTTP_SEC_FETCH_MODE} =navigate [OR]
 RewriteCond %{HTTP_ACCEPT} text/html [NC]
 RewriteRule ^ - [F,L]
 
-# Legacy .php to clean-path redirects are handled in PHP entry pages to avoid
-# malformed Location headers on some Windows Apache setups.
+# Legacy *.php URLs reach the page so PHP can 301 them to the clean route.
+RewriteRule ^(index|404|products|account|cart|wishlist|compare|login|signup|forgot-password|reset-password|order-tracking|invoice|oauth|about|contact|faq|shipping|returns|privacy-policy|terms-of-service|warranty|shop-category-a|shop-category-b)\.php$ pages/$1.php [QSA,L,NC]
 
 # Clean storefront routes.
-RewriteRule ^$ index.php [QSA,L,NC]
-RewriteRule ^home/?$ index.php [QSA,L,NC]
-RewriteRule ^index/?$ index.php [QSA,L,NC]
-RewriteRule ^error/?$ 404.php [QSA,L,NC]
+RewriteRule ^$ pages/index.php [QSA,L,NC]
+RewriteRule ^home/?$ pages/index.php [QSA,L,NC]
+RewriteRule ^index/?$ pages/index.php [QSA,L,NC]
+RewriteRule ^error/?$ pages/404.php [QSA,L,NC]
 
-RewriteRule ^product/([a-z0-9-]+)/?$ products.php?slug=$1 [QSA,L,NC]
-RewriteRule ^product/?$ products.php [QSA,L,NC]
-RewriteRule ^products/([a-z0-9-]+)/?$ products.php?slug=$1 [QSA,L,NC]
-RewriteRule ^prodcuts/([a-z0-9-]+)/?$ products.php?slug=$1 [QSA,L,NC]
-RewriteRule ^products/?$ products.php [QSA,L,NC]
+RewriteRule ^product/([a-z0-9-]+)/?$ pages/products.php?slug=$1 [QSA,L,NC]
+RewriteRule ^product/?$ pages/products.php [QSA,L,NC]
+RewriteRule ^products/([a-z0-9-]+)/?$ pages/products.php?slug=$1 [QSA,L,NC]
+RewriteRule ^prodcuts/([a-z0-9-]+)/?$ pages/products.php?slug=$1 [QSA,L,NC]
+RewriteRule ^products/?$ pages/products.php [QSA,L,NC]
 
-RewriteRule ^account/([a-z0-9_]+)/?$ account.php?u=$1 [QSA,L,NC]
-RewriteRule ^account/?$ account.php [QSA,L,NC]
+RewriteRule ^account/([a-z0-9_]+)/?$ pages/account.php?u=$1 [QSA,L,NC]
+RewriteRule ^account/?$ pages/account.php [QSA,L,NC]
 
-RewriteRule ^cart/?$ cart.php [QSA,L,NC]
-RewriteRule ^wishlist/?$ wishlist.php [QSA,L,NC]
-RewriteRule ^compare/?$ compare.php [QSA,L,NC]
-RewriteRule ^login/?$ login.php [QSA,L,NC]
-RewriteRule ^signup/?$ signup.php [QSA,L,NC]
-RewriteRule ^forgot-password/?$ forgot-password.php [QSA,L,NC]
-RewriteRule ^reset-password/?$ reset-password.php [QSA,L,NC]
-RewriteRule ^order-tracking/?$ order-tracking.php [QSA,L,NC]
-RewriteRule ^invoice/(ORD-[A-Z0-9]{4,30})/?$ invoice.php?order=$1 [QSA,L,NC]
-RewriteRule ^invoice/?$ invoice.php [QSA,L,NC]
-RewriteRule ^oauth/?$ oauth.php [QSA,L,NC]
+RewriteRule ^cart/?$ pages/cart.php [QSA,L,NC]
+RewriteRule ^wishlist/?$ pages/wishlist.php [QSA,L,NC]
+RewriteRule ^compare/?$ pages/compare.php [QSA,L,NC]
+RewriteRule ^login/?$ pages/login.php [QSA,L,NC]
+RewriteRule ^signup/?$ pages/signup.php [QSA,L,NC]
+RewriteRule ^forgot-password/?$ pages/forgot-password.php [QSA,L,NC]
+RewriteRule ^reset-password/?$ pages/reset-password.php [QSA,L,NC]
+RewriteRule ^order-tracking/?$ pages/order-tracking.php [QSA,L,NC]
+RewriteRule ^invoice/(ORD-[A-Z0-9]{4,30})/?$ pages/invoice.php?order=$1 [QSA,L,NC]
+RewriteRule ^invoice/?$ pages/invoice.php [QSA,L,NC]
+RewriteRule ^oauth/?$ pages/oauth.php [QSA,L,NC]
 
-RewriteRule ^about/?$ about.php [QSA,L,NC]
-RewriteRule ^contact/?$ contact.php [QSA,L,NC]
-RewriteRule ^faq/?$ faq.php [QSA,L,NC]
-RewriteRule ^shipping/?$ shipping.php [QSA,L,NC]
-RewriteRule ^returns/?$ returns.php [QSA,L,NC]
-RewriteRule ^privacy-policy/?$ privacy-policy.php [QSA,L,NC]
-RewriteRule ^terms-of-service/?$ terms-of-service.php [QSA,L,NC]
-RewriteRule ^warranty/?$ warranty.php [QSA,L,NC]
-RewriteRule ^shop-category-a/?$ shop-category-a.php [QSA,L,NC]
-RewriteRule ^shop-category-b/?$ shop-category-b.php [QSA,L,NC]
+RewriteRule ^about/?$ pages/about.php [QSA,L,NC]
+RewriteRule ^contact/?$ pages/contact.php [QSA,L,NC]
+RewriteRule ^faq/?$ pages/faq.php [QSA,L,NC]
+RewriteRule ^shipping/?$ pages/shipping.php [QSA,L,NC]
+RewriteRule ^returns/?$ pages/returns.php [QSA,L,NC]
+RewriteRule ^privacy-policy/?$ pages/privacy-policy.php [QSA,L,NC]
+RewriteRule ^terms-of-service/?$ pages/terms-of-service.php [QSA,L,NC]
+RewriteRule ^warranty/?$ pages/warranty.php [QSA,L,NC]
+RewriteRule ^shop-category-a/?$ pages/shop-category-a.php [QSA,L,NC]
+RewriteRule ^shop-category-b/?$ pages/shop-category-b.php [QSA,L,NC]
 
 # Clean admin frontend routes.
 RewriteRule ^admin/?$ admin/frontend/admin-login.php [QSA,L,NC]
@@ -147,5 +145,5 @@ RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{HTTP_SEC_FETCH_DEST} =document [OR]
 RewriteCond %{HTTP_SEC_FETCH_MODE} =navigate [OR]
 RewriteCond %{HTTP_ACCEPT} text/html [NC]
-RewriteRule ^ 404.php [QSA,L]
+RewriteRule ^ pages/404.php [QSA,L]
 </IfModule>

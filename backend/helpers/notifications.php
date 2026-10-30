@@ -500,7 +500,16 @@ function commerza_notify_order_status_change(mysqli $con, array $order, string $
         '<p><strong>From:</strong> ' . $old . '</p>' .
         '<p><strong>To:</strong> ' . $new . '</p>';
 
-    if (filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
+    $normalizedNewStatus = strtolower(trim($newStatus));
+    $customerNotified = false;
+    if ($normalizedNewStatus === 'shipped') {
+        $customerNotified = commerza_notify_order_shipped($con, $order);
+    } elseif ($normalizedNewStatus === 'delivered') {
+        $customerNotified = commerza_notify_order_delivered($con, $order);
+        commerza_notify_review_request_after_delivery($con, $order, (int)($order['id'] ?? 0));
+    }
+
+    if (!$customerNotified && filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
         $userBody =
             '<p>Hello ' . $customerName . ',</p>' .
             '<p>There is an update on your order.</p>' .

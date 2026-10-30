@@ -1,7 +1,7 @@
 <?php
 header('Content-Type: application/json');
 
-include __DIR__ . '/../data.php';
+require_once __DIR__ . '/../core/data.php';
 require_once __DIR__ . '/../helpers/cart_helpers.php';
 require_once __DIR__ . '/../helpers/notifications.php';
 require_once __DIR__ . '/../helpers/coupon_helpers.php';

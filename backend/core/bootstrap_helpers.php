@@ -1,5 +1,10 @@
 <?php
 
+if (!defined('COMMERZA_ROOT')) {
+    // Absolute path to the project root; use it instead of __DIR__ for project-relative file paths.
+    define('COMMERZA_ROOT', dirname(__DIR__, 2));
+}
+
 function commerza_unquote_env_value(string $value): string
 {
     $trimmed = trim($value);

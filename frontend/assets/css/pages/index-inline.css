@@ -434,3 +434,9 @@ html[data-commerza-theme="light"] body.dark-theme .hero-stats .stat-item {
   background: linear-gradient(160deg, #ffffff, #f8fafc) !important;
   border: 1px solid rgba(30, 58, 138, 0.16) !important;
 }
+
+.series-nav-heading {
+  color: #ffcc00;
+  font-size: 0.85rem;
+  letter-spacing: 2px;
+}

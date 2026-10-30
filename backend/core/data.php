@@ -13,6 +13,7 @@ require_once __DIR__ . '/meta_normalizer.php';
 require_once __DIR__ . '/site_settings.php';
 require_once __DIR__ . '/identity_schema.php';
 require_once __DIR__ . '/remember_sessions.php';
+require_once __DIR__ . '/view_helpers.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     $cookieParams = session_get_cookie_params();
@@ -58,44 +59,56 @@ if (!headers_sent()) {
 
 commerza_enable_meta_normalizer();
 
-$host = trim((string)(getenv('COMMERZA_DB_HOST') ?: getenv('DB_HOST') ?: 'localhost'));
-$user = trim((string)(getenv('COMMERZA_DB_USER') ?: getenv('DB_USER') ?: 'root'));
-$db = trim((string)(getenv('COMMERZA_DB_NAME') ?: getenv('DB_NAME') ?: 'commerza'));
+if (!function_exists('commerza_db_config')) {
+    /**
+     * Resolve database connection settings from the environment (COMMERZA_DB_* with DB_* aliases).
+     */
+    function commerza_db_config(): array
+    {
+        static $config = null;
+        if (is_array($config)) {
+            return $config;
+        }
 
-$portEnv = getenv('COMMERZA_DB_PORT');
-if ($portEnv === false) {
-    $portEnv = getenv('DB_PORT');
-}
-$dbPort = is_string($portEnv) && preg_match('/^[0-9]{1,5}$/', trim($portEnv)) === 1
-    ? (int)trim($portEnv)
-    : 0;
-if ($dbPort < 0 || $dbPort > 65535) {
-    $dbPort = 0;
+        $read = static function (string $primary, string $alias) {
+            $value = getenv($primary);
+            return $value === false ? getenv($alias) : $value;
+        };
+
+        $portRaw = trim((string)$read('COMMERZA_DB_PORT', 'DB_PORT'));
+        $port = preg_match('/^[0-9]{1,5}$/', $portRaw) === 1 ? (int)$portRaw : 0;
+
+        $config = [
+            'host' => trim((string)($read('COMMERZA_DB_HOST', 'DB_HOST') ?: 'localhost')),
+            'user' => trim((string)($read('COMMERZA_DB_USER', 'DB_USER') ?: 'root')),
+            'pass' => (string)$read('COMMERZA_DB_PASS', 'DB_PASS'),
+            'name' => trim((string)($read('COMMERZA_DB_NAME', 'DB_NAME') ?: 'commerza')),
+            'port' => $port <= 65535 ? $port : 0,
+            'socket' => trim((string)$read('COMMERZA_DB_SOCKET', 'DB_SOCKET')),
+        ];
+
+        return $config;
+    }
 }
 
-$socketEnv = getenv('COMMERZA_DB_SOCKET');
-if ($socketEnv === false) {
-    $socketEnv = getenv('DB_SOCKET');
-}
-$dbSocket = $socketEnv === false ? '' : trim((string)$socketEnv);
+$dbConfig = commerza_db_config();
 
-$passEnv = getenv('COMMERZA_DB_PASS');
-if ($passEnv === false) {
-    $passEnv = getenv('DB_PASS');
+try {
+    $con = mysqli_connect(
+        $dbConfig['host'],
+        $dbConfig['user'],
+        $dbConfig['pass'],
+        $dbConfig['name'],
+        $dbConfig['port'],
+        $dbConfig['socket'] !== '' ? $dbConfig['socket'] : null
+    );
+} catch (Throwable $connectError) {
+    error_log('[commerza] Database connection failed: ' . $connectError->getMessage());
+    $con = false;
 }
-$pass = $passEnv === false ? '' : (string)$passEnv;
-
-$con = mysqli_connect(
-    $host,
-    $user,
-    $pass,
-    $db,
-    $dbPort,
-    $dbSocket !== '' ? $dbSocket : null
-);
 
 if (!$con) {
-    http_response_code(500);
+    http_response_code(503);
     exit('Service unavailable.');
 }
 
@@ -117,44 +130,18 @@ if (!function_exists('commerza_pdo_connection')) {
             return null;
         }
 
-        $pdoHost = trim((string)(getenv('COMMERZA_DB_HOST') ?: getenv('DB_HOST') ?: 'localhost'));
-        $pdoUser = trim((string)(getenv('COMMERZA_DB_USER') ?: getenv('DB_USER') ?: 'root'));
-        $pdoDb = trim((string)(getenv('COMMERZA_DB_NAME') ?: getenv('DB_NAME') ?: 'commerza'));
-
-        $pdoPortEnv = getenv('COMMERZA_DB_PORT');
-        if ($pdoPortEnv === false) {
-            $pdoPortEnv = getenv('DB_PORT');
-        }
-        $pdoPort = is_string($pdoPortEnv) && preg_match('/^[0-9]{1,5}$/', trim($pdoPortEnv)) === 1
-            ? (int)trim($pdoPortEnv)
-            : 0;
-        if ($pdoPort < 0 || $pdoPort > 65535) {
-            $pdoPort = 0;
-        }
-
-        $pdoSocketEnv = getenv('COMMERZA_DB_SOCKET');
-        if ($pdoSocketEnv === false) {
-            $pdoSocketEnv = getenv('DB_SOCKET');
-        }
-        $pdoSocket = $pdoSocketEnv === false ? '' : trim((string)$pdoSocketEnv);
-
-        $pdoPassEnv = getenv('COMMERZA_DB_PASS');
-        if ($pdoPassEnv === false) {
-            $pdoPassEnv = getenv('DB_PASS');
-        }
-        $pdoPass = $pdoPassEnv === false ? '' : (string)$pdoPassEnv;
-
-        if ($pdoSocket !== '') {
-            $dsn = 'mysql:unix_socket=' . $pdoSocket . ';dbname=' . $pdoDb . ';charset=utf8mb4';
+        $config = commerza_db_config();
+        if ($config['socket'] !== '') {
+            $dsn = 'mysql:unix_socket=' . $config['socket'] . ';dbname=' . $config['name'] . ';charset=utf8mb4';
         } else {
-            $dsn = 'mysql:host=' . $pdoHost . ';dbname=' . $pdoDb . ';charset=utf8mb4';
-            if ($pdoPort > 0) {
-                $dsn .= ';port=' . $pdoPort;
+            $dsn = 'mysql:host=' . $config['host'] . ';dbname=' . $config['name'] . ';charset=utf8mb4';
+            if ($config['port'] > 0) {
+                $dsn .= ';port=' . $config['port'];
             }
         }
 
         try {
-            $pdo = new PDO($dsn, $pdoUser, $pdoPass, [
+            $pdo = new PDO($dsn, $config['user'], $config['pass'], [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,

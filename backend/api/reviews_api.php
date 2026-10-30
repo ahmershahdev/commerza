@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 header('Content-Type: application/json; charset=utf-8');
 
-require_once __DIR__ . '/../data.php';
+require_once __DIR__ . '/../core/data.php';
 require_once __DIR__ . '/../helpers/media_image_helpers.php';
 require_once __DIR__ . '/../services/cloudinary_service.php';
 

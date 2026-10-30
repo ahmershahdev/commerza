@@ -5,11 +5,11 @@ name: Security Gate
   push:
     branches:
       - main
-      - master
-      - temp-1
-      - "temp-*"
   pull_request: {}
   workflow_dispatch: {}
+
+permissions:
+  contents: read
 
 concurrency:
   group: security-gate-${{ github.workflow }}-${{ github.ref }}

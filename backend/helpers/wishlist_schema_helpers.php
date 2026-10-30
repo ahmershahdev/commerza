@@ -39,3 +39,41 @@ function commerza_wishlist_ensure_schema(mysqli $con): void
         $con->query($sql);
     }
 }
+
+if (!function_exists('get_or_create_wishlist_id')) {
+    function get_or_create_wishlist_id(mysqli $con, int $userId): ?int
+    {
+        $selectStmt = $con->prepare('SELECT id FROM wishlist WHERE user_id = ? LIMIT 1');
+        if (!$selectStmt) {
+            return null;
+        }
+    
+        $selectStmt->bind_param('i', $userId);
+        $selectStmt->execute();
+        $result = $selectStmt->get_result();
+    
+        if ($result && $result->num_rows === 1) {
+            $row = $result->fetch_assoc();
+            $selectStmt->close();
+            return (int)$row['id'];
+        }
+    
+        $selectStmt->close();
+    
+        $insertStmt = $con->prepare(
+            'INSERT INTO wishlist (user_id)
+             VALUES (?)
+             ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)'
+        );
+        if (!$insertStmt) {
+            return null;
+        }
+    
+        $insertStmt->bind_param('i', $userId);
+        $ok = $insertStmt->execute();
+        $newId = $ok ? (int)$con->insert_id : null;
+        $insertStmt->close();
+    
+        return $newId;
+    }
+}

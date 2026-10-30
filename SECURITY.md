@@ -1,6 +1,13 @@
 # Security Policy
 
-Last updated: 2026-04-12
+Last updated: 2026-10-30
+
+## Supported Versions
+
+| Version | Supported |
+| --- | --- |
+| 2.x | Yes |
+| 1.x | No |
 
 ## Supported Scope
 
@@ -18,7 +25,7 @@ If you identify a vulnerability:
 2. Share reproduction steps, affected path, and impact level privately.
 3. Include request examples and any logs needed to validate the issue.
 
-Preferred private contact: `support@ahmershah.dev`
+Report privately through [GitHub Security Advisories](https://github.com/ahmershahdev/commerza/security/advisories/new) or email `support@ahmershah.dev`. Expect an acknowledgement within 72 hours.
 
 ## Security Controls in Place
 
@@ -36,6 +43,7 @@ Preferred private contact: `support@ahmershah.dev`
 ## Continuous Verification
 
 - Static checks: `.github/workflows/security-gate.yml`
+- Lint + schema import: `.github/workflows/ci.yml`
 - Security smoke tests: `scripts/security/security_smoke_tests.ps1`
 - XSS crawler probe: `scripts/security/xss_crawler_probe.ps1`
 - Authenticated abuse checks: `scripts/security/admin_e2e_abuse_tests.ps1`
