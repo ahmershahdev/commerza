@@ -22,7 +22,7 @@ jobs:
       matrix:
         php: ["8.1", "8.2", "8.3"]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
@@ -44,7 +44,7 @@ jobs:
           --health-cmd="healthcheck.sh --connect --innodb_initialized"
           --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Import database/commerza.sql
         run: mysql -h 127.0.0.1 -uroot -proot commerza < database/commerza.sql
       - name: Verify core tables and seed data
